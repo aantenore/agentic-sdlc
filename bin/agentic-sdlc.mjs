@@ -150,7 +150,17 @@ import {
   validateRequirementIntegrity,
 } from "../lib/requirement-lifecycle.mjs";
 import {
+  EvidenceFormatError,
+  inspectJpegEvidence,
+  inspectPdfEvidence,
+  inspectPngEvidence,
+  inspectWebpEvidence,
+  inspectZipContainer as inspectZipContainerStructure,
+  readZipEntry as readZipEntryBytes,
+} from "../lib/evidence-formats.mjs";
+import {
   AUTONOMY_LEVELS,
+  AUTONOMY_LEVEL_RANK,
   buildDeliveryExecutionProfile,
   buildDeliveryExecutionProfileV2,
   buildRequirementExecutionProfile,
@@ -8236,7 +8246,7 @@ function validateAutonomyPolicy(policy) {
     fail("autonomy_policy.mode must be off, observe, enforce_new_only, or enforce_all");
   }
   const levels = Array.isArray(policy.allowed_levels) ? policy.allowed_levels : [];
-  const requiredLevels = ["supervised", "checkpointed", "bounded-autonomous"];
+  const requiredLevels = AUTONOMY_LEVELS;
   if (requiredLevels.some((level) => !levels.includes(level))) {
     fail(`autonomy_policy.allowed_levels must include ${requiredLevels.join(", ")}`);
   }
@@ -19156,7 +19166,7 @@ function proposeDeliveryAutonomyLocked(context, options, profileId, deliveryId, 
     return ready.profile;
   });
   const ceiling = mostRestrictiveAutonomyLevel(requirementProfiles.map((profile) => profile.autonomy_ceiling));
-  const levelRank = Object.fromEntries(AUTONOMY_LEVELS.map((level, index) => [level, index]));
+  const levelRank = AUTONOMY_LEVEL_RANK;
   if (levelRank[requestedLevel] > levelRank[ceiling]) {
     fail(`Delivery level ${requestedLevel} exceeds the most restrictive requirement ceiling ${ceiling}.`);
   }
@@ -32151,7 +32161,7 @@ function createContractLocked(context, options, settings) {
   const autonomyLevel = normalizeAutonomyLevel(
     getOptionString(options, "level") || requirementContext.autonomy_ceiling,
   );
-  const levelRank = Object.fromEntries(AUTONOMY_LEVELS.map((level, index) => [level, index]));
+  const levelRank = AUTONOMY_LEVEL_RANK;
   if (levelRank[autonomyLevel] > levelRank[requirementContext.autonomy_ceiling]) {
     fail(`Contract autonomy ${autonomyLevel} exceeds requirement ceiling ${requirementContext.autonomy_ceiling}.`);
   }
@@ -32945,7 +32955,7 @@ function validateContractAutonomyBinding(context, contract, options = {}) {
   if (!ref || ref.hash !== hashApprovalSubject(contract)) {
     fail(`Delivery autonomy profile ${profile.id} is stale for contract ${contract.id}.`);
   }
-  const levelRank = Object.fromEntries(AUTONOMY_LEVELS.map((level, index) => [level, index]));
+  const levelRank = AUTONOMY_LEVEL_RANK;
   const contractLevel = normalizeAutonomyLevel(contract.autonomy_level || "supervised");
   if (levelRank[profile.requested_level] > levelRank[contractLevel]) {
     fail(`Delivery autonomy ${profile.requested_level} exceeds contract boundary ${contractLevel}.`);
@@ -37169,6 +37179,7 @@ function claimStory(context, options) {
     let traceMutation;
     let claimWritten = false;
     try {
+      assertRecordSchema(claim, "claim.schema.json", `Claim for story ${id}`);
       writeJsonFile(claimPath, claim, { force: Boolean(options.force || claimExists) });
       claimWritten = true;
       traceMutation = prepareGovernedTraceMutation(context, id, {
@@ -37353,6 +37364,7 @@ function createStoryHandoffRecord(context, options) {
       run: attribution.run,
     },
   };
+  assertRecordSchema(handoff, "handoff.schema.json", `Handoff ${handoffId}`);
   writeJsonFile(handoffPath, handoff, { force: Boolean(options.force) });
   appendTraceEvent(context, storyId, {
     type: "handoff",
@@ -37699,6 +37711,7 @@ function closeHandoff(context, options) {
     git: attribution.git,
     run: attribution.run,
   };
+  assertRecordSchema(handoff, "handoff.schema.json", `Handoff ${handoffId}`);
   writeJsonFile(handoffPath, handoff, { force: true });
   appendTraceEvent(context, handoff.story_id || null, {
     type: "handoff",
@@ -41979,160 +41992,6 @@ function verifyVisualEvidenceFile(filePath, extension) {
   }
 }
 
-function inspectPngEvidence(bytes) {
-  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  if (!bytes.subarray(0, 8).equals(signature)) {
-    throw new Error("invalid PNG signature");
-  }
-  let offset = 8;
-  let sawHeader = false;
-  let sawEnd = false;
-  const imageData = [];
-  while (offset < bytes.length) {
-    if (offset + 12 > bytes.length) {
-      throw new Error("truncated PNG chunk");
-    }
-    const length = bytes.readUInt32BE(offset);
-    const typeStart = offset + 4;
-    const dataStart = typeStart + 4;
-    const dataEnd = dataStart + length;
-    const crcOffset = dataEnd;
-    if (crcOffset + 4 > bytes.length) {
-      throw new Error("PNG chunk exceeds file length");
-    }
-    const type = bytes.subarray(typeStart, dataStart).toString("ascii");
-    const expectedCrc = bytes.readUInt32BE(crcOffset);
-    const actualCrc = crc32(bytes.subarray(typeStart, dataEnd));
-    if (expectedCrc !== actualCrc) {
-      throw new Error(`invalid CRC for ${type || "unknown"} chunk`);
-    }
-    const data = bytes.subarray(dataStart, dataEnd);
-    if (!sawHeader) {
-      if (type !== "IHDR" || length !== 13) {
-        throw new Error("IHDR must be the first PNG chunk");
-      }
-      const width = data.readUInt32BE(0);
-      const height = data.readUInt32BE(4);
-      if (width < 1 || height < 1 || data[10] !== 0 || data[11] !== 0 || ![0, 1].includes(data[12])) {
-        throw new Error("invalid PNG dimensions or compression/filter/interlace method");
-      }
-      sawHeader = true;
-    } else if (type === "IDAT") {
-      imageData.push(data);
-    } else if (type === "IEND") {
-      if (length !== 0) {
-        throw new Error("IEND chunk must be empty");
-      }
-      sawEnd = true;
-      offset = crcOffset + 4;
-      break;
-    }
-    offset = crcOffset + 4;
-  }
-  if (!sawHeader || imageData.length === 0 || !sawEnd || offset !== bytes.length) {
-    throw new Error("PNG must contain IHDR, image data, and a terminal IEND chunk");
-  }
-  const decoded = zlib.inflateSync(Buffer.concat(imageData));
-  if (decoded.length === 0) {
-    throw new Error("PNG image data decompresses to an empty payload");
-  }
-}
-
-function crc32(buffer) {
-  let crc = 0xffffffff;
-  for (const byte of buffer) {
-    crc ^= byte;
-    for (let bit = 0; bit < 8; bit += 1) {
-      crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function inspectJpegEvidence(bytes) {
-  if (bytes[0] !== 0xff || bytes[1] !== 0xd8) {
-    throw new Error("invalid JPEG SOI marker");
-  }
-  let offset = 2;
-  let sawFrame = false;
-  let sawScan = false;
-  let sawEnd = false;
-  const frameMarkers = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
-  while (offset < bytes.length) {
-    if (bytes[offset] !== 0xff) {
-      if (sawScan) {
-        offset += 1;
-        continue;
-      }
-      throw new Error("JPEG marker prefix is missing");
-    }
-    while (bytes[offset] === 0xff) offset += 1;
-    if (offset >= bytes.length) throw new Error("truncated JPEG marker");
-    const marker = bytes[offset++];
-    if (marker === 0x00 && sawScan) continue;
-    if (marker === 0xd9) {
-      sawEnd = true;
-      break;
-    }
-    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
-      continue;
-    }
-    if (offset + 2 > bytes.length) throw new Error("truncated JPEG segment length");
-    const length = bytes.readUInt16BE(offset);
-    if (length < 2 || offset + length > bytes.length) throw new Error("invalid JPEG segment length");
-    if (frameMarkers.has(marker)) {
-      if (length < 8) throw new Error("truncated JPEG frame header");
-      const height = bytes.readUInt16BE(offset + 3);
-      const width = bytes.readUInt16BE(offset + 5);
-      if (width < 1 || height < 1) throw new Error("invalid JPEG dimensions");
-      sawFrame = true;
-    }
-    if (marker === 0xda) sawScan = true;
-    offset += length;
-  }
-  if (!sawFrame || !sawScan || !sawEnd) {
-    throw new Error("JPEG must contain a frame, scan data, and EOI marker");
-  }
-  if (bytes.subarray(offset).some((byte) => ![0x00, 0x0a, 0x0d, 0x20, 0xff].includes(byte))) {
-    throw new Error("unexpected payload after JPEG EOI marker");
-  }
-}
-
-function inspectWebpEvidence(bytes) {
-  if (bytes.subarray(0, 4).toString("ascii") !== "RIFF" || bytes.subarray(8, 12).toString("ascii") !== "WEBP") {
-    throw new Error("invalid WebP RIFF signature");
-  }
-  if (bytes.readUInt32LE(4) + 8 !== bytes.length) {
-    throw new Error("WebP RIFF size does not match file length");
-  }
-  let offset = 12;
-  let sawImage = false;
-  while (offset + 8 <= bytes.length) {
-    const type = bytes.subarray(offset, offset + 4).toString("ascii");
-    const length = bytes.readUInt32LE(offset + 4);
-    const dataStart = offset + 8;
-    const dataEnd = dataStart + length;
-    if (dataEnd > bytes.length) throw new Error("WebP chunk exceeds file length");
-    if (["VP8 ", "VP8L", "VP8X"].includes(type)) {
-      if (length < (type === "VP8X" ? 10 : 5)) throw new Error(`truncated ${type.trim()} image chunk`);
-      sawImage = true;
-    }
-    offset = dataEnd + (length % 2);
-  }
-  if (!sawImage || offset !== bytes.length) {
-    throw new Error("WebP has no valid image chunk or has trailing data");
-  }
-}
-
-function inspectPdfEvidence(bytes) {
-  const text = bytes.toString("latin1");
-  if (!text.startsWith("%PDF-")) throw new Error("invalid PDF header");
-  if (!/\/Type\s*\/Pages?\b/.test(text)) throw new Error("PDF contains no page tree or page object");
-  if (!/startxref\s+\d+\s+%%EOF\s*$/s.test(text.slice(-4096))) {
-    throw new Error("PDF has no valid startxref/EOF trailer");
-  }
-}
-
 function readArtifactGeneratorReceipt(context, receiptFile, artifactPath, delivery) {
   const required = context.config.verification_policy?.require_generator_receipt !== false;
   if (!receiptFile) {
@@ -42167,89 +42026,20 @@ function readArtifactGeneratorReceipt(context, receiptFile, artifactPath, delive
 }
 
 function inspectZipContainer(filePath, requiredEntries = []) {
-  const buffer = fs.readFileSync(filePath);
-  const minimumEocdSize = 22;
-  let eocdOffset = -1;
-  for (let offset = buffer.length - minimumEocdSize; offset >= Math.max(0, buffer.length - 65_557); offset -= 1) {
-    if (buffer.readUInt32LE(offset) === 0x06054b50) {
-      eocdOffset = offset;
-      break;
-    }
-  }
-  if (eocdOffset < 0) {
-    fail(`${path.basename(filePath)} is not a valid ZIP container.`);
-  }
-  const entryCount = buffer.readUInt16LE(eocdOffset + 10);
-  const centralSize = buffer.readUInt32LE(eocdOffset + 12);
-  const centralOffset = buffer.readUInt32LE(eocdOffset + 16);
-  if (centralOffset + centralSize > buffer.length) {
-    fail(`${path.basename(filePath)} has an invalid ZIP central directory.`);
-  }
-  const entries = new Map();
-  let offset = centralOffset;
-  for (let index = 0; index < entryCount; index += 1) {
-    if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== 0x02014b50) {
-      fail(`${path.basename(filePath)} has a malformed ZIP directory entry.`);
-    }
-    const flags = buffer.readUInt16LE(offset + 8);
-    const method = buffer.readUInt16LE(offset + 10);
-    const compressedSize = buffer.readUInt32LE(offset + 20);
-    const uncompressedSize = buffer.readUInt32LE(offset + 24);
-    const nameLength = buffer.readUInt16LE(offset + 28);
-    const extraLength = buffer.readUInt16LE(offset + 30);
-    const commentLength = buffer.readUInt16LE(offset + 32);
-    const localOffset = buffer.readUInt32LE(offset + 42);
-    const end = offset + 46 + nameLength + extraLength + commentLength;
-    if (end > buffer.length) {
-      fail(`${path.basename(filePath)} has a truncated ZIP directory entry.`);
-    }
-    const name = buffer.subarray(offset + 46, offset + 46 + nameLength).toString("utf8");
-    entries.set(name, { name, flags, method, compressedSize, uncompressedSize, localOffset });
-    offset = end;
-  }
-  for (const required of requiredEntries) {
-    const entry = entries.get(required);
-    if (!entry) {
-      fail(`${path.basename(filePath)} is missing required OOXML entry ${required}.`);
-    }
-    if ((entry.flags & 0x1) !== 0) {
-      fail(`${path.basename(filePath)} encrypts required OOXML entry ${required}; it cannot be verified.`);
-    }
-    readZipEntry(filePath, entry);
-  }
-  return entries;
+  return withEvidenceFormatFailure(() => inspectZipContainerStructure(filePath, requiredEntries));
 }
 
 function readZipEntry(filePath, entry) {
-  const buffer = fs.readFileSync(filePath);
-  const offset = entry.localOffset;
-  if (offset + 30 > buffer.length || buffer.readUInt32LE(offset) !== 0x04034b50) {
-    fail(`${path.basename(filePath)} has an invalid local ZIP header for ${entry.name}.`);
+  return withEvidenceFormatFailure(() => readZipEntryBytes(filePath, entry));
+}
+
+function withEvidenceFormatFailure(operation) {
+  try {
+    return operation();
+  } catch (error) {
+    if (error instanceof EvidenceFormatError) fail(error.message);
+    throw error;
   }
-  const nameLength = buffer.readUInt16LE(offset + 26);
-  const extraLength = buffer.readUInt16LE(offset + 28);
-  const dataStart = offset + 30 + nameLength + extraLength;
-  const dataEnd = dataStart + entry.compressedSize;
-  if (dataEnd > buffer.length) {
-    fail(`${path.basename(filePath)} has truncated ZIP data for ${entry.name}.`);
-  }
-  const compressed = buffer.subarray(dataStart, dataEnd);
-  let value;
-  if (entry.method === 0) {
-    value = Buffer.from(compressed);
-  } else if (entry.method === 8) {
-    try {
-      value = zlib.inflateRawSync(compressed);
-    } catch (error) {
-      fail(`${path.basename(filePath)} cannot decompress ${entry.name}: ${error.message}`);
-    }
-  } else {
-    fail(`${path.basename(filePath)} uses unsupported ZIP compression ${entry.method} for ${entry.name}.`);
-  }
-  if (value.length !== entry.uncompressedSize) {
-    fail(`${path.basename(filePath)} has an invalid uncompressed size for ${entry.name}.`);
-  }
-  return value;
 }
 
 function resolveProjectFilePath(context, rawPath, options = {}) {
@@ -51729,525 +51519,6 @@ function boundedPositiveInteger(rawValue, label, options = {}) {
 
 function fail(message, humanGuidance = null) {
   throw new UserError(message, humanGuidance);
-}
-
-function printHelp() {
-  console.log(`Agentic SDLC ${VERSION}
-
-Usage:
-  agentic-sdlc observe [--root path] [--portfolio-manifest relative.json]
-      [--host 127.0.0.1] [--port 0] [--no-open] [--json]
-  agentic-sdlc portfolio status [--root path] --manifest relative.json [--json]
-  agentic-sdlc doctor [--root path] [--json]
-  agentic-sdlc config status [--root path] [--json]
-  agentic-sdlc config migrate [--root path] [--json]
-      [--apply --plan-hash sha256]
-      [--confirm-legacy-bootstrap --actor-type human|ci
-       --approval-source explicit-user|ci --summary text]
-  agentic-sdlc optimization status [--root path] [--proposal ASSESS-001] [--json]
-  agentic-sdlc optimization capture --proposal ASSESS-001 [--phase manual] [--json]
-  agentic-sdlc optimization run --root path --command-json '["npm","test"]'
-      [--proposal ASSESS-001] [--profile auto|native|test|git|rg] [--exact]
-      [--trust-custom-rtk-command]
-  agentic-sdlc init [--project-name name] [--project-id id] [--root path]
-  agentic-sdlc onboard existing-project [--project-name name] [--document path]
-      [--source path] [--question text] [--summary text]
-  agentic-sdlc baseline propose --id id [--document path] [--source path]
-      [--question text] [--assumption text] [--summary text]
-  agentic-sdlc baseline approve --id id --actor-type human|ci|agent|system
-      --approval-source explicit-user|ci|automation|bootstrap [--summary text]
-  agentic-sdlc baseline status [--id id]
-  agentic-sdlc assessment proposal prepare [--id ASSESS-001] [--baseline id]
-      [--scope-title text] [--scope-summary text] [--story ST-001]
-      [--requirement REQ-001] [--type technical-analysis]
-      [--artifact path] [--template id] [--format markdown|docx|xlsx|pdf|pptx|html|json|csv|custom]
-      [--section text] [--acceptance text] [--capability id]
-      [--budget-json json | --budget-file path]
-  agentic-sdlc assessment proposal approve --id ASSESS-001
-      --actor-type human|ci --approval-source explicit-user|ci
-      --summary "I approve this exact displayed proposal" [--host-receipt-file path]
-  agentic-sdlc assessment proposal apply --id ASSESS-001 [--authorization id]
-  agentic-sdlc assessment proposal complete --id ASSESS-001
-  agentic-sdlc assessment proposal status [--id ASSESS-001]
-  agentic-sdlc budget usage record --proposal ASSESS-001
-      [--active-time-seconds n] [--steps n] [--model-calls n] [--tool-calls n]
-      [--input-tokens n] [--output-tokens n] [--cost-amount decimal --currency EUR]
-      [--metering-accuracy estimated|unavailable] [--metering-source id]
-      [--subagent id] [--receipt-json json | --receipt-file path]
-  agentic-sdlc budget meter start --proposal ASSESS-001
-      [--id METER-ASSESS-001-CODEX-SESSION] [--thread-id CODEX-THREAD-ID]
-  agentic-sdlc budget meter record --proposal ASSESS-001
-      [--baseline METER-ASSESS-001-CODEX-SESSION] [--id USAGE-ID]
-  agentic-sdlc budget status --proposal ASSESS-001
-  agentic-sdlc budget amend --proposal ASSESS-001 --budget-json json --reason text
-      --actor-type human|ci --approval-source explicit-user|ci [--host-receipt-file path]
-  agentic-sdlc requirement propose --id REQ-001 --title title --summary outcome
-      --acceptance "observable success criterion"
-      --autonomy-ceiling supervised|checkpointed|bounded-autonomous
-      [--constraint text] [--non-goal text] [--nfr text] [--integration text]
-      [--source path] [--proposal id --proposal-hash sha256]
-  agentic-sdlc requirement approve --id REQ-001
-      --actor-type human|ci --approval-source explicit-user|ci
-      --summary "Approve this requirement and autonomy ceiling" [--host-receipt-file path]
-  agentic-sdlc requirement revise --id REQ-001 --new-id REQ-001-R2
-      [--title title] [--summary outcome] [--acceptance criterion]
-      [--autonomy-ceiling supervised|checkpointed|bounded-autonomous]
-  agentic-sdlc requirement supersede --id REQ-001 --new-id REQ-001-R2 --reason text
-      --actor-type human|ci|agent|system
-      [--approval-source explicit-user|ci|automation|bootstrap]
-      [--summary text | --approval-evidence path]
-      [--authorization id] [--host-receipt-file path]
-  agentic-sdlc requirement status [--id REQ-001]
-  agentic-sdlc autonomy requirement status --id REQ-001
-  agentic-sdlc autonomy delivery propose --id AUT-PR-1 --delivery PR-1
-      --kind pull_request --story ST-001 --contract CONTRACT-001
-      --requirement REQ-001 --level supervised|checkpointed|bounded-autonomous
-      --repository owner/repo --base main --head codex/ST-001
-      --write-path src [--write-path test]
-      [--pr-mode new|existing]
-      [--pr-number 184 --pr-url https://github.com/owner/repo/pull/184]
-      [--pr-head-sha full-commit-sha]
-      [--allow-action repository.read|repository.write|test.run|git.commit|git.push|pull_request.create|pull_request.update|pull_request.merge]
-      [--merge-allowed]
-  agentic-sdlc autonomy delivery propose --id AUT-LOCAL-1 --delivery LOCAL-1
-      --kind local_release --story ST-001 --contract CONTRACT-001
-      --requirement REQ-001 --level supervised|checkpointed|bounded-autonomous
-      --target-root /absolute/local/root --write-path /absolute/local/root/output
-      [--smoke-cwd /absolute/local/root/output]
-      --smoke-test '["node","--test"]' --rollback "reversible procedure"
-      [--allow-action build.local|test.run|data.migrate|data.rollback|rollback.verify|release.local]
-      [--data-target exact-file --data-scope exact-scope
-       --migration-preview evidence/file.json --backup-path exact-backup-file]
-  agentic-sdlc autonomy delivery approve --id AUT-PR-1 [--phase implementation]
-      --actor-type human|ci --approval-source explicit-user|ci --summary text
-      [--host-receipt-file path]
-  agentic-sdlc autonomy delivery revoke --id AUT-PR-1 --reason text
-      --actor-type human|ci --approval-source explicit-user|ci --summary text
-  agentic-sdlc autonomy delivery action --id AUT-PR-1 --action canonical-action
-      [--scope-path src/file.ts] [--remote origin] [--pr-url https://github.com/owner/repo/pull/1]
-      [--confirm-action --actor-type human|ci --approval-source explicit-user|ci --summary text]
-      [--host-receipt-file path]
-      [--outcome passed|failed --authorization-receipt AUT-ACT-id --evidence path]
-      [--smoke-cwd path --smoke-test '["node","--test"]' --rollback "exact approved procedure"]
-      If exactly one matching authorization is waiting, --authorization-receipt
-      may be omitted. When several are waiting it is required. Retrying the
-      same completion returns the original receipt and repairs missing traces;
-      it never consumes another authorization.
-      Local releases automatically govern rollback.verify as a checkpointed,
-      non-executing verification; authorize and complete it with the same exact
-      immutable --evidence before a successful release.local completion.
-  agentic-sdlc autonomy delivery close --id AUT-PR-1
-      --terminal-status closed|rolled_back|cancelled|superseded
-      --reason text --actor-type human|ci --approval-source explicit-user|ci --summary text
-  agentic-sdlc autonomy delivery status [--id AUT-PR-1]
-  agentic-sdlc autonomy delivery explain --id AUT-PR-1 [--phase implementation] [--out path]
-  agentic-sdlc contract create --phase phase [--id id] [--story ST-001]
-      [--delivery-profile AUT-PR-1]
-      [--level supervised|checkpointed|bounded-autonomous]
-      [--context-file path] [--context-summary text] [--question text]
-      [--qa "question|answer"] [--constraint text] [--assumption text]
-      [--output-ref artifact-type:template-id:mode]
-      [--allow-incomplete-contract] [--replace-story-contract]
-      [--model model-id] [--reasoning inherit|minimal|low|medium|high]
-  agentic-sdlc contract approve --id contract-id
-      --approval-source explicit-user|ci|automation|bootstrap [--summary text] [--approval-evidence path]
-  agentic-sdlc story create --id ST-001 --title title --requirement REQ-001
-      [--acceptance text] [--phase discovery|analysis|design|implementation|validation|release]
-      [--status draft|ready]
-  agentic-sdlc story acceptance add --id ST-001 --acceptance text [--summary text]
-  agentic-sdlc story claim --id ST-001 --agent name [--branch branch] [--authorization authorization-id]
-  agentic-sdlc story release --id ST-001 [--agent name] [--reason text]
-  agentic-sdlc story complete-step --id ST-001 --step functional-analysis
-      [--type artifact-type] [--artifact path] [--evidence path] [--release-claim]
-      [--authorization authorization-id] [--allow-unapproved-contract-output]
-  agentic-sdlc story prepare-handoff --id ST-001 --to-agent name
-      [--artifact path] [--open-item text] [--release-claim]
-  agentic-sdlc story handoff --id ST-001 --to-agent name [--artifact path]
-  agentic-sdlc story handoff close --id handoff-id [--status closed|accepted|cancelled]
-  agentic-sdlc story deps --id ST-001 [--json]
-  agentic-sdlc work item create --type epic|task --id id --title title
-      [--parent id] [--story ST-001] [--requirement REQ-001]
-  agentic-sdlc breakdown policy show
-  agentic-sdlc breakdown policy set [--delivery-unit story] [--strict-gate-unit story]
-  agentic-sdlc breakdown propose --id id --requirement REQ-001 --item story:ST-001
-  agentic-sdlc breakdown approve --id id --actor-type human|ci|agent|system --approval-source explicit-user|ci|automation|bootstrap
-  agentic-sdlc breakdown status [--requirement REQ-001]
-  agentic-sdlc dependency propose --id id --edge from:to:type:blocks:required_state
-  agentic-sdlc dependency approve --id id --actor-type human|ci|agent|system --approval-source explicit-user|ci|automation|bootstrap
-  agentic-sdlc dependency status [--story ST-001]
-  agentic-sdlc capability profile propose --id id [--story ST-001] [--phase analysis]
-      [--context-file path] [--profile-json json | --profile-file path]
-  agentic-sdlc capability profile approve --id id --actor-type human|ci|agent|system --approval-source explicit-user|ci|automation|bootstrap
-  agentic-sdlc capability recommend --id id --profile profile-id
-      [--recommendation-json json | --recommendation-file path]
-      [--available-capabilities-json json | --available-capabilities-file path]
-  agentic-sdlc capability approve --id id --actor-type human|ci|agent|system --approval-source explicit-user|ci|automation|bootstrap [--approve-install]
-  agentic-sdlc capability status [--story ST-001] [--profile profile-id] [--json]
-  agentic-sdlc approval requests [--story ST-001] [--json]
-  agentic-sdlc authorization grant --id id --scope "exact delegated scope"
-      (--allow-action contract.approve | --allow-use contract.approve=contract-id)
-      [--allow-action task.start.confirm | --allow-use task.start.confirm=ST-001]
-      --actor-type human|ci --approval-source explicit-user|ci --summary text
-      [--allow-artifact-type technical-analysis] [--allow-boundary production:write]
-      [--expires-at iso]
-      [--allow-subject exact-artifact-or-story-id]
-      (use explicit --allow-use pairs when both actions and subjects are plural)
-  agentic-sdlc authorization status [--id id] [--json]
-  agentic-sdlc authorization revoke --id id --actor-type human|ci [--reason text]
-  agentic-sdlc task start [--intent-json json | --intent-file path] [--text raw]
-      [--story ST-001] [--phase phase] [--contract-id id]
-      [--delivery-profile AUT-PR-1]
-      [--confirm-start] [--authorization id] [--revise-contract] [--json]
-  agentic-sdlc phase lock --phase phase [--reason text] [--expires-at iso]
-  agentic-sdlc phase release --id lock-id [--reason text]
-  agentic-sdlc trace append --type decision --summary text [--story ST-001]
-  agentic-sdlc trace evidence bind --target-event TR-... --redaction-policy <legacy_evidence_v1|operational_evidence_v1|operational_v2> [--story ST-001]
-      [--outcome passed|failed|blocked|skipped|ready]
-      [--actor id] [--requested-by id] [--authorized-by id]
-      [--request-summary text] [--git-event push|commit|merge|pull|rebase]
-      [--input-summary text] [--output-summary text] [--rationale-summary text]
-      [--explanation text --explanation-kind codex-generated|deterministic|human-authored]
-      [--alternative text]
-  agentic-sdlc sync record --event push [--story ST-001] [--remote origin]
-  agentic-sdlc output template propose --type artifact-type [--id id]
-      [--from path | --body text | --preset technical-assessment] [--summary text]
-      [--format markdown|docx|xlsx|pdf|pptx|html|json|csv|custom]
-      [--delivery artifact|artifact-plus-chat-summary]
-      [--extension .ext --media-type type --generator capability]
-  agentic-sdlc output template approve --id template-id
-      --approval-source explicit-user|ci|automation|bootstrap [--summary text] [--approval-evidence path]
-  agentic-sdlc output resolve --story ST-001 --type artifact-type
-  agentic-sdlc output link --story ST-001 --type artifact-type
-      --artifact path --template template-id --mode reuse|delta|new
-      [--base-artifact path] [--requirement REQ-001] [--evidence render-or-verification-file]
-      [--allow-unapproved-contract-output]
-  agentic-sdlc output status --story ST-001 [--type artifact-type]
-  agentic-sdlc route decide --intent-json json [--text raw] [--json]
-  agentic-sdlc route --intent-file path [--text raw] [--json]
-  agentic-sdlc cache rebuild
-  agentic-sdlc cache status [--json] [--full]
-  agentic-sdlc cache clear
-  agentic-sdlc manifest rebuild
-  agentic-sdlc trace compact [--story ST-001] [--before 90d] [--out path]
-  agentic-sdlc archive closed [--before 90d] [--apply] [--out path]
-  agentic-sdlc migration active --release-manifest RELEASE-ASSESS-001 [--apply]
-      [--reason "why older releases are outside this active scope"]
-  agentic-sdlc migration identity
-      (--from-email old@example.invalid --to-email new@example.test [--to-name "Current User"]
-       | --identity-map-json json | --identity-map-file path)
-      [--reason "why this identity lineage must be corrected"] [--apply --plan-hash sha256]
-  agentic-sdlc migration identity --recover --recovery-nonce nonce --plan-hash sha256
-  agentic-sdlc report activity [--since 3d] [--view business|dev|agent-verbose] [--out path]
-  agentic-sdlc report query [--query-json json | --query-file path] [--text raw]
-      [--out path] [--json]
-  agentic-sdlc orchestrate status [--json]
-  agentic-sdlc orchestrate plan [--limit n] [--json]
-  agentic-sdlc gate check [--story ST-001]
-      [--scope story|release-manifest|all] [--release-manifest id-or-path]
-      [--strict] [--out path] [--json]
-  agentic-sdlc index rebuild
-  agentic-sdlc kb search <query> [--limit 1..100] [--json] [--full]
-  agentic-sdlc status
-
-Global options:
-  --root path            Target project root. Defaults to current directory.
-  --template-dir path    Local overlay directory. Requires sdlc-config.json; missing
-                         template assets fall back to this plugin's bundled templates.
-  --locale en|it         Human guidance language. Unsupported values fail before writes.
-  --json                 Print JSON output where supported.
-  --full                 Include large derived payloads otherwise omitted from compact JSON.
-  --force                Overwrite generated files where supported.
-
-Change Observatory options:
-  --host 127.0.0.1       Loopback bind address. Other interfaces are rejected.
-  --port n               Local port from 0 to 65535. Defaults to 0 (ephemeral).
-  --portfolio-manifest path
-                         Show only the projects listed in this relative JSON manifest.
-  --no-open              Do not invoke the operating-system browser opener.
-  --json                 Emit compact NDJSON ready/stopped lifecycle events.
-
-Attribution options:
-  --actor id             Human, agent, or CI identity responsible for the action.
-  --actor-type type      human, agent, system, ci, or unknown.
-  --actor-name name      Display name for the actor.
-  --actor-email email    Email for the actor when appropriate.
-  --requested-by id      Human, system, CI, or agent that requested the action.
-  --requested-by-type type
-                         Type for --requested-by. Defaults to human.
-  --requested-by-name name
-                         Display name for the requester.
-  --requested-by-email email
-                         Email for the requester when appropriate.
-  --requested-by-source source
-                         Source for requester attribution. Defaults to cli.
-  --authorized-by id     Human, CI, system, or agent that authorized the action.
-  --authorized-by-type type
-                         Type for --authorized-by. Defaults to human.
-  --authorized-by-name name
-                         Display name for the authorizer.
-  --authorized-by-email email
-                         Email for the authorizer when appropriate.
-  --authorized-by-source source
-                         Source for authorizer attribution. Defaults to cli.
-  --request-id id        External request, ticket, or conversation identifier.
-  --request-summary text Human-readable summary of the originating request.
-  --request-source source
-                         Source channel for the originating request.
-  --request-thread-id id Codex or external thread that carried the request.
-  --request-run-id id    External run identifier for the originating request.
-  --request-session-id id
-                         Session identifier for the originating request.
-  --run-id id            External run identifier, if available.
-  --thread-id id         Codex thread identifier, if available.
-  --session-id id        Codex or CI session identifier, if available.
-
-Contract context options:
-  --context-file path    Attach a target-project file as contract context.
-                         Repeatable. Stores relative path, hash, size, excerpt.
-  --context-summary text Summarize project-specific context for this contract.
-  --question text        Record an open question the agent/user must resolve.
-  --qa "q|a"             Record an answered question. Repeatable.
-  --constraint text      Record a project-specific constraint. Repeatable.
-  --assumption text      Record a project-specific assumption. Repeatable.
-  --input/--output text  Add project-specific contract inputs/outputs.
-  --validation text      Add validation criteria.
-  --tool text            Add an allowed tool class.
-  --kb-write text        Add a required KB write target.
-  --output-ref ref       Link a contract to expected output coverage.
-                         Format: artifact-type:template-id:reuse|delta|new.
-                         Referenced templates must be approved by default.
-  --allow-incomplete-contract
-                         Migration/recovery override for contracts that still
-                         need user clarification. Do not use to start phase work.
-  --allow-unapproved-output-ref
-                         Migration/recovery override for draft or missing
-                         output templates. Do not use for normal task work.
-  --replace-story-contract
-                         Explicit renegotiation/recovery override when a story
-                         already references a different contract.
-
-Contract execution policy options:
-  --model model-id       Override the Codex model for agents using this contract.
-                         Omit or pass "inherit" to reuse the main thread model.
-  --reasoning level      Override agent reasoning level. Defaults to "inherit".
-                         Built-in levels: inherit, minimal, low, medium, high.
-  --execution-note text  Record a note about model or reasoning selection.
-                         Repeatable.
-  --capability-policy-json json
-                         Attach contract capability policy JSON.
-  --capability-policy-file path
-                         Read capability policy JSON from a canonical file.
-  --capability-binding-json json
-                         Attach one capability binding JSON object. Repeatable.
-  --capability-binding-file path
-                         Read one capability binding from a canonical file.
-                         Binding files must not point to cache/indexes.
-  --capability-recommendation id
-                         Apply an approved capability recommendation to the
-                         contract. Repeatable. Pulls agreed policy, bindings,
-                         open questions, and model/reasoning suggestions.
-  --approval-evidence path
-                         Attach canonical approval evidence and content hash.
-                         Repeatable. Must not point to cache/indexes.
-  --preserve-status      Record an approval without changing contract.status.
-
-Approval governance options:
-  --approval-source source
-                         Formal approval source: explicit-user, ci,
-                         automation, or bootstrap. For explicit-user and
-                         automation, provide --summary or --approval-evidence.
-                         Use automation only for a recorded delegated approval
-                         level or configured automation policy.
-                         Permission to implement or push is not formal SDLC
-                         approval.
-
-Task front-door options:
-  --contract-id id       Force task start to evaluate a specific contract.
-  --delivery-profile id  Select the approved autonomy profile for this exact
-                         pull request or local release. It is never inherited
-                         from a previous delivery.
-  --confirm-start        Record that the human already confirmed this concrete
-                         supervised/checkpointed task start. Bounded autonomy
-                         still requires exact, host-verifiable authority.
-                         This is not formal contract or profile approval.
-  --revise-contract      Stop for contract revision even if an applicable
-                         contract exists.
-
-Baseline onboarding options:
-  --document path        Import a project or user-provided document as baseline
-                         evidence. Repeatable.
-  --source path          Extra project file or directory to hash into the
-                         baseline source set. Repeatable.
-  --confirmed-source id  Source name the user already confirmed as canonical.
-                         Repeatable.
-
-Assessment checkpoint options:
-  --scope-title text     Short name of the exact assessment boundary.
-  --scope-summary text   What will be analyzed and what outcome is expected.
-  --section text         Required deliverable section. Repeatable.
-  --acceptance text      Observable completion criterion. Repeatable.
-  --capability id        Local tool/skill allowed by the proposal. Repeatable.
-  --budget-json json     Provider-neutral execution limits included in the
-                         immutable checkpoint-2 proposal.
-  --budget-file path     Read those limits from a canonical JSON file.
-  --host-receipt-file path
-                         Host/CI evidence that a human or CI approved the exact
-                         proposal. Required only in host_verified authority mode.
-
-Budget measurement options:
-  --active-time-seconds n
-                         Active execution time, excluding time waiting for the
-                         user or an unavailable external dependency.
-  --steps n              Counted agent execution steps, including subagents.
-  --input-tokens/--output-tokens n
-                         Provider token usage. Estimated token values are
-                         advisory and cannot enforce a hard stop.
-  --cost-amount decimal  Cost consumed in --currency. Omit when no verified
-                         metering plus pricing reference is available.
-  --metering-accuracy level
-                         Manual values may be estimated or unavailable only.
-                         Exact values must come from --receipt-file, whose
-                         adapter is trusted for each metric in
-                         budget_policy.exact_metering.trusted_sources and whose
-                         attestation path/hash verifies. Example manual input:
-                         --input-tokens 1200 --metering-accuracy estimated.
-                         Example exact input: --receipt-file
-                         .sdlc/receipts/runtime/USAGE-001.json.
-  --metering-source id   Adapter or system that measured the values.
-  --pricing-ref id       Immutable pricing schedule used for a cost value.
-  --subagent id          Attribute usage while still aggregating it into the
-                         proposal execution tree.
-
-Context optimization options:
-  --command-json json    Shell-free argv vector for optimization run, for
-                         example '["npm","test"]'. Only fixed test, read-only
-                         Git, and rg search vectors are accepted. Mutations,
-                         external preprocessors, paths disguised as executables,
-                         and unknown commands are rejected.
-  --profile profile      auto, native, test, git, or rg. The test profile accepts
-                         only fixed known-safe test commands.
-  --exact                Bypass RTK when unfiltered or complete output is needed.
-                         It does not widen the allowlist or enable external rg/Git helpers.
-  --trust-custom-rtk-command
-                         Execute the exact custom provider executable/arguments
-                         declared in project config, or a project-local PATH rtk,
-                         for this invocation. Otherwise only a canonical rtk
-                         resolved outside the project root is automatic.
-                         RTK savings are advisory and never reduce budget usage.
-
-Migration options:
-  migration active is dry-run by default. It validates every immutable record
-  referenced by the selected release manifest against current schemas, upgrades
-  only missing configuration defaults with --apply, and never rewrites approved
-  active records. Evidence from older valid releases is retained in place and
-  listed in an immutable archive-record:v1; no physical file is moved.
-
-  Example dry run:
-    agentic-sdlc migration active --release-manifest RELEASE-ASSESS-001
-
-  Example apply:
-    agentic-sdlc migration active --release-manifest RELEASE-ASSESS-001 --apply
-
-  migration identity is a separate dry-run-first recovery workflow. It validates
-  legacy/canonical authorization, action-subject, revocation, receipt, and
-  supported file-reference lineage; rewrites structured identity values and
-  transitive hashes; rebuilds derived state; and leaves a digest-only receipt.
-  Unsupported, stale, opaque, or affected signed lineage fails closed. Apply
-  requires the reviewed preview plan hash, verifies the complete input snapshot
-  under a no-auto-reclaim lock, prepares and validates a same-filesystem shadow
-  tree, then activates it with a journaled directory swap. Caught failures roll
-  back immediately. After an interrupted process, read the verified lock and run
-  agentic-sdlc migration identity --recover --recovery-nonce <nonce>
-    --plan-hash <sha256>
-  to restore a pre-commit tree or finalize a committed one.
-  Other commands remain blocked while the lock exists. Recovery across a host
-  or power interruption depends on filesystem and platform durability.
-
-  Example dry run with a declarative mapping:
-    agentic-sdlc migration identity --identity-map-json
-      '{"source":{"email":"old@example.invalid"},"target":{"email":"new@example.test","name":"Current User"}}'
-
-  Re-run that exact command with --apply only after reviewing the plan.
-
-Trace options:
-  --outcome outcome     Explicit trace result: passed, failed, blocked, skipped,
-                        or ready. Strict validation/release gates require a
-                        successful outcome in addition to canonical evidence.
-  --git-event event      Classify a sync trace as push, commit, merge, pull,
-                         rebase, branch, or another project Git event.
-  --event event          For sync record: push, commit, merge, pull, rebase,
-                         branch, handoff, or pr.
-  --remote name          Remote used for a sync event.
-  --before-sha sha       SHA before a sync event when known.
-  --after-sha sha        SHA after a sync event when known.
-  --pr-url url           Pull request URL for pr/merge sync events.
-
-Output consistency options:
-  --type artifact-type   Output artifact class, for example functional-analysis.
-  --from path            Use an existing project file as a proposed template body.
-  --body text            Inline proposed template body.
-  --artifact path        Canonical output artifact path. Must not be cache/index.
-  --template id          Approved output template id.
-  --mode mode            reuse, delta, or new.
-  --base-artifact path   Required when --mode delta.
-  --requirement id       Requirement covered by this output. Repeatable.
-  --decision-id id       Approved decision justifying a duplicate/new structure.
-  --rationale text       Short rationale for the link.
-  --allow-unapproved-contract-output
-                         Migration/recovery override for linking or completing
-                         pre-existing artifacts before contract approval.
-
-Route options:
-  --intent-json json     Canonical normalized route intent JSON.
-  --intent-file path     Read canonical route intent JSON from a project file.
-  --text raw             Raw user text. The router records it as untrusted and
-                         never classifies it without canonical intent JSON.
-
-Report query options:
-  --query-json json      Canonical report query JSON normalized from natural
-                         language by Codex or another LLM.
-  --query-file path      Read canonical report query JSON from a project file.
-                         Must not point to cache/indexes.
-  --text raw             Raw natural language request for audit/debug only.
-                         Without --query-json/file, report query returns
-                         a normalization request and examples.
-  --limit n              Maximum query results, from 1 to 500.
-                         Query filters support actor/executor, requester,
-                         authorizer, story, requirement, artifact, action,
-                         event type, phase, status, path, and text.
-
-Capability discovery options:
-  --profile-json json    Canonical capability profile JSON normalized by Codex.
-  --profile-file path    Read canonical capability profile JSON from a project file.
-  --recommendation-json json
-                         Canonical capability recommendation JSON.
-  --recommendation-file path
-                         Read capability recommendation JSON from a project file.
-  --available-capabilities-json json
-                         Snapshot of installed/available skills, MCPs, tools,
-                         plugins, connectors, or models.
-  --available-capabilities-file path
-                         Read available capability snapshot from a project file.
-  --approve-install      While approving a recommendation, also approve
-                         install-required capabilities declared in it.
-
-Gate options:
-  --scope scope          story, release-manifest, or all. With --story, defaults
-                         to story-scoped validation.
-  --release-manifest id-or-path
-                         Validate only the exact hashes and lineage admitted by
-                         this release; unrelated historical failures are outside
-                         the decision scope.
-  --strict               Enforce phase-exit/merge rules: approved human gates,
-                         no blocking open questions, active claims,
-                         attributed traces, approved output templates, and
-                         no canonical outputs under cache/indexes.
-  --out path             Persist a gate report as JSON or Markdown.
-
-Principle:
-  The plugin is stateless. Contracts, traces, and KB artifacts are written only
-  to the target project's .sdlc directory.
-`);
 }
 
 await main();
