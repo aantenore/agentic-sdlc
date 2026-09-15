@@ -1,6 +1,6 @@
 ---
 name: agentic-sdlc
-description: Use this skill when a user wants to run a contract-driven agentic SDLC in Codex, initialize or maintain a shared project knowledge base, create SDLC phase contracts, split work into story-scoped parallel tracks, validate gates, capture decisions/tests/traces, or use the Agentic SDLC plugin in a software project.
+description: Use this skill when a user wants to run a contract-driven agentic SDLC in Codex or Claude Code, initialize or maintain a shared project knowledge base, create SDLC phase contracts, split work into story-scoped parallel tracks, validate gates, capture decisions/tests/traces, or use the Agentic SDLC plugin in a software project.
 ---
 
 # Agentic SDLC

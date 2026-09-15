@@ -12,6 +12,7 @@ This page is the documentation map. Start with the goal that matches what you wa
 - [Token efficiency](token-efficiency.md) — reduce derived JSON and shell-output context without changing canonical evidence.
 - [Configuration safety](configuration-safety.md) — keep project policy stable across plugin updates and apply only a reviewed migration plan.
 - [Self-service CLI](self-service-cli.md) — get focused help, one next action, safe presentation presets, shell completion, and deterministic JSON without learning internal record names.
+- [Claude Code installation](claude-code-install.md) — install, verify, and use the plugin from Claude Code, and see which Codex-only steps do not apply.
 - [Configurable workflows](configurable-workflows.md) — use governed project, change-request, assessment, or generic processes without changing active history or delivery authority.
 
 ## Find a page by goal
@@ -34,7 +35,8 @@ This page is the documentation map. Start with the goal that matches what you wa
 | Open visual project lineage | [Change Observatory](change-observatory.md) | Launch paths, explainability, raw evidence, and local security boundaries |
 | Find the next command or use machine output | [Self-service CLI](self-service-cli.md) | Focused help, compact status, safe presets, completion, and local plan/apply updates |
 | Understand `.sdlc/` storage | [Knowledge-base structure](kb-structure.md) | Which files are canonical, derived, append-only, or releasable |
-| Install, update, or repair the plugin | [Portable install](portable-install.md) | Cross-platform installation, local marketplace setup, and troubleshooting |
+| Install, update, or repair the plugin on Codex | [Portable install](portable-install.md) | Cross-platform installation, local marketplace setup, and troubleshooting |
+| Install, update, or repair the plugin on Claude Code | [Claude Code installation](claude-code-install.md) | Marketplace install, slash commands, path resolution, and Codex-only steps that do not apply |
 | Understand the product assessment | [Product assessment](product-assessment.md) | Product intent, strengths, gaps, and improvement direction |
 
 ## Recommended reading paths

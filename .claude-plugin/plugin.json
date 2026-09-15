@@ -1,0 +1,23 @@
+{
+  "name": "agentic-sdlc",
+  "version": "0.14.0",
+  "description": "Contract-driven delivery, verified assessments, and visual project lineage for Claude Code.",
+  "author": {
+    "name": "Antonio Antenore",
+    "url": "https://github.com/aantenore"
+  },
+  "homepage": "https://github.com/aantenore/agentic-sdlc-codex-plugin",
+  "repository": "https://github.com/aantenore/agentic-sdlc-codex-plugin",
+  "license": "MIT",
+  "keywords": [
+    "sdlc",
+    "project-assessment",
+    "technical-assessment",
+    "agentic-development",
+    "knowledge-base",
+    "contracts",
+    "governance"
+  ],
+  "commands": "./commands/",
+  "skills": "./skills/"
+}

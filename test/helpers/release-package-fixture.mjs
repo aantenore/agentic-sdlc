@@ -112,8 +112,18 @@ export function validReleaseFixtureEntries({ version = "0.13.3", extra = [] } = 
     name: "agentic-sdlc-codex-plugin",
     version,
   };
+  const claudePluginJson = {
+    name: "agentic-sdlc",
+    version,
+  };
+  const claudeMarketplaceJson = {
+    name: "aantenore",
+    plugins: [{ name: "agentic-sdlc", source: "./", version }],
+  };
   return [
     { path: "package/package.json", data: `${JSON.stringify(packageJson)}\n` },
+    { path: "package/.claude-plugin/plugin.json", data: `${JSON.stringify(claudePluginJson)}\n` },
+    { path: "package/.claude-plugin/marketplace.json", data: `${JSON.stringify(claudeMarketplaceJson)}\n` },
     { path: "package/.codex-plugin/plugin.json", data: `${JSON.stringify(pluginJson)}\n` },
     { path: "package/LICENSE", data: "fixture license\n" },
     { path: "package/README.md", data: "fixture readme\n" },

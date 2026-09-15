@@ -1,0 +1,33 @@
+{
+  "name": "aantenore",
+  "owner": {
+    "name": "Antonio Antenore",
+    "url": "https://github.com/aantenore"
+  },
+  "metadata": {
+    "description": "Personal plugin marketplace.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "agentic-sdlc",
+      "source": "./",
+      "description": "Agree the outcome before work starts, deliver verified changes, and explain the recorded lineage in a local visual app.",
+      "version": "0.14.0",
+      "author": {
+        "name": "Antonio Antenore",
+        "url": "https://github.com/aantenore"
+      },
+      "homepage": "https://github.com/aantenore/agentic-sdlc-codex-plugin",
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": [
+        "sdlc",
+        "assessment",
+        "governance",
+        "contracts",
+        "lineage"
+      ]
+    }
+  ]
+}
