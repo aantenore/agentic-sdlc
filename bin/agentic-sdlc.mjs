@@ -960,6 +960,7 @@ function buildCliRuntimeHandlerRegistry() {
     "trace.evidence.bind": call(bindHistoricalTraceEvidencePolicy),
     "trace.compact": call(compactTraces),
     "sync.record": call(recordSyncEvent),
+    "test.record": call(recordTestRun),
     "output.template.propose": call(proposeOutputTemplate),
     "output.template.approve": call(approveOutputTemplate),
     "output.resolve": call(resolveOutput),
@@ -38189,6 +38190,208 @@ function recordSyncEvent(context, options) {
   output(options, { status: "recorded", event: traceEvent }, [`Recorded sync ${event}`]);
 }
 
+function testRunsRoot(context) {
+  return path.join(context.sdlcRoot, "tests");
+}
+
+function normalizeRecordedCommandArgv(value) {
+  const raw = String(value || "").trim();
+  let argv;
+  try {
+    argv = JSON.parse(raw);
+  } catch {
+    fail(`--command must be a JSON argument vector, for example '["npm","test"]': ${raw}`);
+  }
+  if (
+    !Array.isArray(argv)
+    || argv.length === 0
+    || argv.some((item) => typeof item !== "string" || item.length === 0 || item.includes("\0"))
+  ) {
+    fail("--command must be a non-empty JSON array of non-empty strings.");
+  }
+  return argv;
+}
+
+function boundedNonNegativeIntegerOption(options, key, { defaultValue = 0, maximum } = {}) {
+  const raw = options[key];
+  const value = raw === undefined || raw === null || raw === "" || raw === true
+    ? defaultValue
+    : Number(raw);
+  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
+    fail(`--${key} must be an integer between 0 and ${maximum}`);
+  }
+  return value;
+}
+
+function deriveTestRunOutcome(exitCode, totals) {
+  if (exitCode !== 0 || totals.failed > 0) {
+    return "failed";
+  }
+  return totals.passed > 0 ? "passed" : "skipped";
+}
+
+function buildTestRunEvidence(context, options) {
+  const evidence = normalizeListOption(options.evidence).map((rawPath) => {
+    const evidencePath = resolveProjectFilePath(context, rawPath, { mustExist: true, fileOnly: true });
+    assertNotDerivedArtifact(context, evidencePath, "Test run evidence");
+    return {
+      path: toProjectPath(context, evidencePath),
+      size_bytes: fs.statSync(evidencePath).size,
+      sha256: hashFile(evidencePath),
+    };
+  });
+  if (evidence.length === 0) {
+    fail(
+      "test record needs at least one --evidence file holding the output of the run.",
+      {
+        en: {
+          result: "The test run was not recorded because no output file was attached.",
+          impact: "No record was written, and the story history is unchanged.",
+          required_decision: "Decide which file holds the output a reviewer would read to confirm the result.",
+          protection_boundary: "No approval, delivery, release, or wider file access was created.",
+          next_action: "Save the test runner output to a file inside the project, then pass it with --evidence.",
+          details: {},
+        },
+        it: {
+          result: "L’esecuzione dei test non è stata registrata perché non è stato allegato alcun file di output.",
+          impact: "Nessun record è stato scritto e la cronologia della story resta invariata.",
+          required_decision: "Decidi quale file contiene l’output che una persona leggerebbe per confermare il risultato.",
+          protection_boundary: "Non sono stati creati approvazioni, consegne, rilasci o accessi più ampi ai file.",
+          next_action: "Salva l’output dello strumento di test in un file dentro il progetto, poi passalo con --evidence.",
+          details: {},
+        },
+      },
+    );
+  }
+  return evidence;
+}
+
+function recordTestRun(context, options) {
+  ensureInitialized(context);
+  const storyId = normalizeId(requireOption(options, "story"));
+  const story = readStory(context, storyId);
+  if (!story) {
+    fail(`Story ${storyId} does not exist`);
+  }
+  const argv = normalizeRecordedCommandArgv(requireOption(options, "command"));
+  requireOption(options, "exit-code");
+  const exitCode = boundedNonNegativeIntegerOption(options, "exit-code", { maximum: 255 });
+  const totals = {
+    passed: boundedNonNegativeIntegerOption(options, "passed", { maximum: 1_000_000 }),
+    failed: boundedNonNegativeIntegerOption(options, "failed", { maximum: 1_000_000 }),
+    skipped: boundedNonNegativeIntegerOption(options, "skipped", { maximum: 1_000_000 }),
+  };
+  const outcome = deriveTestRunOutcome(exitCode, totals);
+  const evidence = buildTestRunEvidence(context, options);
+
+  const cwdInput = getOptionString(options, "cwd");
+  const cwd = cwdInput
+    ? toProjectPath(context, resolveProjectFilePath(context, cwdInput, { mustExist: true, directoryOnly: true })) || "."
+    : ".";
+  const startedAtInput = getOptionString(options, "started-at");
+  const finishedAt = now();
+  const startedAt = startedAtInput
+    ? new Date(normalizeOptionalDateTime(startedAtInput, "started-at")).toISOString()
+    : finishedAt;
+  const durationMs = Date.parse(finishedAt) - Date.parse(startedAt);
+  if (!Number.isSafeInteger(durationMs) || durationMs < 0) {
+    fail("--started-at must be an RFC 3339 timestamp that is not later than the moment the record is written.");
+  }
+
+  const phase = getOptionString(options, "phase") || story.phase || null;
+  if (phase && !context.config.phases[phase]) {
+    fail(`Unknown phase '${phase}'. Use one of: ${Object.keys(context.config.phases).join(", ")}`);
+  }
+  const id = normalizeId(options.id ? String(options.id) : `${storyId}-test-run-${uniqueRecordSuffix()}`);
+  const attribution = buildAttribution(context, options, "test.record");
+  const record = {
+    kind: "test_run",
+    schema_version: "test-run:v1",
+    id,
+    story_id: storyId,
+    phase,
+    summary: getOptionString(options, "summary") || `Recorded ${outcome} test run for ${storyId}`,
+    framework: getOptionString(options, "framework") || null,
+    command: { argv, cwd },
+    exit_code: exitCode,
+    outcome,
+    totals,
+    started_at: startedAt,
+    finished_at: finishedAt,
+    duration_ms: durationMs,
+    evidence,
+    acceptance_criteria: normalizeListOption(options.acceptance),
+    requirement_ids: normalizeListOption(options.requirement).map(normalizeId),
+    actor: attribution.actor,
+    git: attribution.git,
+    run: attribution.run,
+    created_at: finishedAt,
+    audit: {
+      created_by: attribution.actor,
+      git: attribution.git,
+      run: attribution.run,
+    },
+    hash_algorithm: "sha256:stable-json:v1",
+  };
+  record.record_hash = computeStableHash(record);
+  assertRecordSchema(record, "test-run.schema.json", `Test run ${id}`);
+
+  const recordPath = path.join(testRunsRoot(context), `${id}.json`);
+  assertNotDerivedArtifact(context, recordPath, "Test run record");
+  writeJsonFile(recordPath, record, { force: Boolean(options.force) });
+
+  const projectRecordPath = toProjectPath(context, recordPath);
+  const traceEvent = appendTraceEvent(context, storyId, {
+    type: "test",
+    summary: record.summary,
+    outcome,
+    action: "test.record",
+    actor: attribution.actor,
+    ...buildTraceAuthorityMetadata(context, options, attribution),
+    evidence: [projectRecordPath, ...evidence.map((item) => item.path)],
+    related: record.requirement_ids,
+    git: attribution.git,
+    run: attribution.run,
+  });
+
+  output(
+    options,
+    {
+      status: "recorded",
+      test_run_path: projectRecordPath,
+      test_run: record,
+      event: traceEvent,
+    },
+    [
+      `Recorded ${outcome} test run ${id} for story ${storyId}`,
+      `Command: ${argv.join(" ")} (exit ${exitCode})`,
+      `Results: ${totals.passed} passed, ${totals.failed} failed, ${totals.skipped} skipped`,
+      `Path: ${projectRecordPath}`,
+    ],
+  );
+}
+
+function readTestRunRecords(context, storyId) {
+  const normalizedStoryId = storyId ? normalizeId(String(storyId)) : null;
+  const records = [];
+  for (const name of safeReadDir(testRunsRoot(context))) {
+    if (!name.endsWith(".json")) continue;
+    const recordPath = path.join(testRunsRoot(context), name);
+    let record;
+    try {
+      record = readProjectJson(context, recordPath);
+    } catch {
+      continue;
+    }
+    if (record?.kind !== "test_run") continue;
+    if (normalizedStoryId && record.story_id !== normalizedStoryId) continue;
+    records.push({ path: toProjectPath(context, recordPath), record });
+  }
+  return records.sort((left, right) =>
+    String(left.record.finished_at || "").localeCompare(String(right.record.finished_at || ""), "en")
+    || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
+}
+
 function initializeDependencyGraph(context, options = {}) {
   ensurePlanningDirectories(context);
   const graphPath = dependencyGraphPath(context);
@@ -49041,13 +49244,7 @@ function validateStory(
     validateStoryChangedPathsWithinRequirementScope(context, storyId, storyRequirementProfiles, report);
   }
   const traceEvents = readTraceEvents(context, storyId);
-  const latestTestTrace = latestTraceEvent(traceEvents, "test");
-  if (
-    (story.phase === "validation" || story.status === "validation") &&
-    latestTestTrace?.outcome !== "passed"
-  ) {
-    report.errors.push(`Story ${storyId} is in validation but has no passing test trace`);
-  }
+  validateStoryTestEvidence(context, storyId, story, traceEvents, report);
   const latestReleaseTrace = latestTraceEvent(traceEvents, "release");
   if (
     (story.phase === "release" || story.status === "release") &&
@@ -49059,6 +49256,72 @@ function validateStory(
   validateStoryDependencies(context, story, report);
   validateStoryStepRecords(context, storyId, report);
   report.checked.push(`story ${storyId}`);
+}
+
+/**
+ * Enforces gate_policy.validation_requires_test_trace.
+ *
+ * The flag is read from the effective project configuration and defaults to
+ * enabled, which is the behaviour the validation gate already had. Two levels
+ * of evidence satisfy it:
+ *
+ * - a passing `test` trace event, the mechanism projects have used so far, and
+ * - a `test-run:v1` record, which additionally binds the executed command, its
+ *   exit status, its counts, and hashed runner output.
+ *
+ * A project that has only the trace event keeps passing the gate and is told,
+ * as a warning, which command upgrades that evidence. A recorded test run that
+ * contradicts the story's validation state is an error, which can only affect
+ * projects that hold such a record, and no project can hold one from before
+ * this contract existed.
+ */
+function validateStoryTestEvidence(context, storyId, story, traceEvents, report) {
+  const requiresTestEvidence = context.config.gate_policy?.validation_requires_test_trace !== false;
+  const inValidation = story.phase === "validation" || story.status === "validation";
+  const latestTestTrace = latestTraceEvent(traceEvents, "test");
+  const testRuns = readTestRunRecords(context, storyId);
+  for (const { path: recordPath, record } of testRuns) {
+    appendRecordSchemaIssues(report, record, "test-run.schema.json", `test run ${record.id || recordPath}`);
+  }
+  if (!requiresTestEvidence || !inValidation) {
+    return;
+  }
+  report.checked.push(`validation test evidence for story ${storyId}`);
+  if (latestTestTrace?.outcome !== "passed") {
+    report.errors.push(`Story ${storyId} is in validation but has no passing test trace`);
+    return;
+  }
+  const latestTestRun = testRuns.at(-1);
+  if (!latestTestRun) {
+    report.warnings.push(
+      `Story ${storyId} satisfies validation_requires_test_trace with a trace event only; `
+      + "record the executed command, its exit status, and its output with "
+      + `'test record --story ${storyId}' to bind reviewable test evidence`,
+    );
+    return;
+  }
+  if (latestTestRun.record.outcome !== "passed") {
+    report.errors.push(
+      `Story ${storyId} is in validation but its latest test run ${latestTestRun.record.id} `
+      + `recorded outcome '${latestTestRun.record.outcome}' with exit status ${latestTestRun.record.exit_code}`,
+    );
+    return;
+  }
+  for (const evidence of latestTestRun.record.evidence || []) {
+    const evidencePath = path.resolve(context.root, ...String(evidence.path).split("/"));
+    if (!isInsidePath(context.root, evidencePath) || !fs.existsSync(evidencePath)) {
+      report.errors.push(
+        `Test run ${latestTestRun.record.id} references missing evidence ${evidence.path}`,
+      );
+      continue;
+    }
+    if (hashFile(evidencePath) !== evidence.sha256) {
+      report.errors.push(
+        `Test run ${latestTestRun.record.id} evidence ${evidence.path} changed after it was recorded`,
+      );
+    }
+  }
+  report.checked.push(`test run ${latestTestRun.record.id}`);
 }
 
 function validateStoryChangedPathsWithinRequirementScope(context, storyId, requirementProfiles, report) {

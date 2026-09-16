@@ -730,17 +730,65 @@ Examples:
 
 ## `tests/`
 
-Test plans and test evidence.
+Test plans, runner output, and test-run records.
 
 Examples:
 
 ```text
 .sdlc/tests/ST-001-test-strategy.md
-.sdlc/tests/ST-001-test-run.json
+.sdlc/tests/ST-001-run.log
+.sdlc/tests/ST-001-test-run-20260916T101500-a1b2c3.json
 .sdlc/tests/ST-001-validation-summary.md
 ```
 
-Tests should link to acceptance criteria and requirements.
+Plans, runner output, and summaries are free-form files. A `.json` file whose
+`kind` is `test_run` is a canonical record validated against
+`schemas/test-run.schema.json` (`test-run:v1`), written only by
+`test record`:
+
+```json
+{
+  "kind": "test_run",
+  "schema_version": "test-run:v1",
+  "id": "ST-001-test-run-20260916T101500-a1b2c3",
+  "story_id": "ST-001",
+  "phase": "validation",
+  "summary": "Full suite on the reviewed implementation branch",
+  "framework": "node:test",
+  "command": { "argv": ["npm", "test"], "cwd": "." },
+  "exit_code": 0,
+  "outcome": "passed",
+  "totals": { "passed": 42, "failed": 0, "skipped": 1 },
+  "started_at": "2026-09-16T10:13:20.000Z",
+  "finished_at": "2026-09-16T10:15:00.000Z",
+  "duration_ms": 100000,
+  "evidence": [
+    {
+      "path": ".sdlc/tests/ST-001-run.log",
+      "size_bytes": 4821,
+      "sha256": "6f1c…"
+    }
+  ],
+  "acceptance_criteria": ["The booking suite passes"],
+  "requirement_ids": ["REQ-001"],
+  "record_hash": "9ab4…",
+  "hash_algorithm": "sha256:stable-json:v1"
+}
+```
+
+The record binds the command that ran, the exit status it returned, the result
+counts, and at least one hashed output file. `outcome` is derived from
+`exit_code` and `totals`, not supplied: the schema admits `passed` only
+together with exit status `0`, zero failed cases, and at least one passing
+case, so a run cannot be recorded as successful by assertion alone. Each record
+is immutable; a new run produces a new file.
+
+Writing a record also appends a `test` trace event whose evidence names the
+record and its output files, so the run appears in the story history and in the
+Change Observatory.
+
+Tests should link to acceptance criteria and requirements. Pass `--acceptance`
+and `--requirement` to `test record` to carry those links into the record.
 
 ## `observations/`
 

@@ -166,6 +166,42 @@ chooses the level that counts as one deliverable, and `--strict-gate-unit`
 chooses the level the strict validation gate applies to. `--task-gate` selects
 the task-level gate mode.
 
+## Record the evidence of a test run
+
+`test record` (effect: local) turns the result of one executed test run into a
+durable story record under `.sdlc/tests/`. It records a run that already
+happened; it never executes the command.
+
+```bash
+node "$PLUGIN_CLI" test record --root /path/to/project \
+  --story ST-BOOKING-001 \
+  --command '["npm","test"]' \
+  --exit-code 0 \
+  --passed 42 --skipped 1 \
+  --evidence .sdlc/tests/ST-BOOKING-001-run.log \
+  --framework node:test \
+  --summary "Full suite on the reviewed implementation branch"
+```
+
+| Input | Purpose |
+|---|---|
+| `--story` | The story the run belongs to; it must already exist. |
+| `--command` | The exact command that ran, as a JSON argument vector. |
+| `--exit-code` | The status the command returned, `0`–`255`. |
+| `--evidence` | The runner output, saved as a file inside the project. Repeatable, and at least one file is mandatory. |
+| `--passed`, `--failed`, `--skipped` | The result counts; each defaults to `0`. |
+| `--framework`, `--cwd`, `--started-at` | Optional context: the runner, the directory it ran in, and when it began. |
+| `--requirement`, `--acceptance` | Link the run to the requirements and acceptance criteria it exercises. |
+
+The outcome is not an input. It is derived from the exit status and the counts:
+a zero exit status with no failures and at least one passing case is `passed`,
+a zero exit status with nothing executed is `skipped`, and anything else is
+`failed`. Each evidence file is hashed when the record is written, so a later
+edit to that file is detectable.
+
+Writing the record also appends a `test` trace event carrying the same outcome,
+so the run appears in the story history without a separate `trace append`.
+
 ## Read the exit code in a pipeline
 
 A script that gates on this CLI usually does not parse its output. The exit

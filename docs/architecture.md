@@ -521,6 +521,28 @@ For phase-by-phase examples, see [Agent Interactions](agent-interactions.md).
 
 Gate checks are mechanical validations over `.sdlc/` artifacts. They do not replace human judgment, but they catch missing contracts, missing acceptance criteria, incomplete traceability, stale claims, invalid statuses or expiry dates, missing or drifted requirement/delivery profiles, delivery levels above their ceiling, authorization reuse across deliveries, unapproved or changed output templates, unjustified duplicate outputs, stale cache warnings, and test/release evidence gaps. Use `gate check --out <path>` to persist JSON or Markdown reports under `.sdlc/reports/`.
 
+### Validation test evidence
+
+`gate_policy.validation_requires_test_trace` decides whether a story in the
+validation phase must show that its tests ran. The flag is read from the
+effective project configuration and is enabled unless a project sets it to
+`false`; the check then appears in the gate report as `validation test evidence
+for story <story-id>`.
+
+Two levels of evidence satisfy the flag:
+
+| Recorded evidence | Gate result |
+|---|---|
+| No passing `test` trace event | Error: the story is in validation with no passing test trace. |
+| A passing `test` trace event only | Passes, with a warning naming `test record` as the way to bind the command, exit status, and output. |
+| A `test-run:v1` record whose outcome is `passed` | Passes, and the report lists the record as `test run <record-id>`. |
+
+When a test-run record exists, the gate re-reads its evidence files and
+compares their hashes against the record: a missing or changed output file
+fails the gate, and so does a story left in validation whose latest recorded
+run did not pass. Setting the flag to `false` removes the whole check,
+including the trace-event error.
+
 Canonical KB and trace paths always use `/` separators so the same records remain stable across Linux, macOS, and Windows. IDs reject names that cannot be represented portably, including Windows device names and trailing periods. Assessment gates validate the baseline/proposal hashes, requirement revision and ceiling, current delivery profile, story/contract lineage, exact authorization-use receipts, generator receipt, required verification dimensions, execution budget/usage/amendments, local smoke/rollback evidence when applicable, and release manifest rather than trusting IDs or a single `passed` flag.
 
 Release tags run the complete Linux, macOS, and Windows matrix for every supported Node line before the package job can publish. The package regression test creates a real tarball, installs it into a clean prefix, and runs the installed CLI doctor so source-tree success cannot hide a missing packaged resource.
