@@ -51376,16 +51376,24 @@ function assertStableDirectory(dirPath) {
  * `mkdir` is deliberately not recursive: creating each segment separately is
  * what lets the symlink check above run on every one of them. That leaves a
  * window where another process creates the same directory between the
- * existence check and the call, so `EEXIST` is an expected outcome rather than
- * a failure. It is only accepted after re-applying the safety check, because
- * the entry that won the race still has to be a real directory.
+ * existence check and the call, so a failure there is an expected outcome
+ * rather than a fault.
+ *
+ * The race is recognized by its result, not by its error code. `EEXIST` is the
+ * POSIX answer, but Windows reports concurrent directory work as `EPERM`,
+ * `EACCES`, or `EBUSY` — the same spread the internal lock already allows for.
+ * Checking whether the path is now a stable directory covers every one of them
+ * and still cannot hide a real failure: a `mkdir` refused for permissions
+ * leaves nothing behind, so the original error is rethrown. A path that lost
+ * the race must still pass the symlink check, because the entry that won it
+ * could have been planted by another process.
  */
 function createDirectoryAllowingConcurrentCreation(dirPath) {
   try {
     fs.mkdirSync(dirPath);
     return true;
   } catch (error) {
-    if (error?.code !== "EEXIST") throw error;
+    if (!fs.existsSync(dirPath)) throw error;
     assertStableDirectory(dirPath);
     return false;
   }
