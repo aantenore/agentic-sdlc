@@ -680,6 +680,8 @@ npm pack --dry-run --json
 
 Doctor checks the Node runtime, version consistency, first assessment prompt, core and assessment skills, assessment agent card, preset, and project records when `.sdlc/` exists. A failed check returns a non-zero exit code.
 
+Exit codes are categorized so a pipeline can tell a rejected request (`1`) from a bad invocation (`2`), a governance denial (`3`), a broken installation (`4`), and an internal failure (`70`). See [Self-service CLI](docs/self-service-cli.md#read-the-exit-code-in-a-pipeline).
+
 For maintainer validation when the Codex system validators are available:
 
 ```bash

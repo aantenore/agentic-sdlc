@@ -981,7 +981,7 @@ function buildCliRuntimeHandlerRegistry() {
     "orchestrate.plan": call(showOrchestrationPlan),
     "route.decide": project(({ context, options, resolution }) => {
       if (resolution.args.length > 0) {
-        fail(`Unknown command: ${resolution.input.slice(0, 2).join(" ")}`);
+        failUsage(`Unknown command: ${resolution.input.slice(0, 2).join(" ")}`);
       }
       decideRoute(context, options);
     }),
@@ -1025,7 +1025,7 @@ async function runObserveFromCli({ options, rawArgs }) {
 
 async function runPortfolioStatusFromCli({ options, resolution }) {
   if (resolution.args.length > 0) {
-    fail(`Unknown command: ${resolution.input.slice(0, 3).join(" ")}`);
+    failUsage(`Unknown command: ${resolution.input.slice(0, 3).join(" ")}`);
   }
   const manifestPath = getOptionString(options, "manifest");
   if (!manifestPath) fail("portfolio status needs --manifest with one explicit relative JSON path");
@@ -1239,7 +1239,7 @@ async function main() {
     }
     assertConfigAllowsCommand(context, resolution, parsed.options, parsed.positionals);
     if (!resolution || !handler) {
-      fail(`Unknown command: ${parsed.positionals.slice(0, 2).join(" ")}`);
+      failUsage(`Unknown command: ${parsed.positionals.slice(0, 2).join(" ")}`);
     }
     await dispatchWithMutationGovernance(registry, resolution, { ...invocation, context });
   } catch (error) {
@@ -1248,17 +1248,20 @@ async function main() {
       ? cliErrorRedactionResolution(OPERATIONAL_REDACTION_POLICY, false)
       : resolveCliErrorRedactionPolicy(parsed.options);
     const errorRedactionPolicy = errorRedaction.policy;
+    const failureExitCode = errorRedaction.withholdDetails
+      ? EXIT_CODES.userError
+      : exitCodeForError(error);
     if (error instanceof UnknownCommandError) {
       if (jsonRequested) {
         console.error(JSON.stringify(buildCliErrorPayload(error, parsed.options, errorRedaction), null, 2));
-        process.exitCode = 1;
+        process.exitCode = failureExitCode;
         return;
       }
       const safeMessage = errorRedaction.withholdDetails
         ? "Project privacy configuration is invalid or unsafe; command details were withheld."
         : redactText(error.message, errorRedactionPolicy);
       console.error(`${safeMessage}\nCorrelation ID: ${CLI_OPERATION_CONTEXT.correlation_id}`);
-      process.exitCode = 1;
+      process.exitCode = failureExitCode;
       return;
     }
     const expected = error instanceof UserError
@@ -1291,7 +1294,7 @@ async function main() {
           };
       if (jsonRequested) {
         console.error(JSON.stringify(buildCliErrorPayload(error, parsed.options, errorRedaction), null, 2));
-        process.exitCode = 1;
+        process.exitCode = failureExitCode;
         return;
       }
       const normalized = normalizeOperationalError(
@@ -1317,7 +1320,7 @@ async function main() {
           ],
           parsed.options,
         ).join("\n"));
-        process.exitCode = 1;
+        process.exitCode = failureExitCode;
         return;
       }
       console.error([
@@ -1331,7 +1334,7 @@ async function main() {
         `- Error: ${normalized.error.message}`,
         `- Correlation ID: ${CLI_OPERATION_CONTEXT.correlation_id}`,
       ].join("\n"));
-      process.exitCode = 1;
+      process.exitCode = failureExitCode;
       return;
     }
   }
@@ -6857,12 +6860,49 @@ function rawStringOptionValue(argv, optionName) {
   return value;
 }
 
+/**
+ * Exit codes. A gating pipeline has to tell these apart: a rejected input is
+ * the author's problem, a governance denial is a decision someone has to make,
+ * and an unreadable store is an operator problem. Every one of them used to
+ * exit 1, which made all three indistinguishable to a script.
+ *
+ * 0   the command completed
+ * 1   user error: the request was understood and refused on its merits
+ * 2   usage error: the command or its options could not be resolved
+ * 3   governance denial: the action was refused by an agreed limit or policy
+ * 4   environment error: the host cannot run this software as installed
+ * 70  internal error: the software failed in a way the caller cannot correct
+ *
+ * A command killed by a signal keeps the conventional 128+signal form.
+ */
+const EXIT_CODES = Object.freeze({
+  userError: 1,
+  usageError: 2,
+  governanceDenied: 3,
+  environmentError: 4,
+  internalError: 70,
+});
+
+/** The exit code for one thrown error, defaulting to the broadest category. */
+function exitCodeForError(error) {
+  if (error instanceof UnsupportedNodeRuntimeError) return EXIT_CODES.environmentError;
+  if (error instanceof UnknownCommandError) return EXIT_CODES.usageError;
+  if (error instanceof CliPresetError) return EXIT_CODES.usageError;
+  if (error instanceof UsageError) return EXIT_CODES.usageError;
+  if (error instanceof MutationGovernanceError) return EXIT_CODES.governanceDenied;
+  if (error instanceof UserError) return EXIT_CODES.userError;
+  return EXIT_CODES.internalError;
+}
+
 class UserError extends Error {
   constructor(message, humanGuidance = null) {
     super(message);
     this.humanGuidance = humanGuidance;
   }
 }
+
+/** A request whose command or options could not be resolved at all. */
+class UsageError extends UserError {}
 
 class UnsupportedNodeRuntimeError extends UserError {
   constructor(version, locale) {
@@ -51519,6 +51559,10 @@ function boundedPositiveInteger(rawValue, label, options = {}) {
 
 function fail(message, humanGuidance = null) {
   throw new UserError(message, humanGuidance);
+}
+
+function failUsage(message, humanGuidance = null) {
+  throw new UsageError(message, humanGuidance);
 }
 
 await main();

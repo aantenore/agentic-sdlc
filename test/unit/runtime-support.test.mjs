@@ -135,7 +135,8 @@ test("unsupported runtime fails before CLI dispatch and benchmark argument parsi
       "--json",
     ]);
     assertSpawnCompleted(cli, "CLI doctor");
-    assert.equal(cli.status, 1);
+    // An unsupported host runtime is an environment error: exit 4.
+    assert.equal(cli.status, 4);
     assert.equal(cli.stdout, "");
     const cliError = JSON.parse(cli.stderr);
     assert.equal(cliError.error.code, "USER_ERROR");

@@ -166,6 +166,39 @@ chooses the level that counts as one deliverable, and `--strict-gate-unit`
 chooses the level the strict validation gate applies to. `--task-gate` selects
 the task-level gate mode.
 
+## Read the exit code in a pipeline
+
+A script that gates on this CLI usually does not parse its output. The exit
+code alone says what happened, and it distinguishes the cases that need
+different responses: a rejected input is the author's problem, a governance
+denial is a decision somebody has to make, and an unreadable installation is an
+operator problem.
+
+| Exit code | Meaning | Typical response |
+|---|---|---|
+| `0` | The command completed. | Continue. |
+| `1` | User error: the request was understood and refused on its merits. | Correct the request and retry. |
+| `2` | Usage error: the command or its options could not be resolved. | Fix the invocation; `help` lists the real options. |
+| `3` | Governance denial: an agreed limit or policy refused the action. | A person decides whether to amend the agreement. Do not retry unchanged. |
+| `4` | Environment error: the host cannot run this software as installed. | Repair the installation; `doctor` names the fix. |
+| `70` | Internal error: the software failed in a way the caller cannot correct. | Report it with the correlation ID from the output. |
+
+A command killed by a signal keeps the conventional `128 + signal` form, so a
+subprocess interrupted with `SIGINT` exits `130`.
+
+When a project's privacy configuration withholds error details, the exit code
+withholds them too: those failures report `1` rather than disclosing through
+the exit code the category the message refuses to name.
+
+```bash
+node "$PLUGIN_CLI" gate check --root /path/to/project --scope all --json
+case $? in
+  0) echo "ready" ;;
+  3) echo "blocked by an agreed limit; escalate to a person" ;;
+  *) echo "fix the invocation or the project, then retry" ;;
+esac
+```
+
 ## Install or update locally
 
 The local installer uses a reviewable transaction:
