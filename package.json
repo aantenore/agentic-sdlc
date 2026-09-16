@@ -1,7 +1,7 @@
 {
   "name": "agentic-sdlc-codex-plugin",
-  "version": "0.13.5",
-  "description": "Codex plugin for contract-driven delivery, verified assessments, and visual project lineage.",
+  "version": "0.14.0",
+  "description": "Contract-driven delivery, verified assessments, and visual project lineage for Codex and Claude Code.",
   "type": "module",
   "bin": {
     "agentic-sdlc": "./bin/agentic-sdlc.mjs"
@@ -10,9 +10,11 @@
     "node": "^18.20.3 || ^20.12.0 || >=21.6.0"
   },
   "files": [
+    ".claude-plugin/",
     ".codex-plugin/plugin.json",
     "assets/",
     "bin/",
+    "commands/",
     "config/",
     "docs/",
     "lib/",
@@ -32,6 +34,7 @@
   },
   "keywords": [
     "codex",
+    "claude-code",
     "sdlc",
     "agentic",
     "knowledge-base",

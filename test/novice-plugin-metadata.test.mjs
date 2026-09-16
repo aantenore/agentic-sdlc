@@ -142,3 +142,103 @@ test("configuration and autonomy references use executable local guidance and cu
     assert.match(reference, /never rewritten/u, relativePath);
   }
 });
+
+test("the Claude Code packaging stays version-locked to the package and exposes the same starter intents", () => {
+  const packageMetadata = JSON.parse(read("package.json"));
+  const claudeManifest = JSON.parse(read(".claude-plugin/plugin.json"));
+  const codexManifest = JSON.parse(read(".codex-plugin/plugin.json"));
+
+  assert.equal(claudeManifest.name, "agentic-sdlc");
+  assert.equal(claudeManifest.version, packageMetadata.version);
+  assert.equal(claudeManifest.version, codexManifest.version);
+  assert.equal(claudeManifest.license, packageMetadata.license);
+  assert.equal(claudeManifest.commands, "./commands/");
+  assert.equal(claudeManifest.skills, "./skills/");
+  assert.doesNotMatch(claudeManifest.name, /codex/iu);
+
+  const marketplace = JSON.parse(read(".claude-plugin/marketplace.json"));
+  assert.equal(marketplace.plugins.length, 1);
+  const [entry] = marketplace.plugins;
+  assert.equal(entry.name, claudeManifest.name);
+  assert.equal(entry.version, claudeManifest.version);
+  assert.equal(entry.source, "./");
+
+  const commandsDirectory = path.join(repoRoot, "commands");
+  const commandFiles = fs.readdirSync(commandsDirectory)
+    .filter((entryName) => entryName.endsWith(".md"))
+    .sort();
+  assert.deepEqual(commandFiles, [
+    "assess.md",
+    "continue-pr.md",
+    "deliver.md",
+    "doctor.md",
+    "local.md",
+    "observe.md",
+    "status.md",
+  ]);
+
+  const commandsByStarter = {
+    "commands/assess.md": starters.assessment,
+    "commands/deliver.md": starters.newPullRequest,
+    "commands/continue-pr.md": starters.existingPullRequest,
+    "commands/local.md": starters.localOnly,
+  };
+  for (const [relativePath, starter] of Object.entries(commandsByStarter)) {
+    const command = read(relativePath);
+    assert.ok(command.includes(starter), `${relativePath} is missing starter: ${starter}`);
+  }
+
+  for (const commandFile of commandFiles) {
+    const relativePath = `commands/${commandFile}`;
+    const command = read(relativePath);
+    const frontmatter = /^---\n([\s\S]*?)\n---\n/u.exec(command);
+    assert.ok(frontmatter, `${relativePath} has no YAML frontmatter`);
+    assert.match(frontmatter[1], /^description: \S.*$/mu, relativePath);
+    assert.doesNotMatch(command, /\$\{CODEX_PLUGIN_ROOT\}/u, relativePath);
+  }
+
+  for (const relativePath of ["commands/observe.md", "commands/status.md", "commands/doctor.md"]) {
+    assert.match(read(relativePath), /\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/agentic-sdlc\.mjs/u, relativePath);
+  }
+});
+
+test("the release surface ships and requires both host packagings", () => {
+  const packageMetadata = JSON.parse(read("package.json"));
+  const policy = JSON.parse(read("config/release-artifact-policy.json"));
+
+  for (const selector of [".claude-plugin/", "commands/", ".codex-plugin/plugin.json", "skills/"]) {
+    assert.ok(packageMetadata.files.includes(selector), `package.json files is missing: ${selector}`);
+  }
+
+  for (const topLevel of [".claude-plugin", ".codex-plugin", "commands", "skills"]) {
+    assert.ok(
+      policy.package.allowed_top_level.includes(topLevel),
+      `release policy does not allow top-level entry: ${topLevel}`,
+    );
+  }
+
+  for (const required of [
+    ".claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    ".codex-plugin/plugin.json",
+  ]) {
+    assert.ok(
+      policy.package.required_files.includes(required),
+      `release policy does not require: ${required}`,
+    );
+  }
+});
+
+test("the Claude Code installation guide documents the marketplace flow and the Codex-only exclusions", () => {
+  const guide = read("docs/claude-code-install.md");
+  const docsIndex = read("docs/README.md");
+  const readme = read("README.md");
+
+  assert.match(guide, /\/plugin marketplace add aantenore\/agentic-sdlc-codex-plugin/u);
+  assert.match(guide, /\/plugin install agentic-sdlc@aantenore/u);
+  assert.match(guide, /\$\{CLAUDE_PLUGIN_ROOT\}/u);
+  assert.match(guide, /install-personal-marketplace-v2\.py/u);
+  assert.match(guide, /does not apply/iu);
+  assert.match(docsIndex, /\[Claude Code installation\]\(claude-code-install\.md\)/u);
+  assert.match(readme, /\[Claude Code Installation\]\(docs\/claude-code-install\.md\)/u);
+});

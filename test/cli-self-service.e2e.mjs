@@ -476,7 +476,8 @@ test("presentation presets compose deterministically and cannot authorize or wid
     const unsafe = path.join(cwd, `unsafe-${name}.json`);
     fs.writeFileSync(unsafe, `${JSON.stringify(options)}\n`, "utf8");
     const rejected = run(["status", "--cli-preset", `@${unsafe}`], { cwd });
-    assert.equal(rejected.status, 1, name);
+    // An unusable preset is a usage error: exit 2, not a refused request.
+    assert.equal(rejected.status, 2, name);
     assert.match(rejected.stderr, /Technical details \(optional\):/u);
     assert.match(rejected.stderr, new RegExp(`cannot set '${Object.keys(options)[0]}'`, "u"));
   }
@@ -560,16 +561,18 @@ test("trace append help example uses a runtime-valid mandatory and operational f
 
 test("machine mode returns one stable JSON error envelope", () => {
   const cwd = temporaryDirectory("json-errors");
+  // The envelope's error code and the exit code report the same category:
+  // an unresolvable command or preset exits 2, a refused request exits 1.
   const cases = [
-    { args: ["help", "not-a-command", "--json=true"], code: "UNKNOWN_COMMAND" },
-    { args: ["preset", "show", "not-a-preset", "--json", "true"], code: "CLI_PRESET_ERROR" },
-    { args: ["--version", "--locale", "fr", "--json=true"], code: "USER_ERROR" },
-    { args: ["--not-a-real-option", "--json=true"], code: "USER_ERROR" },
-    { args: ["--not-a-real-option", "--json", "true"], code: "USER_ERROR" },
+    { args: ["help", "not-a-command", "--json=true"], code: "UNKNOWN_COMMAND", status: 2 },
+    { args: ["preset", "show", "not-a-preset", "--json", "true"], code: "CLI_PRESET_ERROR", status: 2 },
+    { args: ["--version", "--locale", "fr", "--json=true"], code: "USER_ERROR", status: 1 },
+    { args: ["--not-a-real-option", "--json=true"], code: "USER_ERROR", status: 1 },
+    { args: ["--not-a-real-option", "--json", "true"], code: "USER_ERROR", status: 1 },
   ];
   for (const entry of cases) {
     const result = run(entry.args, { cwd });
-    assert.equal(result.status, 1);
+    assert.equal(result.status, entry.status, `${entry.code}: ${result.stderr}`);
     assert.equal(result.stdout, "");
     const payload = JSON.parse(result.stderr);
     assert.equal(payload.schema_version, "agentic-sdlc-cli-error:v1");

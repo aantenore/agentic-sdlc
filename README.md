@@ -1,4 +1,6 @@
-# Agentic SDLC Codex Plugin
+# Agentic SDLC Plugin
+
+One source tree, two host packagings: **OpenAI Codex** (`.codex-plugin/`) and **Claude Code** (`.claude-plugin/`). Both load the same skills, schemas, templates, and Node.js CLI.
 
 ## In plain English
 
@@ -18,7 +20,7 @@
 
 ## Technical summary
 
-Agentic SDLC 0.13.5 gives Codex a guided way to understand an existing software project, deliver verified work, and explain its recorded lineage visually. The normal experience is intentionally simple: Codex explains what it inferred, proposes the work in plain language, creates the requested real file, verifies it, and returns an auditable result.
+Agentic SDLC 0.14.0 gives a coding agent a guided way to understand an existing software project, deliver verified work, and explain its recorded lineage visually. The normal experience is intentionally simple: Codex explains what it inferred, proposes the work in plain language, creates the requested real file, verifies it, and returns an auditable result.
 
 Project state stays in the target repository under `.sdlc/`. The plugin installation contains reusable skills, templates, schemas, the cross-platform Node.js CLI, and the build-free Change Observatory UI.
 
@@ -34,6 +36,7 @@ You talk to Codex in normal language. Codex turns that request into structured i
 - [Token Efficiency](docs/token-efficiency.md) — compact derived JSON, the RTK command gateway, lifecycle observations, and budget-safe savings telemetry.
 - [Native Codex Session Metering](docs/codex-session-metering.md) — authentication-free local token/call observations, exact task binding, and limit semantics.
 - [Assessment Interactions](docs/agent-interactions.md) — the precise contract used for every user question.
+- [Claude Code Installation](docs/claude-code-install.md) — install from the bundled marketplace, use the slash commands, and see which Codex-only steps do not apply.
 - [Portable Installation](docs/portable-install.md) — installation, update, diagnosis, and recovery on supported platforms.
 - [Self-service CLI](docs/self-service-cli.md) — focused help, one-step status, safe presentation presets, shell completion, and machine output.
 - [Change Observatory](docs/change-observatory.md) — launch the local visual lineage app and understand its evidence and security model.
@@ -43,6 +46,18 @@ You talk to Codex in normal language. Codex turns that request into structured i
 
 Runtime prerequisite: **Node.js 18.20.3–18.x, 20.12.0–20.x, or 21.6.0+**.
 Earlier releases in those lines contain an upstream native shutdown livelock.
+
+### Claude Code
+
+```bash
+/plugin marketplace add aantenore/agentic-sdlc-codex-plugin
+/plugin install agentic-sdlc@aantenore
+/agentic-sdlc:doctor
+```
+
+Then use a starter command — `/agentic-sdlc:assess`, `/agentic-sdlc:deliver`, `/agentic-sdlc:continue-pr`, `/agentic-sdlc:local`, `/agentic-sdlc:observe` — or just describe the outcome in plain language. Full guide: [Claude Code Installation](docs/claude-code-install.md).
+
+### Codex
 
 Install from the `aantenore` source repository. Keep this checkout separate from the generated personal-plugin directory:
 
@@ -665,6 +680,8 @@ npm pack --dry-run --json
 
 Doctor checks the Node runtime, version consistency, first assessment prompt, core and assessment skills, assessment agent card, preset, and project records when `.sdlc/` exists. A failed check returns a non-zero exit code.
 
+Exit codes are categorized so a pipeline can tell a rejected request (`1`) from a bad invocation (`2`), a governance denial (`3`), a broken installation (`4`), and an internal failure (`70`). See [Self-service CLI](docs/self-service-cli.md#read-the-exit-code-in-a-pipeline).
+
 For maintainer validation when the Codex system validators are available:
 
 ```bash
@@ -737,7 +754,10 @@ budget credit. See [Token Efficiency](docs/token-efficiency.md).
 ## Repository Layout
 
 ```text
-.codex-plugin/plugin.json                    Plugin metadata and starter prompts
+.claude-plugin/plugin.json                   Claude Code plugin manifest
+.claude-plugin/marketplace.json              Claude Code marketplace entry for this repository
+.codex-plugin/plugin.json                    Codex plugin metadata and starter prompts
+commands/                                    Claude Code slash commands (one per starter intent)
 assets/                                      Plugin artwork
 bin/agentic-sdlc.mjs                         Cross-platform Node.js CLI
 docs/agent-interactions.md                   Two-checkpoint assessment interaction
@@ -755,4 +775,4 @@ templates/                                   Reusable artifact templates
 ui/change-observatory/                        Bundled build-free lineage application
 ```
 
-More detail: [Assessment Interactions](docs/agent-interactions.md), [Change Observatory](docs/change-observatory.md), and [Portable Codex Install](docs/portable-install.md).
+More detail: [Assessment Interactions](docs/agent-interactions.md), [Change Observatory](docs/change-observatory.md), [Claude Code Installation](docs/claude-code-install.md), and [Portable Codex Install](docs/portable-install.md).

@@ -1,6 +1,6 @@
 ---
 name: change-observatory
-description: Open the Change Observatory bundled with this Agentic SDLC plugin to inspect a project's recorded requests, decisions, contracts, changes, tests, gates, and lineage. Use when the user asks to open, launch, show, inspect, or explain the visual SDLC history or project change observatory.
+description: Open the Change Observatory bundled with this Agentic SDLC plugin in Codex or Claude Code to inspect a project's recorded requests, decisions, contracts, changes, tests, gates, and lineage. Use when the user asks to open, launch, show, inspect, or explain the visual SDLC history or project change observatory.
 ---
 
 # Change Observatory

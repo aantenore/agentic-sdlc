@@ -145,6 +145,42 @@ Every option has a specific purpose:
 
 For the normal assessment workflow, prefer `assessment proposal approve`: it derives all required action-subject pairs from the displayed proposal instead of asking you to assemble them manually.
 
+### Check and revoke a delegated authorization
+
+```bash
+node bin/agentic-sdlc.mjs authorization status --root /path/to/project
+node bin/agentic-sdlc.mjs authorization status --root /path/to/project --id AUTH-ST-001
+```
+
+`authorization status` reads local records only. With `--id` it reports one authorization's `status` (`active`, `revoked`, or expired past `--expires-at`), its scope, and its allowed actions; without `--id` it lists every authorization recorded for the project.
+
+Revoke a delegated authorization when its scope is no longer correct, the work it was granted for is finished or cancelled, or the granting decision should not be exercised again — for example, the wrong action-subject pair was approved, or the approving actor's authority has changed. Revoking stops a grant from being used again; it is not a way to undo what already happened under it.
+
+```bash
+node bin/agentic-sdlc.mjs authorization revoke \
+  --root /path/to/project \
+  --id AUTH-ST-001 \
+  --actor-type human
+```
+
+The command requires `--id` and `--actor-type <human|ci>`, naming the human or CI actor who records the revocation, and accepts an optional `--reason <text>` explaining why. Omitting `--actor-type` fails closed with "Revoking delegated automation authorization requires --actor-type human or ci."; an agent cannot revoke its own delegation.
+
+Revoking sets the authorization's `status` to `revoked` and records `revoked_at` and, when supplied, `revocation_reason`. The very next attempt to use the authorization for any action-subject pair is rejected because the record is no longer `active`. For an older `content-authorization:v1`/`v2` grant, revocation instead writes a separate, immutable revocation record under `.sdlc/receipts/authorization-lifecycle/` and leaves the original grant file untouched; either form makes every new use fail immediately.
+
+What revocation does **not** undo:
+
+- Usage receipts already accepted under the authorization stay on disk exactly as recorded; revoking neither deletes nor invalidates the historical record of what was already authorized and completed.
+- Work already produced by a completed authorized action — a commit, a push, a merge, a local release — is not rolled back. Reverse that separately, through its own approved action such as a rollback or a new change, not through `authorization revoke`.
+- Uses already counted against `--max-uses` remain counted; revoking does not restore capacity to a fresh grant with the same ID.
+
+Verify the result:
+
+```bash
+node bin/agentic-sdlc.mjs authorization status --root /path/to/project --id AUTH-ST-001
+```
+
+The record now shows `status: "revoked"`. Any later attempt to consume it fails closed; grant a new authorization for any further use.
+
 ## Budget model
 
 An execution budget belongs to one proposal execution tree, including subagents. Each metric defines:

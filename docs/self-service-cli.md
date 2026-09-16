@@ -108,6 +108,133 @@ Only the optional technical section names stored values such as
 Those values remain available for audit and automation without making them a
 prerequisite for understanding the decision.
 
+## Check phase readiness
+
+`assessment status`, `breakdown status`, `breakdown policy show`, and
+`capability profile status` read local records only. None of them changes a
+file, publishes, merges, deploys, or approves anything.
+
+```bash
+node "$PLUGIN_CLI" assessment status --id ASSESS-001
+node "$PLUGIN_CLI" breakdown status --requirement REQ-001
+node "$PLUGIN_CLI" breakdown policy show
+node "$PLUGIN_CLI" capability profile status --profile CAP-PROFILE-ST-001
+```
+
+Omit the selecting option to list every matching record instead of one:
+
+```bash
+node "$PLUGIN_CLI" assessment status
+node "$PLUGIN_CLI" breakdown status
+node "$PLUGIN_CLI" capability profile status
+```
+
+| Command | Answers | Selects one record with |
+|---|---|---|
+| `assessment status` | Which checkpoint the assessment proposal has reached, its budget status, and the next recommended action | `--id <id>` |
+| `breakdown status` | Whether a requirement's work has been proposed and approved as a breakdown | `--requirement <requirement-id>` (repeatable) |
+| `breakdown policy show` | The work-splitting policy currently in effect: delivery unit, strict-gate unit, levels, and claimable units | — |
+| `capability profile status` | Whether a tool-selection context has been proposed for a profile, and how many recommendations exist | `--profile <profile-id>` |
+
+For a delegated authorization, use `authorization status` and
+`authorization revoke` instead; see
+[Check and revoke a delegated authorization](limits-and-metering.md#check-and-revoke-a-delegated-authorization).
+
+`breakdown policy set` (effect: local) recomputes the effective
+work-splitting policy — hard-coded defaults merged with any project
+configuration — and commits that snapshot to
+`.sdlc/work-breakdown/project-policy.json`:
+
+```bash
+node "$PLUGIN_CLI" breakdown policy set --root /path/to/project
+```
+
+Run without options it re-records the policy already in effect. To change the
+policy, name the new values explicitly:
+
+```bash
+node "$PLUGIN_CLI" breakdown policy set --root /path/to/project \
+  --levels epic --levels story --levels task \
+  --default-flow epic,story,task \
+  --delivery-unit story \
+  --strict-gate-unit story
+```
+
+`--levels` is repeatable and lists every work-item level the project uses.
+`--default-flow` sets the order they are normally created in. `--delivery-unit`
+chooses the level that counts as one deliverable, and `--strict-gate-unit`
+chooses the level the strict validation gate applies to. `--task-gate` selects
+the task-level gate mode.
+
+## Record the evidence of a test run
+
+`test record` (effect: local) turns the result of one executed test run into a
+durable story record under `.sdlc/tests/`. It records a run that already
+happened; it never executes the command.
+
+```bash
+node "$PLUGIN_CLI" test record --root /path/to/project \
+  --story ST-BOOKING-001 \
+  --command '["npm","test"]' \
+  --exit-code 0 \
+  --passed 42 --skipped 1 \
+  --evidence .sdlc/tests/ST-BOOKING-001-run.log \
+  --framework node:test \
+  --summary "Full suite on the reviewed implementation branch"
+```
+
+| Input | Purpose |
+|---|---|
+| `--story` | The story the run belongs to; it must already exist. |
+| `--command` | The exact command that ran, as a JSON argument vector. |
+| `--exit-code` | The status the command returned, `0`–`255`. |
+| `--evidence` | The runner output, saved as a file inside the project. Repeatable, and at least one file is mandatory. |
+| `--passed`, `--failed`, `--skipped` | The result counts; each defaults to `0`. |
+| `--framework`, `--cwd`, `--started-at` | Optional context: the runner, the directory it ran in, and when it began. |
+| `--requirement`, `--acceptance` | Link the run to the requirements and acceptance criteria it exercises. |
+
+The outcome is not an input. It is derived from the exit status and the counts:
+a zero exit status with no failures and at least one passing case is `passed`,
+a zero exit status with nothing executed is `skipped`, and anything else is
+`failed`. Each evidence file is hashed when the record is written, so a later
+edit to that file is detectable.
+
+Writing the record also appends a `test` trace event carrying the same outcome,
+so the run appears in the story history without a separate `trace append`.
+
+## Read the exit code in a pipeline
+
+A script that gates on this CLI usually does not parse its output. The exit
+code alone says what happened, and it distinguishes the cases that need
+different responses: a rejected input is the author's problem, a governance
+denial is a decision somebody has to make, and an unreadable installation is an
+operator problem.
+
+| Exit code | Meaning | Typical response |
+|---|---|---|
+| `0` | The command completed. | Continue. |
+| `1` | User error: the request was understood and refused on its merits. | Correct the request and retry. |
+| `2` | Usage error: the command or its options could not be resolved. | Fix the invocation; `help` lists the real options. |
+| `3` | Governance denial: an agreed limit or policy refused the action. | A person decides whether to amend the agreement. Do not retry unchanged. |
+| `4` | Environment error: the host cannot run this software as installed. | Repair the installation; `doctor` names the fix. |
+| `70` | Internal error: the software failed in a way the caller cannot correct. | Report it with the correlation ID from the output. |
+
+A command killed by a signal keeps the conventional `128 + signal` form, so a
+subprocess interrupted with `SIGINT` exits `130`.
+
+When a project's privacy configuration withholds error details, the exit code
+withholds them too: those failures report `1` rather than disclosing through
+the exit code the category the message refuses to name.
+
+```bash
+node "$PLUGIN_CLI" gate check --root /path/to/project --scope all --json
+case $? in
+  0) echo "ready" ;;
+  3) echo "blocked by an agreed limit; escalate to a person" ;;
+  *) echo "fix the invocation or the project, then retry" ;;
+esac
+```
+
 ## Install or update locally
 
 The local installer uses a reviewable transaction:
