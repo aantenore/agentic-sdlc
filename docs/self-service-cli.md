@@ -108,6 +108,64 @@ Only the optional technical section names stored values such as
 Those values remain available for audit and automation without making them a
 prerequisite for understanding the decision.
 
+## Check phase readiness
+
+`assessment status`, `breakdown status`, `breakdown policy show`, and
+`capability profile status` read local records only. None of them changes a
+file, publishes, merges, deploys, or approves anything.
+
+```bash
+node "$PLUGIN_CLI" assessment status --id ASSESS-001
+node "$PLUGIN_CLI" breakdown status --requirement REQ-001
+node "$PLUGIN_CLI" breakdown policy show
+node "$PLUGIN_CLI" capability profile status --profile CAP-PROFILE-ST-001
+```
+
+Omit the selecting option to list every matching record instead of one:
+
+```bash
+node "$PLUGIN_CLI" assessment status
+node "$PLUGIN_CLI" breakdown status
+node "$PLUGIN_CLI" capability profile status
+```
+
+| Command | Answers | Selects one record with |
+|---|---|---|
+| `assessment status` | Which checkpoint the assessment proposal has reached, its budget status, and the next recommended action | `--id <id>` |
+| `breakdown status` | Whether a requirement's work has been proposed and approved as a breakdown | `--requirement <requirement-id>` (repeatable) |
+| `breakdown policy show` | The work-splitting policy currently in effect: delivery unit, strict-gate unit, levels, and claimable units | — |
+| `capability profile status` | Whether a tool-selection context has been proposed for a profile, and how many recommendations exist | `--profile <profile-id>` |
+
+For a delegated authorization, use `authorization status` and
+`authorization revoke` instead; see
+[Check and revoke a delegated authorization](limits-and-metering.md#check-and-revoke-a-delegated-authorization).
+
+`breakdown policy set` (effect: local) recomputes the effective
+work-splitting policy — hard-coded defaults merged with any project
+configuration — and commits that snapshot to
+`.sdlc/work-breakdown/project-policy.json`:
+
+```bash
+node "$PLUGIN_CLI" breakdown policy set --root /path/to/project
+```
+
+Run without options it re-records the policy already in effect. To change the
+policy, name the new values explicitly:
+
+```bash
+node "$PLUGIN_CLI" breakdown policy set --root /path/to/project \
+  --levels epic --levels story --levels task \
+  --default-flow epic,story,task \
+  --delivery-unit story \
+  --strict-gate-unit story
+```
+
+`--levels` is repeatable and lists every work-item level the project uses.
+`--default-flow` sets the order they are normally created in. `--delivery-unit`
+chooses the level that counts as one deliverable, and `--strict-gate-unit`
+chooses the level the strict validation gate applies to. `--task-gate` selects
+the task-level gate mode.
+
 ## Install or update locally
 
 The local installer uses a reviewable transaction:

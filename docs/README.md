@@ -26,6 +26,7 @@ This page is the documentation map. Start with the goal that matches what you wa
 | Understand the normal user journey | [How it works](how-it-works.md) | What happens at each checkpoint and which records are created |
 | Run or explain an assessment | [Assessment interactions](agent-interactions.md) | What Codex asks, what the user must answer, and concrete examples |
 | Choose autonomy for a requirement, pull request, or local release | [Limits and metering](limits-and-metering.md) | Requirement ceiling, per-delivery selection, local rollback, exception boundaries, and resource limits |
+| Revoke a delegated authorization | [Limits and metering — Check and revoke a delegated authorization](limits-and-metering.md#check-and-revoke-a-delegated-authorization) | When to revoke, what already-issued usage receipts keep, what revocation does not undo, and how to verify with `authorization status` |
 | Measure the exact local Codex task | [Native Codex session meter](codex-session-metering.md) | Authentication-free local counters, task binding, deltas, and limit semantics |
 | Keep a legacy CodeBurn project working | [CodeBurn adapter reference](codeburn-metering.md) | Disabled-by-default compatibility, snapshot/delta contracts, and library APIs |
 | Reduce command and response tokens | [Token efficiency](token-efficiency.md) | Compact JSON, RTK, Caveman, autoconfiguration, and measured net usage |
@@ -34,6 +35,7 @@ This page is the documentation map. Start with the goal that matches what you wa
 | Understand the architecture and trust model | [Architecture](architecture.md) | Components, canonical records, validation, and release evidence |
 | Open visual project lineage | [Change Observatory](change-observatory.md) | Launch paths, explainability, raw evidence, and local security boundaries |
 | Find the next command or use machine output | [Self-service CLI](self-service-cli.md) | Focused help, compact status, safe presets, completion, and local plan/apply updates |
+| Check readiness of an assessment, breakdown, or capability profile | [Self-service CLI — Check phase readiness](self-service-cli.md#check-phase-readiness) | `assessment status`, `breakdown status`, `breakdown policy show`/`set`, and `capability profile status` |
 | Understand `.sdlc/` storage | [Knowledge-base structure](kb-structure.md) | Which files are canonical, derived, append-only, or releasable |
 | Install, update, or repair the plugin on Codex | [Portable install](portable-install.md) | Cross-platform installation, local marketplace setup, and troubleshooting |
 | Install, update, or repair the plugin on Claude Code | [Claude Code installation](claude-code-install.md) | Marketplace install, slash commands, path resolution, and Codex-only steps that do not apply |
