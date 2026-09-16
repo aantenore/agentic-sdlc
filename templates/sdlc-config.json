@@ -180,7 +180,7 @@
       "example_answers": {
         "it": [
           "Confermo l'opzione proposta.",
-          "Non è ancora deciso: usa l'ipotesi indicata e segnala il limite."
+          "Non \u00e8 ancora deciso: usa l'ipotesi indicata e segnala il limite."
         ],
         "en": [
           "I confirm the proposed option.",
@@ -206,7 +206,7 @@
         "why_needed": "The objective determines which evidence and recommendations are decision-relevant and prevents a generic assessment.",
         "example_answers": {
           "it": [
-            "L'obiettivo è decidere se modernizzare l'architettura nei prossimi sei mesi."
+            "L'obiettivo \u00e8 decidere se modernizzare l'architettura nei prossimi sei mesi."
           ],
           "en": [
             "The objective is to decide whether to modernize the architecture in the next six months."
@@ -230,7 +230,7 @@
         "why_needed": "Audience and stakeholder needs determine terminology, depth, prioritization, and which trade-offs must be made explicit.",
         "example_answers": {
           "it": [
-            "Il documento è per CTO, team platform e responsabile sicurezza."
+            "Il documento \u00e8 per CTO, team platform e responsabile sicurezza."
           ],
           "en": [
             "The document is for the CTO, platform team, and security owner."
@@ -251,13 +251,13 @@
           "vincolo",
           "sicurezza",
           "prestazioni",
-          "disponibilità",
-          "conformità"
+          "disponibilit\u00e0",
+          "conformit\u00e0"
         ],
         "why_needed": "Constraints and non-functional requirements are architectural boundaries; omitting them can reverse a recommendation.",
         "example_answers": {
           "it": [
-            "Dati in UE, disponibilità 99,9%, nessun downtime durante la migrazione."
+            "Dati in UE, disponibilit\u00e0 99,9%, nessun downtime durante la migrazione."
           ],
           "en": [
             "EU data residency, 99.9% availability, and no migration downtime."
@@ -283,7 +283,7 @@
         "why_needed": "The requested format and destination select the real generator, verification dimensions, artifact path, and delivery mode.",
         "example_answers": {
           "it": [
-            "Consegna un DOCX in docs/assessment.docx più un riepilogo breve in chat."
+            "Consegna un DOCX in docs/assessment.docx pi\u00f9 un riepilogo breve in chat."
           ],
           "en": [
             "Deliver a DOCX at docs/assessment.docx plus a short chat summary."
@@ -1333,6 +1333,7 @@
     }
   },
   "gate_policy": {
+    "principle": "Project policy and strict-gate invariants are recorded together but are not the same thing. implementation_requires_claim, implementation_requires_acceptance_criteria, validation_requires_test_trace, release_requires_release_trace, strict_mode.requires_output_contract_coverage, strict_mode.requires_write_scope_integrity, contract_required_fields, and story_required_fields are read from this file and a project may change them. Every other strict_mode entry states what --strict always enforces: it is recorded so the guarantee is legible, and setting it to false does not turn the check off. A gate that could be disabled from inside the project it governs would not be a gate.",
     "strict_mode": {
       "requires_contextualized_contracts": true,
       "requires_zero_open_contract_questions": true,
