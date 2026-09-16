@@ -51358,25 +51358,53 @@ function assertNoSymlinkPathSegments(filePath, boundaryRoot = currentMutationGov
   }
 }
 
+/**
+ * Refuse a path that exists but is not a real directory. A symlink here would
+ * redirect every later write out of the project, so this check runs on every
+ * path segment and again whenever a directory turns out to already exist.
+ */
+function assertStableDirectory(dirPath) {
+  const entry = fs.lstatSync(dirPath);
+  if (entry.isSymbolicLink() || !entry.isDirectory()) {
+    fail(`Refusing unstable directory path: ${dirPath}`);
+  }
+}
+
+/**
+ * Create one directory, treating a concurrent creation as success.
+ *
+ * `mkdir` is deliberately not recursive: creating each segment separately is
+ * what lets the symlink check above run on every one of them. That leaves a
+ * window where another process creates the same directory between the
+ * existence check and the call, so `EEXIST` is an expected outcome rather than
+ * a failure. It is only accepted after re-applying the safety check, because
+ * the entry that won the race still has to be a real directory.
+ */
+function createDirectoryAllowingConcurrentCreation(dirPath) {
+  try {
+    fs.mkdirSync(dirPath);
+    return true;
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+    assertStableDirectory(dirPath);
+    return false;
+  }
+}
+
 function ensureDir(dirPath, options = {}) {
   if (fs.existsSync(dirPath)) {
-    const entry = fs.lstatSync(dirPath);
-    if (entry.isSymbolicLink() || !entry.isDirectory()) {
-      fail(`Refusing unstable directory path: ${dirPath}`);
-    }
+    assertStableDirectory(dirPath);
     return false;
   }
   const parentPath = path.dirname(dirPath);
   ensureDir(parentPath, options);
   if (options.preauthorizedMutation) {
     assertMutationExecutionAuthorized({ operation: "directory.create", path: dirPath });
-    fs.mkdirSync(dirPath);
-    return true;
+    return createDirectoryAllowingConcurrentCreation(dirPath);
   }
   return withGovernedMutation({ operation: "directory.create", path: dirPath }, () => {
     assertMutationExecutionAuthorized({ operation: "directory.create", path: dirPath });
-    fs.mkdirSync(dirPath);
-    return true;
+    return createDirectoryAllowingConcurrentCreation(dirPath);
   });
 }
 

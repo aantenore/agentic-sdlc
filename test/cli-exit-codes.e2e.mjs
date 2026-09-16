@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -84,5 +84,61 @@ test("the published contract is documented where operators look for it", () => {
     "| `70` |",
   ]) {
     assert.ok(selfService.includes(row), `docs/self-service-cli.md is missing exit code row ${row}`);
+  }
+});
+
+function runAsync(args) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [cli, ...args], { encoding: "utf8" });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("close", (status) => resolve({ status, stdout, stderr }));
+  });
+}
+
+test("losing a race for a shared directory is a refusal, not an internal error", async () => {
+  // Directories under `.sdlc` are created one segment at a time so the
+  // symlink check can run on each. That leaves a window where a concurrent
+  // command creates the same segment first. Losing that race must produce the
+  // same refusal as losing it sequentially, never a crash.
+  const directory = temporaryProject("race");
+  try {
+    const args = [
+      "workflow", "instance", "start",
+      "--root", directory,
+      "--id", "raced-instance",
+      "--definition", "change-request",
+      "--definition-version", "1",
+      "--json",
+    ];
+    const results = await Promise.all([runAsync(args), runAsync(args)]);
+
+    const statuses = results.map((result) => result.status).sort();
+    assert.deepEqual(statuses, [0, 1], JSON.stringify(results.map((r) => r.stderr || r.stdout)));
+
+    const loser = results.find((result) => result.status === 1);
+    const payload = JSON.parse(loser.stdout || loser.stderr);
+    assert.equal(payload.error.code, "USER_ERROR");
+    assert.match(payload.error.message, /already exists/u);
+  } finally {
+    fs.rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("concurrent commands on a fresh project never report an internal error", async () => {
+  const directory = temporaryProject("parallel");
+  try {
+    const results = await Promise.all([
+      runAsync(["status", "--root", directory, "--json"]),
+      runAsync(["kb", "search", "--root", directory, "--query", "anything", "--json"]),
+      runAsync(["status", "--root", directory, "--json"]),
+    ]);
+    for (const result of results) {
+      assert.notEqual(result.status, 70, result.stderr || result.stdout);
+    }
+  } finally {
+    fs.rmSync(directory, { force: true, recursive: true });
   }
 });
