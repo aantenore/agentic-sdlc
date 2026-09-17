@@ -684,6 +684,20 @@ The dedicated assessment journey remains the exception described above: it packa
    node <plugin-root>/bin/agentic-sdlc.mjs sync record --root <target-project> --story ST-001 --event push --summary "Pushed feature/ST-001"
    ```
 
+   For validation, record test evidence with `test record` instead: it binds the story to the exact executed test command, its exit code, its result counts, and at least one immutable evidence file in a durable `test-run:v1` record. Treat a plain `trace append --type test` entry as the legacy weaker form; the validation gate warns when a story in validation has only that trace and no `test record`:
+
+   ```bash
+   node <plugin-root>/bin/agentic-sdlc.mjs test record \
+     --root <target-project> \
+     --story ST-001 \
+     --command '["npm","test"]' \
+     --exit-code 0 \
+     --passed 42 \
+     --evidence .sdlc/tests/ST-001-run.log \
+     --framework node:test \
+     --summary "Full suite on the reviewed implementation branch"
+   ```
+
    Keep `actor` as the executor. When an agent acts because a human or another system requested it, record `requested_by`; when execution was explicitly authorized, record `authorized_by`. This lets reports answer both "what did Codex execute?" and "what was done on Antonio's request?" without rewriting attribution. Narrative flags are optional; when used, store only shareable summaries derived from recorded evidence. Never put private chain-of-thought, hidden scratch reasoning, or secrets in a trace narrative.
 
 16. When a phase lane is complete, record the step with hashed evidence. `story complete-step` requires the story contract to be approved and fresh unless `--allow-unapproved-contract-output` is being used for explicit migration/recovery. If the step produced a durable artifact, pass `--type` so the CLI verifies the output is linked in the registry:

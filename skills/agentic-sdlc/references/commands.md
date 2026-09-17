@@ -814,6 +814,24 @@ node bin/agentic-sdlc.mjs phase release --root <project> --id LOCK-analysis-2026
 
 Use phase locks for shared phase artifacts, not for normal story-scoped work. A second active lock for the same phase/scope is rejected unless `--force` is used after coordination.
 
+## Record Test Evidence
+
+Use `test record` as the durable way to bind a story to the exact executed test command, its exit code, its result counts, and at least one immutable evidence file:
+
+```bash
+node bin/agentic-sdlc.mjs test record \
+  --root <project> \
+  --story ST-001 \
+  --command '["npm","test"]' \
+  --exit-code 0 \
+  --passed 42 \
+  --evidence .sdlc/tests/ST-001-run.log \
+  --framework node:test \
+  --summary "Full suite on the reviewed implementation branch"
+```
+
+The command is recorded, never run. A story in validation with only a `trace append --type test` entry and no `test-run:v1` record is the legacy weaker form; prefer `test record` for validation evidence and use `trace append --type test` only where a durable test record does not apply.
+
 ## Append Trace
 
 ```bash
