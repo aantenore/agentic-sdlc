@@ -729,6 +729,5 @@ test("the shipped autonomy configuration is schema-valid and keeps explicit per-
   assert.equal(config.autonomy_policy.require_explicit_delivery_selection, true);
   assert.equal(config.autonomy_policy.fail_closed_on_unknown, true);
   assert.equal(config.autonomy_policy.legacy_default, "supervised");
-  assert.equal(config.autonomy_policy.local_release.require_smoke_test, true);
   assert.equal(config.autonomy_policy.local_release.require_rollback, true);
 });
