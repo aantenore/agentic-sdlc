@@ -58,6 +58,18 @@ const DECLARED_INVARIANTS = Object.freeze([
 ]);
 
 /** Prose entries, in the same class as the other blocks' `principle`. */
+
+/**
+ * Declared and unread, and kept on purpose. Each of these also exists in the
+ * frozen 0.11.0 defaults that the effective-config merge fills missing keys
+ * from, so dropping one from the template would not remove it: the merge
+ * would put it straight back, and the two hash paths that agree today would
+ * stop agreeing. They stay until that legacy baseline is retired.
+ */
+const COMPATIBILITY = Object.freeze([
+  "local_release.require_smoke_test",
+]);
+
 const NARRATIVE = Object.freeze(["principle"]);
 
 /**
@@ -98,7 +110,7 @@ function sourceCorpus() {
 
 test("every declared autonomy policy entry is either read by the software or a documented invariant", () => {
   const declared = templateAutonomyPolicyKeys();
-  const accounted = [...CONFIGURABLE, ...DECLARED_INVARIANTS].sort();
+  const accounted = [...CONFIGURABLE, ...DECLARED_INVARIANTS, ...COMPATIBILITY].sort();
 
   assert.deepEqual(
     declared,
