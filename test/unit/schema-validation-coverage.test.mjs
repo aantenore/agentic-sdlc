@@ -8,40 +8,23 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 const schemaDirectory = path.join(repoRoot, "schemas");
 
 /**
- * Schemas that are published as contracts but that no runtime code path
- * validates a record against. Every entry is a record the software writes or
- * reads without proving it conforms to its own published shape.
+ * Schemas that describe input or derived shapes with no persisting writer:
+ * nothing in this package writes a record of these kinds to disk, so there is
+ * no write to validate. They stay published because they document contracts
+ * consumed from outside, computed in memory, or referenced only by another
+ * schema's `$ref`.
  *
  * This list is a ratchet, not an allowance: adding a schema without a
  * validation call site fails this test, and wiring one up requires deleting
  * its line here. It may shrink freely; it must never grow silently.
  */
 const UNVALIDATED_SCHEMAS = Object.freeze([
-  "cache.schema.json",
-  "capability-profile.schema.json",
-  "capability-recommendation.schema.json",
-  "gate-report.schema.json",
-  "governance-mutation-audit-event.schema.json",
-  "governance-policy-decision.schema.json",
   "governance-policy-revocation.schema.json",
-  "governance-policy-use-receipt.schema.json",
-  "metering-delta.schema.json",
-  "metering-snapshot.schema.json",
   "orchestration.schema.json",
-  "phase-lock.schema.json",
   "portfolio-manifest.schema.json",
   "release-artifact-policy.schema.json",
   "report-query.schema.json",
-  "trace-integrity-checkpoint.schema.json",
-  "work-breakdown.schema.json",
-  "work-item.schema.json",
-  "workflow-canonical-evidence.schema.json",
-  "workflow-checkpoint.schema.json",
-  "workflow-definition.schema.json",
   "workflow-effective-definition.schema.json",
-  "workflow-instance.schema.json",
-  "workflow-overlay.schema.json",
-  "workflow-transition-event.schema.json",
 ]);
 
 const SOURCE_DIRECTORIES = Object.freeze(["bin", "lib", "scripts"]);

@@ -3707,6 +3707,7 @@ function proposeWorkflowDefinition(context, options) {
   const definition = callWorkflowDomain("Unable to prepare workflow definition", () => buildWorkflowDefinition(input));
   validateWorkflowDefinitionRecord(definition, `workflow definition ${id}`);
   const reviewLines = workflowHumanReviewLines(definition, options);
+  assertRecordSchema(definition, "workflow-definition.schema.json", `Workflow definition ${id} version ${version}`);
   const filePath = workflowDefinitionPath(context, id, version);
   writeJsonFile(filePath, definition, { force: false });
   const attribution = buildAttribution(context, options, "workflow.definition.propose");
@@ -3826,6 +3827,7 @@ function proposeWorkflowOverlay(context, options) {
   const effective = callWorkflowDomain("Unable to calculate the adjusted way of working", () =>
     applyWorkflowOverlay(definition, overlay, { allow_proposed: true }));
   const reviewLines = workflowHumanReviewLines(definition, options, { overlay, effective });
+  assertRecordSchema(overlay, "workflow-overlay.schema.json", `Workflow overlay ${id} version ${version}`);
   const filePath = workflowOverlayPath(context, id, version);
   writeJsonFile(filePath, overlay, { force: false });
   const attribution = buildAttribution(context, options, "workflow.overlay.propose");
@@ -4686,6 +4688,8 @@ function writeWorkflowBufferAtStart(descriptor, bytes, filePath) {
 
 function completeWorkflowStartTransactionLocked(context, journal) {
   const instanceId = journal.request.instance_id;
+  assertRecordSchema(journal.instance, "workflow-instance.schema.json", `Workflow instance ${instanceId}`);
+  assertRecordSchema(journal.checkpoint, "workflow-checkpoint.schema.json", `Workflow checkpoint for instance ${instanceId}`);
   const finalRoot = workflowInstanceRoot(context, instanceId);
   const stagingRoot = workflowInstanceStagingRoot(context, instanceId);
   if (fs.existsSync(finalRoot)) {
@@ -5030,7 +5034,10 @@ function recoverPendingWorkflowTransition(context, instanceId, instance, effecti
     }, { require_checkpoint: true });
     if (!targetReplay.valid) return { ...pending, valid: false, errors: targetReplay.errors };
     ensureWorkflowEventRecordLocked(eventsPath, journal.event, journal.event_anchor);
-    if (!currentIsTarget) writeWorkflowJsonDurably(checkpointPath, journal.checkpoint, { force: true });
+    if (!currentIsTarget) {
+      assertRecordSchema(journal.checkpoint, "workflow-checkpoint.schema.json", `Workflow checkpoint for instance ${instanceId}`);
+      writeWorkflowJsonDurably(checkpointPath, journal.checkpoint, { force: true });
+    }
     else syncWorkflowFile(checkpointPath);
     ensureWorkflowTraceRecordLocked(context, tracePath, journal.trace_event, journal.trace_anchor);
     removeWorkflowFileDurably(pending.pendingPath);
@@ -5109,6 +5116,7 @@ function persistWorkflowTransitionTransaction(
     writeWorkflowJsonDurably(pendingPath, journal, { atomicCreate: true });
     ensureWorkflowEventRecordLocked(eventsPath, transition.event, journal.event_anchor);
     maybeInterruptWorkflowTransitionForTest("after-event-before-checkpoint");
+    assertRecordSchema(nextCheckpoint, "workflow-checkpoint.schema.json", `Workflow checkpoint for instance ${instanceId}`);
     writeWorkflowJsonDurably(checkpointPath, nextCheckpoint, { force: true });
     maybeInterruptWorkflowTransitionForTest("after-checkpoint-before-trace");
     ensureWorkflowTraceRecordLocked(context, tracePath, traceEvent, journal.trace_anchor);
@@ -5815,6 +5823,7 @@ function workflowTraceIntegritySnapshotLocked(context, tracePath) {
 }
 
 function ensureWorkflowEventRecordLocked(filePath, value, anchor) {
+  assertRecordSchema(value, "workflow-transition-event.schema.json", `Workflow transition event ${value?.event_hash || "unknown"}`);
   let state = workflowEventRecordStateLocked(filePath, value, anchor);
   if (!state.valid) fail(state.errors.join("; "));
   if (state.exists && !state.exact_suffix) {
@@ -26831,7 +26840,8 @@ function validateBudgetMeterBaseline(baseline, proposal, budget, adapter, mappin
   return baseline;
 }
 
-function writeImmutableMeterRecord(context, filePath, record, hashField, label) {
+function writeImmutableMeterRecord(context, filePath, record, hashField, label, schemaName = null) {
+  if (schemaName) assertRecordSchema(record, schemaName, label);
   ensureDir(path.dirname(filePath));
   if (fs.existsSync(filePath)) {
     const existing = readProjectJson(context, filePath);
@@ -27006,8 +27016,22 @@ async function recordBudgetMeter(context, options) {
     const meterRoot = budgetMeterRoot(context, proposalId, adapter.id);
     const currentPath = path.join(meterRoot, "snapshots", `${current.snapshot_hash}.json`);
     const deltaPath = path.join(meterRoot, "deltas", `${delta.delta_hash}.json`);
-    writeImmutableMeterRecord(context, currentPath, current, "snapshot_hash", `${adapter.label} snapshot ${current.id}`);
-    writeImmutableMeterRecord(context, deltaPath, delta, "delta_hash", `${adapter.label} delta ${delta.id}`);
+    writeImmutableMeterRecord(
+      context,
+      currentPath,
+      current,
+      "snapshot_hash",
+      `${adapter.label} snapshot ${current.id}`,
+      "metering-snapshot.schema.json",
+    );
+    writeImmutableMeterRecord(
+      context,
+      deltaPath,
+      delta,
+      "delta_hash",
+      `${adapter.label} delta ${delta.id}`,
+      "metering-delta.schema.json",
+    );
     const usage = adapter.mapUsage(delta, lockedBudget, lockedBaseline.metric_mapping);
     const metering = Object.fromEntries(Object.keys(usage).map((metric) => [metric, "estimated"]));
     const receipt = buildExecutionUsageReceipt({
@@ -35226,6 +35250,7 @@ function createWorkItem(context, options) {
       run: attribution.run,
     },
   };
+  assertRecordSchema(item, "work-item.schema.json", `Work item ${id}`);
   const itemPath = workItemPath(context, type, id);
   writeJsonFile(itemPath, item, { force: Boolean(options.force) });
   output(
@@ -35314,6 +35339,7 @@ function proposeBreakdown(context, options) {
       run: attribution.run,
     },
   };
+  assertRecordSchema(breakdown, "work-breakdown.schema.json", `Work breakdown ${id}`);
   const breakdownPath = breakdownPathById(context, id);
   const releaseLock = acquireFileLock(`${breakdownPath}.lock`);
   try {
@@ -35539,6 +35565,7 @@ function proposeCapabilityProfile(context, options) {
       run: attribution.run,
     },
   };
+  assertRecordSchema(profile, "capability-profile.schema.json", `Capability profile ${id}`);
   const profilePath = capabilityProfilePath(context, id);
   const releaseLock = acquireFileLock(`${profilePath}.lock`);
   try {
@@ -35689,6 +35716,7 @@ function proposeCapabilityRecommendation(context, options) {
       run: attribution.run,
     },
   };
+  assertRecordSchema(recommendation, "capability-recommendation.schema.json", `Capability recommendation ${id}`);
   const recommendationPath = capabilityRecommendationPath(context, id);
   const releaseLock = acquireFileLock(`${recommendationPath}.lock`);
   try {
@@ -37820,6 +37848,7 @@ function lockPhase(context, options) {
         run: attribution.run,
       },
     };
+    assertRecordSchema(lock, "phase-lock.schema.json", `Phase lock ${lockId}`);
     writeJsonFile(lockPath, lock, { force: Boolean(options.force) });
   } finally {
     releaseLock();
@@ -39257,6 +39286,7 @@ function rebuildCache(context, options) {
   ensureInitialized(context);
   const cache = buildCache(context);
   const cachePath = path.join(context.sdlcRoot, "cache", CACHE_FILE_NAME);
+  assertRecordSchema(cache, "cache.schema.json", "Local SDLC cache");
   writeJsonFile(cachePath, cache, { force: true });
   output(
     options,
@@ -43828,6 +43858,7 @@ function storyAcceptanceCriteria(story) {
 }
 
 function writeGateReport(context, report, options) {
+  assertRecordSchema(report, "gate-report.schema.json", `Gate report ${report.story_id || "project"}`);
   const reportPath = resolveProjectFilePath(context, options.out, { mustExist: false });
   assertNotDerivedArtifact(context, reportPath, "Gate report");
   const extension = path.extname(reportPath).toLowerCase();
