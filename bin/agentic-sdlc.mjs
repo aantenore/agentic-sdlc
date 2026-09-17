@@ -49117,7 +49117,13 @@ function validateStory(
   if (!context.config.phases[story.phase]) {
     report.errors.push(`Story ${storyId} has unknown phase '${story.phase}'`);
   }
-  if (storyAcceptanceCriteria(story).length === 0) {
+  // gate_policy.implementation_requires_acceptance_criteria, read from the
+  // effective project configuration like its sibling implementation_requires_claim.
+  // Defaults to enabled, which is the behaviour this check already had.
+  if (
+    context.config.gate_policy?.implementation_requires_acceptance_criteria !== false
+    && storyAcceptanceCriteria(story).length === 0
+  ) {
     const severity = story.status === "draft" ? "warnings" : "errors";
     report[severity].push(`Story ${storyId} has no acceptance criteria`);
   }
@@ -49245,10 +49251,13 @@ function validateStory(
   }
   const traceEvents = readTraceEvents(context, storyId);
   validateStoryTestEvidence(context, storyId, story, traceEvents, report);
+  // gate_policy.release_requires_release_trace, read from the effective project
+  // configuration like validation_requires_test_trace. Defaults to enabled.
   const latestReleaseTrace = latestTraceEvent(traceEvents, "release");
   if (
-    (story.phase === "release" || story.status === "release") &&
-    !["ready", "passed"].includes(latestReleaseTrace?.outcome)
+    context.config.gate_policy?.release_requires_release_trace !== false
+    && (story.phase === "release" || story.status === "release")
+    && !["ready", "passed"].includes(latestReleaseTrace?.outcome)
   ) {
     report.errors.push(`Story ${storyId} is in release but has no ready release trace`);
   }
