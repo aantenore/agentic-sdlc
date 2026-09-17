@@ -1378,7 +1378,7 @@
     }
   },
   "gate_policy": {
-    "principle": "Project policy and strict-gate invariants are recorded together but are not the same thing. implementation_requires_claim, implementation_requires_acceptance_criteria, validation_requires_test_trace, release_requires_release_trace, strict_mode.requires_output_contract_coverage, strict_mode.requires_write_scope_integrity, contract_required_fields, and story_required_fields are read from this file and a project may change them. Every other strict_mode entry states what --strict always enforces: it is recorded so the guarantee is legible, and setting it to false does not turn the check off. A gate that could be disabled from inside the project it governs would not be a gate.",
+    "principle": "Project policy and strict-gate invariants are recorded together but are not the same thing. implementation_requires_claim, implementation_requires_acceptance_criteria, validation_requires_test_trace, release_requires_release_trace, strict_mode.requires_output_contract_coverage, strict_mode.requires_write_scope_integrity, contract_required_fields, and story_required_fields, secret_scan.enabled, secret_scan.rules, and secret_scan.exclude_paths are read from this file and a project may change them. secret_scan.enabled is read as an explicit true, so a project that never declared it keeps the gate it agreed to and no plugin update can start blocking its deliveries. Every other strict_mode entry states what --strict always enforces: it is recorded so the guarantee is legible, and setting it to false does not turn the check off. A gate that could be disabled from inside the project it governs would not be a gate.",
     "strict_mode": {
       "requires_contextualized_contracts": true,
       "requires_zero_open_contract_questions": true,
@@ -1415,6 +1415,11 @@
     "implementation_requires_claim": true,
     "implementation_requires_acceptance_criteria": true,
     "validation_requires_test_trace": true,
-    "release_requires_release_trace": true
+    "release_requires_release_trace": true,
+    "secret_scan": {
+      "enabled": true,
+      "rules": [],
+      "exclude_paths": []
+    }
   }
 }
