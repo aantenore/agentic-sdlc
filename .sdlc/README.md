@@ -51,6 +51,8 @@ decisions/      Architecture and product decision records
 assumptions/    Explicit assumptions and their review status
 risks/          Delivery, technical, product, and operational risks
 tests/          Test plans, test evidence, and coverage notes
+security/       Secret-scan records for the files a delivery changed
+reviews/        Code-review records for pull-request deliveries
 traces/         Append-only event logs
 releases/       Release notes, rollout evidence, feedback loops
 manifests/      Shared compact KB manifests
@@ -58,6 +60,7 @@ archive/        Archive plans and applied archive records
 cache/          Local regenerable lookup cache
 indexes/        Regenerable search indexes
 reports/        Generated gate and audit reports
+operations/     Incident and feedback records for a released change
 ```
 
 ```mermaid

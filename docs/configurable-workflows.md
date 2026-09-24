@@ -116,7 +116,7 @@ order; this rule applies equally to the included v1/v2/v3 processes and approved
 custom definitions. Start the selected story-bound instance before `task
 start` and before the first completed step. The runtime rejects a post-hoc
 instance, and final certification requires the exact instance reference stored
-by task start. If the configured order differs from the six stock phases, use
+by task start. If the configured order differs from the seven stock phases, use
 an approved custom story-bound definition with that exact order.
 
 For a current canonical story-bound workflow, a transition cannot leave its

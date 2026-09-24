@@ -24,10 +24,13 @@
     "assumptions/**/*",
     "risks/**/*",
     "tests/**/*",
+    "security/**/*",
+    "reviews/**/*",
     "traces/**/*.jsonl",
     "releases/**/*",
     "manifests/**/*",
-    "archive/**/*"
+    "archive/**/*",
+    "operations/**/*"
   ],
   "derived_artifacts": [
     "cache/**/*",
@@ -55,13 +58,16 @@
     "assumptions": "Explicit assumptions with review status.",
     "risks": "Delivery, technical, operational, and product risks.",
     "tests": "Test plans, test reports, coverage notes, and evidence.",
+    "security": "Immutable secret-scan records for the files a delivery changed, written only by `secret scan`.",
+    "reviews": "Immutable code-review records for pull-request deliveries, written only by `review record`.",
     "traces": "Append-only JSONL event logs.",
     "releases": "Release manifests, release-gate receipts, rollout evidence, observability, and feedback loops.",
     "manifests": "Shared compact KB manifests generated from canonical source files.",
     "archive": "Logical legacy-exclusion records plus distinct plan-first filesystem archive plans for old closed reports and trace compactions.",
     "cache": "Local regenerable cache for fast KB lookup, story-requirement graphs, fingerprints, summaries, and output resolution results.",
     "indexes": "Regenerable search indexes.",
-    "reports": "Generated gate, audit, and quality reports."
+    "reports": "Generated gate, audit, and quality reports.",
+    "operations": "Incident and feedback records observed against a released change, written by `incident record` and `feedback record`."
   },
   "output_consistency_policy": {
     "registry_file": ".sdlc/output-contracts/registry.json",
