@@ -204,6 +204,7 @@ import {
   workspaceChangeMatchesPreflight,
 } from "../lib/execution-context-preflight.mjs";
 import { openCanonicalQuerySession } from "../lib/canonical-query-session.mjs";
+import { initializeCreatedLock } from "../lib/created-lock-file.mjs";
 import {
   IDENTITY_STAT_OPTIONS,
   fileIdentity,
@@ -52243,24 +52244,14 @@ function acquireFileLockAuthorized(lockPath) {
       sleepSync(25);
     }
   }
-  try {
-    assertMutationExecutionAuthorized({ operation: "lock.acquire", path: lockPath });
-    fs.writeFileSync(descriptor, JSON.stringify(metadata));
-    fs.closeSync(descriptor);
-  } catch (error) {
-    try {
-      fs.closeSync(descriptor);
-    } catch {
-      // Preserve the original metadata-write or close error.
-    }
-    try {
-      assertMutationExecutionAuthorized({ operation: "lock.acquire", path: lockPath });
-      fs.rmSync(lockPath, { force: true });
-    } catch {
-      // A partially initialized lock remaining on disk is safer than hiding the failure.
-    }
-    throw error;
-  }
+  // On failure the lock is removed only while the path still holds the file
+  // created above; a concurrent stale-lock reclaim may have replaced it.
+  initializeCreatedLock({
+    lockPath,
+    descriptor,
+    content: JSON.stringify(metadata),
+    authorize: () => assertMutationExecutionAuthorized({ operation: "lock.acquire", path: lockPath }),
+  });
   return () => {
     withGovernedMutation({ operation: "lock.release", path: lockPath }, () => {
       try {
