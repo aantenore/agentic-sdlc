@@ -32,6 +32,16 @@ const EXPECTED_PHASES = Object.freeze([
   "implementation",
   "validation",
   "release",
+  "operations",
+]);
+/** The frozen v0.11.0 baseline predates the operations phase and must stay exactly as shipped. */
+const EXPECTED_LEGACY_COMPAT_PHASES = Object.freeze([
+  "discovery",
+  "analysis",
+  "design",
+  "implementation",
+  "validation",
+  "release",
 ]);
 const EXPECTED_ASSESSMENT_CHECKPOINTS = Object.freeze(["context", "combined-proposal"]);
 const EXPECTED_COMPAT_HASH = "f460c67be74ec2e2385befa438b47740e2cb3400baf6327a03be9210634a419f";
@@ -39,15 +49,15 @@ const CREATED_AT = "2026-07-18T08:00:00.000Z";
 
 const compatSnapshot = JSON.parse(fs.readFileSync(COMPAT_SNAPSHOT_PATH, "utf8"));
 
-test("software-project keeps the existing six phases from discovery through release", () => {
+test("software-project keeps the existing seven phases from discovery through operations", () => {
   const preset = getWorkflowPreset("software-project");
 
   assert.deepEqual(SOFTWARE_PROJECT_PHASES, EXPECTED_PHASES);
   assert.deepEqual(preset.phase_order, EXPECTED_PHASES);
   assert.deepEqual(preset.states.map(({ id }) => id), EXPECTED_PHASES);
-  assert.deepEqual(compatSnapshot.phase_order, EXPECTED_PHASES);
+  assert.deepEqual(compatSnapshot.phase_order, EXPECTED_LEGACY_COMPAT_PHASES);
   assert.equal(preset.initial_state, "discovery");
-  assert.equal(preset.states.at(-1).id, "release");
+  assert.equal(preset.states.at(-1).id, "operations");
   assert.equal(preset.states.at(-1).terminal, true);
 });
 

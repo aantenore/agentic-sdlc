@@ -28,7 +28,7 @@ test("catalog exposes exactly the four governed presets", () => {
       status: "included",
       label: "Software project",
       description: "Software project governed workflow preset.",
-      state_count: 6,
+      state_count: 7,
       journey: SOFTWARE_PROJECT_PHASES,
       review_moments: [],
       governance_controls: [
@@ -47,10 +47,10 @@ test("catalog exposes exactly the four governed presets", () => {
   assert.throws(() => getWorkflowPreset("unknown"), /Unknown workflow preset/u);
 });
 
-test("software-project preserves the exact six existing SDLC phases and order", () => {
+test("software-project preserves the exact seven existing SDLC phases and order", () => {
   const preset = getWorkflowPreset("software-project");
   assert.deepEqual(SOFTWARE_PROJECT_PHASES, [
-    "discovery", "analysis", "design", "implementation", "validation", "release",
+    "discovery", "analysis", "design", "implementation", "validation", "release", "operations",
   ]);
   assert.deepEqual(preset.states.map(({ id }) => id), SOFTWARE_PROJECT_PHASES);
   assert.equal(preset.initial_state, "discovery");
@@ -70,6 +70,7 @@ test("software-project phase changes are bound to canonical lifecycle evidence",
     "design->implementation": ["contract-approved"],
     "implementation->validation": ["required-output-linked"],
     "validation->release": ["strict-gate-passed"],
+    "release->operations": [],
   });
   assert.equal(preset.metadata.governance_binding, "story");
   assert.equal(preset.metadata.canonical_evidence_schema, "workflow-canonical-evidence:v2");
@@ -83,12 +84,12 @@ test("software-project preserves legacy v1/v2 hashes while v3 pins phase-bound e
   assert.equal(legacy.version, "1");
   assert.equal(
     legacy.definition_hash,
-    "f7a8282e726fdb6c4082ceab3aba65c2cd930f07d9865899d802a65d13e7c3aa",
+    "b47f93c2d7657b0c5802103317e388b338ea78761bc0ee978f13aa83eb68ab0b",
   );
   assert.equal(legacyGoverned.version, "2");
   assert.equal(
     legacyGoverned.definition_hash,
-    "c0b9c69e123b39a609fa85452daa84fe72099207ff763f31e8f9c848d7c73a84",
+    "0141bde059ab92d4e54662cb6b88b63aeeaa78b85362c294601d789203067592",
   );
   assert.equal(
     legacyGoverned.metadata.canonical_evidence_schema,
