@@ -179,6 +179,7 @@ test("the distributed integration-review overlay supports init, migration, propo
     "integration-review",
     "validation",
     "release",
+    "operations",
   ]);
   assert.equal(
     findCommand("workflow definition propose").examples.some((example) =>
@@ -384,7 +385,7 @@ test("preset definition approval and an event-sourced run are stable and retry-s
   assert.deepEqual(softwareProject.available_versions, ["1", "2", "3"]);
   assert.match(softwareProject.description, /governed workflow preset/u);
   assert.deepEqual(softwareProject.journey, [
-    "discovery", "analysis", "design", "implementation", "validation", "release",
+    "discovery", "analysis", "design", "implementation", "validation", "release", "operations",
   ]);
   assert.deepEqual(softwareProject.governance_controls, [
     "requirement-approved",
@@ -716,6 +717,7 @@ test("a story-bound workflow must pin the exact configured custom phase order", 
     "implementation",
     "validation",
     "release",
+    "operations",
   ];
   config.autonomy_policy.presets.checkpointed.automatic_phases = [
     ...config.autonomy_policy.presets.checkpointed.automatic_phases,

@@ -7,7 +7,7 @@ Contracts are project-bound. The templates are generic, but generated contracts 
 ## Required Fields
 
 - `id`: Stable contract identifier.
-- `phase`: One of `discovery`, `analysis`, `design`, `implementation`, `validation`, `release`.
+- `phase`: One of `discovery`, `analysis`, `design`, `implementation`, `validation`, `release`, `operations`.
 - `project`: Target project identity.
 - `purpose`: Why this phase exists.
 - `owner_agent`: Default agent role responsible for the phase.

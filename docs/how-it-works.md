@@ -40,7 +40,13 @@ The technical chain for `ST-TRIP-POLICY-001` is:
    the passing release trace, and completes the release step after build, smoke
    test, destination, and rollback evidence agree. Repository publication and
    production remain separate.
-8. **Final certification** releases the completed story claim, then evaluates
+8. **Operations** tracks incidents and feedback observed against the released
+   change, each bound to the story and to a released manifest. Recording them
+   is never blocking: `gate check` reports their counts for a story in this
+   phase and warns, without failing, when it has neither yet. Complete the
+   `operations` story step — a plain completion marker, not gated on any
+   incident or feedback record existing — once the phase's work is done.
+9. **Final certification** releases the completed story claim, then evaluates
    the complete story after that release:
 
    ```bash
@@ -48,10 +54,11 @@ The technical chain for `ST-TRIP-POLICY-001` is:
    ```
 
 Only that lifecycle-complete form is the final story certificate. It binds all
-configured phases, current approvals, required output, latest test evidence,
-terminal delivery, and release evidence into the final receipt. A strict check
-run earlier may support an intermediate decision but must not be presented as
-proof that discovery-to-release delivery is complete.
+configured phases — including `operations`, since the lifecycle now ends
+there — current approvals, required output, latest test evidence, terminal
+delivery, and release evidence into the final receipt. A strict check run
+earlier may support an intermediate decision but must not be presented as
+proof that discovery-to-operations delivery is complete.
 
 Final receipts sealed with `workflow-final-freshness-proof:v1` are historical
 evidence, not a current certificate. On an unchanged, still-valid terminal

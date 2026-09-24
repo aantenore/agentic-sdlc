@@ -32,7 +32,8 @@
     "cache",
     "indexes",
     "reports",
-    "reviews"
+    "reviews",
+    "operations"
   ],
   "indexable_extensions": [
     ".json",
@@ -90,7 +91,8 @@
     "implementation",
     "integration-review",
     "validation",
-    "release"
+    "release",
+    "operations"
   ],
   "contract_generation": {
     "principle": "Contract templates are generic. Generated contracts must be contextualized for the target project by inspecting project KB artifacts, reading user-provided files, and asking questions when critical context is missing.",
@@ -1375,6 +1377,38 @@
         "release_evidence_count",
         "observability_signals_count",
         "feedback_items_count"
+      ]
+    },
+    "operations": {
+      "purpose": "Track incidents and feedback observed against the released change, keeping the release phase's observability plan and feedback loop populated with real evidence.",
+      "owner_agent": "operations-agent",
+      "inputs": [
+        "released change",
+        "observability plan",
+        "feedback loop",
+        "monitoring signals"
+      ],
+      "outputs": [
+        "incident records",
+        "feedback records"
+      ],
+      "validation": [
+        "each incident record is bound to a released manifest",
+        "each feedback record is bound to a released manifest"
+      ],
+      "allowed_tools": [
+        "knowledge-base",
+        "repo-read",
+        "observability-check"
+      ],
+      "kb_writes": [
+        "operations",
+        "traces"
+      ],
+      "human_gate": false,
+      "metrics": [
+        "incident_count",
+        "feedback_count"
       ]
     }
   },

@@ -54,9 +54,17 @@
     {
       "id": "release",
       "label": "Release",
-      "terminal": true,
+      "terminal": false,
       "metadata": {
         "order": 7
+      }
+    },
+    {
+      "id": "operations",
+      "label": "Operations",
+      "terminal": true,
+      "metadata": {
+        "order": 8
       }
     }
   ],
@@ -128,6 +136,14 @@
         }
       ],
       "metadata": {}
+    },
+    {
+      "id": "release-to-operations",
+      "from": "release",
+      "to": "operations",
+      "label": "Release to operations",
+      "guards": [],
+      "metadata": {}
     }
   ],
   "phase_order": [
@@ -137,7 +153,8 @@
     "implementation",
     "integration-review",
     "validation",
-    "release"
+    "release",
+    "operations"
   ],
   "normal_checkpoints": [],
   "metadata": {

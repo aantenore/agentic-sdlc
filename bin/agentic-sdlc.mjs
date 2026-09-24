@@ -975,6 +975,8 @@ function buildCliRuntimeHandlerRegistry() {
     "trace.compact": call(compactTraces),
     "sync.record": call(recordSyncEvent),
     "test.record": call(recordTestRun),
+    "incident.record": call(recordIncident),
+    "feedback.record": call(recordFeedback),
     "secret.scan": call(runSecretScan),
     "review.record": call(recordCodeReview),
     "output.template.propose": call(proposeOutputTemplate),
@@ -6653,6 +6655,38 @@ function showWorkflowInstance(context, options, { explain = false } = {}) {
             currentState,
           )
         : null;
+      // A terminal state's readiness cannot be judged from its own phase
+      // alone once other configured phases (such as release) precede it:
+      // tampering with an earlier phase's sealed step must still block
+      // certification, not just an invalid current phase. Fold every other
+      // configured phase's readiness into the reported completion so a
+      // caller reading current_phase_completion sees the real blocker.
+      const terminalCandidate = (effectiveDefinition.states || [])
+        .find((state) => state.id === currentState)?.terminal === true;
+      if (requiresCurrentPhaseCompletion && terminalCandidate && currentPhaseCompletion) {
+        const otherPhaseReadiness = configuredPhaseOrder(context)
+          .filter((phase) => phase !== currentState)
+          .map((phase) =>
+            currentStoryPhaseCompletionReadiness(
+              context,
+              storyId,
+              instance,
+              effectiveDefinition,
+              events,
+              phase,
+            ))
+          .filter((readiness) => !readiness.ready);
+        if (otherPhaseReadiness.length > 0) {
+          currentPhaseCompletion = {
+            ...currentPhaseCompletion,
+            ready: false,
+            issues: [
+              ...currentPhaseCompletion.issues,
+              ...otherPhaseReadiness.flatMap((readiness) => readiness.issues),
+            ],
+          };
+        }
+      }
     }
   } finally {
     releaseLock();
@@ -38440,6 +38474,259 @@ function readTestRunRecords(context, storyId) {
     || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
 }
 
+function operationsRoot(context) {
+  return path.join(context.sdlcRoot, "operations");
+}
+
+function requireEnumOption(options, key, values) {
+  const value = requireOption(options, key);
+  if (!values.includes(value)) {
+    fail(`--${key} must be one of: ${values.join(", ")}`);
+  }
+  return value;
+}
+
+function resolveIncidentFeedbackPhase(context, options, story) {
+  const phase = getOptionString(options, "phase") || story.phase || null;
+  if (phase && !context.config.phases[phase]) {
+    fail(`Unknown phase '${phase}'. Use one of: ${Object.keys(context.config.phases).join(", ")}`);
+  }
+  return phase;
+}
+
+function resolveOperationsReleaseManifestId(context, options) {
+  const releaseManifestInput = requireOption(options, "release-manifest");
+  const { manifest } = readReleaseManifest(context, releaseManifestInput);
+  return manifest.id;
+}
+
+function recordIncident(context, options) {
+  ensureInitialized(context);
+  const storyId = normalizeId(requireOption(options, "story"));
+  const story = readStory(context, storyId);
+  if (!story) {
+    fail(`Story ${storyId} does not exist`);
+  }
+  const releaseManifestId = resolveOperationsReleaseManifestId(context, options);
+  const severity = requireEnumOption(options, "severity", ["sev1", "sev2", "sev3", "sev4"]);
+  const summary = requireOption(options, "summary");
+  const impact = requireOption(options, "impact");
+  const detectedAtInput = getOptionString(options, "detected-at");
+  const detectedAt = detectedAtInput ? normalizeOptionalDateTime(detectedAtInput, "detected-at") : now();
+  const resolvedAtInput = getOptionString(options, "resolved-at");
+  const resolvedAt = resolvedAtInput ? normalizeOptionalDateTime(resolvedAtInput, "resolved-at") : null;
+  const actions = normalizeListOption(options["incident-action"]);
+  const phase = resolveIncidentFeedbackPhase(context, options, story);
+  const id = normalizeId(options.id ? String(options.id) : `${storyId}-incident-${uniqueRecordSuffix()}`);
+  const attribution = buildAttribution(context, options, "incident.record");
+  const createdAt = now();
+  const record = {
+    kind: "incident",
+    schema_version: "incident:v1",
+    id,
+    story_id: storyId,
+    release_manifest_id: releaseManifestId,
+    phase,
+    severity,
+    detected_at: detectedAt,
+    resolved_at: resolvedAt,
+    summary,
+    impact,
+    actions,
+    requirement_ids: normalizeListOption(options.requirement).map(normalizeId),
+    actor: attribution.actor,
+    git: attribution.git,
+    run: attribution.run,
+    created_at: createdAt,
+    audit: {
+      created_by: attribution.actor,
+      git: attribution.git,
+      run: attribution.run,
+    },
+    hash_algorithm: "sha256:stable-json:v1",
+  };
+  record.record_hash = computeStableHash(record);
+  assertRecordSchema(record, "incident.schema.json", `Incident ${id}`);
+
+  const recordPath = path.join(operationsRoot(context), `${id}.json`);
+  assertNotDerivedArtifact(context, recordPath, "Incident record");
+  writeJsonFile(recordPath, record, { force: Boolean(options.force) });
+  const projectRecordPath = toProjectPath(context, recordPath);
+
+  const traceEvent = appendTraceEvent(context, storyId, {
+    type: "release",
+    summary: record.summary,
+    action: "incident.record",
+    actor: attribution.actor,
+    ...buildTraceAuthorityMetadata(context, options, attribution),
+    evidence: [projectRecordPath],
+    related: record.requirement_ids,
+    git: attribution.git,
+    run: attribution.run,
+  });
+
+  output(
+    options,
+    {
+      status: "recorded",
+      incident_path: projectRecordPath,
+      incident: record,
+      event: traceEvent,
+    },
+    [
+      `Recorded ${severity} incident ${id} for story ${storyId}`,
+      `Release manifest: ${releaseManifestId}`,
+      `Path: ${projectRecordPath}`,
+    ],
+  );
+}
+
+function readIncidentRecords(context, storyId) {
+  const normalizedStoryId = storyId ? normalizeId(String(storyId)) : null;
+  const records = [];
+  for (const name of safeReadDir(operationsRoot(context))) {
+    if (!name.endsWith(".json")) continue;
+    const recordPath = path.join(operationsRoot(context), name);
+    let record;
+    try {
+      record = readProjectJson(context, recordPath);
+    } catch {
+      continue;
+    }
+    if (record?.kind !== "incident") continue;
+    if (normalizedStoryId && record.story_id !== normalizedStoryId) continue;
+    records.push({ path: toProjectPath(context, recordPath), record });
+  }
+  return records.sort((left, right) =>
+    String(left.record.detected_at || "").localeCompare(String(right.record.detected_at || ""), "en")
+    || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
+}
+
+function buildFeedbackEvidence(context, options) {
+  return normalizeListOption(options.evidence).map((rawPath) => {
+    const evidencePath = resolveProjectFilePath(context, rawPath, { mustExist: true, fileOnly: true });
+    assertNotDerivedArtifact(context, evidencePath, "Feedback evidence");
+    return {
+      path: toProjectPath(context, evidencePath),
+      size_bytes: fs.statSync(evidencePath).size,
+      sha256: hashFile(evidencePath),
+    };
+  });
+}
+
+function recordFeedback(context, options) {
+  ensureInitialized(context);
+  const storyId = normalizeId(requireOption(options, "story"));
+  const story = readStory(context, storyId);
+  if (!story) {
+    fail(`Story ${storyId} does not exist`);
+  }
+  const releaseManifestId = resolveOperationsReleaseManifestId(context, options);
+  const source = requireEnumOption(options, "feedback-source", ["user", "monitoring", "review", "other"]);
+  const summary = requireOption(options, "summary");
+  const sentimentInput = getOptionString(options, "sentiment");
+  if (sentimentInput && !["positive", "neutral", "negative"].includes(sentimentInput)) {
+    fail("--sentiment must be one of: positive, neutral, negative");
+  }
+  const sentiment = sentimentInput || null;
+  const evidence = buildFeedbackEvidence(context, options);
+  const phase = resolveIncidentFeedbackPhase(context, options, story);
+  const id = normalizeId(options.id ? String(options.id) : `${storyId}-feedback-${uniqueRecordSuffix()}`);
+  const attribution = buildAttribution(context, options, "feedback.record");
+  const createdAt = now();
+  const record = {
+    kind: "feedback",
+    schema_version: "feedback:v1",
+    id,
+    story_id: storyId,
+    release_manifest_id: releaseManifestId,
+    phase,
+    source,
+    sentiment,
+    summary,
+    evidence,
+    requirement_ids: normalizeListOption(options.requirement).map(normalizeId),
+    actor: attribution.actor,
+    git: attribution.git,
+    run: attribution.run,
+    created_at: createdAt,
+    audit: {
+      created_by: attribution.actor,
+      git: attribution.git,
+      run: attribution.run,
+    },
+    hash_algorithm: "sha256:stable-json:v1",
+  };
+  record.record_hash = computeStableHash(record);
+  assertRecordSchema(record, "feedback.schema.json", `Feedback ${id}`);
+
+  const recordPath = path.join(operationsRoot(context), `${id}.json`);
+  assertNotDerivedArtifact(context, recordPath, "Feedback record");
+  writeJsonFile(recordPath, record, { force: Boolean(options.force) });
+  const projectRecordPath = toProjectPath(context, recordPath);
+
+  const traceEvent = appendTraceEvent(context, storyId, {
+    type: "release",
+    summary: record.summary,
+    action: "feedback.record",
+    actor: attribution.actor,
+    ...buildTraceAuthorityMetadata(context, options, attribution),
+    evidence: [projectRecordPath, ...evidence.map((item) => item.path)],
+    related: record.requirement_ids,
+    git: attribution.git,
+    run: attribution.run,
+  });
+
+  output(
+    options,
+    {
+      status: "recorded",
+      feedback_path: projectRecordPath,
+      feedback: record,
+      event: traceEvent,
+    },
+    [
+      `Recorded ${source} feedback ${id} for story ${storyId}`,
+      `Release manifest: ${releaseManifestId}`,
+      `Path: ${projectRecordPath}`,
+    ],
+  );
+}
+
+function readFeedbackRecords(context, storyId) {
+  const normalizedStoryId = storyId ? normalizeId(String(storyId)) : null;
+  const records = [];
+  for (const name of safeReadDir(operationsRoot(context))) {
+    if (!name.endsWith(".json")) continue;
+    const recordPath = path.join(operationsRoot(context), name);
+    let record;
+    try {
+      record = readProjectJson(context, recordPath);
+    } catch {
+      continue;
+    }
+    if (record?.kind !== "feedback") continue;
+    if (normalizedStoryId && record.story_id !== normalizedStoryId) continue;
+    records.push({ path: toProjectPath(context, recordPath), record });
+  }
+  return records.sort((left, right) =>
+    String(left.record.created_at || "").localeCompare(String(right.record.created_at || ""), "en")
+    || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
+}
+
+function appendOperationsPhaseGateChecks(context, report, storyId, story) {
+  if (story?.phase !== "operations") return;
+  const incidents = readIncidentRecords(context, storyId);
+  const feedbackItems = readFeedbackRecords(context, storyId);
+  report.checked.push(`${incidents.length} incident record(s) for story ${storyId}`);
+  report.checked.push(`${feedbackItems.length} feedback record(s) for story ${storyId}`);
+  if (incidents.length === 0 && feedbackItems.length === 0) {
+    report.warnings.push(
+      `Story ${storyId} is in the operations phase with no incident or feedback records yet.`,
+    );
+  }
+}
+
 function secretScansRoot(context) {
   return path.join(context.sdlcRoot, "security");
 }
@@ -44288,6 +44575,7 @@ function gateCheck(context, options) {
       validateStory(context, storyId, report);
       validateOutputContracts(context, report, storyId);
     }
+    appendOperationsPhaseGateChecks(context, report, storyId, readStory(context, storyId));
   } else if (scope === "all") {
     validateDependencyProposals(context, report);
     validateContracts(context, report);
@@ -44299,6 +44587,7 @@ function gateCheck(context, options) {
       const storyJson = path.join(storiesRoot, entry, "story.json");
       if (fs.existsSync(storyJson)) {
         validateStory(context, entry, report);
+        appendOperationsPhaseGateChecks(context, report, entry, readProjectJson(context, storyJson));
       }
     }
     validateOutputContracts(context, report);
@@ -44735,10 +45024,21 @@ function validCurrentWorkflowFinalReceipt(context, storyId, instance) {
   }
 }
 
+/**
+ * The phase whose completion closes a delivery. It is "release" whenever the
+ * project's phase order has one, even when a later phase such as operations
+ * follows it; a custom phase order without "release" keeps its last phase, as
+ * before operations existed.
+ */
+function releasePhaseName(context) {
+  const phaseOrder = configuredPhaseOrder(context);
+  return phaseOrder.includes("release") ? "release" : phaseOrder.at(-1);
+}
+
 function storyReleaseReadiness(context, storyId) {
   const missing = [];
   const releaseStep = readStoryStepRecords(context, storyId)
-    .find((record) => record.status === "completed" && record.phase === configuredPhaseOrder(context).at(-1));
+    .find((record) => record.status === "completed" && record.phase === releasePhaseName(context));
   const releaseTrace = latestTraceEvent(readTraceEvents(context, storyId), "release");
   const story = readStory(context, storyId);
   const contract = story?.contract_id
@@ -45233,6 +45533,12 @@ function buildStoryWorkflowNextAction(context, story) {
         workflow_instance_id: selected.entry,
       };
     }
+  }
+  // Release evidence and the active claim must clear once the workflow enters
+  // "release", not only once it reaches the terminal phase: a phase configured
+  // after release (such as operations) makes "release" itself non-terminal,
+  // but delivery still has to close before that later phase is entered.
+  if (currentState === "release" || terminal) {
     const releaseReadiness = storyReleaseReadiness(context, story.id);
     if (!releaseReadiness.ready) {
       const command = releaseReadiness.profile_id
@@ -45265,6 +45571,8 @@ function buildStoryWorkflowNextAction(context, story) {
         };
       }
     }
+  }
+  if (terminal) {
     return {
       kind: "certify_lifecycle",
       reason: "workflow_terminal",
@@ -45278,9 +45586,12 @@ function buildStoryWorkflowNextAction(context, story) {
     };
   }
   const currentStepCompleted = completedSteps.some((record) => record.phase === currentState);
-  const nextState = (effectiveDefinition.transitions || [])
-    .find((transition) => transition.from === currentState)?.to || null;
-  if (currentStepCompleted && nextState === configuredPhaseOrder(context).at(-1)) {
+  const outgoingTransition = (effectiveDefinition.transitions || [])
+    .find((transition) => transition.from === currentState) || null;
+  const nextState = outgoingTransition?.to || null;
+  const nextStateRequiresStrictGate = (outgoingTransition?.guards || [])
+    .some((guard) => guard?.id === "strict-gate-passed");
+  if (currentStepCompleted && nextStateRequiresStrictGate) {
     const strictGate = currentStoryStrictGateReadiness(
       context,
       story.id,
@@ -46709,7 +47020,11 @@ function validateAuthorizations(context, report) {
   for (const authorization of collectJsonFiles(context, authorizationRoot(context))) {
     const label = `authorization ${authorization.id || "unknown"}`;
     if (isCanonicalContentAuthorization(authorization)) {
-      const integrity = validateAuthorizationSnapshotIntegrity(authorization);
+      // collectJsonFiles annotates each record with __path/__relative_path for
+      // reporting; strip them before recomputing the canonical content hash, or
+      // every canonical authorization would fail integrity validation here.
+      const { __path, __relative_path, ...authorizationSnapshot } = authorization;
+      const integrity = validateAuthorizationSnapshotIntegrity(authorizationSnapshot);
       if (!integrity.valid) {
         report.errors.push(`${label} failed canonical integrity validation: ${integrity.errors.join("; ")}`);
       }
@@ -50713,14 +51028,22 @@ function validateCurrentStoryWorkflowCompletion(
       };
     });
 
+    // Release evidence (terminal delivery, release trace) must be produced
+    // during or after the release phase, so this compares against when the
+    // workflow entered "release" specifically - not `terminalAt`, which is
+    // the entry time of whatever phase is configured as terminal today and
+    // may no longer be "release" (for example, once operations follows it).
+    // Workflows without a "release" state fall back to the terminal phase,
+    // which is what this check always compared against before.
+    const releaseEnteredAt = entryByPhase.get("release")?.entered_at || terminalAt || null;
     for (const [dependency, timestamp] of [
       ["terminal delivery", deliveryClosedAt],
       ["latest passing release trace", releaseTrace?.created_at],
     ]) {
       if (
-        terminalAt
+        releaseEnteredAt
         && Number.isFinite(Date.parse(String(timestamp || "")))
-        && Date.parse(terminalAt) > Date.parse(timestamp)
+        && Date.parse(releaseEnteredAt) > Date.parse(timestamp)
       ) {
         report.errors.push(
           `${label} entered the release phase after the ${dependency}; release entry must precede release evidence`,

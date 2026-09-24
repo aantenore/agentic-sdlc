@@ -42,6 +42,7 @@ The sample records below use neutral placeholders. The structure is generic and 
     cache/
     indexes/
     reports/
+    operations/
 ```
 
 ## Source Of Truth
@@ -1211,6 +1212,50 @@ node bin/agentic-sdlc.mjs index rebuild --root <target-project>
 ## `reports/`
 
 Gate, audit, or quality reports. Reports are durable review evidence and should be committed when they support a gate or release decision. Generate gate reports with `gate check --out .sdlc/reports/<name>.json` or `.md`. Temporary report scratch files can use `.tmp` and stay ignored.
+
+## `operations/`
+
+Incident and feedback records for a story in the `operations` phase, each bound
+to the story and to a released manifest under `releases/manifests/`. A `.json`
+file whose `kind` is `incident` or `feedback` is a canonical record, written
+only by `incident record` and `feedback record`:
+
+```text
+.sdlc/operations/ST-001-incident-20260916T101500-a1b2c3.json
+.sdlc/operations/ST-001-feedback-20260916T101500-a1b2c3.json
+```
+
+```json
+{
+  "kind": "incident",
+  "schema_version": "incident:v1",
+  "id": "ST-001-incident-20260916T101500-a1b2c3",
+  "story_id": "ST-001",
+  "release_manifest_id": "RELEASE-ASSESS-001",
+  "phase": "operations",
+  "severity": "sev2",
+  "detected_at": "2026-09-16T10:00:00.000Z",
+  "resolved_at": "2026-09-16T10:20:00.000Z",
+  "summary": "Checkout latency spike",
+  "impact": "5% of checkouts timed out for 20 minutes",
+  "actions": ["Rolled back the checkout service"],
+  "record_hash": "9ab4…",
+  "hash_algorithm": "sha256:stable-json:v1"
+}
+```
+
+`incident.schema.json` (`incident:v1`) validates severity (`sev1`..`sev4`),
+detection and resolution timestamps, summary, impact, and the actions taken.
+`feedback.schema.json` (`feedback:v1`) validates a source
+(`user`, `monitoring`, `review`, `other`), an optional sentiment, a summary,
+and hashed evidence paths. Both record commands refuse a `--release-manifest`
+that does not resolve to an existing manifest. Neither record blocks a gate:
+`gate check` reports their counts for a story in the `operations` phase and
+warns, without failing, when it has neither yet.
+
+Writing a record also appends a `release`-typed trace event whose evidence
+names the record, so it appears in the story history and in the Change
+Observatory.
 
 ## Merge Strategy
 

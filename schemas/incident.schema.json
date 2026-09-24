@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "incident.schema.json",
+  "title": "Agentic SDLC Incident Record v1",
+  "description": "Persistent evidence of one operational incident observed against a released change, bound to the story and the released manifest it affects.",
+  "type": "object",
+  "required": [
+    "kind",
+    "schema_version",
+    "id",
+    "story_id",
+    "release_manifest_id",
+    "severity",
+    "detected_at",
+    "resolved_at",
+    "summary",
+    "impact",
+    "actions",
+    "actor",
+    "git",
+    "run",
+    "created_at",
+    "audit",
+    "record_hash",
+    "hash_algorithm"
+  ],
+  "properties": {
+    "kind": {
+      "const": "incident"
+    },
+    "schema_version": {
+      "const": "incident:v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "story_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "release_manifest_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "severity": {
+      "enum": [
+        "sev1",
+        "sev2",
+        "sev3",
+        "sev4"
+      ]
+    },
+    "detected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "impact": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "requirement_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "actor": {
+      "$ref": "common.schema.json#/$defs/actor"
+    },
+    "git": {
+      "$ref": "common.schema.json#/$defs/git"
+    },
+    "run": {
+      "$ref": "common.schema.json#/$defs/run"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "audit": {
+      "$ref": "common.schema.json#/$defs/audit"
+    },
+    "record_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "hash_algorithm": {
+      "const": "sha256:stable-json:v1"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "additionalProperties": false
+}

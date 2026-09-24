@@ -726,7 +726,7 @@ node bin/agentic-sdlc.mjs workflow instance start \
   --story ST-001
 ```
 
-The included v3 definition requires the exact stock six-phase `phase_order`.
+The included v3 definition requires the exact stock seven-phase `phase_order`.
 Projects with custom phases must use an approved story-bound definition with
 the exact configured order. A workflow cannot be added retroactively; a legacy
 task without the pre-task binding is not eligible for lifecycle-complete
@@ -845,6 +845,33 @@ node bin/agentic-sdlc.mjs secret scan --root <project> --story ST-001 --base mai
 
 Findings are reported as the rule, the file, the line, and at most four leading characters of the match; the matched value is never printed or stored. A clean scan exits `0` and a scan with findings exits `1`. When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head. Rules come from `gate_policy.secret_scan.rules` merged over the shipped defaults by `id`, and `gate_policy.secret_scan.exclude_paths` lists path globs to leave out.
 
+## Record Incidents And Feedback
+
+Use `incident record` and `feedback record` for a story in the `operations` phase, once a change is released. Both bind the story to a `--release-manifest` and refuse an ID or path that does not resolve to an existing manifest under `.sdlc/releases/manifests/`; neither is a blocking gate.
+
+```bash
+node bin/agentic-sdlc.mjs incident record \
+  --root <project> \
+  --story ST-001 \
+  --release-manifest RELEASE-ST-001 \
+  --severity sev2 \
+  --summary "Checkout latency spike" \
+  --impact "5% of checkouts timed out for 20 minutes" \
+  --incident-action "Rolled back the checkout service" \
+  --resolved-at 2026-09-16T10:20:00Z
+
+node bin/agentic-sdlc.mjs feedback record \
+  --root <project> \
+  --story ST-001 \
+  --release-manifest RELEASE-ST-001 \
+  --feedback-source monitoring \
+  --sentiment negative \
+  --summary "Error rate rose after release" \
+  --evidence .sdlc/operations/dashboard-snapshot.png
+```
+
+`--severity` is one of `sev1`..`sev4`; `--feedback-source` is one of `user`, `monitoring`, `review`, `other`; `--sentiment` is `positive`, `neutral`, or `negative`. `gate check` for a story in `operations` adds checked lines with the incident and feedback counts, and warns — never fails — when it has neither yet.
+
 ## Record A Code Review
 
 Use `review record` to record a review of one pull-request delivery's diff as a `code-review:v1` record under `.sdlc/reviews/`:
@@ -916,7 +943,7 @@ node bin/agentic-sdlc.mjs gate check \
   --out .sdlc/reports/ST-001-lifecycle-complete.json
 ```
 
-Do not present an intermediate strict result as the final discovery-to-release certificate. Both forms return non-zero when blocking errors are found. Use `--out` to persist JSON or Markdown gate evidence.
+Do not present an intermediate strict result as the final discovery-to-operations certificate. Both forms return non-zero when blocking errors are found. Use `--out` to persist JSON or Markdown gate evidence.
 
 ## Output Consistency
 

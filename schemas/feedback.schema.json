@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "feedback.schema.json",
+  "title": "Agentic SDLC Feedback Record v1",
+  "description": "Persistent evidence of one feedback item observed against a released change, bound to the story and the released manifest it concerns.",
+  "type": "object",
+  "required": [
+    "kind",
+    "schema_version",
+    "id",
+    "story_id",
+    "release_manifest_id",
+    "source",
+    "sentiment",
+    "summary",
+    "evidence",
+    "actor",
+    "git",
+    "run",
+    "created_at",
+    "audit",
+    "record_hash",
+    "hash_algorithm"
+  ],
+  "properties": {
+    "kind": {
+      "const": "feedback"
+    },
+    "schema_version": {
+      "const": "feedback:v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "story_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "release_manifest_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source": {
+      "enum": [
+        "user",
+        "monitoring",
+        "review",
+        "other"
+      ]
+    },
+    "sentiment": {
+      "enum": [
+        "positive",
+        "neutral",
+        "negative",
+        null
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requirement_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidence": {
+      "description": "Hashed evidence paths supporting this feedback item; may be empty when the feedback has no separate file.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_ref"
+      }
+    },
+    "actor": {
+      "$ref": "common.schema.json#/$defs/actor"
+    },
+    "git": {
+      "$ref": "common.schema.json#/$defs/git"
+    },
+    "run": {
+      "$ref": "common.schema.json#/$defs/run"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "audit": {
+      "$ref": "common.schema.json#/$defs/audit"
+    },
+    "record_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "hash_algorithm": {
+      "const": "sha256:stable-json:v1"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidence_ref": {
+      "type": "object",
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
