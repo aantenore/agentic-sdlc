@@ -645,6 +645,52 @@ test("does not delete a replacement installed after creating its lock", (t) => {
   assert.equal(fs.existsSync(displacedPath), true);
 });
 
+test("does not treat a replacement lock as owned when 64-bit inodes collide as Number", (t) => {
+  const paths = fixture(t, { legacy: false });
+  const lockPath = `${paths.checkpointPath}.lock`;
+  const displacedPath = `${lockPath}.displaced`;
+  const replacement = `${JSON.stringify({ pid: process.pid, token: "replacement" })}\n`;
+  const failure = new Error("simulated write failure after lock replacement");
+  failure.code = "EIO";
+  let replaced = false;
+
+  // Every real file gets a distinct 64-bit inode above 2^53 (as NTFS file ids
+  // do), spaced closely enough that adjacent ids round to the same Number.
+  const wideInoBase = 2n ** 60n;
+  const wideInos = new Map();
+  assert.equal(Number(wideInoBase + 1n), Number(wideInoBase + 2n));
+  const widen = (stat, options) => {
+    const realIno = BigInt(stat.ino);
+    if (!wideInos.has(realIno)) wideInos.set(realIno, wideInoBase + BigInt(wideInos.size + 1));
+    const wide = wideInos.get(realIno);
+    return Object.assign(Object.create(Object.getPrototypeOf(stat)), stat, {
+      ino: options?.bigint ? wide : Number(wide),
+    });
+  };
+  const fstatSync = (descriptor, options) => widen(fs.fstatSync(descriptor, options), options);
+  const lstatSync = (filePath, options) => widen(fs.lstatSync(filePath, options), options);
+  const writeSync = (descriptor) => {
+    if (!replaced) {
+      replaced = true;
+      fs.closeSync(descriptor);
+      fs.renameSync(lockPath, displacedPath);
+      fs.writeFileSync(lockPath, replacement, { mode: 0o600 });
+    }
+    throw failure;
+  };
+
+  assert.throws(
+    () => sealTraceEvent(options(paths, {
+      event: { type: "must-not-append" },
+      dependencies: { fstatSync, lstatSync, writeSync },
+    })),
+    (error) => error === failure,
+  );
+  assert.equal(replaced, true);
+  assert.equal(fs.readFileSync(lockPath, "utf8"), replacement);
+  assert.equal(fs.existsSync(displacedPath), true);
+});
+
 test("preserves a lock acquisition failure when owned-lock cleanup also fails", (t) => {
   const paths = fixture(t, { legacy: false });
   const lockPath = `${paths.checkpointPath}.lock`;
