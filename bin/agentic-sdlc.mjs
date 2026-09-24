@@ -35036,7 +35036,10 @@ function addStoryAcceptance(context, options) {
   }
   const storyDir = path.join(context.sdlcRoot, "stories", id);
   const storyPath = path.join(storyDir, "story.json");
-  if (!pathEntryExistsNoFollow(storyPath)) {
+  // The record itself is checked again under the story lock below; before the
+  // lock only the directory is touched, for the reason given at
+  // storyDirectoryExistsBeforeLock.
+  if (!storyDirectoryExistsBeforeLock(context, id)) {
     fail(`Story ${id} does not exist; create it before adding acceptance criteria.`);
   }
   const releaseTaskStartBoundaryLock = acquireFileLock(
