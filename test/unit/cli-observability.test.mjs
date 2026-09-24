@@ -178,6 +178,57 @@ test("unexpected CLI failures return safe correlated JSON and human errors", () 
   assert.doesNotMatch(humanFailure.stderr, /\n\s*at\s/u);
 });
 
+test("unexpected CLI failures expose only the original error code and syscall", () => {
+  const project = initializedProject("internal-error-cause");
+  const hookPath = path.join(project, "inject-filesystem-error.mjs");
+  const privateCanaryPath = "/private/internal/canary/should-never-leak";
+  fs.writeFileSync(hookPath, [
+    'import fs from "node:fs";',
+    'import path from "node:path";',
+    'import { syncBuiltinESMExports } from "node:module";',
+    "const originalExistsSync = fs.existsSync;",
+    "const sdlcRoot = path.join(process.env.OBS_PROJECT, '.sdlc') + path.sep;",
+    "const configPath = path.join(process.env.OBS_PROJECT, '.sdlc', 'config.json');",
+    "fs.existsSync = function injectedExistsSync(filePath) {",
+    "  const resolved = path.resolve(String(filePath));",
+    "  if (resolved.startsWith(sdlcRoot) && resolved !== configPath) {",
+    "    const error = new Error(`INTERNAL_CANARY ${process.env.OBS_CANARY_PATH}`);",
+    "    error.code = 'EPERM';",
+    "    error.syscall = 'rename';",
+    "    error.path = process.env.OBS_CANARY_PATH;",
+    "    throw error;",
+    "  }",
+    "  return originalExistsSync.call(this, filePath);",
+    "};",
+    "syncBuiltinESMExports();",
+    "",
+  ].join("\n"));
+  const injectedOptions = {
+    nodeArgs: ["--import", pathToFileURL(hookPath).href],
+    env: { OBS_PROJECT: project, OBS_CANARY_PATH: privateCanaryPath },
+  };
+
+  const jsonFailure = mustFail(["status", "--root", project, "--json"], injectedOptions);
+  assert.equal(jsonFailure.status, 70, jsonFailure.stderr);
+  const payload = JSON.parse(jsonFailure.stderr);
+  assert.deepEqual(payload.error, {
+    code: "INTERNAL_ERROR",
+    message: "The command could not be completed.",
+    retryable: false,
+    details: { cause: { code: "EPERM", syscall: "rename" } },
+  });
+  assert.deepEqual(payload.human_guidance.details.cause, { code: "EPERM", syscall: "rename" });
+  assert.doesNotMatch(jsonFailure.stderr, /INTERNAL_CANARY/u);
+  assert.doesNotMatch(jsonFailure.stderr, new RegExp(escapeRegExp(privateCanaryPath), "u"));
+  assert.doesNotMatch(jsonFailure.stderr, new RegExp(escapeRegExp(project), "u"));
+
+  const humanFailure = mustFail(["status", "--root", project], injectedOptions);
+  assert.equal(humanFailure.status, 70, humanFailure.stderr);
+  assert.match(humanFailure.stderr, /- Cause: code=EPERM syscall=rename/u);
+  assert.doesNotMatch(humanFailure.stderr, /INTERNAL_CANARY/u);
+  assert.doesNotMatch(humanFailure.stderr, new RegExp(escapeRegExp(privateCanaryPath), "u"));
+});
+
 test("unknown JSON help paths redact GitHub tokens from every error branch", () => {
   const fakeSecret = `github_pat_${"A".repeat(32)}`;
   const result = mustFail(["help", fakeSecret, "--json"]);

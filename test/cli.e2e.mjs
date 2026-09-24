@@ -11825,6 +11825,74 @@ test("parallel story contract creation is serialized per story", async () => {
   assert.equal(fs.readdirSync(contractsRoot).some((name) => name.startsWith(".story-") && name.endsWith(".lock")), false);
 });
 
+test("story contract creation never touches the story record before holding the story lock", async () => {
+  const project = tmpProject("story-contract-create-record-contention");
+  initProject(project);
+  story(project, "ST-RACE");
+  createApprovedTemplate(project, "technical-analysis");
+  const preload = path.join(repoRoot, "test", "helpers", "story-record-contention-preload.mjs");
+  const env = {
+    NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${pathToFileURL(preload).href}`].filter(Boolean).join(" "),
+    AGENTIC_SDLC_TEST_STORY_RECORD_CONTENTION: path.join(project, ".sdlc", "stories", "ST-RACE", "story.json"),
+  };
+
+  const ids = Array.from({ length: 4 }, (_, index) => `contract-ST-RACE-contended-${index + 1}`);
+  const results = await Promise.all(ids.map((id) => runAsync([
+    "contract",
+    "create",
+    "--root",
+    project,
+    "--phase",
+    "analysis",
+    "--story",
+    "ST-RACE",
+    "--id",
+    id,
+    "--context-summary",
+    `Contended contract ${id}`,
+    "--qa",
+    "Who approves?|Owner",
+    "--output-ref",
+    "technical-analysis:technical-analysis-v1:new",
+    "--json",
+  ], { env })));
+
+  const report = results.map((result) => `${result.status}: ${result.stderr}`).join("\n");
+  assert.equal(results.filter((result) => result.status === 0).length, 1, report);
+  assert.ok(
+    results.every((result) => result.status === 0
+      || (result.status === 1 && /already references contract/.test(result.stderr))),
+    report,
+  );
+  const linkedStory = readJson(path.join(project, ".sdlc", "stories", "ST-RACE", "story.json"));
+  assert.ok(ids.includes(linkedStory.contract_id));
+});
+
+test("story contract creation still refuses a story directory without a story record", () => {
+  const project = tmpProject("story-contract-create-missing-record");
+  initProject(project);
+  fs.mkdirSync(path.join(project, ".sdlc", "stories", "ST-GHOST"), { recursive: true });
+  const result = run([
+    "contract",
+    "create",
+    "--root",
+    project,
+    "--phase",
+    "analysis",
+    "--story",
+    "ST-GHOST",
+    "--id",
+    "contract-ST-GHOST-analysis",
+    "--context-summary",
+    "Contract for a missing story",
+    "--json",
+  ]);
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /Story ST-GHOST does not exist/u);
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "contracts", "contract-ST-GHOST-analysis.json")), false);
+  assert.deepEqual(fs.readdirSync(path.join(project, ".sdlc", "stories", "ST-GHOST")), []);
+});
+
 test("parallel contract revision and approval preserve one valid serialized outcome", async () => {
   const project = tmpProject("parallel-contract-revision");
   initProject(project);
