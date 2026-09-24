@@ -32236,8 +32236,7 @@ function createContract(context, options) {
       );
     }
     if (storyId) {
-      const storyPath = path.join(context.sdlcRoot, "stories", storyId, "story.json");
-      if (!pathEntryExistsNoFollow(storyPath)) {
+      if (!storyDirectoryExistsBeforeLock(context, storyId)) {
         fail(`Story ${storyId} does not exist; create it before creating story contract ${id}.`);
       }
       releaseTaskStartBoundaryLock = acquireFileLock(path.join(
@@ -32262,6 +32261,22 @@ function createContract(context, options) {
     releaseTaskStartBoundaryLock();
     releaseDeliveryProfileLock();
   }
+}
+
+/**
+ * Pre-lock guard that a story exists, answered from its directory instead of
+ * its `story.json`.
+ *
+ * Whoever holds the story lock rewrites `story.json` by renaming a temporary
+ * file over it. On Windows a process still waiting for that lock which touches
+ * the file at that moment can see it mid-replacement and fail with `EPERM`,
+ * `EACCES`, or `EBUSY`, and its short-lived handle can make the holder's rename
+ * fail the same way. The story directory is never replaced by those writers,
+ * so checking it keeps every access to `story.json` under the lock, where the
+ * record is read again and a missing story is still refused.
+ */
+function storyDirectoryExistsBeforeLock(context, storyId) {
+  return pathEntryExistsNoFollow(path.join(context.sdlcRoot, "stories", normalizeId(storyId)));
 }
 
 function createContractLocked(context, options, settings) {
