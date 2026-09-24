@@ -389,6 +389,30 @@ function localReleaseActionReceipts(project, profileId) {
       && receipt.action === "release.local");
 }
 
+/**
+ * Record an approved code review of the current head by a reviewer who is not
+ * an author of the pull request, as gate_policy.merge_requires_code_review
+ * requires before pull_request.merge.
+ */
+function recordIndependentReview(project, profileId) {
+  return mustRunJson([
+    "review", "record",
+    "--root", project,
+    "--delivery", profileId,
+    "--verdict", "approved",
+    "--actor", "independent-reviewer",
+    "--actor-type", "human",
+  ], {
+    env: {
+      GIT_CONFIG_COUNT: "2",
+      GIT_CONFIG_KEY_0: "user.name",
+      GIT_CONFIG_VALUE_0: "Independent Reviewer",
+      GIT_CONFIG_KEY_1: "user.email",
+      GIT_CONFIG_VALUE_1: "independent-reviewer@example.invalid",
+    },
+  });
+}
+
 function taskIntent(storyId) {
   return JSON.stringify({
     requested_action: "implement_story",
@@ -789,6 +813,7 @@ function prepareAuthorizedPullRequestMerge(suffix) {
     baseBranch: "main",
     baseSha,
   };
+  recordIndependentReview(project, "AUT-PR-MERGE");
   const authorization = mustRunJson([
     "autonomy", "delivery", "action",
     "--root", project,
@@ -2384,6 +2409,7 @@ test("pull-request merge requires an exact open pre-state and later GitHub merge
     baseBranch: "main",
     baseSha,
   };
+  recordIndependentReview(project, "AUT-PR-MERGE");
   mustFail([
     "autonomy", "delivery", "action",
     "--root", project,
