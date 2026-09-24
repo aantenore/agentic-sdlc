@@ -46704,7 +46704,11 @@ function validateAuthorizations(context, report) {
   for (const authorization of collectJsonFiles(context, authorizationRoot(context))) {
     const label = `authorization ${authorization.id || "unknown"}`;
     if (isCanonicalContentAuthorization(authorization)) {
-      const integrity = validateAuthorizationSnapshotIntegrity(authorization);
+      // collectJsonFiles annotates each record with __path/__relative_path for
+      // reporting; strip them before recomputing the canonical content hash, or
+      // every canonical authorization would fail integrity validation here.
+      const { __path, __relative_path, ...authorizationSnapshot } = authorization;
+      const integrity = validateAuthorizationSnapshotIntegrity(authorizationSnapshot);
       if (!integrity.valid) {
         report.errors.push(`${label} failed canonical integrity validation: ${integrity.errors.join("; ")}`);
       }
