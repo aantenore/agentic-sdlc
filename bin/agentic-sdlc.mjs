@@ -23027,6 +23027,9 @@ function evaluateDeliveryAction(context, options) {
     if (action === "pull_request.merge" && profile.pull_request_target?.merge_allowed !== true) {
       fail(`Delivery profile ${profileId} does not authorize pull_request.merge.`);
     }
+    if (action === "pull_request.merge" && !completingAction) {
+      enforceMergeCodeReview(context, profile, runtimeTarget);
+    }
     if (
       !completingAction
       && profile.delivery_kind === "local_release"

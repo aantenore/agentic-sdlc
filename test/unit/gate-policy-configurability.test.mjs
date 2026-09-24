@@ -15,6 +15,7 @@ const CONFIGURABLE = Object.freeze([
   "contract_required_fields",
   "implementation_requires_acceptance_criteria",
   "implementation_requires_claim",
+  "merge_requires_code_review",
   "release_requires_release_trace",
   "secret_scan.enabled",
   "secret_scan.exclude_paths",
