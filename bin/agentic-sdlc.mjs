@@ -962,6 +962,8 @@ function buildCliRuntimeHandlerRegistry() {
     "trace.compact": call(compactTraces),
     "sync.record": call(recordSyncEvent),
     "test.record": call(recordTestRun),
+    "incident.record": call(recordIncident),
+    "feedback.record": call(recordFeedback),
     "secret.scan": call(runSecretScan),
     "output.template.propose": call(proposeOutputTemplate),
     "output.template.approve": call(approveOutputTemplate),
@@ -38420,6 +38422,246 @@ function readTestRunRecords(context, storyId) {
   }
   return records.sort((left, right) =>
     String(left.record.finished_at || "").localeCompare(String(right.record.finished_at || ""), "en")
+    || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
+}
+
+function operationsRoot(context) {
+  return path.join(context.sdlcRoot, "operations");
+}
+
+function requireEnumOption(options, key, values) {
+  const value = requireOption(options, key);
+  if (!values.includes(value)) {
+    fail(`--${key} must be one of: ${values.join(", ")}`);
+  }
+  return value;
+}
+
+function resolveIncidentFeedbackPhase(context, options, story) {
+  const phase = getOptionString(options, "phase") || story.phase || null;
+  if (phase && !context.config.phases[phase]) {
+    fail(`Unknown phase '${phase}'. Use one of: ${Object.keys(context.config.phases).join(", ")}`);
+  }
+  return phase;
+}
+
+function resolveOperationsReleaseManifestId(context, options) {
+  const releaseManifestInput = requireOption(options, "release-manifest");
+  const { manifest } = readReleaseManifest(context, releaseManifestInput);
+  return manifest.id;
+}
+
+function recordIncident(context, options) {
+  ensureInitialized(context);
+  const storyId = normalizeId(requireOption(options, "story"));
+  const story = readStory(context, storyId);
+  if (!story) {
+    fail(`Story ${storyId} does not exist`);
+  }
+  const releaseManifestId = resolveOperationsReleaseManifestId(context, options);
+  const severity = requireEnumOption(options, "severity", ["sev1", "sev2", "sev3", "sev4"]);
+  const summary = requireOption(options, "summary");
+  const impact = requireOption(options, "impact");
+  const detectedAtInput = getOptionString(options, "detected-at");
+  const detectedAt = detectedAtInput ? normalizeOptionalDateTime(detectedAtInput, "detected-at") : now();
+  const resolvedAtInput = getOptionString(options, "resolved-at");
+  const resolvedAt = resolvedAtInput ? normalizeOptionalDateTime(resolvedAtInput, "resolved-at") : null;
+  const actions = normalizeListOption(options["incident-action"]);
+  const phase = resolveIncidentFeedbackPhase(context, options, story);
+  const id = normalizeId(options.id ? String(options.id) : `${storyId}-incident-${uniqueRecordSuffix()}`);
+  const attribution = buildAttribution(context, options, "incident.record");
+  const createdAt = now();
+  const record = {
+    kind: "incident",
+    schema_version: "incident:v1",
+    id,
+    story_id: storyId,
+    release_manifest_id: releaseManifestId,
+    phase,
+    severity,
+    detected_at: detectedAt,
+    resolved_at: resolvedAt,
+    summary,
+    impact,
+    actions,
+    requirement_ids: normalizeListOption(options.requirement).map(normalizeId),
+    actor: attribution.actor,
+    git: attribution.git,
+    run: attribution.run,
+    created_at: createdAt,
+    audit: {
+      created_by: attribution.actor,
+      git: attribution.git,
+      run: attribution.run,
+    },
+    hash_algorithm: "sha256:stable-json:v1",
+  };
+  record.record_hash = computeStableHash(record);
+  assertRecordSchema(record, "incident.schema.json", `Incident ${id}`);
+
+  const recordPath = path.join(operationsRoot(context), `${id}.json`);
+  assertNotDerivedArtifact(context, recordPath, "Incident record");
+  writeJsonFile(recordPath, record, { force: Boolean(options.force) });
+  const projectRecordPath = toProjectPath(context, recordPath);
+
+  const traceEvent = appendTraceEvent(context, storyId, {
+    type: "release",
+    summary: record.summary,
+    action: "incident.record",
+    actor: attribution.actor,
+    ...buildTraceAuthorityMetadata(context, options, attribution),
+    evidence: [projectRecordPath],
+    related: record.requirement_ids,
+    git: attribution.git,
+    run: attribution.run,
+  });
+
+  output(
+    options,
+    {
+      status: "recorded",
+      incident_path: projectRecordPath,
+      incident: record,
+      event: traceEvent,
+    },
+    [
+      `Recorded ${severity} incident ${id} for story ${storyId}`,
+      `Release manifest: ${releaseManifestId}`,
+      `Path: ${projectRecordPath}`,
+    ],
+  );
+}
+
+function readIncidentRecords(context, storyId) {
+  const normalizedStoryId = storyId ? normalizeId(String(storyId)) : null;
+  const records = [];
+  for (const name of safeReadDir(operationsRoot(context))) {
+    if (!name.endsWith(".json")) continue;
+    const recordPath = path.join(operationsRoot(context), name);
+    let record;
+    try {
+      record = readProjectJson(context, recordPath);
+    } catch {
+      continue;
+    }
+    if (record?.kind !== "incident") continue;
+    if (normalizedStoryId && record.story_id !== normalizedStoryId) continue;
+    records.push({ path: toProjectPath(context, recordPath), record });
+  }
+  return records.sort((left, right) =>
+    String(left.record.detected_at || "").localeCompare(String(right.record.detected_at || ""), "en")
+    || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
+}
+
+function buildFeedbackEvidence(context, options) {
+  return normalizeListOption(options.evidence).map((rawPath) => {
+    const evidencePath = resolveProjectFilePath(context, rawPath, { mustExist: true, fileOnly: true });
+    assertNotDerivedArtifact(context, evidencePath, "Feedback evidence");
+    return {
+      path: toProjectPath(context, evidencePath),
+      size_bytes: fs.statSync(evidencePath).size,
+      sha256: hashFile(evidencePath),
+    };
+  });
+}
+
+function recordFeedback(context, options) {
+  ensureInitialized(context);
+  const storyId = normalizeId(requireOption(options, "story"));
+  const story = readStory(context, storyId);
+  if (!story) {
+    fail(`Story ${storyId} does not exist`);
+  }
+  const releaseManifestId = resolveOperationsReleaseManifestId(context, options);
+  const source = requireEnumOption(options, "feedback-source", ["user", "monitoring", "review", "other"]);
+  const summary = requireOption(options, "summary");
+  const sentimentInput = getOptionString(options, "sentiment");
+  if (sentimentInput && !["positive", "neutral", "negative"].includes(sentimentInput)) {
+    fail("--sentiment must be one of: positive, neutral, negative");
+  }
+  const sentiment = sentimentInput || null;
+  const evidence = buildFeedbackEvidence(context, options);
+  const phase = resolveIncidentFeedbackPhase(context, options, story);
+  const id = normalizeId(options.id ? String(options.id) : `${storyId}-feedback-${uniqueRecordSuffix()}`);
+  const attribution = buildAttribution(context, options, "feedback.record");
+  const createdAt = now();
+  const record = {
+    kind: "feedback",
+    schema_version: "feedback:v1",
+    id,
+    story_id: storyId,
+    release_manifest_id: releaseManifestId,
+    phase,
+    source,
+    sentiment,
+    summary,
+    evidence,
+    requirement_ids: normalizeListOption(options.requirement).map(normalizeId),
+    actor: attribution.actor,
+    git: attribution.git,
+    run: attribution.run,
+    created_at: createdAt,
+    audit: {
+      created_by: attribution.actor,
+      git: attribution.git,
+      run: attribution.run,
+    },
+    hash_algorithm: "sha256:stable-json:v1",
+  };
+  record.record_hash = computeStableHash(record);
+  assertRecordSchema(record, "feedback.schema.json", `Feedback ${id}`);
+
+  const recordPath = path.join(operationsRoot(context), `${id}.json`);
+  assertNotDerivedArtifact(context, recordPath, "Feedback record");
+  writeJsonFile(recordPath, record, { force: Boolean(options.force) });
+  const projectRecordPath = toProjectPath(context, recordPath);
+
+  const traceEvent = appendTraceEvent(context, storyId, {
+    type: "release",
+    summary: record.summary,
+    action: "feedback.record",
+    actor: attribution.actor,
+    ...buildTraceAuthorityMetadata(context, options, attribution),
+    evidence: [projectRecordPath, ...evidence.map((item) => item.path)],
+    related: record.requirement_ids,
+    git: attribution.git,
+    run: attribution.run,
+  });
+
+  output(
+    options,
+    {
+      status: "recorded",
+      feedback_path: projectRecordPath,
+      feedback: record,
+      event: traceEvent,
+    },
+    [
+      `Recorded ${source} feedback ${id} for story ${storyId}`,
+      `Release manifest: ${releaseManifestId}`,
+      `Path: ${projectRecordPath}`,
+    ],
+  );
+}
+
+function readFeedbackRecords(context, storyId) {
+  const normalizedStoryId = storyId ? normalizeId(String(storyId)) : null;
+  const records = [];
+  for (const name of safeReadDir(operationsRoot(context))) {
+    if (!name.endsWith(".json")) continue;
+    const recordPath = path.join(operationsRoot(context), name);
+    let record;
+    try {
+      record = readProjectJson(context, recordPath);
+    } catch {
+      continue;
+    }
+    if (record?.kind !== "feedback") continue;
+    if (normalizedStoryId && record.story_id !== normalizedStoryId) continue;
+    records.push({ path: toProjectPath(context, recordPath), record });
+  }
+  return records.sort((left, right) =>
+    String(left.record.created_at || "").localeCompare(String(right.record.created_at || ""), "en")
     || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
 }
 
