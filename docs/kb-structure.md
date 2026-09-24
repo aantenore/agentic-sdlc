@@ -33,6 +33,7 @@ The sample records below use neutral placeholders. The structure is generic and 
     risks/
     tests/
     security/
+    reviews/
     observations/
     traces/
     releases/
@@ -840,6 +841,59 @@ These records are canonical evidence and belong in source control.
 
 Writing a record also appends a `gate` trace event whose evidence names the
 record, so the scan appears in the story history and in the Change Observatory.
+
+## `reviews/`
+
+Code review records for pull-request deliveries. A `.json` file whose `kind` is
+`code_review` is a canonical record validated against
+`schemas/code-review.schema.json` (`code-review:v1`), written only by
+`review record`:
+
+```text
+.sdlc/reviews/ST-001-code-review-20260916T101500-a1b2c3.json
+```
+
+```json
+{
+  "kind": "code_review",
+  "schema_version": "code-review:v1",
+  "id": "ST-001-code-review-20260916T101500-a1b2c3",
+  "story_id": "ST-001",
+  "delivery_id": "PR-ST-001",
+  "delivery_profile_id": "AUT-PR-ST-001",
+  "repository": "example/booking",
+  "base_branch": "main",
+  "head_branch": "feat/booking",
+  "base_sha": "4f2a…",
+  "reviewed_head_sha": "9c81…",
+  "commit_authors": [{ "name": "Maria Rossi", "email": "maria@example.test" }],
+  "reviewer": {
+    "actor_id": "luca",
+    "actor_type": "human",
+    "git_name": "Luca Bianchi",
+    "git_email": "luca@example.test"
+  },
+  "verdict": "approved",
+  "findings": [
+    { "severity": "minor", "summary": "Rename the helper", "path": "src/booking.js", "line": 12 }
+  ],
+  "summary": "Diff reviewed against the booking contract",
+  "reviewed_at": "2026-09-16T10:15:00.000Z",
+  "record_hash": "9ab4…",
+  "hash_algorithm": "sha256:stable-json:v1"
+}
+```
+
+`reviewed_head_sha` and `base_sha` are read from the repository when the record
+is written, never supplied by the reviewer, and a review covers only that head
+commit. The schema admits `approved` only without a `blocking` finding. Each
+record is immutable; a new review produces a new file. The merge gate ignores a
+record whose content no longer matches its `record_hash`. These records are
+canonical evidence and belong in source control.
+
+Writing a record also appends a `gate` trace event whose evidence names the
+record: `passed` for an approval by a reviewer independent of every author,
+`failed` otherwise.
 
 ## `observations/`
 

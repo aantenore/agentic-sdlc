@@ -845,6 +845,17 @@ node bin/agentic-sdlc.mjs secret scan --root <project> --story ST-001 --base mai
 
 Findings are reported as the rule, the file, the line, and at most four leading characters of the match; the matched value is never printed or stored. A clean scan exits `0` and a scan with findings exits `1`. When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head. Rules come from `gate_policy.secret_scan.rules` merged over the shipped defaults by `id`, and `gate_policy.secret_scan.exclude_paths` lists path globs to leave out.
 
+## Record A Code Review
+
+Use `review record` to record a review of one pull-request delivery's diff as a `code-review:v1` record under `.sdlc/reviews/`:
+
+```bash
+node bin/agentic-sdlc.mjs review record --root <project> --delivery AUT-PR-001 --verdict approved --actor <reviewer-id> --actor-type human
+node bin/agentic-sdlc.mjs review record --root <project> --delivery AUT-PR-001 --verdict changes_requested --finding '{"severity":"blocking","summary":"Refund path skips the audit trace","path":"src/refund.js","line":42}' --json
+```
+
+The reviewed head commit and the base commit are read from the repository (the delivery's head branch must be checked out), and the reviewer's Git name and email from the local Git configuration; there is no option to name a commit. An approval cannot carry a `blocking` finding. When `gate_policy.merge_requires_code_review` is `true`, `autonomy delivery action --action pull_request.merge` exits `1` unless an approved review exists for the exact head being merged, by a reviewer whose actor and Git email differ from every commit author in `base..head`. A new commit on the head branch requires a new review.
+
 ## Append Trace
 
 ```bash
