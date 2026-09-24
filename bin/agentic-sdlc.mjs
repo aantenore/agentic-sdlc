@@ -205,6 +205,12 @@ import {
 } from "../lib/execution-context-preflight.mjs";
 import { openCanonicalQuerySession } from "../lib/canonical-query-session.mjs";
 import {
+  IDENTITY_STAT_OPTIONS,
+  fileIdentity,
+  sameFileIdentityValues,
+  sameStatTime,
+} from "../lib/file-identity.mjs";
+import {
   ProjectPathSafetyError,
   assertNoSymlinkSegmentsWithinBoundary,
 } from "../lib/project-path-safety.mjs";
@@ -50682,7 +50688,7 @@ function readRequiredTemplateConfig(templateDir, templateDirIdentity) {
 function resolveStableTemplateDirectory(requestedPath) {
   const resolvedPath = path.resolve(requestedPath);
   try {
-    const requestedBefore = fs.lstatSync(resolvedPath);
+    const requestedBefore = fs.lstatSync(resolvedPath, IDENTITY_STAT_OPTIONS);
     if (requestedBefore.isSymbolicLink()) {
       fail(`Template directory itself must not be a symlink: ${resolvedPath}`);
     }
@@ -50690,8 +50696,8 @@ function resolveStableTemplateDirectory(requestedPath) {
       fail(`Template directory must be a readable directory: ${resolvedPath}`);
     }
     const canonicalPath = fs.realpathSync.native(resolvedPath);
-    const canonicalEntry = fs.lstatSync(canonicalPath);
-    const requestedAfter = fs.lstatSync(resolvedPath);
+    const canonicalEntry = fs.lstatSync(canonicalPath, IDENTITY_STAT_OPTIONS);
+    const requestedAfter = fs.lstatSync(resolvedPath, IDENTITY_STAT_OPTIONS);
     if (
       canonicalEntry.isSymbolicLink()
       || !canonicalEntry.isDirectory()
@@ -50723,7 +50729,7 @@ function selectStableTemplateAsset(filePath, options = {}) {
   assertDirectoryIdentity(parentPath, parentIdentity);
   let selected;
   try {
-    selected = fs.lstatSync(filePath);
+    selected = fs.lstatSync(filePath, IDENTITY_STAT_OPTIONS);
   } catch (error) {
     if (options.allowMissing && error?.code === "ENOENT") {
       assertDirectoryIdentity(parentPath, parentIdentity);
@@ -50735,7 +50741,7 @@ function selectStableTemplateAsset(filePath, options = {}) {
     fail(options.invalidMessage || `Template asset must be a readable regular file: ${filePath}`);
   }
   assertDirectoryIdentity(parentPath, parentIdentity);
-  const selectedAgain = fs.lstatSync(filePath);
+  const selectedAgain = fs.lstatSync(filePath, IDENTITY_STAT_OPTIONS);
   if (!sameStableFileSnapshot(selected, selectedAgain)) {
     fail(`Template asset changed while selecting it: ${filePath}`);
   }
@@ -51050,10 +51056,9 @@ function captureDirectoryIdentity(directoryPath) {
   if (entry.isSymbolicLink() || !entry.isDirectory()) {
     fail(`Refusing unstable write directory: ${directoryPath}`);
   }
-  const stat = fs.statSync(directoryPath);
+  const stat = fs.statSync(directoryPath, IDENTITY_STAT_OPTIONS);
   return {
-    dev: stat.dev,
-    ino: stat.ino,
+    ...fileIdentity(stat),
     realpath: fs.realpathSync.native(directoryPath),
   };
 }
@@ -51061,7 +51066,7 @@ function captureDirectoryIdentity(directoryPath) {
 function directoryIdentityMatches(directoryPath, expected) {
   try {
     const current = captureDirectoryIdentity(directoryPath);
-    return current.dev === expected.dev && current.ino === expected.ino && current.realpath === expected.realpath;
+    return sameFileIdentityValues(current, expected) && current.realpath === expected.realpath;
   } catch {
     return false;
   }
@@ -51079,8 +51084,11 @@ function verifyOpenFileMatchesPath(descriptor, filePath, parentIdentity) {
     fail(`Refusing non-regular file: ${filePath}`);
   }
   assertDirectoryIdentity(path.dirname(filePath), parentIdentity);
-  const pathStat = fs.lstatSync(filePath);
-  if (pathStat.isSymbolicLink() || pathStat.dev !== descriptorStat.dev || pathStat.ino !== descriptorStat.ino) {
+  const pathStat = fs.lstatSync(filePath, IDENTITY_STAT_OPTIONS);
+  if (
+    pathStat.isSymbolicLink()
+    || !sameFileIdentityValues(pathStat, fs.fstatSync(descriptor, IDENTITY_STAT_OPTIONS))
+  ) {
     fail(`File changed while opening it: ${filePath}`);
   }
   return descriptorStat;
@@ -51091,7 +51099,10 @@ function readFileFromStableParent(filePath, parentIdentity, options = {}) {
   try {
     descriptor = fs.openSync(filePath, fs.constants.O_RDONLY | NO_FOLLOW_FLAG);
     const before = verifyOpenFileMatchesPath(descriptor, filePath, parentIdentity);
-    if (options.expectedStat && !sameStableFileSnapshot(options.expectedStat, before)) {
+    if (
+      options.expectedStat
+      && !sameStableFileSnapshot(options.expectedStat, fs.fstatSync(descriptor, IDENTITY_STAT_OPTIONS))
+    ) {
       fail(options.identityMismatchMessage || `File changed after selection: ${filePath}`);
     }
     if (options.maxBytes === undefined) return fs.readFileSync(descriptor, "utf8");
@@ -51133,16 +51144,16 @@ function readFileFromStableParent(filePath, parentIdentity, options = {}) {
 
 function sameStableFileIdentity(left, right) {
   if (Number(left.ino) === 0 || Number(right.ino) === 0) return true;
-  return left.dev === right.dev && left.ino === right.ino;
+  return sameFileIdentityValues(left, right);
 }
 
 function sameStableFileSnapshot(left, right) {
   return sameStableFileIdentity(left, right)
-    && left.dev === right.dev
-    && left.mode === right.mode
-    && left.size === right.size
-    && left.mtimeMs === right.mtimeMs
-    && left.ctimeMs === right.ctimeMs;
+    && fileIdentity(left).dev === fileIdentity(right).dev
+    && Number(left.mode) === Number(right.mode)
+    && Number(left.size) === Number(right.size)
+    && sameStatTime(left, right, "mtime")
+    && sameStatTime(left, right, "ctime");
 }
 
 function writeFileToStableParent(filePath, content, parentIdentity, options = {}) {
@@ -51166,8 +51177,8 @@ function writeFileToStableParent(filePath, content, parentIdentity, options = {}
       0o666,
     );
     created = true;
-    const opened = verifyOpenFileMatchesPath(descriptor, filePath, parentIdentity);
-    createdIdentity = { dev: opened.dev, ino: opened.ino };
+    verifyOpenFileMatchesPath(descriptor, filePath, parentIdentity);
+    createdIdentity = fileIdentity(fs.fstatSync(descriptor, IDENTITY_STAT_OPTIONS));
     assertMutationExecutionAuthorized({
       operation: "file.write",
       path: options.governanceTargetPath ?? filePath,
@@ -51192,11 +51203,10 @@ function writeFileToStableParent(filePath, content, parentIdentity, options = {}
 function writerTemporaryMatches(filePath, expectedIdentity) {
   if (!expectedIdentity) return false;
   try {
-    const entry = fs.lstatSync(filePath);
+    const entry = fs.lstatSync(filePath, IDENTITY_STAT_OPTIONS);
     return !entry.isSymbolicLink()
       && entry.isFile()
-      && entry.dev === expectedIdentity.dev
-      && entry.ino === expectedIdentity.ino;
+      && sameFileIdentityValues(entry, expectedIdentity);
   } catch {
     return false;
   }
