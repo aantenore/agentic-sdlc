@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "code-review.schema.json",
+  "title": "Agentic SDLC Code Review Record v1",
+  "description": "Persistent evidence that one identified reviewer inspected the diff of one pull-request delivery at one exact head commit and reached a verdict. The record binds the story, the delivery, the repository, the base and head branches, and the reviewed head commit, so a review is valid only for the commit it inspected: any later commit on the head branch is unreviewed. An 'approved' verdict is only representable without a blocking finding.",
+  "type": "object",
+  "required": [
+    "kind",
+    "schema_version",
+    "id",
+    "story_id",
+    "delivery_id",
+    "delivery_profile_id",
+    "repository",
+    "base_branch",
+    "head_branch",
+    "base_sha",
+    "reviewed_head_sha",
+    "commit_authors",
+    "reviewer",
+    "verdict",
+    "findings",
+    "summary",
+    "reviewed_at",
+    "actor",
+    "git",
+    "run",
+    "created_at",
+    "audit",
+    "record_hash",
+    "hash_algorithm"
+  ],
+  "properties": {
+    "kind": {
+      "const": "code_review"
+    },
+    "schema_version": {
+      "const": "code-review:v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "story_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "delivery_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "delivery_profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "head_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_sha": {
+      "description": "The base commit the reviewed range starts from, read from the repository when the review was recorded.",
+      "$ref": "#/$defs/commit_sha"
+    },
+    "reviewed_head_sha": {
+      "description": "The exact head commit the reviewer inspected, read from the repository and never taken from the reviewer's own claim.",
+      "$ref": "#/$defs/commit_sha"
+    },
+    "commit_authors": {
+      "description": "Author identities of every commit in base_sha..reviewed_head_sha when the review was recorded.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/git_identity"
+      }
+    },
+    "reviewer": {
+      "type": "object",
+      "required": [
+        "actor_id",
+        "actor_type",
+        "git_name",
+        "git_email"
+      ],
+      "properties": {
+        "actor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor_type": {
+          "enum": [
+            "human",
+            "agent",
+            "system",
+            "ci",
+            "unknown"
+          ]
+        },
+        "git_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "git_email": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "verdict": {
+      "enum": [
+        "approved",
+        "changes_requested"
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "requirement_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "actor": {
+      "$ref": "common.schema.json#/$defs/actor"
+    },
+    "git": {
+      "$ref": "common.schema.json#/$defs/git"
+    },
+    "run": {
+      "$ref": "common.schema.json#/$defs/run"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "audit": {
+      "$ref": "common.schema.json#/$defs/audit"
+    },
+    "record_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "hash_algorithm": {
+      "const": "sha256:stable-json:v1"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "verdict"
+        ],
+        "properties": {
+          "verdict": {
+            "const": "approved"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "findings": {
+            "items": {
+              "properties": {
+                "severity": {
+                  "not": {
+                    "const": "blocking"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "git_identity": {
+      "type": "object",
+      "required": [
+        "name",
+        "email"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "finding": {
+      "type": "object",
+      "required": [
+        "severity",
+        "summary"
+      ],
+      "properties": {
+        "severity": {
+          "enum": [
+            "blocking",
+            "major",
+            "minor",
+            "note"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
