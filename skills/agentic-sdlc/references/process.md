@@ -19,6 +19,8 @@ Before the phase sequence becomes executable, agree a revisioned `requirement:v2
    - Validate against contracts, acceptance criteria, tests, risk mitigation, and release readiness.
 6. Release
    - Produce release notes, deployment notes, observability signals, feedback loop, and updated project context.
+7. Operations
+   - Track incidents and feedback observed against the released change, each bound to the story and to a released manifest. Not a blocking gate: `gate check` reports counts and warns, without failing, when a story in this phase has neither yet.
 
 ```mermaid
 flowchart LR
@@ -27,6 +29,7 @@ flowchart LR
   Design --> Implementation["Implementation"]
   Implementation --> Validation["Validation"]
   Validation --> Release["Release"]
+  Release --> Operations["Operations"]
 
   Requirement["Approved requirement + ceiling"] --> Contract["Discovery/analysis/design contract"]
   Contract --> Discovery

@@ -14,9 +14,9 @@ while new work uses stronger lifecycle governance:
 
 | Preset | Version | Intended use | Stable journey |
 | --- | --- | --- | --- |
-| Software project | v3, current | New feature delivery governed by phase-bound canonical story evidence | `discovery`, `analysis`, `design`, `implementation`, `validation`, `release` |
-| Software project | v2, compatibility | Replay or resume a governed instance pinned to canonical evidence v1 | The same six phases and canonical guards, with legacy all-due outputs and unscoped evidence |
-| Software project | v1, legacy | Replay or resume an instance already pinned to the original sequential definition | The same six phases, without canonical transition guards |
+| Software project | v3, current | New feature delivery governed by phase-bound canonical story evidence | `discovery`, `analysis`, `design`, `implementation`, `validation`, `release`, `operations` |
+| Software project | v2, compatibility | Replay or resume a governed instance pinned to canonical evidence v1 | The same seven phases and canonical guards, with legacy all-due outputs and unscoped evidence |
+| Software project | v1, legacy | Replay or resume an instance already pinned to the original sequential definition | The same seven phases, without canonical transition guards |
 | Change request | v1 | A bounded change with review and verification | Intake, impact review, approval, implementation, validation, closure |
 | Technical assessment | v1 | The existing guided assessment | Project context, complete proposal, execution, verification, completion; exactly two normal user checkpoints |
 | Generic governed process | v1 | A reusable approval-and-execution skeleton | Draft, review, approval, execution, verification, completion |
@@ -39,6 +39,7 @@ records:
 | `design` → `implementation` | The story's implementation contract is currently approved and matches the story |
 | `implementation` → `validation` | Every output due through the current workflow phase is linked with valid current verification; later-phase outputs remain deferred |
 | `validation` → `release` | The story has passing intermediate strict-gate evidence |
+| `release` → `operations` | No additional transition guard; incident and feedback records are tracked, never blocking |
 
 The runtime loads requirement, contract, output, strict-gate, delivery-profile,
 and delivery-close records through the governed project reader, then seals one
@@ -50,7 +51,7 @@ v3 event as v1 is rejected. Canonical evidence cannot predate its bound
 checkpoint or postdate the transition event that records it. A caller cannot
 bypass a canonical guard by claiming success in `--guard-input-json`; missing,
 stale, mismatched, modified, unsuccessful, or wrong-version evidence fails
-closed. The final discovery-to-release certificate remains the story gate.
+closed. The final discovery-to-operations certificate remains the story gate.
 
 The two gate receipts are deliberately different. A passing ordinary strict
 story gate writes `.sdlc/gates/<story-id>-strict.json` as
@@ -65,14 +66,16 @@ transition guard. The intermediate receipt proves that current validation
 evidence is ready for its guarded transition, but it is not a final lifecycle
 certificate.
 After that transition, complete the exact delivery,
-append its passing release trace, complete the release step, and release the
+append its passing release trace, complete the release step, transition to
+`operations`, complete the `operations` step — a plain completion marker,
+never gated on an incident or feedback record existing — and release the
 completed story claim. The lifecycle-complete
 gate replays the selected workflow instance, verifies its immutable header,
 event hashes, durable checkpoint, and matching audit-trace chain, and requires
 workflow start before task start, each phase entry before that phase's
 completion, and each next entry after the prior completion. Entry into the
-configured final state must precede both release evidence and terminal
-delivery. Only then does it write
+configured final state (`operations`) must precede both release evidence and
+terminal delivery. Only then does it write
 `.sdlc/gates/<story-id>-final.json` as
 `workflow-final-gate-receipt:v3`. Historical v1 receipts remain readable for
 an already pinned legacy run. Pre-freshness v2 receipts require explicit

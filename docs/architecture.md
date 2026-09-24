@@ -254,7 +254,7 @@ flowchart LR
   Replay --> Status["Current status and next allowed transitions"]
 ```
 
-The engine ships software-project, change-request, technical-assessment, and generic-governed-process presets. The software preset preserves the exact six existing phases: discovery, analysis, design, implementation, validation, and release. The assessment preset preserves exactly two normal user checkpoints and complements, rather than replaces, `assessment-proposal:v1` and `assessment-workflow:v1`.
+The engine ships software-project, change-request, technical-assessment, and generic-governed-process presets. The software preset preserves the exact seven existing phases: discovery, analysis, design, implementation, validation, release, and operations. The assessment preset preserves exactly two normal user checkpoints and complements, rather than replaces, `assessment-proposal:v1` and `assessment-workflow:v1`.
 
 An instance pins the definition, optional overlay, and effective content hashes at start. A later definition or overlay version affects only a new instance. Events carry a monotonic sequence, previous-event hash, event hash, actor, timestamp, and idempotency key. Replay fails closed for modified, reordered, duplicated, or truncated evidence when a known checkpoint is supplied. Guards are declarative allowlisted identifiers with validated parameters; workflow records are never evaluated, dynamically imported, or passed to a shell.
 
