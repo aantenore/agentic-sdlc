@@ -237,6 +237,7 @@ function customGovernedWorkflowDefinition(customPhase) {
     "implementation",
     "validation",
     "release",
+    "operations",
   ];
   const transition = (from, to, guards = []) => ({
     id: `${from}-to-${to}`,
@@ -261,6 +262,7 @@ function customGovernedWorkflowDefinition(customPhase) {
       transition(customPhase, "implementation"),
       transition("implementation", "validation", ["required-output-linked"]),
       transition("validation", "release", ["strict-gate-passed"]),
+      transition("release", "operations"),
     ],
     normal_checkpoints: [],
     metadata: {
@@ -296,6 +298,7 @@ function configureCustomPhase(project, customPhase) {
     "implementation",
     "validation",
     "release",
+    "operations",
   ];
   config.autonomy_policy.presets.checkpointed.automatic_phases = [
     ...config.autonomy_policy.presets.checkpointed.automatic_phases,
@@ -1894,6 +1897,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "implementation",
     "validation",
     "release",
+    "operations",
   ]);
   assert.match(strictReport.workflow_scope.checkpoint_ref.checkpoint_hash, /^[a-f0-9]{64}$/u);
   assert.equal(fs.existsSync(path.join(project, strictReceiptPath)), true);
@@ -2413,6 +2417,29 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   assert.match(readyToCertifyStatus.next_action.command, /^node /u);
   assert.doesNotMatch(readyToCertifyStatus.next_action.command, /^agentic-sdlc /u);
 
+  // Release evidence is complete, but the configured lifecycle now ends at
+  // operations, not release: advance the workflow and complete its step
+  // (a plain marker, never gated on an incident or feedback record) before
+  // the claim/certification checks below.
+  mustRun([
+    "workflow", "instance", "transition",
+    "--root", project,
+    "--id", workflowInstanceId,
+    "--to", "operations",
+    "--request-id", "final-workflow-7-operations",
+    "--actor", "workflow-e2e-ci",
+    "--actor-type", "ci",
+    "--actor-name", "Workflow E2E CI",
+  ], project);
+  mustRun([
+    "story", "complete-step",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--step", "operations",
+    "--summary", "Operations tracking acknowledged; no incidents or feedback yet",
+    "--authorization", fixture.storyActionAuthorizationId,
+  ], project);
+
   mustFail([
     "gate", "check",
     "--root", project,
@@ -2599,7 +2626,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   assert.equal(finalReport.lifecycle_workflow.instance_id, workflowInstanceId);
   assert.match(finalReport.lifecycle_workflow.instance_hash, /^[a-f0-9]{64}$/u);
   assert.match(finalReport.lifecycle_workflow.effective_hash, /^[a-f0-9]{64}$/u);
-  assert.equal(finalReport.lifecycle_workflow.terminal_state, "release");
+  assert.equal(finalReport.lifecycle_workflow.terminal_state, "operations");
   assert.equal(
     finalReport.lifecycle_workflow.checkpoint_ref.path,
     `.sdlc/workflows/instances/${workflowInstanceId}/checkpoint.json`,
@@ -2716,7 +2743,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   assert.equal(terminalOrchestration.summary.claimed, 0);
   assert.equal(terminalOrchestration.summary.terminal, 1);
   assert.equal(terminalStory.status, "done");
-  assert.equal(terminalStory.phase, "release");
+  assert.equal(terminalStory.phase, "operations");
   assert.equal(
     terminalStory.record_status,
     readJson(project, `.sdlc/stories/${fixture.storyId}/story.json`).status,
@@ -2746,7 +2773,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   assert.equal(manifestProjection.record_status, "ready");
   assert.equal(manifestProjection.record_phase, "implementation");
   assert.equal(manifestProjection.effective_status, "done");
-  assert.equal(manifestProjection.effective_phase, "release");
+  assert.equal(manifestProjection.effective_phase, "operations");
   assert.equal(manifestProjection.lifecycle_terminal, true);
   assert.equal(manifestProjection.lifecycle_blocked, false);
   assert.equal(

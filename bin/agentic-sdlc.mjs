@@ -6641,6 +6641,38 @@ function showWorkflowInstance(context, options, { explain = false } = {}) {
             currentState,
           )
         : null;
+      // A terminal state's readiness cannot be judged from its own phase
+      // alone once other configured phases (such as release) precede it:
+      // tampering with an earlier phase's sealed step must still block
+      // certification, not just an invalid current phase. Fold every other
+      // configured phase's readiness into the reported completion so a
+      // caller reading current_phase_completion sees the real blocker.
+      const terminalCandidate = (effectiveDefinition.states || [])
+        .find((state) => state.id === currentState)?.terminal === true;
+      if (requiresCurrentPhaseCompletion && terminalCandidate && currentPhaseCompletion) {
+        const otherPhaseReadiness = configuredPhaseOrder(context)
+          .filter((phase) => phase !== currentState)
+          .map((phase) =>
+            currentStoryPhaseCompletionReadiness(
+              context,
+              storyId,
+              instance,
+              effectiveDefinition,
+              events,
+              phase,
+            ))
+          .filter((readiness) => !readiness.ready);
+        if (otherPhaseReadiness.length > 0) {
+          currentPhaseCompletion = {
+            ...currentPhaseCompletion,
+            ready: false,
+            issues: [
+              ...currentPhaseCompletion.issues,
+              ...otherPhaseReadiness.flatMap((readiness) => readiness.issues),
+            ],
+          };
+        }
+      }
     }
   } finally {
     releaseLock();
@@ -44730,10 +44762,21 @@ function validCurrentWorkflowFinalReceipt(context, storyId, instance) {
   }
 }
 
+/**
+ * The phase whose completion closes a delivery. It is "release" whenever the
+ * project's phase order has one, even when a later phase such as operations
+ * follows it; a custom phase order without "release" keeps its last phase, as
+ * before operations existed.
+ */
+function releasePhaseName(context) {
+  const phaseOrder = configuredPhaseOrder(context);
+  return phaseOrder.includes("release") ? "release" : phaseOrder.at(-1);
+}
+
 function storyReleaseReadiness(context, storyId) {
   const missing = [];
   const releaseStep = readStoryStepRecords(context, storyId)
-    .find((record) => record.status === "completed" && record.phase === configuredPhaseOrder(context).at(-1));
+    .find((record) => record.status === "completed" && record.phase === releasePhaseName(context));
   const releaseTrace = latestTraceEvent(readTraceEvents(context, storyId), "release");
   const story = readStory(context, storyId);
   const contract = story?.contract_id
@@ -45228,6 +45271,12 @@ function buildStoryWorkflowNextAction(context, story) {
         workflow_instance_id: selected.entry,
       };
     }
+  }
+  // Release evidence and the active claim must clear once the workflow enters
+  // "release", not only once it reaches the terminal phase: a phase configured
+  // after release (such as operations) makes "release" itself non-terminal,
+  // but delivery still has to close before that later phase is entered.
+  if (currentState === "release" || terminal) {
     const releaseReadiness = storyReleaseReadiness(context, story.id);
     if (!releaseReadiness.ready) {
       const command = releaseReadiness.profile_id
@@ -45260,6 +45309,8 @@ function buildStoryWorkflowNextAction(context, story) {
         };
       }
     }
+  }
+  if (terminal) {
     return {
       kind: "certify_lifecycle",
       reason: "workflow_terminal",
@@ -45273,9 +45324,12 @@ function buildStoryWorkflowNextAction(context, story) {
     };
   }
   const currentStepCompleted = completedSteps.some((record) => record.phase === currentState);
-  const nextState = (effectiveDefinition.transitions || [])
-    .find((transition) => transition.from === currentState)?.to || null;
-  if (currentStepCompleted && nextState === configuredPhaseOrder(context).at(-1)) {
+  const outgoingTransition = (effectiveDefinition.transitions || [])
+    .find((transition) => transition.from === currentState) || null;
+  const nextState = outgoingTransition?.to || null;
+  const nextStateRequiresStrictGate = (outgoingTransition?.guards || [])
+    .some((guard) => guard?.id === "strict-gate-passed");
+  if (currentStepCompleted && nextStateRequiresStrictGate) {
     const strictGate = currentStoryStrictGateReadiness(
       context,
       story.id,
@@ -50712,14 +50766,22 @@ function validateCurrentStoryWorkflowCompletion(
       };
     });
 
+    // Release evidence (terminal delivery, release trace) must be produced
+    // during or after the release phase, so this compares against when the
+    // workflow entered "release" specifically - not `terminalAt`, which is
+    // the entry time of whatever phase is configured as terminal today and
+    // may no longer be "release" (for example, once operations follows it).
+    // Workflows without a "release" state fall back to the terminal phase,
+    // which is what this check always compared against before.
+    const releaseEnteredAt = entryByPhase.get("release")?.entered_at || terminalAt || null;
     for (const [dependency, timestamp] of [
       ["terminal delivery", deliveryClosedAt],
       ["latest passing release trace", releaseTrace?.created_at],
     ]) {
       if (
-        terminalAt
+        releaseEnteredAt
         && Number.isFinite(Date.parse(String(timestamp || "")))
-        && Date.parse(terminalAt) > Date.parse(timestamp)
+        && Date.parse(releaseEnteredAt) > Date.parse(timestamp)
       ) {
         report.errors.push(
           `${label} entered the release phase after the ${dependency}; release entry must precede release evidence`,

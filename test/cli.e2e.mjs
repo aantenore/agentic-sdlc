@@ -10606,7 +10606,7 @@ test("story, contract, autonomy, and legacy analysis steps honor configured phas
     ...config.phases.design,
     purpose: "Review security boundaries before analysis.",
   };
-  config.phase_order = ["discovery", customPhase, "analysis", "design", "implementation", "validation", "release"];
+  config.phase_order = ["discovery", customPhase, "analysis", "design", "implementation", "validation", "release", "operations"];
   config.autonomy_policy.presets.checkpointed.automatic_phases = [
     customPhase,
     ...config.autonomy_policy.presets.checkpointed.automatic_phases,
