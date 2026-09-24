@@ -7449,6 +7449,9 @@ test("strict gates use the latest test outcome while retaining failed attempts",
   appendOutcome("failed");
   mustFail(["gate", "check", "--root", project, "--story", "ST-001", "--strict"], /latest test trace outcome must be passed/);
   appendOutcome("passed");
+  // A story in validation also owes the credential scan its configuration
+  // declares; this case is about the test outcome, so satisfy that gate too.
+  mustRun(["secret", "scan", "--root", project, "--story", "ST-001"]);
   const legacyStrictReceipt = JSON.parse(mustRun([
     "gate", "check", "--root", project, "--story", "ST-001", "--strict", "--json",
   ]).stdout);

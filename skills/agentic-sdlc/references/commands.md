@@ -832,6 +832,19 @@ node bin/agentic-sdlc.mjs test record \
 
 The command is recorded, never run. A story in validation with only a `trace append --type test` entry and no `test-run:v1` record is the legacy weaker form; prefer `test record` for validation evidence and use `trace append --type test` only where a durable test record does not apply.
 
+## Scan Changed Files For Credentials
+
+Use `secret scan` to search the files one delivery changed for credentials and store the result as a `secret-scan:v1` record under `.sdlc/security/`:
+
+```bash
+node bin/agentic-sdlc.mjs secret scan --root <project> --story ST-001
+node bin/agentic-sdlc.mjs secret scan --root <project> --story ST-001 --base main --head HEAD --json
+```
+
+`--base` defaults to the commit the story's task start recorded and `--head` to the current `HEAD`. A story whose work is not committed yet is scanned from the uncommitted workspace, and a local release with neither falls back to the story's approved write paths.
+
+Findings are reported as the rule, the file, the line, and at most four leading characters of the match; the matched value is never printed or stored. A clean scan exits `0` and a scan with findings exits `1`. When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head. Rules come from `gate_policy.secret_scan.rules` merged over the shipped defaults by `id`, and `gate_policy.secret_scan.exclude_paths` lists path globs to leave out.
+
 ## Append Trace
 
 ```bash

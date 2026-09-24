@@ -525,6 +525,35 @@ only. No metric, log, trace, or support bundle is exported to an external sink.
 See [Change Observatory](change-observatory.md) for the endpoint and
 authentication table.
 
+### Changed files are scanned for credentials before validation closes
+
+Redaction protects what the CLI records. It says nothing about the files a
+delivery changed, so a credential committed into the source is still a
+credential. `secret scan` closes that gap: it resolves the files between the
+delivery's base and head, reads them inside the project path-safety boundary,
+matches them against the project's rule set, and writes a `secret-scan:v1`
+record under `.sdlc/security/`.
+
+A finding names the rule, the file, and the line, and keeps at most four
+leading characters of the match. The matched value is never printed, returned,
+or stored: a scanner that copies the secret into its own report has widened the
+exposure rather than reported it. A scan with findings exits `1`, the status a
+pipeline reads as a refused request.
+
+The rule set is data. `gate_policy.secret_scan.rules` merges over the shipped
+defaults by rule id, and `gate_policy.secret_scan.exclude_paths` removes paths
+from the scan. Every shipped pattern is linear-time, so no crafted line can make
+a scan take longer than the text it reads.
+
+`gate_policy.secret_scan.enabled` turns the check into a gate: a story in
+validation then needs a record whose outcome is `clean` for the current head,
+and an older record proves nothing about the content being validated now. The
+flag is read as an explicit `true`. A project that never declared it keeps the
+gate it agreed to, because a plugin update that silently starts blocking
+deliveries would break the promise that project policy changes only through a
+reviewed decision. Adoption is by initializing from the current template or
+migrating through `config migrate`.
+
 ### Output verification is layered
 
 Codex creates the approved artifact, and the CLI links it to the approved story, requirement, template, and proposal authorization. The link stores the artifact fingerprint and a separate verification receipt.

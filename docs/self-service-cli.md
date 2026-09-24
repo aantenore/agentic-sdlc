@@ -199,6 +199,53 @@ a zero exit status with nothing executed is `skipped`, and anything else is
 `failed`. Each evidence file is hashed when the record is written, so a later
 edit to that file is detectable.
 
+## Scan a delivery for credentials
+
+`secret scan` (effect: local) searches the files one delivery changed for
+credentials and writes the result as a durable story record under
+`.sdlc/security/`.
+
+```bash
+node "$PLUGIN_CLI" secret scan --root /path/to/project \
+  --story ST-BOOKING-001
+```
+
+| Input | Purpose |
+|---|---|
+| `--story` | The story the delivery belongs to; it must already exist. |
+| `--base`, `--head` | The exact commits to compare. `--base` defaults to the commit the story's task start recorded and `--head` to the current `HEAD`. |
+| `--delivery` | Bind the record to one exact delivery. |
+| `--summary`, `--id` | Optional text and an explicit record ID. |
+| `--requirement` | Link the scan to the requirements the delivery serves. |
+
+The changed files come from the commit range when one is available, from the
+uncommitted workspace when the work is not committed yet, and from the story's
+approved write paths for a local release with neither. Files are read through
+the project path-safety boundary: nothing outside the project root is opened and
+no symlink is followed.
+
+Matches are printed and stored redacted, as the rule that matched plus at most
+four leading characters. A scan that finds nothing exits `0`; a scan with
+findings exits `1`, the refused-request status, so a pipeline gating on the exit
+code blocks the delivery. Remove the credential from the file, rotate it at its
+provider, then scan again.
+
+The rules are project configuration. `gate_policy.secret_scan.rules` is an array
+of `{ "id", "pattern", "flags" }` entries merged over the shipped defaults by
+`id`, so one default can be retuned without restating the rest, and
+`gate_policy.secret_scan.exclude_paths` lists path globs to leave out. The
+shipped defaults cover AWS access key IDs and secret keys, GitHub `ghp_`,
+`gho_`, and `github_pat_` tokens, Slack `xox[abp]-` tokens, private key blocks,
+and credential literals assigned to an `api_key`, `secret`, `token`, or
+`password` name.
+
+When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a
+`secret-scan:v1` record whose outcome is `clean` for the project's current head,
+and the validation gate reports an error otherwise. The flag is read as an
+explicit `true`: a project whose configuration never declared it keeps the gate
+it agreed to, and adopts the check by initializing from the current template or
+migrating through `config migrate`.
+
 Writing the record also appends a `test` trace event carrying the same outcome,
 so the run appears in the story history without a separate `trace append`.
 

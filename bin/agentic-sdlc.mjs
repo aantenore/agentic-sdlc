@@ -214,6 +214,7 @@ import {
   ProjectPathSafetyError,
   assertNoSymlinkSegmentsWithinBoundary,
 } from "../lib/project-path-safety.mjs";
+import { SecretScanConfigurationError, scanFiles } from "../lib/secret-scan.mjs";
 import {
   buildConfigMigrationApplyData,
   buildEffectiveConfigLock,
@@ -967,6 +968,7 @@ function buildCliRuntimeHandlerRegistry() {
     "trace.compact": call(compactTraces),
     "sync.record": call(recordSyncEvent),
     "test.record": call(recordTestRun),
+    "secret.scan": call(runSecretScan),
     "output.template.propose": call(proposeOutputTemplate),
     "output.template.approve": call(approveOutputTemplate),
     "output.resolve": call(resolveOutput),
@@ -38427,6 +38429,319 @@ function readTestRunRecords(context, storyId) {
     || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
 }
 
+function secretScansRoot(context) {
+  return path.join(context.sdlcRoot, "security");
+}
+
+/**
+ * Reads gate_policy.secret_scan from the effective project configuration.
+ *
+ * `enabled` is compared against true and not against false. A project whose
+ * configuration predates this block keeps the gate it agreed to; only a project
+ * initialized from the current template, or migrated through the reviewed
+ * `config migrate` path, gets the blocking check. Rules and exclusions are
+ * project data merged over the shipped defaults by the scanner, so a project
+ * can retune one pattern without restating the rest.
+ */
+function secretScanPolicy(context) {
+  return {
+    enabled: context.config.gate_policy?.secret_scan?.enabled === true,
+    rules: Array.isArray(context.config.gate_policy?.secret_scan?.rules)
+      ? context.config.gate_policy.secret_scan.rules
+      : [],
+    excludePaths: Array.isArray(context.config.gate_policy?.secret_scan?.exclude_paths)
+      ? context.config.gate_policy.secret_scan.exclude_paths
+      : [],
+  };
+}
+
+function resolveSecretScanCommit(context, ref, label) {
+  const sha = execGit(context.root, ["rev-parse", "--verify", `${ref}^{commit}`]);
+  if (!sha || !/^[a-f0-9]{40,64}$/iu.test(sha)) {
+    fail(`--${label} must name a commit that exists in this repository: ${ref}`);
+  }
+  return sha.toLowerCase();
+}
+
+function secretScanGitPaths(context, args) {
+  return String(execGit(context.root, args) || "")
+    .split(/\r?\n/u)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Resolve which files one delivery changed.
+ *
+ * The preferred source is the committed range between the delivery's base and
+ * the current head. A story whose work is not committed yet falls back to the
+ * uncommitted workspace, and a local release with neither falls back to the
+ * files inside the write paths the story's approved requirement profiles
+ * recorded. Every source names the same head commit, so a stored record always
+ * states which project state was scanned.
+ */
+function resolveSecretScanTargets(context, storyId, options) {
+  if (execGit(context.root, ["rev-parse", "--is-inside-work-tree"]) !== "true") {
+    if (getOptionString(options, "base") || getOptionString(options, "head")) {
+      fail("--base and --head need the project to be a Git worktree.");
+    }
+    return {
+      source: "story_write_paths",
+      base_sha: null,
+      head_sha: null,
+      paths: secretScanStoryWritePaths(context, storyId),
+    };
+  }
+  const headSha = resolveSecretScanCommit(context, getOptionString(options, "head") || "HEAD", "head");
+  const explicitBase = getOptionString(options, "base");
+  const taskStartPath = path.join(context.sdlcRoot, "stories", storyId, "task-start.json");
+  const recordedBase = fs.existsSync(taskStartPath)
+    ? readProjectJson(context, taskStartPath)?.audit?.git?.head_sha || null
+    : null;
+  const baseCandidate = explicitBase
+    || (recordedBase
+      && /^[a-f0-9]{7,64}$/iu.test(recordedBase)
+      && gitCommandSucceeds(context.root, ["cat-file", "-e", `${recordedBase}^{commit}`])
+      ? recordedBase
+      : null);
+  if (baseCandidate) {
+    const baseSha = resolveSecretScanCommit(context, baseCandidate, "base");
+    return {
+      source: "git_range",
+      base_sha: baseSha,
+      head_sha: headSha,
+      paths: secretScanGitPaths(context, ["diff", "--name-only", "--no-renames", `${baseSha}..${headSha}`, "--"]),
+    };
+  }
+  const workspacePaths = [
+    ...secretScanGitPaths(context, ["diff", "--name-only", "--no-renames", "HEAD", "--"]),
+    ...secretScanGitPaths(context, ["ls-files", "--others", "--exclude-standard"]),
+  ];
+  if (workspacePaths.length > 0) {
+    return { source: "git_workspace", base_sha: null, head_sha: headSha, paths: workspacePaths };
+  }
+  return {
+    source: "story_write_paths",
+    base_sha: null,
+    head_sha: headSha,
+    paths: secretScanStoryWritePaths(context, storyId),
+  };
+}
+
+function secretScanStoryWritePaths(context, storyId) {
+  const story = readStory(context, storyId);
+  const requirementIds = Array.isArray(story?.links?.requirements) ? story.links.requirements.filter(Boolean) : [];
+  const writePaths = new Set();
+  for (const requirementId of requirementIds) {
+    const requirement = readRequirement(context, requirementId, { missingOk: true });
+    if (!requirement?.autonomy_profile_id) continue;
+    let profile;
+    try {
+      profile = readRequirementAutonomyProfile(context, requirement.autonomy_profile_id);
+    } catch {
+      continue;
+    }
+    for (const writePath of profile.constraints?.allowed_write_paths || []) {
+      writePaths.add(String(writePath));
+    }
+  }
+  const files = [];
+  for (const writePath of writePaths) {
+    const base = writePath.replace(/\*+.*$/u, "").replace(/\/$/u, "");
+    if (!base) continue;
+    const resolved = resolveProjectFilePath(context, base, { mustExist: false });
+    if (!fs.existsSync(resolved)) continue;
+    if (fs.statSync(resolved).isDirectory()) files.push(...listProjectFilesUnder(context, resolved));
+    else files.push(toProjectPath(context, resolved));
+  }
+  return files;
+}
+
+function listProjectFilesUnder(context, directoryPath) {
+  const files = [];
+  for (const name of safeReadDir(directoryPath)) {
+    const entryPath = path.join(directoryPath, name);
+    let entry;
+    try {
+      entry = fs.lstatSync(entryPath);
+    } catch {
+      continue;
+    }
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory()) {
+      if (name === ".git" || name === "node_modules") continue;
+      files.push(...listProjectFilesUnder(context, entryPath));
+    } else if (entry.isFile()) {
+      files.push(toProjectPath(context, entryPath));
+    }
+  }
+  return files;
+}
+
+/** Content above this size, or holding a NUL byte, is not text and is not scanned. */
+const SECRET_SCAN_MAX_FILE_BYTES = 4 * 1024 * 1024;
+
+function readSecretScanFiles(context, projectPaths) {
+  const files = [];
+  const unreadable = [];
+  for (const projectPath of [...new Set(projectPaths)].sort((left, right) => left.localeCompare(right, "en"))) {
+    let resolved;
+    try {
+      resolved = resolveProjectFilePath(context, projectPath, { mustExist: false });
+      assertNoSymlinkSegmentsWithinBoundary(context.root, resolved);
+    } catch {
+      unreadable.push(projectPath);
+      continue;
+    }
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+      unreadable.push(projectPath);
+      continue;
+    }
+    const content = fs.readFileSync(resolved);
+    if (content.length > SECRET_SCAN_MAX_FILE_BYTES || content.includes(0)) {
+      unreadable.push(projectPath);
+      continue;
+    }
+    files.push({ path: toProjectPath(context, resolved), content: content.toString("utf8") });
+  }
+  return { files, unreadable };
+}
+
+function runSecretScan(context, options) {
+  ensureInitialized(context);
+  const storyId = normalizeId(requireOption(options, "story"));
+  const story = readStory(context, storyId);
+  if (!story) {
+    fail(`Story ${storyId} does not exist`);
+  }
+  const policy = secretScanPolicy(context);
+  const startedAt = now();
+  const targets = resolveSecretScanTargets(context, storyId, options);
+  const { files, unreadable } = readSecretScanFiles(context, targets.paths);
+
+  let scan;
+  try {
+    scan = scanFiles(files, { rules: policy.rules, excludePaths: policy.excludePaths });
+  } catch (error) {
+    if (error instanceof SecretScanConfigurationError) {
+      fail(`gate_policy.secret_scan is not usable: ${error.message}`);
+    }
+    throw error;
+  }
+
+  const phase = getOptionString(options, "phase") || story.phase || null;
+  if (phase && !context.config.phases[phase]) {
+    fail(`Unknown phase '${phase}'. Use one of: ${Object.keys(context.config.phases).join(", ")}`);
+  }
+  const id = normalizeId(options.id ? String(options.id) : `${storyId}-secret-scan-${uniqueRecordSuffix()}`);
+  const attribution = buildAttribution(context, options, "secret.scan");
+  const finishedAt = now();
+  const record = {
+    kind: "secret_scan",
+    schema_version: "secret-scan:v1",
+    id,
+    story_id: storyId,
+    delivery_id: getOptionString(options, "delivery") || null,
+    phase,
+    summary: getOptionString(options, "summary")
+      || `Scanned ${scan.scanned_paths.length} changed file(s) of ${storyId} for credentials`,
+    base_sha: targets.base_sha,
+    head_sha: targets.head_sha,
+    source: targets.source,
+    file_count: scan.scanned_paths.length,
+    scanned_paths: scan.scanned_paths,
+    excluded_paths: [...scan.skipped_paths, ...unreadable]
+      .sort((left, right) => left.localeCompare(right, "en")),
+    rule_set_hash: scan.rule_set_hash,
+    rule_ids: scan.rules.map((rule) => rule.id),
+    findings: scan.findings,
+    outcome: scan.outcome,
+    started_at: startedAt,
+    finished_at: finishedAt,
+    duration_ms: Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt)),
+    requirement_ids: normalizeListOption(options.requirement).map(normalizeId),
+    actor: attribution.actor,
+    git: attribution.git,
+    run: attribution.run,
+    created_at: finishedAt,
+    audit: {
+      created_by: attribution.actor,
+      git: attribution.git,
+      run: attribution.run,
+    },
+    hash_algorithm: "sha256:stable-json:v1",
+  };
+  record.record_hash = computeStableHash(record);
+  assertRecordSchema(record, "secret-scan.schema.json", `Secret scan ${id}`);
+
+  const recordPath = path.join(secretScansRoot(context), `${id}.json`);
+  assertNotDerivedArtifact(context, recordPath, "Secret scan record");
+  writeJsonFile(recordPath, record, { force: Boolean(options.force) });
+  const projectRecordPath = toProjectPath(context, recordPath);
+
+  const traceEvent = appendTraceEvent(context, storyId, {
+    type: "gate",
+    summary: record.summary,
+    outcome: scan.outcome === "clean" ? "passed" : "failed",
+    action: "secret.scan",
+    actor: attribution.actor,
+    ...buildTraceAuthorityMetadata(context, options, attribution),
+    evidence: [projectRecordPath],
+    related: record.requirement_ids,
+    git: attribution.git,
+    run: attribution.run,
+  });
+
+  const lines = [
+    scan.outcome === "clean"
+      ? `No credential pattern matched in ${record.file_count} scanned file(s) of story ${storyId}`
+      : `Found ${record.findings.length} credential match(es) in ${record.file_count} scanned file(s) of story ${storyId}`,
+    `Source: ${record.source}${record.head_sha ? ` (head ${record.head_sha.slice(0, 12)}` : " (no Git head"}${record.base_sha ? `, base ${record.base_sha.slice(0, 12)})` : ")"}`,
+    ...record.findings.map((finding) => `${finding.path}:${finding.line} ${finding.rule} ${finding.redacted_match}`),
+    `Path: ${projectRecordPath}`,
+  ];
+  if (scan.outcome !== "clean") {
+    lines.push("Remove each credential from the file, rotate it at its provider, then run secret scan again.");
+  }
+  // A scan with findings reports the blocked status so the human-readable
+  // envelope frames it as a refused request, which is what the exit code says.
+  output(
+    options,
+    {
+      status: scan.outcome === "clean" ? "clean" : "blocked",
+      outcome: scan.outcome,
+      secret_scan_path: projectRecordPath,
+      secret_scan: record,
+      event: traceEvent,
+    },
+    lines,
+  );
+  if (scan.outcome !== "clean") {
+    process.exitCode = EXIT_CODES.userError;
+  }
+}
+
+function readSecretScanRecords(context, storyId) {
+  const normalizedStoryId = storyId ? normalizeId(String(storyId)) : null;
+  const records = [];
+  for (const name of safeReadDir(secretScansRoot(context))) {
+    if (!name.endsWith(".json")) continue;
+    const recordPath = path.join(secretScansRoot(context), name);
+    let record;
+    try {
+      record = readProjectJson(context, recordPath);
+    } catch {
+      continue;
+    }
+    if (record?.kind !== "secret_scan") continue;
+    if (normalizedStoryId && record.story_id !== normalizedStoryId) continue;
+    records.push({ path: toProjectPath(context, recordPath), record });
+  }
+  return records.sort((left, right) =>
+    String(left.record.finished_at || "").localeCompare(String(right.record.finished_at || ""), "en")
+    || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
+}
+
 function initializeDependencyGraph(context, options = {}) {
   ensurePlanningDirectories(context);
   const graphPath = dependencyGraphPath(context);
@@ -49288,6 +49603,7 @@ function validateStory(
   }
   const traceEvents = readTraceEvents(context, storyId);
   validateStoryTestEvidence(context, storyId, story, traceEvents, report);
+  validateStorySecretScanEvidence(context, storyId, story, report);
   // gate_policy.release_requires_release_trace, read from the effective project
   // configuration like validation_requires_test_trace. Defaults to enabled.
   const latestReleaseTrace = latestTraceEvent(traceEvents, "release");
@@ -49368,6 +49684,51 @@ function validateStoryTestEvidence(context, storyId, story, traceEvents, report)
     }
   }
   report.checked.push(`test run ${latestTestRun.record.id}`);
+}
+
+/**
+ * Enforces gate_policy.secret_scan.enabled.
+ *
+ * The flag is read as `=== true`. A project that never declared the block keeps
+ * the gate it agreed to, so a plugin update cannot start blocking deliveries in
+ * a project that did not opt in; the current template declares it, and an
+ * existing project adopts it through the reviewed `config migrate` path.
+ *
+ * When the flag is on and the story is in validation, the gate requires a
+ * `secret-scan:v1` record whose outcome is clean and whose scanned head commit
+ * is the project's current head. A record for an older head says nothing about
+ * the content being validated now.
+ */
+function validateStorySecretScanEvidence(context, storyId, story, report) {
+  const records = readSecretScanRecords(context, storyId);
+  for (const { path: recordPath, record } of records) {
+    appendRecordSchemaIssues(report, record, "secret-scan.schema.json", `secret scan ${record.id || recordPath}`);
+  }
+  if (context.config.gate_policy?.secret_scan?.enabled !== true) {
+    return;
+  }
+  if (story.phase !== "validation" && story.status !== "validation") {
+    return;
+  }
+  report.checked.push(`validation secret scan for story ${storyId}`);
+  const headSha = execGit(context.root, ["rev-parse", "HEAD"]) || null;
+  const currentHeadRecords = records.filter((entry) => (entry.record.head_sha || null) === headSha);
+  if (currentHeadRecords.length === 0) {
+    report.errors.push(
+      `Story ${storyId} is in validation but has no secret scan for the current project state`
+      + `${headSha ? ` (head ${headSha.slice(0, 12)})` : ""}; run 'secret scan --story ${storyId}'`,
+    );
+    return;
+  }
+  const latest = currentHeadRecords.at(-1);
+  if (latest.record.outcome !== "clean") {
+    report.errors.push(
+      `Story ${storyId} secret scan ${latest.record.id} found ${latest.record.findings.length} credential match(es) `
+      + `in ${[...new Set(latest.record.findings.map((finding) => finding.path))].join(", ")}`,
+    );
+    return;
+  }
+  report.checked.push(`secret scan ${latest.record.id}`);
 }
 
 function validateStoryChangedPathsWithinRequirementScope(context, storyId, requirementProfiles, report) {

@@ -67,6 +67,9 @@ function validationProject(label, { storyId = "ST-001" } = {}) {
     "--outcome", "passed",
     "--actor-type", "human",
   ]);
+  // A story in validation also owes the credential scan its configuration
+  // declares, so these cases exercise the test-evidence gate and not that one.
+  mustRun(["secret", "scan", "--root", project, "--story", storyId]);
   return { project, storyId };
 }
 
