@@ -1491,6 +1491,44 @@ test("identity migration recovery clears a pre-swap shadow without touching the 
   assert.equal(fs.existsSync(claimPath), false);
 });
 
+test("identity migration recovery never removes a prepared claim temporary it did not create", (t) => {
+  const project = isolatedProject(t, "identity-claim-temp-ownership-");
+  writeJson(path.join(project, ".sdlc", "project.json"), {
+    id: "CLAIM-TEMP-OWNERSHIP",
+    owner: { name: "Legacy User", email: SOURCE_EMAIL },
+  });
+  const crashed = crashIdentityMigration(project, "shadow_activated");
+  assert.equal(crashed.status, 86, crashed.stderr || crashed.stdout);
+  const lock = readMigrationLock(path.join(project, ".sdlc-identity-migration.lock"));
+  const preparation = prepareIdentityMigrationRecovery({
+    projectRoot: project,
+    recoveryNonce: lock.nonce,
+    planHash: lock.plan_hash,
+  });
+
+  // Another recovery using the same preparation already holds every
+  // temporary claim path this recovery will derive.
+  const claimPath = path.join(project, `.sdlc-identity-migration-recovery-${lock.nonce}.lock`);
+  const foreignTemporaries = preparation.claim_nonces.map((claimNonce) => {
+    const temporaryPath = `${claimPath}.${process.pid}.${claimNonce}.tmp`;
+    fs.writeFileSync(temporaryPath, `foreign ${claimNonce}\n`, { flag: "wx" });
+    return temporaryPath;
+  });
+
+  assert.throws(() => recoverIdentityMigration({
+    projectRoot: project,
+    recoveryNonce: lock.nonce,
+    planHash: lock.plan_hash,
+    recoveryPreparation: preparation,
+  }));
+  for (const temporaryPath of foreignTemporaries) {
+    assert.equal(
+      fs.readFileSync(temporaryPath, "utf8"),
+      `foreign ${path.basename(temporaryPath).split(".").at(-2)}\n`,
+    );
+  }
+});
+
 test("identity migration recovery restores byte-exact state after a real process crash before commit", (t) => {
   const project = isolatedProject(t, "identity-real-crash-rollback-");
   const liveRoot = path.join(project, ".sdlc");
