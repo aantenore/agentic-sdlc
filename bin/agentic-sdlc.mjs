@@ -204,6 +204,7 @@ import {
   workspaceChangeMatchesPreflight,
 } from "../lib/execution-context-preflight.mjs";
 import { openCanonicalQuerySession } from "../lib/canonical-query-session.mjs";
+import { initializeCreatedLock } from "../lib/created-lock-file.mjs";
 import {
   IDENTITY_STAT_OPTIONS,
   fileIdentity,
@@ -1327,7 +1328,11 @@ async function main() {
           : expected
           ? { code: "user_error", message: error.message, statusCode: 400, retryable: false }
           : { code: "internal_error", message: "The command could not be completed.", statusCode: 500, retryable: false },
-        { context: CLI_OPERATION_CONTEXT, redactionPolicy: errorRedactionPolicy },
+        {
+          context: CLI_OPERATION_CONTEXT,
+          redactionPolicy: errorRedactionPolicy,
+          details: errorRedaction.withholdDetails || expected ? null : internalErrorCauseDetails(error),
+        },
       );
       const customGuidance = userErrorHumanGuidance(error, italian);
       if (customGuidance) {
@@ -1351,6 +1356,9 @@ async function main() {
         "",
         `${labels.details}:`,
         `- Error: ${normalized.error.message}`,
+        ...(normalized.error.details?.cause
+          ? [`- Cause: ${Object.entries(normalized.error.details.cause).map(([key, value]) => `${key}=${value}`).join(" ")}`]
+          : []),
         `- Correlation ID: ${CLI_OPERATION_CONTEXT.correlation_id}`,
       ].join("\n"));
       process.exitCode = failureExitCode;
@@ -6979,6 +6987,27 @@ function userErrorHumanGuidance(error, italian) {
     : error.humanGuidance.en || error.humanGuidance.it || null;
 }
 
+// Only the closed, non-sensitive classifiers of an unexpected failure are
+// surfaced: the original message and path may carry private project data.
+const INTERNAL_ERROR_CAUSE_FIELDS = Object.freeze({
+  code: /^[A-Z][A-Z0-9_]{0,63}$/u,
+  syscall: /^[a-z][a-z0-9_]{0,31}$/u,
+});
+
+function internalErrorCauseDetails(error) {
+  const cause = {};
+  for (const [field, pattern] of Object.entries(INTERNAL_ERROR_CAUSE_FIELDS)) {
+    let value;
+    try {
+      value = error?.[field];
+    } catch {
+      value = undefined;
+    }
+    if (typeof value === "string" && pattern.test(value)) cause[field] = value;
+  }
+  return Object.keys(cause).length > 0 ? { cause } : null;
+}
+
 function buildCliErrorPayload(
   error,
   options = {},
@@ -7009,8 +7038,13 @@ function buildCliErrorPayload(
       : expected
       ? { code: "user_error", message: error.message, statusCode: 400, retryable: false }
       : { code: "internal_error", message: "The command could not be completed.", statusCode: 500, retryable: false },
-    { context: CLI_OPERATION_CONTEXT, redactionPolicy: errorRedactionPolicy },
+    {
+      context: CLI_OPERATION_CONTEXT,
+      redactionPolicy: errorRedactionPolicy,
+      details: errorRedaction.withholdDetails || expected ? null : internalErrorCauseDetails(error),
+    },
   );
+  const internalDetails = normalized.error.details;
   const code = errorRedaction.withholdDetails
     ? "OBSERVABILITY_CONFIGURATION_INVALID"
     : unknown
@@ -7050,6 +7084,7 @@ function buildCliErrorPayload(
         details: {
           code,
           message,
+          ...(internalDetails ? internalDetails : {}),
           ...(error instanceof MutationGovernanceError
             ? { mutation: redactValue(error.details, errorRedactionPolicy) }
             : {}),
@@ -7063,6 +7098,7 @@ function buildCliErrorPayload(
       code,
       message,
       retryable: normalized.error.retryable,
+      ...(internalDetails ? { details: internalDetails } : {}),
       ...(unknown ? {
         path: redactedUnknownPath,
         suggestions: redactedUnknownSuggestions,
@@ -32201,8 +32237,7 @@ function createContract(context, options) {
       );
     }
     if (storyId) {
-      const storyPath = path.join(context.sdlcRoot, "stories", storyId, "story.json");
-      if (!pathEntryExistsNoFollow(storyPath)) {
+      if (!storyDirectoryExistsBeforeLock(context, storyId)) {
         fail(`Story ${storyId} does not exist; create it before creating story contract ${id}.`);
       }
       releaseTaskStartBoundaryLock = acquireFileLock(path.join(
@@ -32227,6 +32262,22 @@ function createContract(context, options) {
     releaseTaskStartBoundaryLock();
     releaseDeliveryProfileLock();
   }
+}
+
+/**
+ * Pre-lock guard that a story exists, answered from its directory instead of
+ * its `story.json`.
+ *
+ * Whoever holds the story lock rewrites `story.json` by renaming a temporary
+ * file over it. On Windows a process still waiting for that lock which touches
+ * the file at that moment can see it mid-replacement and fail with `EPERM`,
+ * `EACCES`, or `EBUSY`, and its short-lived handle can make the holder's rename
+ * fail the same way. The story directory is never replaced by those writers,
+ * so checking it keeps every access to `story.json` under the lock, where the
+ * record is read again and a missing story is still refused.
+ */
+function storyDirectoryExistsBeforeLock(context, storyId) {
+  return pathEntryExistsNoFollow(path.join(context.sdlcRoot, "stories", normalizeId(storyId)));
 }
 
 function createContractLocked(context, options, settings) {
@@ -34986,7 +35037,10 @@ function addStoryAcceptance(context, options) {
   }
   const storyDir = path.join(context.sdlcRoot, "stories", id);
   const storyPath = path.join(storyDir, "story.json");
-  if (!pathEntryExistsNoFollow(storyPath)) {
+  // The record itself is checked again under the story lock below; before the
+  // lock only the directory is touched, for the reason given at
+  // storyDirectoryExistsBeforeLock.
+  if (!storyDirectoryExistsBeforeLock(context, id)) {
     fail(`Story ${id} does not exist; create it before adding acceptance criteria.`);
   }
   const releaseTaskStartBoundaryLock = acquireFileLock(
@@ -52243,24 +52297,14 @@ function acquireFileLockAuthorized(lockPath) {
       sleepSync(25);
     }
   }
-  try {
-    assertMutationExecutionAuthorized({ operation: "lock.acquire", path: lockPath });
-    fs.writeFileSync(descriptor, JSON.stringify(metadata));
-    fs.closeSync(descriptor);
-  } catch (error) {
-    try {
-      fs.closeSync(descriptor);
-    } catch {
-      // Preserve the original metadata-write or close error.
-    }
-    try {
-      assertMutationExecutionAuthorized({ operation: "lock.acquire", path: lockPath });
-      fs.rmSync(lockPath, { force: true });
-    } catch {
-      // A partially initialized lock remaining on disk is safer than hiding the failure.
-    }
-    throw error;
-  }
+  // On failure the lock is removed only while the path still holds the file
+  // created above; a concurrent stale-lock reclaim may have replaced it.
+  initializeCreatedLock({
+    lockPath,
+    descriptor,
+    content: JSON.stringify(metadata),
+    authorize: () => assertMutationExecutionAuthorized({ operation: "lock.acquire", path: lockPath }),
+  });
   return () => {
     withGovernedMutation({ operation: "lock.release", path: lockPath }, () => {
       try {
