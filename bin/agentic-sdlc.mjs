@@ -1327,7 +1327,11 @@ async function main() {
           : expected
           ? { code: "user_error", message: error.message, statusCode: 400, retryable: false }
           : { code: "internal_error", message: "The command could not be completed.", statusCode: 500, retryable: false },
-        { context: CLI_OPERATION_CONTEXT, redactionPolicy: errorRedactionPolicy },
+        {
+          context: CLI_OPERATION_CONTEXT,
+          redactionPolicy: errorRedactionPolicy,
+          details: errorRedaction.withholdDetails || expected ? null : internalErrorCauseDetails(error),
+        },
       );
       const customGuidance = userErrorHumanGuidance(error, italian);
       if (customGuidance) {
@@ -1351,6 +1355,9 @@ async function main() {
         "",
         `${labels.details}:`,
         `- Error: ${normalized.error.message}`,
+        ...(normalized.error.details?.cause
+          ? [`- Cause: ${Object.entries(normalized.error.details.cause).map(([key, value]) => `${key}=${value}`).join(" ")}`]
+          : []),
         `- Correlation ID: ${CLI_OPERATION_CONTEXT.correlation_id}`,
       ].join("\n"));
       process.exitCode = failureExitCode;
@@ -6979,6 +6986,27 @@ function userErrorHumanGuidance(error, italian) {
     : error.humanGuidance.en || error.humanGuidance.it || null;
 }
 
+// Only the closed, non-sensitive classifiers of an unexpected failure are
+// surfaced: the original message and path may carry private project data.
+const INTERNAL_ERROR_CAUSE_FIELDS = Object.freeze({
+  code: /^[A-Z][A-Z0-9_]{0,63}$/u,
+  syscall: /^[a-z][a-z0-9_]{0,31}$/u,
+});
+
+function internalErrorCauseDetails(error) {
+  const cause = {};
+  for (const [field, pattern] of Object.entries(INTERNAL_ERROR_CAUSE_FIELDS)) {
+    let value;
+    try {
+      value = error?.[field];
+    } catch {
+      value = undefined;
+    }
+    if (typeof value === "string" && pattern.test(value)) cause[field] = value;
+  }
+  return Object.keys(cause).length > 0 ? { cause } : null;
+}
+
 function buildCliErrorPayload(
   error,
   options = {},
@@ -7009,8 +7037,13 @@ function buildCliErrorPayload(
       : expected
       ? { code: "user_error", message: error.message, statusCode: 400, retryable: false }
       : { code: "internal_error", message: "The command could not be completed.", statusCode: 500, retryable: false },
-    { context: CLI_OPERATION_CONTEXT, redactionPolicy: errorRedactionPolicy },
+    {
+      context: CLI_OPERATION_CONTEXT,
+      redactionPolicy: errorRedactionPolicy,
+      details: errorRedaction.withholdDetails || expected ? null : internalErrorCauseDetails(error),
+    },
   );
+  const internalDetails = normalized.error.details;
   const code = errorRedaction.withholdDetails
     ? "OBSERVABILITY_CONFIGURATION_INVALID"
     : unknown
@@ -7050,6 +7083,7 @@ function buildCliErrorPayload(
         details: {
           code,
           message,
+          ...(internalDetails ? internalDetails : {}),
           ...(error instanceof MutationGovernanceError
             ? { mutation: redactValue(error.details, errorRedactionPolicy) }
             : {}),
@@ -7063,6 +7097,7 @@ function buildCliErrorPayload(
       code,
       message,
       retryable: normalized.error.retryable,
+      ...(internalDetails ? { details: internalDetails } : {}),
       ...(unknown ? {
         path: redactedUnknownPath,
         suggestions: redactedUnknownSuggestions,
