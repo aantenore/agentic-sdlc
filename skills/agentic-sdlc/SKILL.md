@@ -698,6 +698,16 @@ The dedicated assessment journey remains the exception described above: it packa
      --summary "Full suite on the reviewed implementation branch"
    ```
 
+   Scan the changed files for credentials before validation closes. `secret scan` compares the delivery's base and head, records the result as a `secret-scan:v1` record under `.sdlc/security/`, and exits `1` when it finds something. Matches are always redacted, in the output and in the record:
+
+   ```bash
+   node <plugin-root>/bin/agentic-sdlc.mjs secret scan \
+     --root <target-project> \
+     --story ST-001
+   ```
+
+   When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head, so run the scan again after every change to the delivery. Remove and rotate any credential the scan reports; never paste the matched value into a trace, a summary, or a commit message.
+
    Keep `actor` as the executor. When an agent acts because a human or another system requested it, record `requested_by`; when execution was explicitly authorized, record `authorized_by`. This lets reports answer both "what did Codex execute?" and "what was done on Antonio's request?" without rewriting attribution. Narrative flags are optional; when used, store only shareable summaries derived from recorded evidence. Never put private chain-of-thought, hidden scratch reasoning, or secrets in a trace narrative.
 
 16. When a phase lane is complete, record the step with hashed evidence. `story complete-step` requires the story contract to be approved and fresh unless `--allow-unapproved-contract-output` is being used for explicit migration/recovery. If the step produced a durable artifact, pass `--type` so the CLI verifies the output is linked in the registry:

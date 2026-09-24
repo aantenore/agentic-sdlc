@@ -16,6 +16,9 @@ const CONFIGURABLE = Object.freeze([
   "implementation_requires_acceptance_criteria",
   "implementation_requires_claim",
   "release_requires_release_trace",
+  "secret_scan.enabled",
+  "secret_scan.exclude_paths",
+  "secret_scan.rules",
   "story_required_fields",
   "strict_mode.requires_output_contract_coverage",
   "strict_mode.requires_write_scope_integrity",
@@ -86,12 +89,13 @@ test("every declared gate policy entry is either read by the software or a docum
 });
 
 test("entries listed as configurable are actually read from the project configuration", () => {
-  const corpus = sourceCorpus();
+  // Optional chaining is normalized away so one nested entry is matched by its
+  // full path: a source file that reads gate_policy?.secret_scan?.enabled
+  // accounts for secret_scan.enabled and for nothing else.
+  const corpus = sourceCorpus().replaceAll("?.", ".");
   for (const entry of CONFIGURABLE) {
-    const leaf = entry.split(".").pop();
     assert.ok(
-      corpus.includes(`gate_policy.${leaf}`) || corpus.includes(`gate_policy?.${leaf}`)
-        || corpus.includes(`strict_mode?.${leaf}`) || corpus.includes(`strict_mode.${leaf}`),
+      corpus.includes(`gate_policy.${entry}`),
       `gate_policy.${entry} is listed as configurable but no source file reads it`,
     );
   }

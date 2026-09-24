@@ -32,6 +32,7 @@ The sample records below use neutral placeholders. The structure is generic and 
     assumptions/
     risks/
     tests/
+    security/
     observations/
     traces/
     releases/
@@ -789,6 +790,56 @@ Change Observatory.
 
 Tests should link to acceptance criteria and requirements. Pass `--acceptance`
 and `--requirement` to `test record` to carry those links into the record.
+
+## `security/`
+
+Credential-scan records for the files a delivery changed. A `.json` file whose
+`kind` is `secret_scan` is a canonical record validated against
+`schemas/secret-scan.schema.json` (`secret-scan:v1`), written only by
+`secret scan`:
+
+```text
+.sdlc/security/ST-001-secret-scan-20260916T101500-a1b2c3.json
+```
+
+```json
+{
+  "kind": "secret_scan",
+  "schema_version": "secret-scan:v1",
+  "id": "ST-001-secret-scan-20260916T101500-a1b2c3",
+  "story_id": "ST-001",
+  "phase": "validation",
+  "summary": "Scanned 12 changed file(s) of ST-001 for credentials",
+  "base_sha": "4f2a…",
+  "head_sha": "9c81…",
+  "source": "git_range",
+  "file_count": 12,
+  "scanned_paths": ["src/client.js"],
+  "excluded_paths": ["test/fixtures/sample.env"],
+  "rule_set_hash": "3d70…",
+  "rule_ids": ["aws_access_key_id", "github_token"],
+  "findings": [
+    { "path": "src/client.js", "line": 1, "rule": "github_token", "redacted_match": "ghp_…" }
+  ],
+  "outcome": "findings",
+  "record_hash": "9ab4…",
+  "hash_algorithm": "sha256:stable-json:v1"
+}
+```
+
+A finding never carries the matched value. It names the rule, the file, and the
+line, and keeps at most four leading characters of the match followed by an
+ellipsis, which is enough to tell two findings on one line apart and not enough
+to reuse the credential. A record that stored the secret would be a second copy
+of it, so the redacted form is the only one written, printed, or returned as
+JSON.
+
+`outcome` is derived, not supplied: the schema admits `clean` only together with
+an empty finding list. Each record is immutable; a new scan produces a new file.
+These records are canonical evidence and belong in source control.
+
+Writing a record also appends a `gate` trace event whose evidence names the
+record, so the scan appears in the story history and in the Change Observatory.
 
 ## `observations/`
 
