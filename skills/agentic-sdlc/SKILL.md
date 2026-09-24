@@ -708,6 +708,18 @@ The dedicated assessment journey remains the exception described above: it packa
 
    When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head, so run the scan again after every change to the delivery. Remove and rotate any credential the scan reports; never paste the matched value into a trace, a summary, or a commit message.
 
+   Before a pull request merges, a reviewer who authored none of its commits records a review of the current head. `review record` reads the head commit from the repository and the reviewer's Git identity from the local Git configuration, and writes a `code-review:v1` record under `.sdlc/reviews/`:
+
+   ```bash
+   node <plugin-root>/bin/agentic-sdlc.mjs review record \
+     --root <target-project> \
+     --delivery AUT-PR-001 \
+     --verdict approved \
+     --actor <reviewer-id> --actor-type human
+   ```
+
+   When `gate_policy.merge_requires_code_review` is `true`, `pull_request.merge` is refused (exit `1`) until an approved review exists for the exact head being merged by a reviewer whose actor and Git email differ from every commit author of the pull request. Any new commit on the head branch needs a new review. Never record a review on behalf of someone who did not read the diff, and never record an approval as the author of the change.
+
    Keep `actor` as the executor. When an agent acts because a human or another system requested it, record `requested_by`; when execution was explicitly authorized, record `authorized_by`. This lets reports answer both "what did Codex execute?" and "what was done on Antonio's request?" without rewriting attribution. Narrative flags are optional; when used, store only shareable summaries derived from recorded evidence. Never put private chain-of-thought, hidden scratch reasoning, or secrets in a trace narrative.
 
 16. When a phase lane is complete, record the step with hashed evidence. `story complete-step` requires the story contract to be approved and fresh unless `--allow-unapproved-contract-output` is being used for explicit migration/recovery. If the step produced a durable artifact, pass `--type` so the CLI verifies the output is linked in the registry:

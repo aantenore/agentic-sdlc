@@ -872,6 +872,17 @@ node bin/agentic-sdlc.mjs feedback record \
 
 `--severity` is one of `sev1`..`sev4`; `--feedback-source` is one of `user`, `monitoring`, `review`, `other`; `--sentiment` is `positive`, `neutral`, or `negative`. `gate check` for a story in `operations` adds checked lines with the incident and feedback counts, and warns — never fails — when it has neither yet.
 
+## Record A Code Review
+
+Use `review record` to record a review of one pull-request delivery's diff as a `code-review:v1` record under `.sdlc/reviews/`:
+
+```bash
+node bin/agentic-sdlc.mjs review record --root <project> --delivery AUT-PR-001 --verdict approved --actor <reviewer-id> --actor-type human
+node bin/agentic-sdlc.mjs review record --root <project> --delivery AUT-PR-001 --verdict changes_requested --finding '{"severity":"blocking","summary":"Refund path skips the audit trace","path":"src/refund.js","line":42}' --json
+```
+
+The reviewed head commit and the base commit are read from the repository (the delivery's head branch must be checked out), and the reviewer's Git name and email from the local Git configuration; there is no option to name a commit. An approval cannot carry a `blocking` finding. When `gate_policy.merge_requires_code_review` is `true`, `autonomy delivery action --action pull_request.merge` exits `1` unless an approved review exists for the exact head being merged, by a reviewer whose actor and Git email differ from every commit author in `base..head`. A new commit on the head branch requires a new review.
+
 ## Append Trace
 
 ```bash

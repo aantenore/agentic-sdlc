@@ -32,6 +32,7 @@
     "cache",
     "indexes",
     "reports",
+    "reviews",
     "operations"
   ],
   "indexable_extensions": [
@@ -1369,7 +1370,7 @@
     }
   },
   "gate_policy": {
-    "principle": "Project policy and strict-gate invariants are recorded together but are not the same thing. implementation_requires_claim, implementation_requires_acceptance_criteria, validation_requires_test_trace, release_requires_release_trace, strict_mode.requires_output_contract_coverage, strict_mode.requires_write_scope_integrity, contract_required_fields, and story_required_fields, secret_scan.enabled, secret_scan.rules, and secret_scan.exclude_paths are read from this file and a project may change them. secret_scan.enabled is read as an explicit true, so a project that never declared it keeps the gate it agreed to and no plugin update can start blocking its deliveries. Every other strict_mode entry states what --strict always enforces: it is recorded so the guarantee is legible, and setting it to false does not turn the check off. A gate that could be disabled from inside the project it governs would not be a gate.",
+    "principle": "Project policy and strict-gate invariants are recorded together but are not the same thing. implementation_requires_claim, implementation_requires_acceptance_criteria, validation_requires_test_trace, release_requires_release_trace, strict_mode.requires_output_contract_coverage, strict_mode.requires_write_scope_integrity, contract_required_fields, and story_required_fields, secret_scan.enabled, secret_scan.rules, secret_scan.exclude_paths, and merge_requires_code_review are read from this file and a project may change them. secret_scan.enabled and merge_requires_code_review are read as an explicit true, so a project that never declared them keeps the gate it agreed to and no plugin update can start blocking its deliveries or merges. merge_requires_code_review refuses pull_request.merge until an approved code-review:v1 record exists for the exact head being merged, by a reviewer whose actor and Git email differ from every commit author of the pull request. Every other strict_mode entry states what --strict always enforces: it is recorded so the guarantee is legible, and setting it to false does not turn the check off. A gate that could be disabled from inside the project it governs would not be a gate.",
     "strict_mode": {
       "requires_contextualized_contracts": true,
       "requires_zero_open_contract_questions": true,
@@ -1411,6 +1412,7 @@
       "enabled": true,
       "rules": [],
       "exclude_paths": []
-    }
+    },
+    "merge_requires_code_review": true
   }
 }
