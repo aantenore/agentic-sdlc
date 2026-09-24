@@ -38665,6 +38665,19 @@ function readFeedbackRecords(context, storyId) {
     || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
 }
 
+function appendOperationsPhaseGateChecks(context, report, storyId, story) {
+  if (story?.phase !== "operations") return;
+  const incidents = readIncidentRecords(context, storyId);
+  const feedbackItems = readFeedbackRecords(context, storyId);
+  report.checked.push(`${incidents.length} incident record(s) for story ${storyId}`);
+  report.checked.push(`${feedbackItems.length} feedback record(s) for story ${storyId}`);
+  if (incidents.length === 0 && feedbackItems.length === 0) {
+    report.warnings.push(
+      `Story ${storyId} is in the operations phase with no incident or feedback records yet.`,
+    );
+  }
+}
+
 function secretScansRoot(context) {
   return path.join(context.sdlcRoot, "security");
 }
@@ -44268,6 +44281,7 @@ function gateCheck(context, options) {
       validateStory(context, storyId, report);
       validateOutputContracts(context, report, storyId);
     }
+    appendOperationsPhaseGateChecks(context, report, storyId, readStory(context, storyId));
   } else if (scope === "all") {
     validateDependencyProposals(context, report);
     validateContracts(context, report);
@@ -44279,6 +44293,7 @@ function gateCheck(context, options) {
       const storyJson = path.join(storiesRoot, entry, "story.json");
       if (fs.existsSync(storyJson)) {
         validateStory(context, entry, report);
+        appendOperationsPhaseGateChecks(context, report, entry, readProjectJson(context, storyJson));
       }
     }
     validateOutputContracts(context, report);
