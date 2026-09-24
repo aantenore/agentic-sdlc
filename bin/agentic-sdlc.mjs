@@ -210,6 +210,13 @@ import {
 } from "../lib/project-path-safety.mjs";
 import { SecretScanConfigurationError, scanFiles } from "../lib/secret-scan.mjs";
 import {
+  CODE_REVIEW_VERDICTS,
+  evaluateMergeReviews,
+  normalizeCodeReviewFindings,
+  parseCommitAuthors,
+  reviewerAuthorConflicts,
+} from "../lib/code-review.mjs";
+import {
   buildConfigMigrationApplyData,
   buildEffectiveConfigLock,
   prepareConfigMigration,
@@ -963,6 +970,7 @@ function buildCliRuntimeHandlerRegistry() {
     "sync.record": call(recordSyncEvent),
     "test.record": call(recordTestRun),
     "secret.scan": call(runSecretScan),
+    "review.record": call(recordCodeReview),
     "output.template.propose": call(proposeOutputTemplate),
     "output.template.approve": call(approveOutputTemplate),
     "output.resolve": call(resolveOutput),
@@ -38734,6 +38742,251 @@ function readSecretScanRecords(context, storyId) {
   return records.sort((left, right) =>
     String(left.record.finished_at || "").localeCompare(String(right.record.finished_at || ""), "en")
     || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
+}
+
+function codeReviewsRoot(context) {
+  return path.join(context.sdlcRoot, "reviews");
+}
+
+/**
+ * Author identities of every commit in base..head, read from the repository.
+ */
+function codeReviewRangeAuthors(context, baseSha, headSha) {
+  return parseCommitAuthors(execGit(context.root, ["log", "--format=%an%x00%ae", `${baseSha}..${headSha}`, "--"]));
+}
+
+function readPullRequestDeliveryForReview(context, profileId) {
+  const profile = readDeliveryAutonomyProfile(context, profileId);
+  if (profile.delivery_kind !== "pull_request" || !profile.pull_request_target) {
+    fail(`Delivery profile ${profileId} is not a pull-request delivery; only a pull request diff can be reviewed.`);
+  }
+  const storyId = profile.story_refs?.length === 1 ? profile.story_refs[0].id : null;
+  if (!storyId) {
+    fail(`Delivery profile ${profileId} does not name exactly one story.`);
+  }
+  return { profile, storyId };
+}
+
+function recordCodeReview(context, options) {
+  ensureInitialized(context);
+  const profileId = normalizeId(requireOption(options, "delivery"));
+  const verdict = requireOption(options, "verdict");
+  if (!CODE_REVIEW_VERDICTS.includes(verdict)) {
+    fail(`--verdict must be one of: ${CODE_REVIEW_VERDICTS.join(", ")}.`);
+  }
+  let findings;
+  try {
+    findings = normalizeCodeReviewFindings(normalizeRawListOption(options.finding));
+  } catch (error) {
+    if (error instanceof TypeError) fail(`--finding is invalid: ${error.message}.`);
+    throw error;
+  }
+  if (verdict === "approved" && findings.some((finding) => finding.severity === "blocking")) {
+    fail("An approved review cannot carry a blocking finding; record --verdict changes_requested instead.");
+  }
+  const { profile, storyId } = readPullRequestDeliveryForReview(context, profileId);
+  const target = profile.pull_request_target;
+  // The reviewed commit is whatever the head branch points at now, read from
+  // the repository. A caller-supplied commit would let a review of one state
+  // stand in for another.
+  const runtimeTarget = validatePullRequestGitBoundary(context, target);
+  if (!runtimeTarget.base_sha || !runtimeTarget.head_sha) {
+    fail(`Delivery ${profile.delivery_id} has no resolvable base and head commit to review.`);
+  }
+  const attribution = buildAttribution(context, options, "review.record");
+  const gitName = attribution.git.user?.name || null;
+  const gitEmail = attribution.git.user?.email || null;
+  if (!gitName || !gitEmail) {
+    fail("The reviewer's Git identity is incomplete: set git config user.name and user.email before recording a review.");
+  }
+  const reviewer = {
+    actor_id: attribution.actor.id,
+    actor_type: attribution.actor.type,
+    git_name: gitName,
+    git_email: gitEmail,
+  };
+  const commitAuthors = codeReviewRangeAuthors(context, runtimeTarget.base_sha, runtimeTarget.head_sha);
+  const conflicts = reviewerAuthorConflicts(reviewer, commitAuthors);
+  const reviewedAt = now();
+  const id = normalizeId(options.id ? String(options.id) : `${storyId}-code-review-${uniqueRecordSuffix()}`);
+  const record = {
+    kind: "code_review",
+    schema_version: "code-review:v1",
+    id,
+    story_id: storyId,
+    delivery_id: profile.delivery_id,
+    delivery_profile_id: profile.id,
+    repository: target.repository,
+    base_branch: target.base_branch,
+    head_branch: target.head_branch,
+    base_sha: runtimeTarget.base_sha.toLowerCase(),
+    reviewed_head_sha: runtimeTarget.head_sha.toLowerCase(),
+    commit_authors: commitAuthors,
+    reviewer,
+    verdict,
+    findings,
+    summary: getOptionString(options, "summary")
+      || `Code review of ${profile.delivery_id} at ${runtimeTarget.head_sha.slice(0, 12)}: ${verdict}`,
+    reviewed_at: reviewedAt,
+    requirement_ids: normalizeListOption(options.requirement).map(normalizeId),
+    actor: attribution.actor,
+    git: attribution.git,
+    run: attribution.run,
+    created_at: reviewedAt,
+    audit: {
+      created_by: attribution.actor,
+      git: attribution.git,
+      run: attribution.run,
+    },
+    hash_algorithm: "sha256:stable-json:v1",
+  };
+  record.record_hash = computeStableHash(record);
+  assertRecordSchema(record, "code-review.schema.json", `Code review ${id}`);
+
+  const recordPath = path.join(codeReviewsRoot(context), `${id}.json`);
+  assertNotDerivedArtifact(context, recordPath, "Code review record");
+  writeJsonFile(recordPath, record, { force: Boolean(options.force) });
+  const projectRecordPath = toProjectPath(context, recordPath);
+
+  const traceEvent = appendTraceEvent(context, storyId, {
+    type: "gate",
+    summary: record.summary,
+    outcome: verdict === "approved" && conflicts.length === 0 ? "passed" : "failed",
+    action: "review.record",
+    actor: attribution.actor,
+    ...buildTraceAuthorityMetadata(context, options, attribution),
+    evidence: [projectRecordPath],
+    related: record.requirement_ids,
+    git: attribution.git,
+    run: attribution.run,
+  });
+
+  const lines = [
+    `Recorded ${verdict} review of ${profile.delivery_id} at head ${record.reviewed_head_sha.slice(0, 12)} by ${reviewer.actor_id} <${reviewer.git_email}>`,
+    `Range: ${record.base_sha.slice(0, 12)}..${record.reviewed_head_sha.slice(0, 12)} (${commitAuthors.length} author(s))`,
+    ...findings.map((finding) =>
+      `${finding.severity}: ${finding.summary}${finding.path ? ` (${finding.path}${finding.line ? `:${finding.line}` : ""})` : ""}`),
+    `Path: ${projectRecordPath}`,
+  ];
+  if (conflicts.length > 0) {
+    lines.push(
+      "This reviewer also authored commits in the reviewed range, so this review does not satisfy the merge gate. "
+      + "A reviewer whose actor and Git email differ from every author must review it.",
+    );
+  }
+  output(
+    options,
+    {
+      status: "recorded",
+      verdict,
+      independent: conflicts.length === 0,
+      code_review_path: projectRecordPath,
+      code_review: record,
+      event: traceEvent,
+    },
+    lines,
+  );
+}
+
+/**
+ * Code review records for one delivery profile whose content still matches
+ * its schema and its own record hash. A record edited after it was written is
+ * not evidence of the review it claims.
+ */
+function readCodeReviewRecords(context, profileId) {
+  const records = [];
+  for (const name of safeReadDir(codeReviewsRoot(context))) {
+    if (!name.endsWith(".json")) continue;
+    let record;
+    try {
+      record = readProjectJson(context, path.join(codeReviewsRoot(context), name));
+    } catch {
+      continue;
+    }
+    if (record?.kind !== "code_review" || record.delivery_profile_id !== profileId) continue;
+    if (!validateRecordSchema(record, "code-review.schema.json").valid) continue;
+    const { record_hash: recordHash, ...unhashed } = record;
+    if (computeStableHash(unhashed) !== recordHash) continue;
+    records.push(record);
+  }
+  return records;
+}
+
+/**
+ * Enforces gate_policy.merge_requires_code_review before pull_request.merge.
+ *
+ * The flag is read as `=== true`. A project that never declared it keeps the
+ * merge gate it agreed to, so a plugin update cannot start refusing merges in
+ * a project that did not opt in; the current template declares it, and an
+ * existing project adopts it through the reviewed `config migrate` path.
+ *
+ * When on, the merge needs an approved `code-review:v1` record for this
+ * delivery at exactly the head being merged, by a reviewer whose actor and Git
+ * email differ from every author of base..head.
+ */
+function enforceMergeCodeReview(context, profile, runtimeTarget) {
+  if (context.config.gate_policy?.merge_requires_code_review !== true) {
+    return;
+  }
+  const headSha = String(runtimeTarget?.head_sha || "").toLowerCase();
+  const authors = runtimeTarget?.base_sha
+    ? codeReviewRangeAuthors(context, runtimeTarget.base_sha, headSha)
+    : [];
+  const decision = evaluateMergeReviews(readCodeReviewRecords(context, profile.id), {
+    deliveryProfileId: profile.id,
+    headSha,
+    authors,
+  });
+  if (decision.allowed) {
+    return;
+  }
+  const shortHead = headSha.slice(0, 12);
+  const reasons = {
+    no_review_for_head: {
+      message: `no approved code review exists for head ${shortHead}`,
+      en: `No code review was recorded for the commit being merged (${shortHead}). A review of an earlier commit does not cover later changes.`,
+      it: `Non è stata registrata alcuna revisione del codice per il commit da unire (${shortHead}). La revisione di un commit precedente non copre le modifiche successive.`,
+    },
+    reviewer_is_author: {
+      message: `review ${decision.review?.id} was recorded by an author of the reviewed range`,
+      en: "The only review for this commit was recorded by someone who also authored commits in the pull request.",
+      it: "L’unica revisione per questo commit è stata registrata da chi ha anche scritto commit nella pull request.",
+    },
+    changes_requested: {
+      message: `the latest independent review ${decision.review?.id} requested changes`,
+      en: "The latest independent review of this commit requested changes.",
+      it: "L’ultima revisione indipendente di questo commit ha richiesto modifiche.",
+    },
+  }[decision.reason];
+  const details = {
+    delivery_profile_id: profile.id,
+    delivery_id: profile.delivery_id,
+    head_sha: headSha,
+    reason: decision.reason,
+    review_id: decision.review?.id || null,
+  };
+  fail(
+    `Delivery action pull_request.merge is refused for ${profile.id}: ${reasons.message}. `
+    + `Run 'review record --delivery ${profile.id} --verdict approved' as a reviewer who is not an author of the pull request.`,
+    {
+      en: {
+        result: "The pull request cannot be merged yet.",
+        impact: reasons.en,
+        required_decision: "A person who did not author any commit in this pull request reviews the current diff.",
+        protection_boundary: "Nothing was merged, pushed, or recorded as authorized.",
+        next_action: `The reviewer records the outcome with 'review record --delivery ${profile.id} --verdict approved', then the merge is requested again.`,
+        details,
+      },
+      it: {
+        result: "La pull request non può ancora essere unita.",
+        impact: reasons.it,
+        required_decision: "Una persona che non ha scritto alcun commit di questa pull request revisiona il diff corrente.",
+        protection_boundary: "Nulla è stato unito, inviato o registrato come autorizzato.",
+        next_action: `Il revisore registra l’esito con 'review record --delivery ${profile.id} --verdict approved', poi il merge viene richiesto di nuovo.`,
+        details,
+      },
+    },
+  );
 }
 
 function initializeDependencyGraph(context, options = {}) {
