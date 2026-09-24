@@ -249,6 +249,47 @@ migrating through `config migrate`.
 Writing the record also appends a `test` trace event carrying the same outcome,
 so the run appears in the story history without a separate `trace append`.
 
+## Record a code review of a pull request
+
+`review record` (effect: local) records a review of one pull-request delivery's
+diff at the head commit the repository currently holds, as a
+`code-review:v1` record under `.sdlc/reviews/`.
+
+```bash
+node "$PLUGIN_CLI" review record --root /path/to/project \
+  --delivery AUT-PR-BOOKING --verdict approved \
+  --actor luca --actor-type human \
+  --summary "Diff reviewed against the booking contract"
+```
+
+| Input | Purpose |
+|---|---|
+| `--delivery` | The approved pull-request delivery profile whose diff was reviewed. |
+| `--verdict` | `approved` or `changes_requested`. An approval cannot carry a `blocking` finding. |
+| `--finding` | One finding as JSON: `severity` (`blocking`, `major`, `minor`, `note`), `summary`, and optional `path` and `line`. Repeat for more. |
+| `--actor`, `--actor-type` | The reviewer. |
+| `--summary`, `--id` | Optional text and an explicit record ID. |
+| `--requirement` | Link the review to the requirements the delivery serves. |
+
+There is no option for the reviewed commit. The command checks out nothing: it
+requires the head branch of the delivery to be the current branch, reads its
+head and the base tracking ref from the repository, and stores the author
+identities of `base..head`. The reviewer's Git name and email come from the
+local Git configuration, so a reviewer records from a checkout configured with
+their own identity.
+
+A review by an author of the range is recorded, because it happened, and the
+output states that it does not satisfy the merge gate.
+
+When `gate_policy.merge_requires_code_review` is `true`, `autonomy delivery
+action --action pull_request.merge` exits `1` unless an approved review exists
+for the exact head being merged, by a reviewer whose actor and Git email differ
+from every commit author of the pull request. Any new commit on the head branch
+requires a new review. The flag is read as an explicit `true`: a project whose
+configuration never declared it keeps the merge gate it agreed to, and adopts
+the check by initializing from the current template or migrating through
+`config migrate`.
+
 ## Read the exit code in a pipeline
 
 A script that gates on this CLI usually does not parse its output. The exit

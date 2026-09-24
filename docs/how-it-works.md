@@ -554,6 +554,33 @@ deliveries would break the promise that project policy changes only through a
 reviewed decision. Adoption is by initializing from the current template or
 migrating through `config migrate`.
 
+### A pull request merges only after an independent review of its exact head
+
+An approved delivery profile allows `pull_request.merge`, but it says nothing
+about whether anyone read the diff. `review record` writes that evidence: a
+`code-review:v1` record under `.sdlc/reviews/` naming the story, the delivery,
+the repository, both branches, the base commit, the reviewed head commit, the
+reviewer's actor and Git identity, the verdict (`approved` or
+`changes_requested`), and any findings.
+
+The reviewed head commit is read from the repository, never taken from an
+option, so a review stays bound to the diff that was actually read. The author
+identities of every commit in `base..head` are stored with it.
+
+When `gate_policy.merge_requires_code_review` is `true`, authorizing
+`pull_request.merge` requires an approved review for this delivery at exactly
+the head being merged, recorded by a reviewer whose actor and Git email differ
+from every commit author in `base..head`. A review by an author is recorded but
+does not count; a later `changes_requested` from an independent reviewer
+withdraws an earlier approval of the same head; a new commit on the head branch
+leaves the merge unreviewed again; a record edited after it was written no
+longer matches its hash and is ignored. A refusal exits `1`.
+
+The flag is read as an explicit `true`, like `gate_policy.secret_scan.enabled`.
+A project whose configuration never declared it keeps the merge gate it agreed
+to, so a plugin update cannot start refusing its merges. Adoption is by
+initializing from the current template or migrating through `config migrate`.
+
 ### Output verification is layered
 
 Codex creates the approved artifact, and the CLI links it to the approved story, requirement, template, and proposal authorization. The link stores the artifact fingerprint and a separate verification receipt.
