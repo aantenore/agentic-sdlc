@@ -519,7 +519,7 @@ function initializeAutonomyProject(project, options = {}) {
   mustGit(project, ["config", "user.email", "autonomy-e2e@example.invalid"]);
   mustGit(project, ["commit", "--allow-empty", "-m", "test: establish PR base"]);
   mustGit(project, ["branch", "-M", "main"]);
-  mustGit(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc-codex-plugin.git"]);
+  mustGit(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc.git"]);
   mustGit(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
   mustGit(project, ["checkout", "-b", "codex/pr-1"]);
 
@@ -652,7 +652,7 @@ test("task start blocks product work before preflight when approved requirement 
     "--contract", "CONTRACT-EMPTY-REQ-SCOPE",
     "--requirement", "REQ-AUTONOMY",
     "--level", "checkpointed",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
@@ -748,7 +748,7 @@ function prepareAuthorizedPullRequestMerge(suffix) {
     "--contract", "CONTRACT-PR-MERGE",
     "--requirement", "REQ-AUTONOMY",
     "--level", "checkpointed",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
@@ -804,7 +804,7 @@ function prepareAuthorizedPullRequestMerge(suffix) {
     "--requirement", "REQ-AUTONOMY",
   ]);
 
-  const prUrl = "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/999999";
+  const prUrl = "https://github.com/aantenore/agentic-sdlc/pull/999999";
   const openState = {
     state: "OPEN",
     url: prUrl,
@@ -910,7 +910,7 @@ test("an existing pull request is pinned before approval and cannot be retargete
     "--contract", "CONTRACT-EXISTING-PR",
     "--requirement", "REQ-AUTONOMY",
     "--level", "checkpointed",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
@@ -923,7 +923,7 @@ test("an existing pull request is pinned before approval and cannot be retargete
   mustFail([
     ...commonProposal,
     "--pr-number", "184",
-    "--pr-url", "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/185",
+    "--pr-url", "https://github.com/aantenore/agentic-sdlc/pull/185",
   ], /does not match --pr-url number 185/u);
   mustFail([
     ...commonProposal,
@@ -933,7 +933,7 @@ test("an existing pull request is pinned before approval and cannot be retargete
   mustFail([
     ...commonProposal,
     "--pr-number", "184",
-    "--pr-url", "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/184",
+    "--pr-url", "https://github.com/aantenore/agentic-sdlc/pull/184",
     "--allow-action", "pull_request.create",
   ], /cannot allow pull_request\.create/u);
 
@@ -941,14 +941,14 @@ test("an existing pull request is pinned before approval and cannot be retargete
   const proposal = mustRunJson([
     ...commonProposal,
     "--pr-number", "184",
-    "--pr-url", "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/184",
+    "--pr-url", "https://github.com/aantenore/agentic-sdlc/pull/184",
   ]);
   const target = proposal.delivery_profile.pull_request_target;
   assert.equal(target.mode, "existing");
   assert.equal(target.pr_number, 184);
   assert.equal(
     target.pr_url,
-    "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/184",
+    "https://github.com/aantenore/agentic-sdlc/pull/184",
   );
   assert.equal(target.reviewed_head_sha, reviewedHeadSha);
   assert.equal(target.allowed_actions.includes("pull_request.create"), false);
@@ -978,7 +978,7 @@ test("an existing pull request is pinned before approval and cannot be retargete
     "--root", project,
     "--id", "AUT-EXISTING-PR",
     "--action", "pull_request.update",
-    "--pr-url", "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/185",
+    "--pr-url", "https://github.com/aantenore/agentic-sdlc/pull/185",
     "--expected-pr-state", "ready",
   ], /must use the exact existing PR #184/u);
   mustFail([
@@ -994,7 +994,7 @@ test("an existing pull request is pinned before approval and cannot be retargete
     "--root", project,
     "--id", "AUT-EXISTING-PR",
     "--action", "pull_request.update",
-    "--pr-url", "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/184",
+    "--pr-url", "https://github.com/aantenore/agentic-sdlc/pull/184",
     "--expected-pr-state", "ready",
   ], /no longer descended from the reviewed commit/u);
 });
@@ -1087,12 +1087,12 @@ test("requirement ceiling and an exact PR profile govern task start without leak
     "--contract", "CONTRACT-PR-1",
     "--requirement", "REQ-AUTONOMY",
     "--level", "bounded-autonomous",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
   ];
-  const expectedRemoteUrl = "https://github.com/aantenore/agentic-sdlc-codex-plugin.git";
+  const expectedRemoteUrl = "https://github.com/aantenore/agentic-sdlc.git";
   mustGit(project, ["remote", "set-url", "origin", "https://github.com/example/unapproved-repository.git"]);
   mustGit(project, ["remote", "set-url", "--add", "origin", expectedRemoteUrl]);
   mustGit(project, ["remote", "set-url", "--push", "--add", "origin", expectedRemoteUrl]);
@@ -1146,7 +1146,7 @@ test("requirement ceiling and an exact PR profile govern task start without leak
   assert.equal(proposalResponse.human_guidance.details.project_name, "Autonomy E2E");
   assert.equal(
     proposalResponse.human_guidance.details.repository,
-    "github.com/aantenore/agentic-sdlc-codex-plugin",
+    "github.com/aantenore/agentic-sdlc",
   );
   assert.equal(proposalResponse.human_guidance.details.base_branch, "main");
   assert.equal(proposalResponse.human_guidance.details.head_branch, "codex/pr-1");
@@ -1284,7 +1284,7 @@ test("requirement ceiling and an exact PR profile govern task start without leak
     "--root", project,
     "--id", "AUT-PR-1",
     "--action", "pull_request.update",
-    "--pr-url", "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/1",
+    "--pr-url", "https://github.com/aantenore/agentic-sdlc/pull/1",
     "--expected-pr-state", "almost-ready",
   ], /expected-pr-state.*draft.*ready/iu);
   mustFail([
@@ -1292,7 +1292,7 @@ test("requirement ceiling and an exact PR profile govern task start without leak
     "--root", project,
     "--id", "AUT-PR-1",
     "--action", "pull_request.update",
-    "--pr-url", "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/1",
+    "--pr-url", "https://github.com/aantenore/agentic-sdlc/pull/1",
     "--expected-pr-base", "production",
   ], /cannot retarget the pull request outside the approved base branch/u);
   const startTrace = fs.readFileSync(path.join(project, ".sdlc", "traces", "ST-PR-1.jsonl"), "utf8")
@@ -1323,7 +1323,7 @@ test("requirement ceiling and an exact PR profile govern task start without leak
     "--contract", "CONTRACT-PR-1",
     "--requirement", "REQ-AUTONOMY",
     "--level", "bounded-autonomous",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-2",
     "--write-path", "src",
@@ -1340,7 +1340,7 @@ test("requirement ceiling and an exact PR profile govern task start without leak
     "--contract", "CONTRACT-PR-1",
     "--requirement", "REQ-AUTONOMY",
     "--level", "bounded-autonomous",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-2",
     "--write-path", "src",
@@ -1826,7 +1826,7 @@ test("requirement ceiling and an exact PR profile govern task start without leak
     "--contract", "CONTRACT-PR-2",
     "--requirement", "REQ-AUTONOMY",
     "--level", "bounded-autonomous",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
@@ -2081,7 +2081,7 @@ test("an in-flight v1 push authorization completes through its legacy verifier",
     "--contract", "CONTRACT-LEGACY-PUSH",
     "--requirement", "REQ-AUTONOMY",
     "--level", "bounded-autonomous",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
@@ -2220,7 +2220,7 @@ test("git.push rejects commits created outside the exact delivery action chain",
     "--contract", "CONTRACT-CONTENT-SUBSTITUTION",
     "--requirement", "REQ-AUTONOMY",
     "--level", "bounded-autonomous",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
@@ -2283,7 +2283,7 @@ test("git.push rejects commits created outside the exact delivery action chain",
     "--contract", "CONTRACT-UNMEDIATED-PUSH",
     "--requirement", "REQ-AUTONOMY",
     "--level", "supervised",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
@@ -2343,7 +2343,7 @@ test("pull-request merge requires an exact open pre-state and later GitHub merge
     "--contract", "CONTRACT-PR-MERGE",
     "--requirement", "REQ-AUTONOMY",
     "--level", "checkpointed",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
@@ -2400,7 +2400,7 @@ test("pull-request merge requires an exact open pre-state and later GitHub merge
     "--requirement", "REQ-AUTONOMY",
   ]);
 
-  const prUrl = "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/999999";
+  const prUrl = "https://github.com/aantenore/agentic-sdlc/pull/999999";
   const openState = {
     state: "OPEN",
     url: prUrl,
@@ -3269,7 +3269,7 @@ test("delivery action intents keep distinct replay-allowed requests and traces",
     "--contract", "CONTRACT-ACTION-INTENT",
     "--requirement", "REQ-AUTONOMY",
     "--level", "supervised",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
@@ -3587,7 +3587,7 @@ test("authorization revoke and delivery use serialize without lost revocation or
     "--contract", "CONTRACT-AUTH-RACE",
     "--requirement", "REQ-AUTONOMY",
     "--level", "supervised",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",
@@ -6077,7 +6077,7 @@ test("delivery revocation is hash-bound, single-record, and repairs a missing te
     "--contract", "CONTRACT-REVOKE-1",
     "--requirement", "REQ-AUTONOMY",
     "--level", "checkpointed",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-1",
     "--write-path", "src",

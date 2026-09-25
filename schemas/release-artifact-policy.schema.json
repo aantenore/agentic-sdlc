@@ -56,7 +56,7 @@
       ],
       "properties": {
         "name": {
-          "const": "agentic-sdlc-codex-plugin"
+          "const": "agentic-sdlc"
         },
         "archive_root": {
           "type": "string",

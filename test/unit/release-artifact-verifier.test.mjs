@@ -120,8 +120,8 @@ test("enforces the top-level allowlist and required files", () => {
 test("requires package, plugin, tag, and bin metadata to agree", () => {
   const pluginMismatch = replaceEntry(
     validReleaseFixtureEntries({ version: packageVersion }),
-    "package/.codex-plugin/plugin.json",
-    { data: '{"name":"agentic-sdlc-codex-plugin","version":"999.0.0"}\n' },
+    "package/.claude-plugin/plugin.json",
+    { data: '{"name":"agentic-sdlc","version":"999.0.0"}\n' },
   );
   withFixture(pluginMismatch, (artifactPath) => expectCode("VERSION_MISMATCH", () => verify(artifactPath)));
 
@@ -132,7 +132,7 @@ test("requires package, plugin, tag, and bin metadata to agree", () => {
   const binMismatch = replaceEntry(
     validReleaseFixtureEntries({ version: packageVersion }),
     "package/package.json",
-    { data: `${JSON.stringify({ name: "agentic-sdlc-codex-plugin", version: packageVersion, bin: { "agentic-sdlc": "./bin/other.mjs" } })}\n` },
+    { data: `${JSON.stringify({ name: "agentic-sdlc", version: packageVersion, bin: { "agentic-sdlc": "./bin/other.mjs" } })}\n` },
   );
   withFixture(binMismatch, (artifactPath) => expectCode("BIN_CONTRACT_MISMATCH", () => verify(artifactPath)));
 
@@ -189,7 +189,7 @@ test("rejects unsafe permission bits and duplicate JSON keys", () => {
   const duplicate = replaceEntry(
     validReleaseFixtureEntries({ version: packageVersion }),
     "package/package.json",
-    { data: `{"name":"agentic-sdlc-codex-plugin","version":${JSON.stringify(packageVersion)},"version":"999.0.0","bin":{"agentic-sdlc":"./bin/agentic-sdlc.mjs"}}\n` },
+    { data: `{"name":"agentic-sdlc","version":${JSON.stringify(packageVersion)},"version":"999.0.0","bin":{"agentic-sdlc":"./bin/agentic-sdlc.mjs"}}\n` },
   );
   withFixture(duplicate, (artifactPath) => expectCode("DUPLICATE_JSON_KEY", () => verify(artifactPath)));
   expectCode("DUPLICATE_JSON_KEY", () => parseStrictJson(Buffer.from('{"outer":{"key":1,"key":2}}'), "fixture"));
@@ -263,7 +263,7 @@ test("bounds attacker-controlled JSON nesting before native parsing", () => {
 test("rejects npm lifecycle hooks hidden by the smoke test's ignore-scripts boundary", () => {
   for (const hook of ["preinstall", "install", "postinstall", "prepare", "prepack", "postpublish"]) {
     const packagePayload = {
-      name: "agentic-sdlc-codex-plugin",
+      name: "agentic-sdlc",
       version: packageVersion,
       bin: { "agentic-sdlc": "./bin/agentic-sdlc.mjs" },
       scripts: { [hook]: "node malicious.mjs" },

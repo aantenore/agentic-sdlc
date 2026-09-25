@@ -103,13 +103,13 @@ export function buildTarGzip(entries, { trailingData, zeroBlocks = 2 } = {}) {
 
 export function validReleaseFixtureEntries({ version = "0.13.3", extra = [] } = {}) {
   const packageJson = {
-    name: "agentic-sdlc-codex-plugin",
+    name: "agentic-sdlc",
     version,
     type: "module",
     bin: { "agentic-sdlc": "./bin/agentic-sdlc.mjs" },
   };
   const pluginJson = {
-    name: "agentic-sdlc-codex-plugin",
+    name: "agentic-sdlc",
     version,
   };
   const claudePluginJson = {

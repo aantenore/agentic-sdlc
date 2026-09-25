@@ -12756,7 +12756,7 @@ test("npm package installs as a complete reusable plugin", async (t) => {
     archivePath,
   ], packageRoot);
   assert.equal(installed.status, 0, `npm install failed\nSTDOUT:\n${installed.stdout}\nSTDERR:\n${installed.stderr}`);
-  const installedPluginRoot = path.join(installRoot, "node_modules", "agentic-sdlc-codex-plugin");
+  const installedPluginRoot = path.join(installRoot, "node_modules", "agentic-sdlc");
   const installedCli = path.join(installedPluginRoot, "bin", "agentic-sdlc.mjs");
   const installedBinShim = path.join(
     installRoot,

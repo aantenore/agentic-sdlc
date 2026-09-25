@@ -24,8 +24,8 @@ import {
 
 
 const IDENTITY = Object.freeze({
-  archiveName: "agentic-sdlc-codex-plugin-1.2.3+Build-Meta-with-hyphen.tgz",
-  repository: "aantenore/agentic-sdlc-codex-plugin",
+  archiveName: "agentic-sdlc-1.2.3+Build-Meta-with-hyphen.tgz",
+  repository: "aantenore/agentic-sdlc",
   runId: "123456789",
   sourceSha: "a".repeat(40),
   tag: "v1.2.3+Build-Meta-with-hyphen",
@@ -48,17 +48,17 @@ function createBundle(root) {
   const spdx = Buffer.from(`${JSON.stringify({
     spdxVersion: "SPDX-2.3",
     dataLicense: "CC0-1.0",
-    packages: [{ name: "agentic-sdlc-codex-plugin" }],
+    packages: [{ name: "agentic-sdlc" }],
   })}\n`);
   const cyclonedx = Buffer.from(`${JSON.stringify({
     bomFormat: "CycloneDX",
     specVersion: "1.6",
-    components: [{ name: "agentic-sdlc-codex-plugin" }],
+    components: [{ name: "agentic-sdlc" }],
   })}\n`);
   const verification = Buffer.from(`${JSON.stringify({
     status: "passed",
     package: {
-      name: "agentic-sdlc-codex-plugin",
+      name: "agentic-sdlc",
       version: "1.2.3+Build-Meta-with-hyphen",
       tag: IDENTITY.tag,
     },
@@ -189,7 +189,7 @@ test("accepts an exact workflow-owned draft or already-published bundle", (t) =>
     spdxVersion: "SPDX-2.3",
     dataLicense: "CC0-1.0",
     documentNamespace: "https://example.invalid/rerun-specific-sbom",
-    packages: [{ name: "agentic-sdlc-codex-plugin" }],
+    packages: [{ name: "agentic-sdlc" }],
   })}\n`);
   writeFileSync(path.join(remoteRoot, sbomName), remoteSbom);
   const manifestPath = path.join(remoteRoot, "release-manifest.json");

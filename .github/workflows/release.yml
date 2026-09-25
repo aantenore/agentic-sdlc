@@ -176,7 +176,7 @@ jobs:
             --cache "$cache_root" \
             --prefix "$install_root" \
             "file:$ARCHIVE_PATH"
-          sbom_source="$install_root/node_modules/agentic-sdlc-codex-plugin"
+          sbom_source="$install_root/node_modules/agentic-sdlc"
           test -d "$sbom_source"
           test ! -L "$sbom_source"
           SOURCE_PATH="$sbom_source" node --input-type=module <<'NODE'
@@ -279,7 +279,7 @@ jobs:
             || typeof sbom.value?.documentNamespace !== "string"
             || !Array.isArray(sbom.value?.packages)
             || sbom.value.packages.length < 1
-            || !sbom.value.packages.some((entry) => entry?.name === "agentic-sdlc-codex-plugin")
+            || !sbom.value.packages.some((entry) => entry?.name === "agentic-sdlc")
             || !Array.isArray(sbom.value?.creationInfo?.creators)
             || !sbom.value.creationInfo.creators.some((entry) => typeof entry === "string" && entry.startsWith("Tool:"))) {
             throw new Error("generated SPDX SBOM is incomplete or does not describe the release package");
@@ -288,7 +288,7 @@ jobs:
           if (cyclonedx.value?.bomFormat !== "CycloneDX"
             || !/^1\.[4-9]$/u.test(cyclonedx.value?.specVersion ?? "")
             || !Array.isArray(cyclonedx.value?.components)
-            || !cyclonedx.value.components.some((entry) => entry?.name === "agentic-sdlc-codex-plugin")) {
+            || !cyclonedx.value.components.some((entry) => entry?.name === "agentic-sdlc")) {
             throw new Error("generated CycloneDX SBOM is incomplete or does not describe the release package");
           }
 

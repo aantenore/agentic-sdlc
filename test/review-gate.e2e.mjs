@@ -13,7 +13,7 @@ const tempPaths = new Set();
 
 const PROFILE_ID = "AUT-REVIEW";
 const STORY_ID = "ST-REVIEW";
-const PR_URL = "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/999998";
+const PR_URL = "https://github.com/aantenore/agentic-sdlc/pull/999998";
 const AUTHOR = Object.freeze({ name: "Review Author", email: "author@example.invalid" });
 const REVIEWER = Object.freeze({ actor: "luca", name: "Luca Reviewer", email: "luca@example.invalid" });
 
@@ -113,7 +113,7 @@ function preparePullRequestDelivery() {
   git(project, ["config", "user.email", AUTHOR.email]);
   git(project, ["commit", "--allow-empty", "-m", "test: establish PR base"]);
   git(project, ["branch", "-M", "main"]);
-  git(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc-codex-plugin.git"]);
+  git(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc.git"]);
   git(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
   git(project, ["checkout", "-b", "codex/pr-review"]);
 
@@ -160,7 +160,7 @@ function preparePullRequestDelivery() {
     "--contract", "CONTRACT-REVIEW",
     "--requirement", "REQ-REVIEW",
     "--level", "checkpointed",
-    "--repository", "aantenore/agentic-sdlc-codex-plugin",
+    "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
     "--head", "codex/pr-review",
     "--write-path", "src",

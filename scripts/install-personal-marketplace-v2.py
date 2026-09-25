@@ -26,6 +26,9 @@ from pathlib import Path
 
 
 PLUGIN_NAME = "agentic-sdlc-codex-plugin"
+# The npm package name. It differs from PLUGIN_NAME, which is the Codex install
+# identifier and stays fixed so existing installations update in place.
+PACKAGE_NAME = "agentic-sdlc"
 PROTOCOL_SCHEMA = "agentic-sdlc.local-installer.v2"
 LEGACY_RECEIPT_SCHEMA = "agentic-sdlc.local-installer-receipt.v2"
 RECEIPT_SCHEMA = "agentic-sdlc.local-installer-receipt.v3"
@@ -2254,9 +2257,10 @@ def _plugin_distribution_identity(root: Path, label: str) -> dict[str, object]:
         f"{label} plugin manifest",
     )
     package_version = package.get("version")
+    package_name = package.get("name")
     if (
-        package.get("name") != PLUGIN_NAME
-        or manifest.get("name") != PLUGIN_NAME
+        manifest.get("name") != PLUGIN_NAME
+        or package_name != PACKAGE_NAME
         or not isinstance(package_version, str)
         or package_version == ""
         or manifest.get("version") != package_version

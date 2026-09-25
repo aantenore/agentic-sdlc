@@ -338,7 +338,7 @@ function initializeGitProject(project, branch, configureProject = null) {
   mustGit(project, ["add", "."]);
   mustGit(project, ["commit", "-m", "test: establish governed baseline"]);
   mustGit(project, ["branch", "-M", "main"]);
-  mustGit(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc-codex-plugin.git"]);
+  mustGit(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc.git"]);
   mustGit(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
   mustGit(project, ["checkout", "-b", branch]);
 }
@@ -451,7 +451,7 @@ function createGovernedDeliveryStory(project, {
         "--rollback", "Restore the previous governed local release snapshot.",
       ]
     : [
-        "--repository", "aantenore/agentic-sdlc-codex-plugin",
+        "--repository", "aantenore/agentic-sdlc",
         "--base", "main",
         "--head", branch,
       ];

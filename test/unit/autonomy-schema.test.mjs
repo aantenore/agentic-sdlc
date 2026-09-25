@@ -83,7 +83,7 @@ function deliveryProfile(requirement, overrides = {}) {
       budget_ref: null,
     },
     pull_request_target: {
-      repository: "aantenore/agentic-sdlc-codex-plugin",
+      repository: "aantenore/agentic-sdlc",
       base_branch: "main",
       head_branch: "codex/requirement-pr-autonomy",
       allowed_actions: ["git.commit", "git.push"],

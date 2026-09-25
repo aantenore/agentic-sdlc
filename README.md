@@ -1,4 +1,4 @@
-# Agentic SDLC Plugin
+# Agentic SDLC
 
 One source tree, two host packagings: **OpenAI Codex** (`.codex-plugin/`) and **Claude Code** (`.claude-plugin/`). Both load the same skills, schemas, templates, and Node.js CLI.
 
@@ -50,7 +50,7 @@ Earlier releases in those lines contain an upstream native shutdown livelock.
 ### Claude Code
 
 ```bash
-/plugin marketplace add aantenore/agentic-sdlc-codex-plugin
+/plugin marketplace add aantenore/agentic-sdlc
 /plugin install agentic-sdlc@aantenore
 /agentic-sdlc:doctor
 ```
@@ -62,8 +62,8 @@ Then use a starter command — `/agentic-sdlc:assess`, `/agentic-sdlc:deliver`, 
 Install from the `aantenore` source repository. Keep this checkout separate from the generated personal-plugin directory:
 
 ```bash
-git clone https://github.com/aantenore/agentic-sdlc-codex-plugin.git
-cd agentic-sdlc-codex-plugin
+git clone https://github.com/aantenore/agentic-sdlc.git
+cd agentic-sdlc
 python3 scripts/install-personal-marketplace-v2.py check
 python3 scripts/install-personal-marketplace-v2.py plan --json
 python3 scripts/install-personal-marketplace-v2.py apply --plan-hash <plan_hash-from-plan> --json
@@ -587,7 +587,7 @@ The final chat response reports the assessment verdict, major risks, recommendat
 Use a source checkout that is separate from the generated personal-plugin directory:
 
 ```bash
-cd /path/to/agentic-sdlc-codex-plugin
+cd /path/to/agentic-sdlc
 python3 scripts/install-personal-marketplace-v2.py check
 python3 scripts/install-personal-marketplace-v2.py plan --json
 python3 scripts/install-personal-marketplace-v2.py apply --plan-hash <plan_hash-from-plan> --json
@@ -628,7 +628,7 @@ installs implicitly.
 Update the source checkout, rerun the staging installer, and add the plugin again. The current Codex CLI has no dedicated plugin-update subcommand; re-adding refreshes the installed cache, including when the version is unchanged.
 
 ```bash
-cd /path/to/agentic-sdlc-codex-plugin
+cd /path/to/agentic-sdlc
 python3 scripts/install-personal-marketplace-v2.py plan --json
 python3 scripts/install-personal-marketplace-v2.py apply --plan-hash <plan_hash-from-plan> --json
 # Execute the exact candidate_registration argv/environment returned by apply.

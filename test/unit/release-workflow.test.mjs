@@ -546,7 +546,7 @@ test("the exact inline seal and publish validators accept a valid fixture and re
       path.join(temporary, "config", "release-artifact-policy.json"),
       readFileSync(path.join(repoRoot, "config", "release-artifact-policy.json")),
     );
-    const archiveName = "agentic-sdlc-codex-plugin-1.2.3.tgz";
+    const archiveName = "agentic-sdlc-1.2.3.tgz";
     const archivePath = path.join(releaseRoot, archiveName);
     const cyclonedxPath = `${archivePath}.cdx.json`;
     const sbomPath = `${archivePath}.spdx.json`;
@@ -559,16 +559,16 @@ test("the exact inline seal and publish validators accept a valid fixture and re
       dataLicense: "CC0-1.0",
       documentNamespace: "https://example.invalid/spdx/fixture",
       creationInfo: { creators: ["Tool: syft-fixture"] },
-      packages: [{ name: "agentic-sdlc-codex-plugin" }],
+      packages: [{ name: "agentic-sdlc" }],
     })}\n`);
     writeFileSync(cyclonedxPath, `${JSON.stringify({
       bomFormat: "CycloneDX",
       specVersion: "1.6",
-      components: [{ name: "agentic-sdlc-codex-plugin" }],
+      components: [{ name: "agentic-sdlc" }],
     })}\n`);
     const validVerification = {
       status: "passed",
-      package: { name: "agentic-sdlc-codex-plugin", version: "1.2.3", tag: "v1.2.3" },
+      package: { name: "agentic-sdlc", version: "1.2.3", tag: "v1.2.3" },
       artifact: { sha256: sha256(archivePath) },
       smoke: {
         npm_install: "passed",
@@ -589,7 +589,7 @@ test("the exact inline seal and publish validators accept a valid fixture and re
       EXPECTED_ARCHIVE_NAME: archiveName,
       GITHUB_OUTPUT: outputPath,
       GITHUB_REF_NAME: "v1.2.3",
-      GITHUB_REPOSITORY: "aantenore/agentic-sdlc-codex-plugin",
+      GITHUB_REPOSITORY: "aantenore/agentic-sdlc",
       GITHUB_RUN_ID: "123456789",
       GITHUB_SHA: sourceSha,
       POLICY_PATH: "config/release-artifact-policy.json",

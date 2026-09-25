@@ -20,7 +20,7 @@ node --version
 ## Install
 
 ```bash
-/plugin marketplace add aantenore/agentic-sdlc-codex-plugin
+/plugin marketplace add aantenore/agentic-sdlc
 /plugin install agentic-sdlc@aantenore
 ```
 
@@ -29,8 +29,8 @@ The first command registers this repository as a plugin marketplace from its `.c
 To install from a local checkout instead:
 
 ```bash
-git clone https://github.com/aantenore/agentic-sdlc-codex-plugin.git
-/plugin marketplace add /absolute/path/to/agentic-sdlc-codex-plugin
+git clone https://github.com/aantenore/agentic-sdlc.git
+/plugin marketplace add /absolute/path/to/agentic-sdlc
 /plugin install agentic-sdlc@aantenore
 ```
 
@@ -43,7 +43,7 @@ git clone https://github.com/aantenore/agentic-sdlc-codex-plugin.git
 The same check is available without the plugin surface:
 
 ```bash
-node /path/to/agentic-sdlc-codex-plugin/bin/agentic-sdlc.mjs doctor --json
+node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs doctor --json
 ```
 
 A failed check exits non-zero and names the concrete fix.

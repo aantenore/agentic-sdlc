@@ -266,7 +266,7 @@ test("delivery matrix binds local, new PR, and existing PR targets without widen
         requestedLevel: "checkpointed",
         authority: hostVerifiedAuthority(),
         mode: "existing",
-        prUrl: "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/185",
+        prUrl: "https://github.com/aantenore/agentic-sdlc/pull/185",
       }),
       /must identify the exact approved PR number/u,
     );
@@ -631,7 +631,7 @@ function deliveryProfile(options) {
     authority,
     kind = "pull_request",
     mode = "new",
-    prUrl = "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/184",
+    prUrl = "https://github.com/aantenore/agentic-sdlc/pull/184",
     localWritePath = "/workspace/travelops/dist",
   } = options;
   const isLocal = kind === "local_release";
@@ -659,7 +659,7 @@ function deliveryProfile(options) {
       budget_ref: null,
     },
     pull_request_target: isLocal ? null : {
-      repository: "aantenore/agentic-sdlc-codex-plugin",
+      repository: "aantenore/agentic-sdlc",
       base_branch: "main",
       head_branch: "codex/governance-matrix",
       mode,
