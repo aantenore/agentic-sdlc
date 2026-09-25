@@ -2254,9 +2254,11 @@ def _plugin_distribution_identity(root: Path, label: str) -> dict[str, object]:
         f"{label} plugin manifest",
     )
     package_version = package.get("version")
+    package_name = package.get("name")
     if (
-        package.get("name") != PLUGIN_NAME
-        or manifest.get("name") != PLUGIN_NAME
+        manifest.get("name") != PLUGIN_NAME
+        or not isinstance(package_name, str)
+        or package_name == ""
         or not isinstance(package_version, str)
         or package_version == ""
         or manifest.get("version") != package_version

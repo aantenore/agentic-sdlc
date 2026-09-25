@@ -120,7 +120,7 @@ test("enforces the top-level allowlist and required files", () => {
 test("requires package, plugin, tag, and bin metadata to agree", () => {
   const pluginMismatch = replaceEntry(
     validReleaseFixtureEntries({ version: packageVersion }),
-    "package/.codex-plugin/plugin.json",
+    "package/.claude-plugin/plugin.json",
     { data: '{"name":"agentic-sdlc","version":"999.0.0"}\n' },
   );
   withFixture(pluginMismatch, (artifactPath) => expectCode("VERSION_MISMATCH", () => verify(artifactPath)));

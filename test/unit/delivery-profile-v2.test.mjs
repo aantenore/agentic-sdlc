@@ -47,7 +47,7 @@ function sharedInput(overrides = {}) {
       budget_ref: null,
     },
     pull_request_target: {
-      repository: "aantenore/agentic-sdlc",
+      repository: "aantenore/agentic-sdlc-codex-plugin",
       base_branch: "main",
       head_branch: "codex/provider-v2",
       allowed_actions: ["git.push", "pull_request.create", "pull_request.update"],

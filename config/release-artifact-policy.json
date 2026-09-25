@@ -55,7 +55,7 @@
       "scripts/verify-release-package.mjs",
       "skills/agentic-sdlc/SKILL.md"
     ],
-    "plugin_manifest": ".codex-plugin/plugin.json",
+    "plugin_manifest": ".claude-plugin/plugin.json",
     "installer": "scripts/install-personal-marketplace-v2.py",
     "bin": {
       "agentic-sdlc": "./bin/agentic-sdlc.mjs"
