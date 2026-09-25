@@ -12,7 +12,7 @@
     "max_uncompressed_bytes": 83886080
   },
   "package": {
-    "name": "agentic-sdlc-codex-plugin",
+    "name": "agentic-sdlc",
     "archive_root": "package",
     "tag_prefix": "v",
     "allowed_top_level": [
