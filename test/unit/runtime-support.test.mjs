@@ -99,7 +99,11 @@ test("CLI doctor and both benchmarks consume the shared runtime policy", () => {
     cli,
     /new UnsupportedNodeRuntimeError\(process\.versions\.node, rawLocale\)/u,
   );
-  assert.match(cli, /super\(unsupportedNodeRuntimeMessage\(version, locale\)\)/u);
+  // The error class is a pure declaration and lives with the other lifecycle
+  // classes; the CLI imports it.
+  const lifecycleClasses = fs.readFileSync(path.join(PROJECT_ROOT, "lib/lifecycle/classes.mjs"), "utf8");
+  assert.match(lifecycleClasses, /super\(unsupportedNodeRuntimeMessage\(version, locale\)\)/u);
+  assert.match(cli, /UnsupportedNodeRuntimeError,\n\} from "\.\.\/lib\/lifecycle\/classes\.mjs";/u);
   assert.match(cli, /pkg\.engines\?\.node === NODE_ENGINE_RANGE/u);
   assert.match(cli, /NODE_ENGINE_RANGE/u);
   assert.match(cli, /NODE_RUNTIME_REQUIREMENT/u);
