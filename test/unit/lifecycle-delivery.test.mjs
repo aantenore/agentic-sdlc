@@ -1,3 +1,4 @@
+import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -100,7 +101,9 @@ test("deliveryProviderOperationSubject resolves rollback.verify evidence paths a
     },
   };
   const subject = deliveryProviderOperationSubject({}, {}, "rollback.verify", actionDetails, null);
-  assert.equal(subject.evidence[0].path, "/release/evidence/check.txt");
+  // Resolved with the platform's own path rules: on Windows the same input
+  // resolves against the current drive.
+  assert.equal(subject.evidence[0].path, path.resolve("/release/evidence", "check.txt"));
   assert.equal(subject.evidence[0].sha256, "1".repeat(64));
 });
 
