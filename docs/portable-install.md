@@ -1,6 +1,8 @@
 # Portable Codex Install
 
-Agentic SDLC 0.15.0 is a self-contained Codex plugin. The repository root is the plugin root because it contains `.codex-plugin/plugin.json`; all manifest and agent-card paths are repository-relative.
+Agentic SDLC 0.15.0 includes a self-contained Codex packaging. The repository root is the plugin root because it contains `.codex-plugin/plugin.json`; all manifest and agent-card paths are repository-relative.
+
+The Codex packaging keeps the install identifier `agentic-sdlc-codex-plugin` (the `.codex-plugin/plugin.json` name, the installer's `PLUGIN_NAME`, the `codex plugin add/remove` argument, and the `~/plugins/agentic-sdlc-codex-plugin` destination) even though the npm package and repository are named `agentic-sdlc`. This keeps existing Codex installations updating in place instead of creating a second, parallel installation.
 
 ## Package Surface
 
@@ -53,7 +55,7 @@ From the source checkout, first inspect the machine, then create a read-only
 plan. Apply only the exact plan you just reviewed:
 
 ```bash
-cd /path/to/agentic-sdlc-codex-plugin
+cd /path/to/agentic-sdlc
 python3 scripts/install-personal-marketplace-v2.py check
 python3 scripts/install-personal-marketplace-v2.py plan --json
 python3 scripts/install-personal-marketplace-v2.py apply --plan-hash <plan_hash-from-plan> --json
@@ -223,7 +225,7 @@ Refresh the source checkout by your normal source-control process, review a
 fresh plan, apply that exact plan, and add the plugin again:
 
 ```bash
-cd /path/to/agentic-sdlc-codex-plugin
+cd /path/to/agentic-sdlc
 python3 scripts/install-personal-marketplace-v2.py check
 python3 scripts/install-personal-marketplace-v2.py plan --json
 python3 scripts/install-personal-marketplace-v2.py apply --plan-hash <plan_hash-from-plan> --json

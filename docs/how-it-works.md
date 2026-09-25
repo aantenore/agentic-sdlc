@@ -118,7 +118,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 ```
 
 An npm installation may additionally create an npm bin shim. From a source
-checkout, use `node /path/to/agentic-sdlc-codex-plugin/bin/agentic-sdlc.mjs`.
+checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
 All examples below use commands exposed by the `Agentic SDLC 0.15.0` help output and assume the shell is in the target project:
 
 ```bash

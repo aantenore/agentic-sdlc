@@ -149,7 +149,7 @@ validates the complete config, creates all seven phase contracts, and pins the
 config hash in the same bootstrap:
 
 ```bash
-PLUGIN_ROOT=/absolute/path/to/agentic-sdlc-codex-plugin
+PLUGIN_ROOT=/absolute/path/to/agentic-sdlc
 PROJECT_ROOT=/absolute/path/to/project
 
 node "$PLUGIN_ROOT/bin/agentic-sdlc.mjs" init \
