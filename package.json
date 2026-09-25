@@ -1,6 +1,6 @@
 {
   "name": "agentic-sdlc-codex-plugin",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Contract-driven delivery, verified assessments, and visual project lineage for Codex and Claude Code.",
   "type": "module",
   "bin": {
