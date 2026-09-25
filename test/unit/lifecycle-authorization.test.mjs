@@ -546,13 +546,15 @@ test("normalizeApprovalRequestScope fills in the fixed default flags", () => {
   });
 });
 
-test("normalizeApprovalRequestScope layers caller fields over the defaults without letting them turn the safety flags off", () => {
-  // Current behaviour: the spread order is `{ defaults, ...scope }`, so a caller-supplied
-  // `applies_only_to_presented_item: false` DOES override the safety default. This looks
-  // like it could weaken the approval-scope guarantee; pinning current behaviour here.
-  const scope = normalizeApprovalRequestScope({ applies_only_to_presented_item: false, extra: "note" });
-  assert.deepEqual(scope, {
+test("normalizeApprovalRequestScope keeps caller context but never lets it turn the safety statements off", () => {
+  const scope = normalizeApprovalRequestScope({
     applies_only_to_presented_item: false,
+    cannot_approve_future_artifacts: false,
+    requires_fresh_confirmation_for_new_artifacts: false,
+    extra: "note",
+  });
+  assert.deepEqual(scope, {
+    applies_only_to_presented_item: true,
     cannot_approve_future_artifacts: true,
     requires_fresh_confirmation_for_new_artifacts: true,
     extra: "note",
