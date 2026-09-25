@@ -71,7 +71,7 @@ Search limits are validated and bounded to 1-100.
 ## RTK command gateway
 
 [RTK](https://github.com/rtk-ai/rtk) filters noisy command output before it
-enters model context. Agentic SDLC 0.15.0 integrates RTK 0.43+ behind a
+enters model context. Agentic SDLC 0.16.0 integrates RTK 0.43+ behind a
 configurable, shell-free gateway; RTK remains an optional, separately installed
 binary.
 

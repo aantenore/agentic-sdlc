@@ -13,7 +13,7 @@
       "name": "agentic-sdlc",
       "source": "./",
       "description": "Agree the outcome before work starts, deliver verified changes, and explain the recorded lineage in a local visual app.",
-      "version": "0.15.0",
+      "version": "0.16.0",
       "author": {
         "name": "Antonio Antenore",
         "url": "https://github.com/aantenore"
