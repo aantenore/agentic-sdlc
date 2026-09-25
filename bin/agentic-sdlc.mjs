@@ -272,39 +272,635 @@ import {
   isSupportedNodeRuntime,
   unsupportedNodeRuntimeMessage,
 } from "../lib/runtime-support.mjs";
+import {
+  UserError,
+  fail,
+  failUsage,
+} from "../lib/cli/user-error.mjs";
+import {
+  approvalAuthorizationSettings,
+  approvalIssueSeverity,
+  approvalRequestPrimaryCopy,
+  approvalSubjectMatchesActiveScope,
+  assertBaselineProposalCanResume,
+  assessmentApprovalPath,
+  assessmentApprovalSubject,
+  assessmentApprovalsRoot,
+  assessmentProposalPath,
+  assessmentProposalsRoot,
+  authorityAssuranceLabel,
+  authorizationAllowsAction,
+  authorizationAllowsApprovalBoundary,
+  authorizationAllowsArtifactType,
+  authorizationAllowsSubject,
+  authorizationApprovalBoundaries,
+  authorizationArtifactTypes,
+  authorizationLifecyclePath,
+  authorizationPath,
+  authorizationProposalBindingError,
+  authorizationReceiptAccepted,
+  authorizationRecordHash,
+  authorizationRoot,
+  authorizationUseKey,
+  authorizationUsePath,
+  authorizationUsesRoot,
+  autonomyApprovalSubject,
+  autonomyApprovalsRoot,
+  autonomyLifecycleReceiptHash,
+  autonomyProfileApprovalProjection,
+  baselineProposalIntentHash,
+  budgetAmendmentApprovalSubject,
+  buildApprovalRecordScope,
+  buildBaselineProposalTraceEvent,
+  buildLegacyAuthorizationUses,
+  buildProposalContextOptimizationDelta,
+  canRecoverConsumedLegacyAuthorizationUse,
+  canonicalAuthorizationUseSubject,
+  capabilityRecommendationNeedsInstallApproval,
+  contractDirectApprovalRequirements,
+  contractProposalHumanGuidance,
+  dependencyProposalPath,
+  executeIdentityMutation,
+  executePreparedIdentityMutation,
+  failBaselineProposalResume,
+  formalApprovalActorDescription,
+  getApprovalPolicy,
+  hasApprovedContractApproval,
+  hasFormalApprovalAttribution,
+  hasFreshApprovedContractApproval,
+  hashApprovalSubject,
+  hashAuthorizationRecord,
+  humanApprovalFields,
+  isCanonicalContentAuthorization,
+  latestApprovedRecordApproval,
+  latestContractApproval,
+  legacyAuthorizationBindingErrors,
+  localTargetBuildReceiptRef,
+  normalizeApprovalCollectionScope,
+  normalizeApprovalSource,
+  normalizeApprovalStatus,
+  outputLinkAuthorizationId,
+  parseLegacyAuthorizationUses,
+  parsePullRequestUrlIdentity,
+  preparedIdentityWritePath,
+  profileTaskStartReceiptSchemaName,
+  projectBootstrapInitialIdentityHash,
+  remoteAuthorizationProjection,
+  requireFormalApprovalActor,
+  sameLegacyAuthorizationProjection,
+  sameStableFileIdentity,
+  storyActionAuthorizationSettings,
+  validateApprovalPolicy,
+  validateApprovalSourceForActor,
+  validateAuthorizationUseReceipt,
+  verificationReceiptPath,
+  verificationReceiptSatisfies,
+} from "../lib/lifecycle/authorization.mjs";
+import {
+  buildCapabilityPolicy,
+  buildDefaultCapabilityPolicyPatch,
+  buildDefaultCapabilityRecommendations,
+  capabilityDiscoveryRoot,
+  capabilityProfilePath,
+  capabilityProfilesRoot,
+  capabilityRecommendationPath,
+  capabilityRecommendationsRoot,
+  capabilityRecordMatchesStory,
+  capabilityTargetFilesystemPath,
+  capabilityTargetValueIsConcrete,
+  collectCapabilityPolicyReadinessGaps,
+  collectMissingRequiredCapabilityBindings,
+  formatCapabilityBindingsForUser,
+  formatCapabilityEvidenceForUser,
+  formatCapabilityInstallNeeds,
+  formatCapabilityPolicyPatchForUser,
+  formatCapabilityRecommendationsForUser,
+  formatCapabilitySubject,
+  mergeCapabilityPolicies,
+  normalizeCapabilityBinding,
+  normalizeCapabilityBindings,
+  normalizeCapabilityEvidence,
+  normalizeCapabilityOpenQuestions,
+  normalizeCapabilityRecommendationRefs,
+  normalizeCapabilityRecommendations,
+  normalizeCapabilitySubject,
+  validateCapabilityPolicy,
+  visitCapabilityTargetValues,
+} from "../lib/lifecycle/capability.mjs";
+import {
+  UnsupportedNodeRuntimeError,
+} from "../lib/lifecycle/classes.mjs";
+import {
+  activeLegacyLocalStartError,
+  approvedRecordIssueSeverity,
+  arraysEqual,
+  assertNotDerivedArtifact,
+  boundedNonNegativeIntegerOption,
+  boundedPositiveInteger,
+  buildDomainRecord,
+  buildExecutionPolicy,
+  buildInferredContext,
+  buildLegacyDefaultsProfile,
+  buildQuestionRecords,
+  canonicalAbsoluteUrl,
+  cliErrorRedactionResolution,
+  cliHandler,
+  compactIndexEntry,
+  compactText,
+  compareReportQueryRecords,
+  completionReserveRisks,
+  countBy,
+  deriveTestRunOutcome,
+  exitCodeForError,
+  getOptionString,
+  getRoutingPolicy,
+  hasActorAttribution,
+  hashBoundRecordIsValid,
+  hashBuffer,
+  hashJsonFileValue,
+  inferTitle,
+  inspectZipContainer,
+  instanceDefinitionReference,
+  instanceOverlayReference,
+  internalErrorCauseDetails,
+  isApprovedRecordFresh,
+  isEventInsideWindow,
+  localTargetBuildCompletionDetails,
+  localTargetBuildPreconditionDetails,
+  localTargetPredecessorStateMatches,
+  mappedCodeBurnUsage,
+  matchesAny,
+  mergeList,
+  mutationGovernanceActor,
+  normalizeActivityReportView,
+  normalizeActorType,
+  normalizeArtifactType,
+  normalizeAuthorizedActions,
+  normalizeConfidence,
+  normalizeExecutionPolicySuggestions,
+  normalizeId,
+  normalizeListOption,
+  normalizeListValue,
+  normalizeObject,
+  normalizeOptionalDateTime,
+  normalizeRawListOption,
+  normalizeRecordedCommandArgv,
+  normalizeReportQuery,
+  normalizeScalarOption,
+  normalizeStringArray,
+  normalizeText,
+  normalizeWorkItemType,
+  overlaps,
+  parseBooleanOption,
+  processIsAlive,
+  pushAllUnique,
+  rawBooleanOptionRequested,
+  rawStringOptionValue,
+  readZipEntry,
+  referenceId,
+  referenceVersion,
+  reportQueryFiltersMatch,
+  reportQuerySubjectMatches,
+  requireCoordinationOverrideActor,
+  requireEnumOption,
+  requireOption,
+  sameStableFileSnapshot,
+  scoreEntry,
+  secretScanPolicy,
+  shortHash,
+  shortHashFull,
+  shouldIndexFile,
+  slugify,
+  stableJson,
+  summarizeActivityEvents,
+  tokenize,
+  upsertById,
+  validateBranchPolicy,
+  validateCommitCoverageProfileRef,
+  validateExecutionPolicy,
+  validateRoutingPolicy,
+  validateSdlcDirectoryList,
+  verifyOoxmlSemanticContent,
+} from "../lib/lifecycle/common.mjs";
+import {
+  APPROVAL_SOURCES,
+  CACHE_FILE_NAME,
+  CATALOG_KNOWN_OPTIONS,
+  CATALOG_OPTION_METADATA,
+  CLAIM_STATUSES,
+  DEFAULT_CODEX_SESSION_METERING_CONFIG,
+  DELIVERY_PROVIDER_ACTIONS,
+  DELIVERY_TERMINAL_STATUSES,
+  EXIT_CODES,
+  GOVERNED_LOCAL_TARGET_ACTIONS,
+  HANDOFF_STATUSES,
+  INTERNAL_LOCK_REMOTE_STALE_MS,
+  INTERNAL_LOCK_STALE_MS,
+  INTERNAL_LOCK_WAIT_MS,
+  LEGACY_STORY_STEP_PHASE_ALIASES,
+  LOCK_STATUSES,
+  MAX_CLI_ERROR_CONFIG_BYTES,
+  MAX_TEMPLATE_ASSET_BYTES,
+  OPERATIONAL_REDACTION_POLICY,
+  OUTPUT_DELIVERY_MODES,
+  OUTPUT_FORMATS,
+  OUTPUT_FORMAT_ALIASES,
+  OUTPUT_LINK_MODES,
+  OUTPUT_VISUAL_FORMATS,
+  PHASE_IDENTIFIER_PATTERN,
+  PROJECT_BOOTSTRAP_JOURNAL_FILE_NAME,
+  PROJECT_BOOTSTRAP_JOURNAL_SCHEMA_VERSION,
+  PROJECT_BOOTSTRAP_MANIFEST_FILE_NAME,
+  PROJECT_BOOTSTRAP_MANIFEST_INTRODUCED_VERSION,
+  PROJECT_BOOTSTRAP_MANIFEST_SCHEMA_VERSION,
+  PROJECT_CONFIG_FILE_NAME,
+  PROJECT_CONFIG_LOCK_FILE_NAME,
+  ROUTE_REQUIRED_INTENT_FIELDS,
+  SDLC_DIR,
+  SECRET_SCAN_MAX_FILE_BYTES,
+  STORY_STATUSES,
+  TERMINAL_STORY_STATUSES,
+  TRACE_EVIDENCE_POLICY_BINDING_SCHEMA,
+  TRACE_EVIDENCE_POLICY_REF_SCHEMA,
+  TRACE_EVIDENCE_POLICY_SOURCE_ROOT,
+  TRACE_TYPES,
+  WORKFLOW_FINAL_FRESHNESS_PROOF_SCHEMA,
+  WORKFLOW_FINAL_GIT_OBSERVATION_SCHEMA,
+  WORKFLOW_FINAL_GIT_SCOPE_MAX_COMMITS,
+  WORKFLOW_FINAL_GIT_SCOPE_MAX_COMMIT_PATHS,
+  WORKFLOW_FINAL_GIT_SCOPE_MAX_PATHS,
+  WORKFLOW_FINAL_GIT_SCOPE_SCHEMA,
+  WORKFLOW_HUMAN_VALUE_LIMITS,
+  WORKFLOW_WINDOWS_DIRECTORY_SYNC_UNSUPPORTED,
+  WORK_ITEM_CREATE_TYPES,
+  workflowStartTraceIndexCache,
+  workflowStartTransactionIndexCache,
+} from "../lib/lifecycle/constants.mjs";
+import {
+  assertDeliveryProviderAuthorization,
+  buildDeliveryActionCompletionTraceEvent,
+  buildDeliveryCheckpointPolicySource,
+  buildDeliveryCompletionRequest,
+  buildReleaseGateReceipt,
+  buildTerminalDeliveryCloseTraceEvent,
+  compareDeliveryAuthorizationOrder,
+  contractDeliveryDescriptor,
+  dedupeDeliveryFormatOptions,
+  deliveryActionApprovalRecoveryProjection,
+  deliveryActionAttemptPath,
+  deliveryActionAttemptReceiptRef,
+  deliveryActionAttemptsRoot,
+  deliveryActionAuthorizationIntentIdentity,
+  deliveryActionCheckpointPolicySnapshot,
+  deliveryActionEvidenceRevision,
+  deliveryActionIntentUseReceiptId,
+  deliveryActionReceiptRef,
+  deliveryAutonomyPath,
+  deliveryAutonomyRoot,
+  deliveryBoundaryCheckpointActions,
+  deliveryBudgetBoundary,
+  deliveryCheckpointPolicySourcesRoot,
+  deliveryCloseReceiptPath,
+  deliveryEnvironmentBoundary,
+  deliveryExecutionProfileSchemaName,
+  deliveryExecutionRoot,
+  deliveryMaterialScope,
+  deliveryProviderBindingsFromOptions,
+  deliveryProviderOperationSubject,
+  deliveryStartReceiptPath,
+  deliveryStartReceiptRef,
+  deliveryTargetAllowedActions,
+  exactGitProjectPath,
+  formatDeliveryFormatOption,
+  formatOutputDeliveryForHuman,
+  gitRuntimeWithoutBaseSha,
+  gitRuntimeWithoutHead,
+  governedLocalSmokeCwd,
+  localDeliveryRuntimeBoundaryChanged,
+  localReleaseArtifactManifestPolicy,
+  localReleaseAttemptId,
+  localReleaseAttemptReceiptErrors,
+  localReleaseBoundaryCheckpointFromSource,
+  localReleaseTargetEntryPaths,
+  localReleaseTargetHadAbsentEntries,
+  localReleaseTargetHadOnlyDirectories,
+  localSmokeExecutableBase,
+  localSmokeInterpreterOptionValueKind,
+  normalizeDeliveryAction,
+  normalizeGitEvent,
+  normalizeGitRepositoryIdentity,
+  normalizeSmokeTestCommand,
+  recommendedDeliveryFormatForContract,
+  releaseGateReceiptPath,
+  releaseManifestPath,
+  releasePhaseName,
+  resolveDeliveryProviderBinding,
+  terminalStatusForDeliveryAction,
+  validateArtifactDeliveryPath,
+  validateDeliveryCheckpointPolicySource,
+  validateDeliveryCompletionRequest,
+  validateLocalSmokePackageManagerForm,
+  validateResolvedLocalSmokeExecutable,
+  withProviderCompatibilityProjection,
+} from "../lib/lifecycle/delivery.mjs";
+import {
+  assistantMessagePresentationFields,
+  attachAssistantMessagePresentation,
+  buildCompactCacheStatus,
+  executionContextRecoveryMessage,
+  humanGuidanceLines,
+  humanGuidanceLocale,
+  labelForCommit,
+  normalizeClaimStatus,
+  normalizeHandoffCloseStatus,
+  normalizeHandoffStatus,
+  normalizeLockStatus,
+  normalizeStoryStatus,
+  safePrimaryGuidanceText,
+  storyCreationGuidance,
+  terminalStoryStatuses,
+  userErrorHumanGuidance,
+  userFriendlyTaskQuestion,
+} from "../lib/lifecycle/guidance.mjs";
+import {
+  assertTraceEvidencePolicySourceSafety,
+  autonomyVerificationTechnicalLines,
+  buildHistoricalOperationalEvidenceV1RedactionPolicy,
+  buildLegacyEvidenceV1RedactionPolicy,
+  buildOutputLinkDecisionSubject,
+  buildTemplateResolution,
+  canonicalOutputFormatOptions,
+  collectOutputArtifactTypes,
+  collectStoryOutputLinksForStep,
+  createOutputRegistryQueryIndex,
+  effectiveOutputDecisions,
+  evidenceRepresentationMatchesRef,
+  findOutputTemplate,
+  findRelatedOutputLinks,
+  formatActivityEventForView,
+  formatBaselineCurrentStateSummary,
+  formatBaselineDetectedStack,
+  formatBaselineImportedDocuments,
+  formatBaselineKeyFiles,
+  formatConfigMigrationChange,
+  formatDetectedStackForUser,
+  formatExplainedOpenQuestion,
+  formatLimitedList,
+  formatReportQueryRecord,
+  formatRouteDecision,
+  formatTaskStartDecision,
+  hasApprovedOutputDecision,
+  isHumanGuidanceOutput,
+  legacyOutputGuidance,
+  mutationGovernanceEvidencePaths,
+  outputLinkHasMatchingApprovedDecision,
+  outputRegistryPairKey,
+  outputRenderEvidenceOptions,
+  outputResolutionFingerprint,
+  outputResolutionGuidance,
+  outputResolutionKey,
+  relatedOutputLinksFromIndex,
+  renderActivityReportMarkdown,
+  renderBaselineReport,
+  renderGateReportMarkdown,
+  renderReportQueryMarkdown,
+  renderTemplate,
+  safeEvidenceExcerpt,
+  shouldVerifyTraceEvidence,
+  traceEvidencePolicyBindingKey,
+  traceEvidenceRefHash,
+  verificationArtifactFormat,
+  verificationArtifactSha256,
+  verificationDimensionStatus,
+} from "../lib/lifecycle/output.mjs";
+import {
+  assertNoSymlinkPathSegments,
+  assertPathInsideRoot,
+  assessmentAmendmentsRoot,
+  assessmentApplicationPath,
+  assessmentApplicationsRoot,
+  assessmentAuthorizedUseDefinitions,
+  assessmentBudgetMutationLockPath,
+  assessmentBudgetSnapshotPath,
+  assessmentBudgetsRoot,
+  assessmentUsageRoot,
+  autonomyActionsRoot,
+  autonomyDecisionSemanticProjection,
+  autonomyDecisionsRoot,
+  autonomyExecutionsRoot,
+  autonomyRevocationSubject,
+  autonomyRevocationsRoot,
+  budgetMeterRoot,
+  buildContextOptimizationMetadata,
+  codeReviewsRoot,
+  collectBudgetMeterSnapshot,
+  collectCodeBurnBudgetMeterSnapshot,
+  collectCodexSessionBudgetMeterSnapshot,
+  completionRequestExecutionProjection,
+  configMigrationBootstrapMutations,
+  configMigrationChangeSummary,
+  configMigrationPlanPresentation,
+  configuredRtkOptions,
+  contextOptimizationObservationsRoot,
+  contextOptimizationRuntimeOptions,
+  dependenciesRoot,
+  exactMeteringMetrics,
+  exactMeteringPolicyTrustErrors,
+  executionContextPreflightPath,
+  failIncompleteExistingBootstrap,
+  isDerivedArtifactPath,
+  isInsidePath,
+  logicalArchiveRoot,
+  mergeMissingConfigDefaults,
+  normalizeProjectPathInput,
+  normalizeRequestedAutonomyMode,
+  openProjectQuerySession,
+  operationsRoot,
+  pathMatchesApprovedWriteScope,
+  projectBootstrapDirectoryAncestorClosure,
+  projectBootstrapJournalPath,
+  projectBootstrapJournalReference,
+  projectBootstrapRecoveryResult,
+  projectVersionRequiresBootstrapManifest,
+  readContextOptimizationPolicy,
+  recordedPathInside,
+  resolveBudgetMeterMapping,
+  secretScansRoot,
+  testRunsRoot,
+  toProjectPath,
+  validateAutonomyPolicy,
+  workItemPath,
+  workItemsRoot,
+} from "../lib/lifecycle/project.mjs";
+import {
+  addRouteCheck,
+  applyRouteConfidenceGate,
+  canonicalIntentCommand,
+  canonicalIntentQuestion,
+  decideInitProjectRoute,
+  decideIntakeRequirementRoute,
+  dedupeRouteDecision,
+  emptyRouteIntent,
+  finalizeAskRoute,
+  finalizeConcreteRoute,
+  inferTaskPhase,
+  isAssessmentRouteIntent,
+  normalizeIntentArray,
+  normalizeIntentArtifactType,
+  normalizeRoutePhase,
+  normalizeRouteToken,
+  nullableRoutePhase,
+  routeActionConfig,
+  routeEntityId,
+  routeQuestionFromContext,
+  routeStoryId,
+  taskRouteRequiresContract,
+  taskStartAutonomyCopy,
+} from "../lib/lifecycle/route.mjs";
+import {
+  assertManualTraceActionIsSafe,
+  assertStoryCommandOptions,
+  baselinePathById,
+  baselineRoot,
+  breakdownPathById,
+  budgetMeterBaselinePath,
+  buildBudgetMeterBaseline,
+  buildStoryDependencyGraph,
+  buildStoryRequirementGraph,
+  buildTraceRedactionPolicy,
+  buildTraceRequestMetadata,
+  configuredPhaseOrder,
+  configuredStorySteps,
+  contractArtifactTypes,
+  contractExecutionContext,
+  contractNegotiationCommands,
+  defaultClaimExpiration,
+  defaultNextStoryStep,
+  defaultStoryBranch,
+  dependencyGraphPath,
+  effectiveClaimExpiration,
+  failTraceIntegrityWrite,
+  findBlockingDependencyCycles,
+  hasTraceActor,
+  inferStoryArtifactType,
+  inferStoryIdFromTraceFile,
+  isHardDependencyEdge,
+  isIntactBootstrapPhaseContract,
+  latestTraceEvent,
+  newestContract,
+  normalizeStoryRecord,
+  normalizeStoryStep,
+  normalizeTraceOutcome,
+  parseBreakdownItemRef,
+  parseDependencyEdge,
+  phaseRank,
+  rejectLegacyRequirementWriteScope,
+  requirementAutonomyPath,
+  requirementAutonomyRoot,
+  requirementLifecycleRoot,
+  requirementMaterialScope,
+  requirementPath,
+  requirementsRoot,
+  resolveIncidentFeedbackPhase,
+  storyAcceptanceCriteria,
+  storyActionCheckpointSubjectId,
+  storyBranchPatterns,
+  storyLifecycleCertificationLockPath,
+  storyMutationLockPath,
+  storyRecordLifecycleProjection,
+  storyStepPhase,
+  traceActorKey,
+  traceActorMatches,
+  traceIntegrityCheckpointPath,
+  upsertDependencyEdge,
+  validateBudgetMeterBaseline,
+  validateClaimPolicy,
+  validateStoryLifecyclePolicy,
+  validateWorkBreakdownPolicy,
+  workBreakdownRoot,
+} from "../lib/lifecycle/story.mjs";
+import {
+  assertStoryBoundWorkflowPhaseOrder,
+  assessmentWorkflowPath,
+  assessmentWorkflowsRoot,
+  blockedWorkflowLifecycleProjection,
+  buildLegacyWorkflowStrictGateReceipt,
+  buildWorkflowStartRequest,
+  buildWorkflowStartTraceRecord,
+  buildWorkflowStartTransaction,
+  buildWorkflowTransitionJournal,
+  buildWorkflowTransitionTraceRecord,
+  callWorkflowDomain,
+  compareWorkflowVersions,
+  extendWorkflowTraceChain,
+  failWorkflowHumanValue,
+  humanizeWorkflowIdentifier,
+  normalizeWorkflowVersion,
+  parseWorkflowGuardContext,
+  rewindInterruptedCompletedWorkflow,
+  sealWorkflowFinalFreshnessGitScope,
+  validateWorkflowDefinitionRecord,
+  validateWorkflowOverlayRecord,
+  workflowApprovalForDomain,
+  workflowCheckpointPath,
+  workflowCurrentPhaseEntryAt,
+  workflowCurrentState,
+  workflowDefinitionPath,
+  workflowDefinitionRef,
+  workflowDefinitionSummary,
+  workflowDefinitionUsesCanonicalEvidence,
+  workflowDefinitionsRoot,
+  workflowEventsPath,
+  workflowExecutionStartedAt,
+  workflowFinalFreshnessRecordContains,
+  workflowFinalFreshnessReferencedPaths,
+  workflowFinalGateReceiptPath,
+  workflowFinalGitArguments,
+  workflowFinalGitLayerIdentityEqual,
+  workflowFinalGitObjectIdentity,
+  workflowFinalMissingGitIdentity,
+  workflowFinalWorkingTreeIdentity,
+  workflowHumanAllSteps,
+  workflowHumanDefinitionDetails,
+  workflowHumanDisplayIdentifier,
+  workflowHumanMainSequence,
+  workflowHumanMetadataDifference,
+  workflowHumanMetadataLabel,
+  workflowHumanSafeValue,
+  workflowHumanStateName,
+  workflowIdempotentGuidance,
+  workflowInstanceCreationLockPath,
+  workflowInstancePath,
+  workflowInstanceRoot,
+  workflowInstanceStagingRoot,
+  workflowInstanceStartTransactionPath,
+  workflowInstanceStartTransactionsRoot,
+  workflowInstancesRoot,
+  workflowIntegrityBlockedGuidance,
+  workflowNextStates,
+  workflowOverlayChanges,
+  workflowOverlayPath,
+  workflowOverlaysRoot,
+  workflowPendingTransitionPath,
+  workflowPhaseOrderDifference,
+  workflowRequiresCurrentPhaseCompletion,
+  workflowScopeFromRuntime,
+  workflowStartRequestHash,
+  workflowStartTransactionErrors,
+  workflowStartTransactionHash,
+  workflowStrictGateReceiptPath,
+  workflowTraceAnchorErrors,
+  workflowTraceIntentMatches,
+  workflowTransitionJournalErrors,
+  workflowTransitionUsesCanonicalEvidence,
+  workflowTransitionUsesStrictGate,
+  workflowVersionFromFileName,
+} from "../lib/lifecycle/workflow.mjs";
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGE_METADATA = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, "package.json"), "utf8"));
 const VERSION = String(PACKAGE_METADATA.version);
 const DEFAULT_TEMPLATE_DIR = path.join(PLUGIN_ROOT, "templates");
-const SDLC_DIR = ".sdlc";
-const CACHE_FILE_NAME = "kb-cache.json";
-const workflowStartTraceIndexCache = new WeakMap();
-const workflowStartTransactionIndexCache = new WeakMap();
-const PROJECT_CONFIG_FILE_NAME = "config.json";
-const MAX_CLI_ERROR_CONFIG_BYTES = 2 * 1024 * 1024;
-const MAX_TEMPLATE_ASSET_BYTES = 2 * 1024 * 1024;
-const PROJECT_CONFIG_LOCK_FILE_NAME = "config.lock.json";
-const PROJECT_BOOTSTRAP_MANIFEST_FILE_NAME = "bootstrap-manifest.json";
-const PROJECT_BOOTSTRAP_MANIFEST_SCHEMA_VERSION = "project-bootstrap-manifest:v1";
-const PROJECT_BOOTSTRAP_JOURNAL_FILE_NAME = "bootstrap-journal.json";
-const PROJECT_BOOTSTRAP_JOURNAL_SCHEMA_VERSION = "project-bootstrap-journal:v1";
-const PROJECT_BOOTSTRAP_MANIFEST_INTRODUCED_VERSION = "0.13.1";
-const LEGACY_CONFIG_PROFILE_ID = "sdlc-config-v1@0.11.0";
-const INTERNAL_LOCK_WAIT_MS = 5000;
-const INTERNAL_LOCK_STALE_MS = 30000;
-const INTERNAL_LOCK_REMOTE_STALE_MS = 300000;
-const DEFAULT_CODEX_SESSION_METERING_CONFIG = Object.freeze({
-  enabled: true,
-  metric_mapping: Object.freeze({
-    tokens: "tokens.total",
-    input_tokens: "tokens.input",
-    output_tokens: "tokens.output",
-    cache_read_tokens: "tokens.cache_read",
-    cache_write_tokens: "tokens.cache_write",
-    model_calls: "calls",
-  }),
-});
 const BUILT_IN_BUDGET_METER_ADAPTERS = Object.freeze({
   codeburn: Object.freeze({
     id: "codeburn",
@@ -347,88 +943,6 @@ const BUILT_IN_BUDGET_METER_ADAPTERS = Object.freeze({
   }),
 });
 const NO_FOLLOW_FLAG = fs.constants.O_NOFOLLOW || 0;
-const TRACE_EVIDENCE_POLICY_REF_SCHEMA = "trace-evidence-redaction-policy-ref:v1";
-const TRACE_EVIDENCE_POLICY_BINDING_SCHEMA = "trace-evidence-redaction-policy-binding:v1";
-const TRACE_EVIDENCE_POLICY_SOURCE_ROOT = `${SDLC_DIR}/evidence-redaction-policies`;
-const OUTPUT_LINK_MODES = new Set(["reuse", "delta", "new"]);
-const OUTPUT_DELIVERY_MODES = new Set(["artifact", "artifact-plus-chat-summary"]);
-const OUTPUT_VISUAL_FORMATS = new Set(["docx", "xlsx", "pdf", "pptx", "html"]);
-const OUTPUT_FORMATS = Object.freeze({
-  markdown: Object.freeze({
-    label: "Markdown document",
-    extension: ".md",
-    media_type: "text/markdown",
-    generator: null,
-  }),
-  docx: Object.freeze({
-    label: "Word document",
-    extension: ".docx",
-    media_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    generator: "documents",
-  }),
-  xlsx: Object.freeze({
-    label: "Excel workbook",
-    extension: ".xlsx",
-    media_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    generator: "spreadsheets",
-  }),
-  pdf: Object.freeze({
-    label: "PDF document",
-    extension: ".pdf",
-    media_type: "application/pdf",
-    generator: "pdf",
-  }),
-  pptx: Object.freeze({
-    label: "PowerPoint presentation",
-    extension: ".pptx",
-    media_type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    generator: "presentations",
-  }),
-  html: Object.freeze({
-    label: "HTML document",
-    extension: ".html",
-    media_type: "text/html",
-    generator: null,
-  }),
-  json: Object.freeze({
-    label: "JSON document",
-    extension: ".json",
-    media_type: "application/json",
-    generator: null,
-  }),
-  csv: Object.freeze({
-    label: "CSV table",
-    extension: ".csv",
-    media_type: "text/csv",
-    generator: "spreadsheets",
-  }),
-  custom: Object.freeze({
-    label: "Custom artifact",
-    extension: null,
-    media_type: "application/octet-stream",
-    generator: null,
-  }),
-});
-const OUTPUT_FORMAT_ALIASES = Object.freeze({
-  md: "markdown",
-  markdown: "markdown",
-  word: "docx",
-  doc: "docx",
-  docx: "docx",
-  excel: "xlsx",
-  spreadsheet: "xlsx",
-  workbook: "xlsx",
-  xlsx: "xlsx",
-  pdf: "pdf",
-  powerpoint: "pptx",
-  slides: "pptx",
-  pptx: "pptx",
-  html: "html",
-  json: "json",
-  csv: "csv",
-  custom: "custom",
-});
-const CATALOG_OPTION_METADATA = catalogOptionMetadata();
 const LEGACY_BOOLEAN_OPTIONS = new Set([
   "allow-incomplete-contract",
   "allow-unapproved-contract-output",
@@ -735,7 +1249,6 @@ const LEGACY_REPEATABLE_OPTIONS = new Set([
   "target-event",
   "write-path",
 ]);
-const CATALOG_KNOWN_OPTIONS = new Set(CATALOG_OPTION_METADATA.known);
 const CLI_COMPATIBILITY_BOOLEAN_OPTIONS = new Set(
   [...LEGACY_BOOLEAN_OPTIONS].filter((name) => !CATALOG_KNOWN_OPTIONS.has(name)),
 );
@@ -757,111 +1270,8 @@ const REPEATABLE_OPTIONS = new Set([
   ...CATALOG_OPTION_METADATA.repeatable,
   ...CLI_COMPATIBILITY_REPEATABLE_OPTIONS,
 ]);
-const STORY_STATUSES = new Set(["draft", "ready", "analysis", "design", "implementation", "in_progress", "review", "validation", "release", "done", "blocked"]);
-const TERMINAL_STORY_STATUSES = new Set(["done"]);
-const CLAIM_STATUSES = new Set(["active", "released", "transferred", "cancelled"]);
-const LOCK_STATUSES = new Set(["active", "released", "cancelled", "expired"]);
-const HANDOFF_STATUSES = new Set(["open", "accepted", "closed", "rejected", "cancelled"]);
-const WORK_ITEM_TYPES = new Set(["requirement", "epic", "story", "task"]);
-const WORK_ITEM_CREATE_TYPES = new Set(["epic", "task"]);
-const CAPABILITY_TYPES = new Set(["skills", "mcp", "tools"]);
-const CAPABILITY_GROUPS = new Set(["required", "allowed", "forbidden"]);
-const DEPENDENCY_TYPES = new Set(["blocks", "requires_artifact", "requires_contract", "related", "same_requirement", "parent_epic"]);
-const DEPENDENCY_BLOCK_SCOPES = new Set(["analysis", "design", "implementation", "validation", "release", "none"]);
-const CAPABILITY_RECOMMENDATION_AVAILABILITY = new Set(["available", "missing", "unknown", "install_required"]);
-const APPROVAL_SOURCES = new Set(["explicit-user", "ci", "automation", "bootstrap"]);
-const DELIVERY_TERMINAL_STATUSES = new Set([
-  "merged",
-  "closed",
-  "released",
-  "rolled_back",
-  "cancelled",
-  "superseded",
-  "revoked",
-]);
-const PHASE_IDENTIFIER_PATTERN = /^[a-z0-9][a-z0-9._-]*$/u;
-const AUTONOMY_ROLLOUT_MODES = new Set([
-  "off",
-  "observe",
-  "enforce_new_only",
-  "enforce_all",
-]);
-const LEGACY_STORY_STEP_PHASE_ALIASES = new Map([
-  ["functional-analysis", "analysis"],
-  ["technical-analysis", "analysis"],
-]);
-const ACTIVITY_REPORT_VIEWS = new Set(["business", "dev", "agent-verbose"]);
-const REPORT_QUERY_SUBJECTS = new Set([
-  "activity",
-  "stories",
-  "story_steps",
-  "outputs",
-  "contracts",
-  "handoffs",
-  "work_items",
-  "approvals",
-  "tests",
-  "all",
-]);
-const ROUTE_REQUIRED_INTENT_FIELDS = [
-  "requested_action",
-  "confidence",
-  "referenced_entities",
-  "provided_artifacts",
-  "missing_context",
-  "proposed_phase",
-  "artifact_type",
-  "skip_phases",
-];
-const ROUTE_DEFAULT_CONFIDENCE = {
-  auto_route_min: 0.85,
-  confirm_min: 0.7,
-  ask_below: 0.5,
-  always_confirm: [
-    "skip_phase",
-    "create_story",
-    "start_implementation",
-    "create_canonical_artifact",
-    "new_output_template",
-    "duplicate_output",
-  ],
-};
-const ROUTE_DEFAULT_ROUTES = new Set([
-  "init_project",
-  "onboard_existing_project",
-  "ask_clarification",
-  "intake_requirement",
-  "classify_artifact",
-  "decompose_stories",
-  "create_contract",
-  "confirm_phase_skip",
-  "claim_and_implement",
-  "discover_capabilities",
-  "technical_decision",
-  "validate_story",
-  "release_story",
-]);
 
-const TRACE_TYPES = new Set([
-  "assumption",
-  "decision",
-  "gate",
-  "claim",
-  "handoff",
-  "implementation",
-  "lock",
-  "release",
-  "risk",
-  "sync",
-  "test",
-]);
-const TRACE_OUTCOMES = new Set(["passed", "failed", "blocked", "skipped", "ready"]);
 const CLI_OPERATION_CONTEXT = createOperationContext({ operation: "cli.run" });
-const OPERATIONAL_REDACTION_POLICY = createOperationalRedactionPolicy();
-
-function cliHandler(stage, handle) {
-  return { stage, handle };
-}
 
 function buildCliRuntimeHandlerRegistry() {
   const bootstrap = (handle) => cliHandler("bootstrap", handle);
@@ -1088,15 +1498,6 @@ async function runPortfolioStatusFromCli({ options, resolution }) {
   }
 }
 
-function mutationGovernanceActor(options) {
-  const assertedId = getOptionString(options, "actor")
-    || getOptionString(options, "actor-name")
-    || "local-cli";
-  const assertedType = getOptionString(options, "actor-type")
-    || (getOptionString(options, "actor") ? "agent" : "system");
-  return { type: assertedType, id: assertedId };
-}
-
 function verifiedMutationGovernanceActor() {
   let credential;
   let assurance;
@@ -1123,13 +1524,6 @@ function verifiedMutationGovernanceActor() {
       issuer: `os-${process.platform}`,
     },
   };
-}
-
-function mutationGovernanceEvidencePaths(options) {
-  return [
-    ...normalizeRawListOption(options.evidence),
-    ...normalizeRawListOption(options["approval-evidence"]),
-  ];
 }
 
 async function dispatchWithMutationGovernance(registry, resolution, invocation) {
@@ -1367,51 +1761,6 @@ async function main() {
   }
 }
 
-function workflowsRoot(context) {
-  return path.join(context.sdlcRoot, "workflows");
-}
-
-function workflowDefinitionsRoot(context) {
-  return path.join(workflowsRoot(context), "definitions");
-}
-
-function workflowOverlaysRoot(context) {
-  return path.join(workflowsRoot(context), "overlays");
-}
-
-function workflowInstancesRoot(context) {
-  return path.join(workflowsRoot(context), "instances");
-}
-
-function workflowFinalGatesRoot(context) {
-  return path.join(context.sdlcRoot, "gates");
-}
-
-function workflowFinalGateReceiptPath(context, storyId) {
-  return path.join(workflowFinalGatesRoot(context), `${normalizeId(storyId)}-final.json`);
-}
-
-function workflowStrictGateReceiptPath(context, storyId) {
-  return path.join(workflowFinalGatesRoot(context), `${normalizeId(storyId)}-strict.json`);
-}
-
-function storyLifecycleCertificationLockPath(context, storyId) {
-  return path.join(
-    context.sdlcRoot,
-    "stories",
-    normalizeId(storyId),
-    "lifecycle-certification.lock",
-  );
-}
-
-const WORKFLOW_FINAL_FRESHNESS_PROOF_SCHEMA =
-  "workflow-final-freshness-proof:v2";
-const WORKFLOW_FINAL_GIT_SCOPE_SCHEMA = "workflow-final-git-scope:v2";
-const WORKFLOW_FINAL_GIT_OBSERVATION_SCHEMA = "workflow-final-git-observation:v2";
-const WORKFLOW_FINAL_GIT_SCOPE_MAX_PATHS = 10_000;
-const WORKFLOW_FINAL_GIT_SCOPE_MAX_COMMITS = 1_000;
-const WORKFLOW_FINAL_GIT_SCOPE_MAX_COMMIT_PATHS = 100_000;
-
 function workflowFinalFreshnessFileRef(context, category, filePath) {
   const resolved = path.resolve(filePath);
   assertPathInsideRoot(context, resolved, filePath);
@@ -1434,66 +1783,6 @@ function workflowFinalFreshnessFileRef(context, category, filePath) {
     mode: snapshot.mode,
     sha256: snapshot.sha256,
   };
-}
-
-function workflowFinalFreshnessRecordContains(value, ids) {
-  if (typeof value === "string") return ids.has(value);
-  if (Array.isArray(value)) {
-    return value.some((item) => workflowFinalFreshnessRecordContains(item, ids));
-  }
-  if (!value || typeof value !== "object") return false;
-  return Object.values(value)
-    .some((item) => workflowFinalFreshnessRecordContains(item, ids));
-}
-
-function workflowFinalFreshnessReferencedPaths(
-  value,
-  paths = new Set(),
-  {
-    field = null,
-    scopeDeclaration = false,
-  } = {},
-) {
-  const scopeFields = new Set([
-    "allowed_write_paths",
-    "kb_writes",
-    "read_paths",
-    "scope_paths",
-    "write_paths",
-  ]);
-  if (typeof value === "string") {
-    const pathField = field === "path"
-      || field === "source_paths"
-      || field === "evidence"
-      || field === "evidence_paths"
-      || String(field || "").endsWith("_path")
-      || String(field || "").endsWith("_ref");
-    if (
-      !scopeDeclaration
-      && pathField
-      && value.startsWith(`${SDLC_DIR}/`)
-    ) {
-      paths.add(value);
-    }
-    return paths;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      workflowFinalFreshnessReferencedPaths(item, paths, {
-        field,
-        scopeDeclaration,
-      });
-    }
-    return paths;
-  }
-  if (!value || typeof value !== "object") return paths;
-  for (const [key, item] of Object.entries(value)) {
-    workflowFinalFreshnessReferencedPaths(item, paths, {
-      field: key,
-      scopeDeclaration: scopeDeclaration || scopeFields.has(key),
-    });
-  }
-  return paths;
 }
 
 function workflowFinalFreshnessLocalPathSnapshot(rawPath) {
@@ -1672,10 +1961,6 @@ function workflowFinalGitEnvironment() {
   };
 }
 
-function workflowFinalGitArguments(context, args) {
-  return ["--no-replace-objects", "-C", context.root, ...args];
-}
-
 function workflowFinalGitNullRecords(context, args, label) {
   let raw;
   try {
@@ -1774,37 +2059,6 @@ function assertWorkflowFinalGitHistoryIsComplete(context) {
   }
 }
 
-function workflowFinalMissingGitIdentity() {
-  return {
-    present: false,
-    file_type: "missing",
-    mode: null,
-    content_sha256: null,
-    object_id: null,
-  };
-}
-
-function workflowFinalGitObjectIdentity(mode, objectId, label) {
-  let fileType;
-  if (mode === "100644" || mode === "100755") {
-    fileType = "regular";
-  } else if (mode === "120000") {
-    fileType = "symlink";
-  } else {
-    fail(`Final lifecycle freshness does not support ${label} Git mode ${mode}.`);
-  }
-  if (!/^[a-f0-9]{40,64}$/iu.test(String(objectId || ""))) {
-    fail(`Final lifecycle freshness received an invalid Git object ID for ${label}.`);
-  }
-  return {
-    present: true,
-    file_type: fileType,
-    mode: Number.parseInt(mode, 8) & 0o7777,
-    content_sha256: null,
-    object_id: String(objectId).toLowerCase(),
-  };
-}
-
 function workflowFinalGitIndexEntries(context, includePath = () => true) {
   const entries = new Map();
   for (const record of workflowFinalGitNullRecords(
@@ -1895,20 +2149,6 @@ function workflowFinalGitPathSet(context, args, label) {
     workflowFinalGitNullRecords(context, args, label)
       .map((projectPath) => exactGitProjectPath(projectPath)),
   );
-}
-
-function workflowFinalGitLayerIdentityEqual(left, right) {
-  return stableJson(left) === stableJson(right);
-}
-
-function workflowFinalWorkingTreeIdentity(snapshot) {
-  return {
-    present: snapshot.file_type !== "missing",
-    file_type: snapshot.file_type,
-    mode: snapshot.mode,
-    content_sha256: snapshot.content_sha256,
-    object_id: null,
-  };
 }
 
 function workflowFinalGitCommitGraphSince(context, boundarySha, observedHeadSha) {
@@ -2253,19 +2493,6 @@ function captureWorkflowFinalFreshnessGitScope(
     );
   }
   return second;
-}
-
-function sealWorkflowFinalFreshnessGitScope(observation) {
-  const {
-    observed_head_sha: certificationHeadSha,
-    history_touched_paths: ignoredHistoryTouchedPaths,
-    ...scope
-  } = observation;
-  return {
-    ...scope,
-    schema_version: WORKFLOW_FINAL_GIT_SCOPE_SCHEMA,
-    certification_head_sha: certificationHeadSha,
-  };
 }
 
 function workflowFinalGitHistoryMatchesCertifiedTransition(
@@ -2811,94 +3038,6 @@ function sealWorkflowStrictGateReceipt(context, report) {
   return receipt;
 }
 
-function buildLegacyWorkflowStrictGateReceipt(report, strictReceiptPath) {
-  const receipt = {
-    ...report,
-    kind: "workflow_strict_gate_receipt",
-    schema_version: "workflow-strict-gate-receipt:v1",
-    strict_receipt_path: strictReceiptPath,
-    hash_algorithm: "sha256:stable-json:v1",
-  };
-  const {
-    hash_algorithm: ignoredHashAlgorithm,
-    receipt_hash: ignoredReceiptHash,
-    ...subject
-  } = receipt;
-  return {
-    ...receipt,
-    receipt_hash: computeStableHash(subject),
-  };
-}
-
-function normalizeWorkflowVersion(value, optionName) {
-  const normalized = String(value ?? "").trim();
-  if (!/^[1-9][0-9]*$/u.test(normalized)) {
-    fail(`Invalid --${optionName} '${value}'. Use a positive whole number, for example 1 or 2.`);
-  }
-  return normalized;
-}
-
-function workflowDefinitionPath(context, id, version) {
-  return path.join(
-    workflowDefinitionsRoot(context),
-    normalizeId(id),
-    `v${normalizeWorkflowVersion(version, "definition-version")}.json`,
-  );
-}
-
-function workflowOverlayPath(context, id, version) {
-  return path.join(
-    workflowOverlaysRoot(context),
-    normalizeId(id),
-    `v${normalizeWorkflowVersion(version, "overlay-version")}.json`,
-  );
-}
-
-function workflowInstanceRoot(context, id) {
-  return path.join(workflowInstancesRoot(context), normalizeId(id));
-}
-
-function workflowInstancePath(context, id) {
-  return path.join(workflowInstanceRoot(context, id), "instance.json");
-}
-
-function workflowEventsPath(context, id) {
-  return path.join(workflowInstanceRoot(context, id), "events.jsonl");
-}
-
-function workflowCheckpointPath(context, id) {
-  return path.join(workflowInstanceRoot(context, id), "checkpoint.json");
-}
-
-function workflowPendingTransitionPath(context, id) {
-  return path.join(workflowInstanceRoot(context, id), "pending-transition.json");
-}
-
-function workflowInstanceCreationLockPath(context, id) {
-  return path.join(workflowInstancesRoot(context), ".locks", `${normalizeId(id)}.lock`);
-}
-
-function workflowInstanceStartTransactionsRoot(context) {
-  return path.join(workflowInstancesRoot(context), ".starts");
-}
-
-function workflowInstanceStartTransactionPath(context, id) {
-  return path.join(workflowInstanceStartTransactionsRoot(context), `${normalizeId(id)}.json`);
-}
-
-function workflowInstanceStagingRoot(context, id) {
-  return path.join(workflowInstancesRoot(context), ".staging", normalizeId(id));
-}
-
-function workflowVersionFromFileName(fileName) {
-  const match = /^v(.+)\.json$/u.exec(fileName);
-  return match ? match[1] : null;
-}
-
-function compareWorkflowVersions(left, right) {
-  return String(left).localeCompare(String(right), "en", { numeric: true, sensitivity: "base" });
-}
-
 function listVersionedWorkflowRecords(context, rootPath) {
   const records = [];
   for (const id of safeReadDir(rootPath).sort((left, right) => left.localeCompare(right, "en"))) {
@@ -2947,34 +3086,6 @@ function parseWorkflowJsonInput(context, options, { fileOption, jsonOption, labe
   }
 }
 
-function assertWorkflowValidation(result, label) {
-  if (result === true || result?.valid === true) return;
-  const errors = Array.isArray(result) ? result : result?.errors;
-  fail(`${label} is invalid: ${Array.isArray(errors) && errors.length > 0 ? errors.join("; ") : "validation failed"}`);
-}
-
-function validateWorkflowDefinitionRecord(definition, label) {
-  const result = callWorkflowDomain(`Unable to validate ${label}`, () => validateWorkflowDefinition(definition));
-  assertWorkflowValidation(result, label);
-}
-
-function validateWorkflowOverlayRecord(overlay, definition, label) {
-  const result = callWorkflowDomain(`Unable to validate ${label}`, () => validateWorkflowOverlay(overlay, { definition }));
-  assertWorkflowValidation(result, label);
-}
-
-function workflowApprovalForDomain(approval) {
-  return {
-    id: approval.id,
-    approved_at: approval.created_at,
-    approved_by: approval.approved_by,
-    approval_source: approval.approval_source,
-    summary: approval.summary,
-    evidence: approval.evidence,
-    authorization_ref: approval.authorization_ref,
-  };
-}
-
 function workflowGuidance(options, kind, settings = {}) {
   const italian = humanGuidanceLocale(options) === "it";
   const copy = {
@@ -3018,133 +3129,6 @@ function workflowGuidance(options, kind, settings = {}) {
 
 function outputWorkflowResult(options, payload, kind, details = [], summaryLines = []) {
   output(options, payload, humanGuidanceLines(workflowGuidance(options, kind), details, options, summaryLines));
-}
-
-function callWorkflowDomain(label, callback) {
-  try {
-    return callback();
-  } catch (error) {
-    if (error instanceof UserError) throw error;
-    const issues = error instanceof DomainValidationError && Array.isArray(error.issues)
-      ? error.issues
-          .filter((issue) => issue?.allowed !== true)
-          .flatMap((issue) => {
-            if (typeof issue === "string") return [issue];
-            if (issue?.guard_id) {
-              const guardIssues = Array.isArray(issue.issues)
-                ? issue.issues.map((item) => String(item || "").trim()).filter(Boolean)
-                : [];
-              return guardIssues.length > 0
-                ? guardIssues.map((item) => `${issue.guard_id}: ${item}`)
-                : [`${issue.guard_id}: ${issue.reason || "guard denied"}`];
-            }
-            return [issue?.message || issue?.reason || null].filter(Boolean);
-          })
-          .filter(Boolean)
-      : [];
-    fail(
-      [
-        `${label}: ${error.message}`,
-        ...issues.map((issue) => `- ${issue}`),
-      ].join("\n"),
-    );
-  }
-}
-
-function workflowDefinitionSummary(definition, source = "project") {
-  return {
-    id: definition.id,
-    version: definition.version,
-    status: definition.status,
-    name: definition.name || definition.title || definition.label || definition.id,
-    description: definition.description || definition.summary || null,
-    initial_state: definition.initial_state,
-    state_count: Array.isArray(definition.states) ? definition.states.length : Object.keys(definition.states || {}).length,
-    transition_count: Array.isArray(definition.transitions) ? definition.transitions.length : 0,
-    source,
-    definition_hash: definition.definition_hash,
-  };
-}
-
-function humanizeWorkflowIdentifier(value) {
-  const text = String(value ?? "").trim();
-  if (!text) return "";
-  return text
-    .split(/[-_\s]+/u)
-    .filter(Boolean)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
-}
-
-const WORKFLOW_ITALIAN_PRESENTATION = new Map([
-  ["software-project", "Progetto software"], ["change-request", "Richiesta di modifica"],
-  ["technical-assessment", "Valutazione tecnica"], ["generic-governed-process", "Processo governato generico"],
-  ["discovery", "Analisi iniziale"], ["analysis", "Analisi"], ["design", "Progettazione"],
-  ["implementation", "Implementazione"], ["validation", "Verifica"], ["release", "Rilascio"],
-  ["intake", "Raccolta della richiesta"], ["impact-review", "Valutazione dell’impatto"],
-  ["approval", "Approvazione"], ["closed", "Chiuso"], ["draft", "Bozza"],
-  ["review", "Revisione"], ["approved", "Approvato"], ["execution", "Esecuzione"],
-  ["verification", "Verifica"], ["completed", "Completato"],
-  ["context-pending", "Contesto da confermare"], ["proposal-pending", "Proposta da confermare"],
-  ["authorized", "Autorizzato"], ["running", "In esecuzione"], ["verifying", "In verifica"],
-  ["exception-pending", "Eccezione da decidere"], ["failed", "Non riuscito"], ["cancelled", "Annullato"],
-  ["context", "Contesto"], ["combined-proposal", "Proposta completa"],
-]);
-
-function workflowItalianPresentation(value) {
-  const normalized = String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replaceAll("_", "-")
-    .replace(/\s+/gu, "-");
-  return WORKFLOW_ITALIAN_PRESENTATION.get(normalized) || null;
-}
-
-function workflowHumanDisplayIdentifier(value, key, italian) {
-  if (value === undefined || value === null || String(value).trim() === "") return "";
-  // Reuse the exact same fail-closed validation used for descriptive values,
-  // then keep the familiar unquoted label used by the process summary.
-  workflowHumanSafeValue(String(value), italian, { key });
-  if (italian) {
-    const localized = workflowItalianPresentation(value);
-    if (localized) return localized;
-  }
-  return humanizeWorkflowIdentifier(value);
-}
-
-function workflowHumanStateName(definition, stateId, italian = false) {
-  const state = (Array.isArray(definition?.states) ? definition.states : [])
-    .find((candidate) => (candidate?.id ?? candidate) === stateId);
-  if (state?.id) workflowHumanDisplayIdentifier(state.id, "state_id", italian);
-  return workflowHumanDisplayIdentifier(
-    state?.label ?? state?.name ?? state?.title ?? state?.id ?? state ?? stateId,
-    "state_label",
-    italian,
-  );
-}
-
-function workflowHumanMainSequence(definition, italian) {
-  if (Array.isArray(definition?.phase_order) && definition.phase_order.length > 0) {
-    return definition.phase_order.map((stateId) => workflowHumanStateName(definition, stateId, italian));
-  }
-  const transitions = Array.isArray(definition?.transitions) ? definition.transitions : [];
-  const stateIds = (Array.isArray(definition?.states) ? definition.states : [])
-    .map((state) => state?.id ?? state)
-    .filter(Boolean);
-  if (!definition?.initial_state || transitions.length === 0) {
-    return stateIds.map((stateId) => workflowHumanStateName(definition, stateId, italian));
-  }
-  const sequence = [definition.initial_state];
-  const visited = new Set(sequence);
-  let current = definition.initial_state;
-  while (sequence.length <= stateIds.length) {
-    const next = transitions.find((transition) => transition.from === current && !visited.has(transition.to));
-    if (!next) break;
-    sequence.push(next.to);
-    visited.add(next.to);
-    current = next.to;
-  }
-  return sequence.map((stateId) => workflowHumanStateName(definition, stateId, italian));
 }
 
 function describeWorkflowGuard(guard, italian) {
@@ -3205,16 +3189,6 @@ function workflowHumanConditionSentences(definition, italian) {
   });
 }
 
-function workflowHumanAllSteps(definition, italian) {
-  return (definition?.states ?? []).map((state) => {
-    const name = workflowHumanStateName(definition, state.id, italian);
-    const roles = [];
-    if (state.id === definition.initial_state) roles.push(italian ? "iniziale" : "starting");
-    if (state.terminal === true) roles.push(italian ? "finale" : "final");
-    return roles.length > 0 ? `${name} (${roles.join(", ")})` : name;
-  });
-}
-
 function workflowHumanAllRoutes(definition, italian) {
   return (definition?.transitions ?? []).map((transition) => {
     workflowHumanDisplayIdentifier(transition.id, "transition_id", italian);
@@ -3232,221 +3206,6 @@ function workflowHumanAllRoutes(definition, italian) {
       : (italian ? "non richiede condizioni aggiuntive" : "requires no additional condition");
     return `${from} → ${to} (${label}): ${rule}`;
   });
-}
-
-const WORKFLOW_HUMAN_VALUE_LIMITS = Object.freeze({
-  textCharacters: 240,
-  collectionItems: 10,
-  nestingLevels: 3,
-  renderedCharacters: 4_000,
-});
-
-const WORKFLOW_HASH_LIKE_VALUE = /^(?:[a-f0-9]{32,}|[A-Za-z0-9+/]{40,}={0,2})$/u;
-const WORKFLOW_UUID_LIKE_VALUE = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu;
-const WORKFLOW_UNSAFE_UNICODE = /[\u0000-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\u3164\uFEFF\uFFA0\u{E0001}\u{E0020}-\u{E007F}]/u;
-
-function failWorkflowHumanValue(reason, italian) {
-  fail(italian
-    ? `Il processo o adattamento non può essere approvato in modo completo e leggibile: ${reason}. Riduci o suddividi il contenuto, quindi riproponilo.`
-    : `The process or adjustment cannot be reviewed completely and readably: ${reason}. Shorten or split the content, then propose it again.`);
-}
-
-function workflowHumanKeyParts(key) {
-  return String(key)
-    .replace(/([A-Z]+)([A-Z][a-z])/gu, "$1 $2")
-    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter(Boolean);
-}
-
-function assertWorkflowHumanSafeCharacters(value, italian) {
-  const text = String(value);
-  if (WORKFLOW_UNSAFE_UNICODE.test(text) || [...text].some((character) => {
-    const codePoint = character.codePointAt(0);
-    return codePoint >= 0xD800 && codePoint <= 0xDFFF;
-  })) {
-    failWorkflowHumanValue(italian
-      ? "un testo contiene caratteri di controllo, direzione o invisibili non sicuri"
-      : "text contains unsafe control, direction, or invisible characters", italian);
-  }
-}
-
-function workflowHumanSecretLikeKey(key) {
-  const words = workflowHumanKeyParts(key).map((part) => part.toLowerCase());
-  const joined = words.join(" ");
-  return words.some((word) => ["secret", "password", "passwd", "credential", "credentials", "token", "cookie"].includes(word))
-    || ["api key", "access key", "client secret", "private key"].some((phrase) => joined.includes(phrase));
-}
-
-function workflowHumanHashLikeKey(key) {
-  return workflowHumanKeyParts(key).some((part) => ["hash", "checksum", "digest"].includes(part.toLowerCase()));
-}
-
-function workflowHumanMetadataLabel(key, italian) {
-  assertWorkflowHumanSafeCharacters(key, italian);
-  if (workflowHumanSecretLikeKey(key)) {
-    failWorkflowHumanValue(italian
-      ? "le informazioni descrittive contengono una chiave che potrebbe custodire un segreto"
-      : "the descriptive information contains a key that could hold a secret", italian);
-  }
-  if (workflowHumanHashLikeKey(key)) {
-    failWorkflowHumanValue(italian
-      ? "un valore tecnico di verifica deve restare fuori dalle informazioni da approvare"
-      : "a technical verification value must stay outside the information being approved", italian);
-  }
-  const italianExactLabels = new Map([
-    ["normal_checkpoint_count", "Numero di momenti ordinari di conferma"],
-    ["workflow_kind", "Tipo di processo"],
-    ["phase_order", "Ordine dei passaggi"],
-    ["retention_days", "Giorni di conservazione"],
-    ["review_days", "Giorni per la revisione"],
-    ["after_days", "Dopo quanti giorni"],
-    ["audience", "Destinatari"], ["owners", "Responsabili"], ["owner", "Responsabile"],
-    ["review_settings", "Impostazioni di revisione"], ["mode", "Modalità"],
-    ["required", "Obbligatorio"], ["channels", "Canali"], ["policy", "Regole"],
-    ["mandatory", "Obbligatorio"], ["regions", "Aree"], ["region", "Area"],
-    ["approval_note", "Nota di approvazione"], ["team_authorized", "Autorizzazione del team"],
-  ]);
-  if (italian && italianExactLabels.has(String(key))) return italianExactLabels.get(String(key));
-  const replacements = italian
-    ? new Map([
-        ["id", "Riferimento"], ["identifier", "Riferimento"], ["path", "Posizione"],
-        ["workflow", "Processo"], ["overlay", "Adattamento"], ["definition", "Modello del processo"],
-        ["checkpoint", "Momento di revisione"], ["schema", "Formato dei dati"],
-        ["profile", "Scelta operativa"], ["receipt", "Prova"], ["metadata", "Informazioni"],
-        ["order", "Ordine"], ["count", "Numero"], ["kind", "Tipo"],
-      ])
-    : new Map([
-        ["id", "Reference"], ["identifier", "Reference"], ["path", "Location"],
-        ["workflow", "Process"], ["overlay", "Adjustment"], ["definition", "Process model"],
-        ["checkpoint", "Review moment"], ["schema", "Data format"],
-        ["profile", "Working choice"], ["receipt", "Proof"], ["metadata", "Information"],
-      ]);
-  return workflowHumanKeyParts(key)
-    .map((part) => replacements.get(part.toLowerCase()) ?? humanizeWorkflowIdentifier(part))
-    .join(" ");
-}
-
-function workflowHumanFriendlyString(value, key, italian) {
-  assertWorkflowHumanSafeCharacters(value, italian);
-  if (value.length > WORKFLOW_HUMAN_VALUE_LIMITS.textCharacters) {
-    failWorkflowHumanValue(italian
-      ? `un testo supera ${WORKFLOW_HUMAN_VALUE_LIMITS.textCharacters} caratteri`
-      : `one text value exceeds ${WORKFLOW_HUMAN_VALUE_LIMITS.textCharacters} characters`, italian);
-  }
-  if (WORKFLOW_HASH_LIKE_VALUE.test(value) || WORKFLOW_UUID_LIKE_VALUE.test(value)) {
-    failWorkflowHumanValue(italian
-      ? "un riferimento tecnico non ha un nome comprensibile per la revisione umana"
-      : "a technical reference has no human-readable name for review", italian);
-  }
-  if (/(?:^|\s)--[a-z]|(?:^|\s)(?:\.{0,2}|~)\/[A-Za-z0-9]|^[A-Za-z]:\\/iu.test(value)) {
-    failWorkflowHumanValue(italian
-      ? "un comando o una posizione tecnica è stato inserito nelle informazioni descrittive"
-      : "a command or technical location was placed in the descriptive information", italian);
-  }
-  const italianExactCopy = new Map([
-    ["Software project governed workflow preset.", "Processo governato predefinito per un progetto software."],
-    ["Change request governed workflow preset.", "Processo governato predefinito per una richiesta di modifica."],
-    ["Technical assessment governed workflow preset.", "Processo governato predefinito per una valutazione tecnica."],
-    ["Generic governed process governed workflow preset.", "Processo governato generico predefinito."],
-  ]);
-  const presentationValue = (italian ? italianExactCopy.get(value) : null)
-    ?? (italian ? workflowItalianPresentation(value) : null)
-    ?? value;
-  const identifierKey = workflowHumanKeyParts(key).some((part) => ["id", "identifier"].includes(part.toLowerCase()));
-  const identifierValue = /^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)+$/u.test(value);
-  let friendly = presentationValue === value && (identifierKey || identifierValue)
-    ? humanizeWorkflowIdentifier(value)
-    : presentationValue;
-  const contentIsItalian = /\b(?:il|lo|la|gli|le|un|una|di|del|della|per|con|senza|approvazione|revisione)\b/iu.test(value);
-  const vocabulary = italian || contentIsItalian
-    ? [
-        [/\bbounded[-_ ]autonomous\b/giu, "completamento entro i limiti approvati"],
-        [/\bcheckpointed\b/giu, "avanzamento tra i momenti di revisione concordati"],
-        [/\baudit[-_ ]only\b/giu, "approvazione registrata ma non verificata esternamente"],
-        [/\bworkflow\b/giu, "processo"], [/\boverlay\b/giu, "adattamento"],
-        [/\bdefinition\b/giu, "modello del processo"], [/\bcheckpoint\b/giu, "momento di revisione"],
-        [/\bschema\b/giu, "formato dei dati"], [/\bprofile\b/giu, "scelta operativa"],
-        [/\breceipt\b/giu, "prova"],
-      ]
-    : [
-        [/\bbounded[-_ ]autonomous\b/giu, "completion within the approved limits"],
-        [/\bcheckpointed\b/giu, "progress between the agreed review moments"],
-        [/\baudit[-_ ]only\b/giu, "approval recorded but not externally verified"],
-        [/\bworkflow\b/giu, "process"], [/\boverlay\b/giu, "adjustment"],
-        [/\bdefinition\b/giu, "process model"], [/\bcheckpoint\b/giu, "review moment"],
-        [/\bschema\b/giu, "data format"], [/\bprofile\b/giu, "working choice"],
-        [/\breceipt\b/giu, "proof"],
-      ];
-  for (const [pattern, replacement] of vocabulary) friendly = friendly.replace(pattern, replacement);
-  const escaped = friendly
-    .replaceAll("\\", "\\\\")
-    .replaceAll("“", "\\“")
-    .replaceAll("”", "\\”");
-  return `“${escaped}”`;
-}
-
-function workflowHumanSafeValue(value, italian, { key = "value", depth = 0 } = {}) {
-  if (depth > WORKFLOW_HUMAN_VALUE_LIMITS.nestingLevels) {
-    failWorkflowHumanValue(italian
-      ? `un valore supera ${WORKFLOW_HUMAN_VALUE_LIMITS.nestingLevels} livelli di dettaglio`
-      : `one value exceeds ${WORKFLOW_HUMAN_VALUE_LIMITS.nestingLevels} levels of detail`, italian);
-  }
-  if (typeof value === "string") return workflowHumanFriendlyString(value, key, italian);
-  if (value === null) return italian ? "vuoto" : "empty";
-  if (value === true) return italian ? "sì" : "yes";
-  if (value === false) return "no";
-  if (typeof value === "number") return Number.isFinite(value) ? String(value) : (italian ? "numero non valido" : "invalid number");
-  if (Array.isArray(value)) {
-    if (value.length > WORKFLOW_HUMAN_VALUE_LIMITS.collectionItems) {
-      failWorkflowHumanValue(italian
-        ? `un elenco contiene più di ${WORKFLOW_HUMAN_VALUE_LIMITS.collectionItems} valori`
-        : `one list contains more than ${WORKFLOW_HUMAN_VALUE_LIMITS.collectionItems} values`, italian);
-    }
-    const items = value.map((item) => workflowHumanSafeValue(item, italian, { key, depth: depth + 1 }));
-    return `${italian ? "elenco" : "list"} (${items.join(", ")})`;
-  }
-  if (value && typeof value === "object") {
-    const entries = Object.entries(value);
-    if (entries.length > WORKFLOW_HUMAN_VALUE_LIMITS.collectionItems) {
-      failWorkflowHumanValue(italian
-        ? `un gruppo contiene più di ${WORKFLOW_HUMAN_VALUE_LIMITS.collectionItems} valori`
-        : `one group contains more than ${WORKFLOW_HUMAN_VALUE_LIMITS.collectionItems} values`, italian);
-    }
-    const rendered = entries.map(([nestedKey, nestedValue]) =>
-      `${workflowHumanMetadataLabel(nestedKey, italian)} = ${workflowHumanSafeValue(nestedValue, italian, { key: nestedKey, depth: depth + 1 })}`);
-    return `${italian ? "dettagli" : "details"} (${rendered.join("; ")})`;
-  }
-  failWorkflowHumanValue(italian ? "un valore non è descrivibile" : "one value cannot be described", italian);
-}
-
-function workflowHumanValuesEqual(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function workflowHumanMetadataChanges(before, after, patch, italian) {
-  const entries = Object.entries(patch ?? {});
-  if (entries.length > WORKFLOW_HUMAN_VALUE_LIMITS.collectionItems) {
-    failWorkflowHumanValue(italian
-      ? `un gruppo contiene più di ${WORKFLOW_HUMAN_VALUE_LIMITS.collectionItems} modifiche`
-      : `one group contains more than ${WORKFLOW_HUMAN_VALUE_LIMITS.collectionItems} changes`, italian);
-  }
-  return entries.flatMap(([key, requestedValue]) => {
-    const nextValue = Object.hasOwn(after ?? {}, key) ? after[key] : requestedValue;
-    const hadPrevious = Object.hasOwn(before ?? {}, key);
-    if (hadPrevious && workflowHumanValuesEqual(before[key], nextValue)) return [];
-    const label = workflowHumanMetadataLabel(key, italian);
-    const next = workflowHumanSafeValue(nextValue, italian, { key });
-    if (!hadPrevious) return [italian ? `${label} viene impostato su ${next}` : `${label} is set to ${next}`];
-    const previous = workflowHumanSafeValue(before[key], italian, { key });
-    return [italian ? `${label} cambia da ${previous} a ${next}` : `${label} changes from ${previous} to ${next}`];
-  });
-}
-
-function workflowHumanMetadataDifference(scope, before, after, patch, italian) {
-  const changes = workflowHumanMetadataChanges(before, after, patch, italian);
-  if (changes.length === 0) return null;
-  return italian ? `${scope}: ${changes.join("; ")}` : `${scope}: ${changes.join("; ")}`;
 }
 
 function workflowHumanOverlayDifferences(definition, overlay, effective, italian) {
@@ -3537,54 +3296,6 @@ function workflowHumanOverlayDifferences(definition, overlay, effective, italian
       : `the review summary exceeds ${WORKFLOW_HUMAN_VALUE_LIMITS.renderedCharacters} characters`, italian);
   }
   return differences;
-}
-
-function workflowHumanDefinitionDetails(definition, italian) {
-  const details = [];
-  const name = definition?.label ?? definition?.name ?? definition?.title;
-  if (name) {
-    details.push(italian
-      ? `nome mostrato: ${workflowHumanSafeValue(name, italian, { key: "name" })}`
-      : `displayed name: ${workflowHumanSafeValue(name, italian, { key: "name" })}`);
-  }
-  if (definition?.description) {
-    details.push(italian
-      ? `scopo: ${workflowHumanSafeValue(definition.description, italian, { key: "description" })}`
-      : `purpose: ${workflowHumanSafeValue(definition.description, italian, { key: "description" })}`);
-  }
-  const general = workflowHumanMetadataDifference(
-    italian ? "informazioni generali" : "general information",
-    {}, definition?.metadata, definition?.metadata, italian,
-  );
-  if (general) details.push(general);
-  for (const state of definition?.states ?? []) {
-    const stateName = workflowHumanStateName(definition, state.id, italian);
-    if (state.description) {
-      details.push(italian
-        ? `descrizione del passaggio “${stateName}”: ${workflowHumanSafeValue(state.description, italian, { key: "description" })}`
-        : `description of the “${stateName}” step: ${workflowHumanSafeValue(state.description, italian, { key: "description" })}`);
-    }
-    const metadata = workflowHumanMetadataDifference(
-      italian ? `informazioni del passaggio “${stateName}”` : `information for the “${stateName}” step`,
-      {}, state.metadata, state.metadata, italian,
-    );
-    if (metadata) details.push(metadata);
-  }
-  for (const transition of definition?.transitions ?? []) {
-    const from = workflowHumanStateName(definition, transition.from, italian);
-    const to = workflowHumanStateName(definition, transition.to, italian);
-    if (transition.description) {
-      details.push(italian
-        ? `descrizione del collegamento da “${from}” a “${to}”: ${workflowHumanSafeValue(transition.description, italian, { key: "description" })}`
-        : `description of the route from “${from}” to “${to}”: ${workflowHumanSafeValue(transition.description, italian, { key: "description" })}`);
-    }
-    const metadata = workflowHumanMetadataDifference(
-      italian ? `informazioni del collegamento da “${from}” a “${to}”` : `information for the route from “${from}” to “${to}”`,
-      {}, transition.metadata, transition.metadata, italian,
-    );
-    if (metadata) details.push(metadata);
-  }
-  return details;
 }
 
 function workflowHumanReviewLines(
@@ -3811,14 +3522,6 @@ function approveWorkflowDefinitionCommand(context, options) {
   ], reviewLines);
 }
 
-function workflowDefinitionRef(definition) {
-  return {
-    id: definition.id,
-    version: definition.version,
-    definition_hash: definition.definition_hash,
-  };
-}
-
 function proposeWorkflowOverlay(context, options) {
   ensureInitialized(context);
   const id = normalizeId(requireOption(options, "id"));
@@ -3966,22 +3669,6 @@ function resolveWorkflowDefinitionForRuntime(context, id, version) {
   }
 }
 
-function workflowOverlayChanges(overlay) {
-  if (Array.isArray(overlay.operations)) return overlay.operations;
-  if (Array.isArray(overlay.changes)) return overlay.changes;
-  if (overlay.patch && typeof overlay.patch === "object") {
-    return Object.keys(overlay.patch).sort().map((field) => ({ field, value: overlay.patch[field] }));
-  }
-  const ignored = new Set([
-    "id", "version", "status", "schema_version", "kind", "definition_ref", "base_definition_ref",
-    "overlay_hash", "hash_algorithm", "approval", "created_at", "updated_at", "summary",
-  ]);
-  return Object.entries(overlay)
-    .filter(([key]) => !ignored.has(key))
-    .sort(([left], [right]) => left.localeCompare(right, "en"))
-    .map(([field, value]) => ({ field, value }));
-}
-
 function explainWorkflowOverlay(context, options) {
   ensureInitialized(context);
   const id = normalizeId(requireOption(options, "id"));
@@ -4010,47 +3697,6 @@ function explainWorkflowOverlay(context, options) {
     `Effective hash: ${effective.effective_hash}`,
     `Path: ${toProjectPath(context, resolved.path)}`,
   ], workflowHumanReviewLines(definitionEntry.record, options, { overlay: resolved.record, effective }));
-}
-
-function workflowDefinitionUsesCanonicalEvidence(definition) {
-  return (definition?.transitions || []).some((transition) =>
-    (transition?.guards || []).some((guard) =>
-      Object.hasOwn(CANONICAL_WORKFLOW_GUARD_CHECKS, guard?.id)));
-}
-
-function workflowPhaseOrderDifference(context, definition) {
-  const configured = configuredPhaseOrder(context);
-  const selected = Array.isArray(definition?.phase_order)
-    ? definition.phase_order.map((phase) => String(phase))
-    : [];
-  const exact = configured.length === selected.length
-    && configured.every((phase, index) => phase === selected[index]);
-  return {
-    exact,
-    configured,
-    selected,
-    missing: configured.filter((phase) => !selected.includes(phase)),
-    extra: selected.filter((phase) => !configured.includes(phase)),
-  };
-}
-
-function assertStoryBoundWorkflowPhaseOrder(context, definition) {
-  const difference = workflowPhaseOrderDifference(context, definition);
-  if (difference.exact) return;
-  const details = [
-    `configured phase order: ${difference.configured.join(", ")}`,
-    `workflow phase order: ${difference.selected.join(", ") || "(empty)"}`,
-    ...(difference.missing.length > 0
-      ? [`missing configured phases: ${difference.missing.join(", ")}`]
-      : []),
-    ...(difference.extra.length > 0
-      ? [`unconfigured workflow phases: ${difference.extra.join(", ")}`]
-      : []),
-  ];
-  fail(
-    "A story-bound workflow must use the exact configured phase order; "
-    + `${details.join("; ")}.`,
-  );
 }
 
 function assertStoryWorkflowStartBoundary(context, storyId) {
@@ -4346,113 +3992,6 @@ function readWorkflowCheckpoint(context, instanceId) {
   }
 }
 
-function workflowTransitionJournalHash(journal) {
-  const { transaction_hash: _transactionHash, ...hashInput } = journal;
-  return computeStableHash(hashInput);
-}
-
-function buildWorkflowStartTraceRecord(context, instance, definition, overlayEntry, attribution, paths) {
-  const workflowStoryId =
-    instance.metadata?.governance_binding?.story_id || null;
-  return {
-    id: `TR-WF-START-${instance.instance_hash.slice(0, 24)}`,
-    story_id: null,
-    workflow_story_id: workflowStoryId,
-    type: "implementation",
-    summary: `Started workflow instance ${instance.id}`,
-    outcome: "ready",
-    actor: attribution.actor,
-    requested_by: null,
-    authorized_by: null,
-    request: null,
-    authorization_ref: null,
-    action: "workflow.instance.start",
-    evidence: paths.map((filePath) => toProjectPath(context, filePath)),
-    related: [
-      instance.id,
-      definition.id,
-      ...(overlayEntry ? [overlayEntry.record.id] : []),
-      ...(workflowStoryId ? [workflowStoryId] : []),
-    ],
-    git: attribution.git,
-    run: attribution.run,
-    created_at: instance.created_at,
-  };
-}
-
-function extendWorkflowTraceChain(previousTraceChainHash, traceEvent) {
-  if (
-    previousTraceChainHash !== null
-    && (typeof previousTraceChainHash !== "string" || !/^[a-f0-9]{64}$/u.test(previousTraceChainHash))
-  ) {
-    fail("Workflow trace chain has an invalid previous digest.");
-  }
-  return computeStableHash({
-    previous_trace_chain_hash: previousTraceChainHash,
-    trace_event: workflowTraceIntent(traceEvent),
-  });
-}
-
-function workflowTraceIntent(traceEvent) {
-  if (!traceEvent || typeof traceEvent !== "object" || Array.isArray(traceEvent)) return traceEvent;
-  const { _trace_integrity: _integrityEnvelope, ...intent } = traceEvent;
-  return intent;
-}
-
-function workflowTraceIntentMatches(storedEvent, expectedIntent) {
-  return stableJson(workflowTraceIntent(storedEvent)) === stableJson(workflowTraceIntent(expectedIntent));
-}
-
-function workflowStartRequestHash(request) {
-  const { intent_hash: _intentHash, ...hashInput } = request;
-  return computeStableHash(hashInput);
-}
-
-function buildWorkflowStartRequest(
-  id,
-  definition,
-  overlayEntry,
-  effectiveDefinition,
-  actor,
-  summary,
-  governanceBinding = null,
-) {
-  const request = {
-    instance_id: id,
-    definition_ref: workflowDefinitionRef(definition),
-    overlay_ref: overlayEntry
-      ? {
-          id: overlayEntry.record.id,
-          version: overlayEntry.record.version,
-          hash: overlayEntry.record.overlay_hash,
-        }
-      : null,
-    effective_hash: effectiveDefinition.effective_hash,
-    actor,
-    summary: summary || null,
-    ...(governanceBinding ? { governance_binding: governanceBinding } : {}),
-  };
-  return { ...request, intent_hash: workflowStartRequestHash(request) };
-}
-
-function workflowStartTransactionHash(journal) {
-  const { transaction_hash: _TransactionHash, ...hashInput } = journal;
-  return computeStableHash(hashInput);
-}
-
-function buildWorkflowStartTransaction({ request, instance, checkpoint, trace_event, trace_anchor }) {
-  const journal = {
-    kind: "workflow_instance_start_transaction",
-    schema_version: "workflow-instance-start-transaction:v1",
-    request,
-    instance,
-    checkpoint,
-    trace_event,
-    trace_anchor,
-  };
-  return { ...journal, transaction_hash: workflowStartTransactionHash(journal) };
-}
-
 function readWorkflowStartTransaction(context, instanceId) {
   const transactionPath = workflowInstanceStartTransactionPath(context, instanceId);
   if (!fs.existsSync(transactionPath)) {
@@ -4475,113 +4014,6 @@ function readWorkflowStartTransaction(context, instanceId) {
       errors: [`Interrupted workflow start record cannot be read: ${error.message}`],
     };
   }
-}
-
-function workflowTraceAnchorErrors(anchor) {
-  const errors = [];
-  if (!anchor || typeof anchor !== "object" || Array.isArray(anchor)) {
-    return ["trace anchor must be an object"];
-  }
-  const unknown = Object.keys(anchor).filter((key) => !["size_bytes", "prefix_hash"].includes(key));
-  if (unknown.length > 0) errors.push(`trace anchor has unsupported fields: ${unknown.join(", ")}`);
-  if (!Number.isSafeInteger(anchor.size_bytes) || anchor.size_bytes < 0) {
-    errors.push("trace anchor size must be a non-negative whole number");
-  }
-  if (typeof anchor.prefix_hash !== "string" || !/^[a-f0-9]{64}$/u.test(anchor.prefix_hash)) {
-    errors.push("trace anchor prefix hash is invalid");
-  }
-  return errors;
-}
-
-function workflowStartTransactionErrors(journal, expectedRequest, effectiveDefinition) {
-  const errors = [];
-  if (!journal || typeof journal !== "object" || Array.isArray(journal)) {
-    return ["start transaction must be a JSON object"];
-  }
-  const allowedKeys = new Set([
-    "kind", "schema_version", "request", "instance", "checkpoint", "trace_event", "trace_anchor", "transaction_hash",
-  ]);
-  const unknown = Object.keys(journal).filter((key) => !allowedKeys.has(key));
-  if (unknown.length > 0) errors.push(`start transaction has unsupported fields: ${unknown.join(", ")}`);
-  if (
-    journal.kind !== "workflow_instance_start_transaction"
-    || journal.schema_version !== "workflow-instance-start-transaction:v1"
-  ) {
-    errors.push("start transaction has an unsupported format");
-  }
-  if (stableJson(journal.request) !== stableJson(expectedRequest)) {
-    errors.push("start intent differs from the interrupted request");
-  }
-  if (journal.request?.intent_hash !== workflowStartRequestHash(journal.request || {})) {
-    errors.push("start intent hash does not match its content");
-  }
-  if (journal.transaction_hash !== workflowStartTransactionHash(journal)) {
-    errors.push("start transaction hash does not match its content");
-  }
-  errors.push(...workflowTraceAnchorErrors(journal.trace_anchor));
-  if (
-    journal.instance?.id !== expectedRequest.instance_id
-    || journal.instance?.effective_hash !== effectiveDefinition.effective_hash
-  ) {
-    errors.push("start transaction instance does not match the requested process");
-  }
-  if (
-    stableJson(journal.instance?.metadata?.governance_binding || null)
-    !== stableJson(expectedRequest.governance_binding || null)
-  ) {
-    errors.push("start transaction story binding does not match its immutable instance");
-  }
-  try {
-    const checkpointValidation = validateWorkflowCheckpoint(journal.checkpoint, {
-      instance: journal.instance,
-      effective_definition: effectiveDefinition,
-    });
-    if (checkpointValidation?.valid !== true) {
-      errors.push(...(checkpointValidation?.errors || ["start checkpoint is invalid"]));
-    }
-    const replay = replayWorkflowEvents({
-      instance: journal.instance,
-      effective_definition: effectiveDefinition,
-      events: [],
-      checkpoint: journal.checkpoint,
-    }, { require_checkpoint: true });
-    if (replay?.valid !== true) errors.push(...(replay?.errors || ["empty start history is invalid"]));
-  } catch (error) {
-    errors.push(`start checkpoint cannot be validated: ${error.message}`);
-  }
-  if (
-    journal.trace_event?.id !== `TR-WF-START-${String(journal.instance?.instance_hash || "").slice(0, 24)}`
-    || journal.trace_event?.action !== "workflow.instance.start"
-    || journal.trace_event?.created_at !== journal.instance?.created_at
-    || !Array.isArray(journal.trace_event?.related)
-    || journal.trace_event.related[0] !== expectedRequest.instance_id
-  ) {
-    errors.push("start trace intent does not describe the pinned instance");
-  }
-  const expectedStoryId = expectedRequest.governance_binding?.story_id || null;
-  const expectedRelated = [
-    expectedRequest.instance_id,
-    expectedRequest.definition_ref?.id,
-    ...(expectedRequest.overlay_ref?.id ? [expectedRequest.overlay_ref.id] : []),
-    ...(expectedStoryId ? [expectedStoryId] : []),
-  ];
-  if (
-    stableJson(journal.trace_event?.related || []) !== stableJson(expectedRelated)
-    || (
-      journal.trace_event?.workflow_story_id !== undefined
-      && (journal.trace_event.workflow_story_id || null) !== expectedStoryId
-    )
-  ) {
-    errors.push("start trace intent does not match the immutable definition, overlay, and story binding");
-  }
-  try {
-    if (journal.checkpoint?.trace_chain_hash !== extendWorkflowTraceChain(null, journal.trace_event)) {
-      errors.push("start checkpoint does not bind the complete start trace");
-    }
-  } catch {
-    errors.push("start checkpoint trace binding cannot be validated");
-  }
-  return Array.from(new Set(errors));
 }
 
 function workflowStartMaterialErrors(context, rootPath, journal) {
@@ -4757,162 +4189,6 @@ function maybeCrashWorkflowStartForTest(phase) {
   ) {
     process.kill(process.pid, "SIGKILL");
   }
-}
-
-function buildWorkflowTransitionTraceRecord(context, instanceId, targetState, event, attribution, summary) {
-  return {
-    id: `TR-WF-${event.event_hash}`,
-    story_id: null,
-    type: "implementation",
-    summary: summary || `Transitioned workflow instance ${instanceId} to ${targetState}`,
-    outcome: "passed",
-    actor: attribution.actor,
-    requested_by: null,
-    authorized_by: null,
-    request: null,
-    authorization_ref: null,
-    action: "workflow.instance.transition",
-    evidence: [
-      toProjectPath(context, workflowEventsPath(context, instanceId)),
-      toProjectPath(context, workflowCheckpointPath(context, instanceId)),
-    ],
-    related: [instanceId, event.event_hash],
-    git: attribution.git,
-    run: attribution.run,
-    created_at: event.timestamp,
-  };
-}
-
-function buildWorkflowTransitionJournal(
-  instance,
-  priorCheckpoint,
-  event,
-  nextCheckpoint,
-  traceEvent,
-  eventAnchor,
-  traceAnchor,
-) {
-  const journal = {
-    kind: "workflow_transition_transaction",
-    schema_version: "workflow-transition-transaction:v1",
-    instance_id: instance.id,
-    instance_hash: instance.instance_hash,
-    effective_hash: event.effective_hash,
-    from_sequence: priorCheckpoint.sequence,
-    from_checkpoint_hash: priorCheckpoint.checkpoint_hash,
-    from_trace_chain_hash: priorCheckpoint.trace_chain_hash,
-    event,
-    checkpoint: nextCheckpoint,
-    event_anchor: eventAnchor,
-    trace_event: traceEvent,
-    trace_anchor: traceAnchor,
-    hash_algorithm: priorCheckpoint.hash_algorithm,
-  };
-  return { ...journal, transaction_hash: workflowTransitionJournalHash(journal) };
-}
-
-function workflowTransitionJournalErrors(journal, instance, effectiveDefinition, expected = {}) {
-  const errors = [];
-  if (!journal || typeof journal !== "object" || Array.isArray(journal)) {
-    return ["pending workflow transition must be a JSON object"];
-  }
-  const allowedKeys = new Set([
-    "kind", "schema_version", "instance_id", "instance_hash", "effective_hash", "from_sequence",
-    "from_checkpoint_hash", "from_trace_chain_hash", "event", "checkpoint", "event_anchor", "trace_event", "trace_anchor",
-    "hash_algorithm", "transaction_hash",
-  ]);
-  const unknownKeys = Object.keys(journal).filter((key) => !allowedKeys.has(key));
-  if (unknownKeys.length > 0) errors.push(`pending workflow transition has unsupported fields: ${unknownKeys.join(", ")}`);
-  if (journal.kind !== "workflow_transition_transaction" || journal.schema_version !== "workflow-transition-transaction:v1") {
-    errors.push("pending workflow transition has an unsupported format");
-  }
-  if (journal.instance_id !== instance.id || journal.instance_hash !== instance.instance_hash) {
-    errors.push("pending workflow transition does not belong to this instance");
-  }
-  if (journal.effective_hash !== effectiveDefinition.effective_hash) {
-    errors.push("pending workflow transition does not match the pinned workflow definition");
-  }
-  if (!Number.isSafeInteger(journal.from_sequence) || journal.from_sequence < 0) {
-    errors.push("pending workflow transition has an invalid starting sequence");
-  }
-  if (typeof journal.from_checkpoint_hash !== "string" || !/^[a-f0-9]{64}$/u.test(journal.from_checkpoint_hash)) {
-    errors.push("pending workflow transition has an invalid starting checkpoint hash");
-  }
-  if (typeof journal.from_trace_chain_hash !== "string" || !/^[a-f0-9]{64}$/u.test(journal.from_trace_chain_hash)) {
-    errors.push("pending workflow transition has an invalid starting trace-chain hash");
-  }
-  if (typeof journal.transaction_hash !== "string" || journal.transaction_hash !== workflowTransitionJournalHash(journal)) {
-    errors.push("pending workflow transition hash does not match its content");
-  }
-  if (journal.hash_algorithm !== "sha256:stable-json:v1") {
-    errors.push("pending workflow transition hash algorithm is invalid");
-  }
-  if (!journal.event || typeof journal.event !== "object" || Array.isArray(journal.event)) {
-    errors.push("pending workflow transition is missing its event");
-  }
-  if (!journal.checkpoint || typeof journal.checkpoint !== "object" || Array.isArray(journal.checkpoint)) {
-    errors.push("pending workflow transition is missing its final checkpoint");
-  }
-  if (!journal.trace_event || typeof journal.trace_event !== "object" || Array.isArray(journal.trace_event)) {
-    errors.push("pending workflow transition is missing its trace intent");
-  }
-  errors.push(...workflowTraceAnchorErrors(journal.event_anchor).map((error) => `event ${error}`));
-  errors.push(...workflowTraceAnchorErrors(journal.trace_anchor).map((error) => `trace ${error}`));
-  if (journal.event) {
-    if (journal.event.instance_id !== instance.id || journal.event.instance_hash !== instance.instance_hash) {
-      errors.push("pending workflow event does not belong to this instance");
-    }
-    if (journal.event.effective_hash !== effectiveDefinition.effective_hash) {
-      errors.push("pending workflow event does not match the pinned workflow definition");
-    }
-    if (journal.event.sequence !== journal.from_sequence + 1) {
-      errors.push("pending workflow event does not immediately follow the starting sequence");
-    }
-    if (expected.requestId && journal.event.idempotency_key !== expected.requestId) {
-      errors.push("pending workflow transition belongs to a different request");
-    }
-    if (expected.targetState && journal.event.to !== expected.targetState) {
-      errors.push("pending workflow transition targets a different state");
-    }
-  }
-  if (journal.checkpoint && journal.event) {
-    if (
-      journal.checkpoint.sequence !== journal.event.sequence
-      || journal.checkpoint.last_event_hash !== journal.event.event_hash
-      || journal.checkpoint.current_state !== journal.event.to
-      || journal.checkpoint.updated_at !== journal.event.timestamp
-    ) {
-      errors.push("pending workflow final checkpoint does not describe its event");
-    }
-    const checkpointValidation = validateWorkflowCheckpoint(journal.checkpoint, {
-      instance,
-      effective_definition: effectiveDefinition,
-    });
-    if (checkpointValidation?.valid !== true) errors.push(...(checkpointValidation?.errors || ["pending workflow final checkpoint is invalid"]));
-  }
-  if (journal.trace_event && journal.event) {
-    if (
-      journal.trace_event.id !== `TR-WF-${String(journal.event.event_hash || "")}`
-      || journal.trace_event.action !== "workflow.instance.transition"
-      || journal.trace_event.created_at !== journal.event.timestamp
-      || !Array.isArray(journal.trace_event.related)
-      || journal.trace_event.related[0] !== instance.id
-      || journal.trace_event.related[1] !== journal.event.event_hash
-    ) {
-      errors.push("pending workflow trace intent does not describe its event");
-    }
-    try {
-      if (
-        journal.checkpoint?.trace_chain_hash
-        !== extendWorkflowTraceChain(journal.from_trace_chain_hash, journal.trace_event)
-      ) {
-        errors.push("pending workflow checkpoint does not bind the complete transition trace");
-      }
-    } catch {
-      errors.push("pending workflow checkpoint trace binding cannot be validated");
-    }
-  }
-  return errors;
 }
 
 function readWorkflowPendingTransition(context, instanceId) {
@@ -5374,49 +4650,6 @@ function inspectWorkflowTraceCoverageLocked(context, instanceId, instance, event
   return { valid: errors.length === 0, tracePath, errors: Array.from(new Set(errors)) };
 }
 
-function workflowIntegrityBlockedGuidance(options, integrity = {}) {
-  const italian = humanGuidanceLocale(options) === "it";
-  if (integrity.recovery_available === true) {
-    const destination = integrity.recovery_target_state
-      ? workflowHumanDisplayIdentifier(integrity.recovery_target_state, "state_id", italian)
-      : (italian ? "già indicata" : "already shown");
-    return italian
-      ? {
-          result: "Un avanzamento è stato interrotto prima di completare tutte le registrazioni, quindi l’esecuzione è ferma in sicurezza.",
-          impact: "Lo stato non viene dichiarato valido e questa consultazione non modifica alcun file.",
-          required_decision: "Non serve una nuova approvazione e non devi ripristinare file manualmente.",
-          protection_boundary: "Per completare le registrazioni mancanti devi ripetere lo stesso avanzamento verso la stessa destinazione; un avanzamento diverso resta bloccato.",
-          next_action: `Ripeti lo stesso avanzamento verso “${destination}”; il sistema verificherà e completerà una sola volta ciò che manca.`,
-          details: {},
-        }
-      : {
-          result: "A transition stopped before all records were completed, so the run is safely paused.",
-          impact: "No state is declared valid, and this status check changes no file.",
-          required_decision: "No new approval is needed, and you should not restore files manually.",
-          protection_boundary: "To complete the missing records, repeat the same transition toward the same destination; a different transition remains blocked.",
-          next_action: `Repeat the same transition toward “${destination}”; the system will verify it and complete each missing record once.`,
-          details: {},
-        };
-  }
-  return italian
-    ? {
-        result: "La cronologia registrata non è affidabile, quindi questa esecuzione è stata fermata in sicurezza.",
-        impact: "Lo stato corrente non viene dichiarato valido e non viene proposto alcun passaggio successivo.",
-        required_decision: "Non approvare né ripetere avanzamenti finché la cronologia non è stata ripristinata.",
-        protection_boundary: "Nessun nuovo evento è stato registrato e i permessi già concordati restano invariati.",
-        next_action: "Ripristina i file originali dell’esecuzione da una copia attendibile, quindi ripeti il controllo.",
-        details: {},
-      }
-    : {
-        result: "The recorded history cannot be trusted, so this run was stopped safely.",
-        impact: "No current state is declared valid, and no next step is offered.",
-        required_decision: "Do not approve or retry progress until the recorded history has been restored.",
-        protection_boundary: "No new event was recorded, and the already agreed permissions remain unchanged.",
-        next_action: "Restore the run’s original files from a trusted copy, then run the check again.",
-        details: {},
-      };
-}
-
 function blockWorkflowOnIntegrityFailure(context, options, instanceId, integrity, operation) {
   const checkpointPath = integrity.checkpointPath || workflowCheckpointPath(context, instanceId);
   const guidance = workflowIntegrityBlockedGuidance(options, integrity);
@@ -5448,50 +4681,6 @@ function blockWorkflowOnIntegrityFailure(context, options, instanceId, integrity
     ...(integrity.errors || []).map((error) => `Integrity error: ${error}`),
   ], options));
   process.exitCode = 1;
-}
-
-function workflowIdempotentGuidance(options) {
-  const italian = humanGuidanceLocale(options) === "it";
-  return italian
-    ? {
-        result: "Questa richiesta era già stata applicata; non è stato apportato alcun cambiamento.",
-        impact: "L’esecuzione resta allo stesso passo e non è stata aggiunta una nuova voce alla cronologia.",
-        required_decision: "Non devi decidere nulla per questo nuovo tentativo.",
-        protection_boundary: "Nessun permesso è stato ampliato e nessuna azione esterna è stata autorizzata.",
-        next_action: "Consulta lo stato corrente e continua solo con un passaggio successivo consentito.",
-        details: {},
-      }
-    : {
-        result: "This request had already been applied; no change was made.",
-        impact: "The run remains at the same step, and no new history entry was added.",
-        required_decision: "You do not need to decide anything for this retry.",
-        protection_boundary: "No permission was widened, and no external action was authorized.",
-        next_action: "Review the current status and continue only with a permitted next step.",
-        details: {},
-      };
-}
-
-function instanceDefinitionReference(instance) {
-  return instance.definition_ref
-    || instance.workflow_definition_ref
-    || instance.effective_definition_ref?.definition_ref
-    || instance.definition;
-}
-
-function instanceOverlayReference(instance) {
-  return instance.overlay_ref
-    || instance.workflow_overlay_ref
-    || instance.effective_definition_ref?.overlay_ref
-    || instance.overlay
-    || null;
-}
-
-function referenceId(reference, prefix) {
-  return reference?.id || reference?.[`${prefix}_id`] || null;
-}
-
-function referenceVersion(reference, prefix) {
-  return reference?.version || reference?.[`${prefix}_version`] || null;
 }
 
 function loadEffectiveDefinitionForInstance(context, instance) {
@@ -5538,10 +4727,6 @@ function loadEffectiveDefinitionForInstance(context, instance) {
   }
   return { definitionEntry, overlayEntry, effectiveDefinition };
 }
-
-const WORKFLOW_WINDOWS_DIRECTORY_SYNC_UNSUPPORTED = new Set([
-  "EACCES", "EINVAL", "EISDIR", "ENOSYS", "ENOTSUP", "EPERM",
-]);
 
 function syncWorkflowDirectory(directoryPath) {
   let descriptor;
@@ -5904,60 +5089,6 @@ function removeWorkflowDirectoryIfEmptyDurably(directoryPath) {
   }
 }
 
-function parseWorkflowGuardContext(options) {
-  const raw = getOptionString(options, "guard-input-json");
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) fail("--guard-input-json must contain one JSON object.");
-    return parsed;
-  } catch (error) {
-    if (error instanceof UserError) throw error;
-    fail(`Unable to read --guard-input-json: ${error.message}`);
-  }
-}
-
-function workflowTransitionUsesCanonicalEvidence(effectiveDefinition, currentState, targetState) {
-  const transition = (effectiveDefinition?.transitions || []).find((candidate) =>
-    candidate.from === currentState && candidate.to === targetState);
-  return (transition?.guards || []).some((guard) =>
-    Object.hasOwn(CANONICAL_WORKFLOW_GUARD_CHECKS, guard?.id));
-}
-
-function workflowTransitionUsesStrictGate(effectiveDefinition, currentState, targetState) {
-  const transition = (effectiveDefinition?.transitions || []).find((candidate) =>
-    candidate.from === currentState && candidate.to === targetState);
-  return (transition?.guards || []).some((guard) =>
-    guard?.id === "strict-gate-passed");
-}
-
-function workflowTargetUsesStrictGate(effectiveDefinition, targetState) {
-  return (effectiveDefinition?.transitions || []).some((transition) =>
-    transition.to === targetState
-    && (transition.guards || []).some((guard) =>
-      guard?.id === "strict-gate-passed"));
-}
-
-function workflowRequiresCurrentPhaseCompletion(instance, effectiveDefinition) {
-  return Boolean(instance?.metadata?.governance_binding?.story_id)
-    && effectiveDefinition?.metadata?.canonical_evidence_schema
-      === WORKFLOW_CANONICAL_EVIDENCE_SCHEMA;
-}
-
-function workflowCurrentPhaseEntryAt(instance, events, currentState) {
-  let enteredAt = currentState === instance.initial_state
-    ? instance.created_at
-    : null;
-  for (const event of events || []) {
-    if (event?.to === currentState) {
-      enteredAt = event.timestamp;
-    }
-  }
-  return Number.isFinite(Date.parse(String(enteredAt || "")))
-    ? enteredAt
-    : null;
-}
-
 function storyPhaseCompletionTraceAttestation(
   context,
   storyId,
@@ -6280,28 +5411,6 @@ function currentStoryPhaseCompletionReadiness(
   };
 }
 
-function workflowScopeFromRuntime(instance, effectiveDefinition, integrity, currentPhase) {
-  const checkpoint = integrity?.checkpoint;
-  if (!checkpoint) {
-    fail(`Workflow instance ${instance?.id || "unknown"} has no durable integrity checkpoint.`);
-  }
-  return {
-    instance_id: instance.id,
-    instance_hash: instance.instance_hash,
-    effective_hash: effectiveDefinition.effective_hash,
-    story_id: instance.metadata?.governance_binding?.story_id,
-    current_phase: currentPhase,
-    phase_order: effectiveDefinition.phase_order,
-    checkpoint_ref: {
-      checkpoint_hash: checkpoint.checkpoint_hash,
-      sequence: checkpoint.sequence,
-      last_event_hash: checkpoint.last_event_hash,
-      trace_chain_hash: checkpoint.trace_chain_hash,
-      updated_at: checkpoint.updated_at,
-    },
-  };
-}
-
 function buildCanonicalEvidenceForWorkflowInstance(
   context,
   instance,
@@ -6616,18 +5725,6 @@ function maybeInterleaveConflictingWorkflowTraceForTest(context, instanceId) {
   });
 }
 
-function workflowCurrentState(replay, instance, definition) {
-  return replay.current_state || replay.state || replay.status?.current_state || instance.current_state || definition.initial_state;
-}
-
-function workflowNextStates(definition, currentState) {
-  return (definition.transitions || [])
-    .filter((transition) => transition.from === currentState)
-    .map((transition) => transition.to)
-    .filter((state, index, all) => all.indexOf(state) === index)
-    .sort((left, right) => String(left).localeCompare(String(right), "en"));
-}
-
 function showWorkflowInstance(context, options, { explain = false } = {}) {
   ensureInitialized(context);
   const id = normalizeId(requireOption(options, "id"));
@@ -6884,130 +5981,6 @@ function showWorkflowInstance(context, options, { explain = false } = {}) {
   ]);
 }
 
-function rawBooleanOptionRequested(argv, optionName) {
-  const exact = `--${optionName}`;
-  const inlinePrefix = `${exact}=`;
-  let requested = false;
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === exact) {
-      const next = argv[index + 1];
-      if (next !== undefined && /^(?:true|false)$/iu.test(next)) {
-        requested ||= next.toLowerCase() === "true";
-        index += 1;
-      } else {
-        requested = true;
-      }
-      continue;
-    }
-    if (arg.startsWith(inlinePrefix)) {
-      requested ||= arg.slice(inlinePrefix.length).toLowerCase() === "true";
-    }
-  }
-  return requested;
-}
-
-function rawStringOptionValue(argv, optionName) {
-  const exact = `--${optionName}`;
-  const inlinePrefix = `${exact}=`;
-  let value;
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === exact) {
-      const next = argv[index + 1];
-      if (next !== undefined && !next.startsWith("-")) {
-        value = next;
-        index += 1;
-      }
-      continue;
-    }
-    if (arg.startsWith(inlinePrefix)) {
-      value = arg.slice(inlinePrefix.length);
-    }
-  }
-  return value;
-}
-
-/**
- * Exit codes. A gating pipeline has to tell these apart: a rejected input is
- * the author's problem, a governance denial is a decision someone has to make,
- * and an unreadable store is an operator problem. Every one of them used to
- * exit 1, which made all three indistinguishable to a script.
- *
- * 0   the command completed
- * 1   user error: the request was understood and refused on its merits
- * 2   usage error: the command or its options could not be resolved
- * 3   governance denial: the action was refused by an agreed limit or policy
- * 4   environment error: the host cannot run this software as installed
- * 70  internal error: the software failed in a way the caller cannot correct
- *
- * A command killed by a signal keeps the conventional 128+signal form.
- */
-const EXIT_CODES = Object.freeze({
-  userError: 1,
-  usageError: 2,
-  governanceDenied: 3,
-  environmentError: 4,
-  internalError: 70,
-});
-
-/** The exit code for one thrown error, defaulting to the broadest category. */
-function exitCodeForError(error) {
-  if (error instanceof UnsupportedNodeRuntimeError) return EXIT_CODES.environmentError;
-  if (error instanceof UnknownCommandError) return EXIT_CODES.usageError;
-  if (error instanceof CliPresetError) return EXIT_CODES.usageError;
-  if (error instanceof UsageError) return EXIT_CODES.usageError;
-  if (error instanceof MutationGovernanceError) return EXIT_CODES.governanceDenied;
-  if (error instanceof UserError) return EXIT_CODES.userError;
-  return EXIT_CODES.internalError;
-}
-
-class UserError extends Error {
-  constructor(message, humanGuidance = null) {
-    super(message);
-    this.humanGuidance = humanGuidance;
-  }
-}
-
-/** A request whose command or options could not be resolved at all. */
-class UsageError extends UserError {}
-
-class UnsupportedNodeRuntimeError extends UserError {
-  constructor(version, locale) {
-    super(unsupportedNodeRuntimeMessage(version, locale));
-  }
-}
-
-function userErrorHumanGuidance(error, italian) {
-  if (!(error instanceof UserError) || !error.humanGuidance) {
-    return null;
-  }
-  return italian
-    ? error.humanGuidance.it || error.humanGuidance.en || null
-    : error.humanGuidance.en || error.humanGuidance.it || null;
-}
-
-// Only the closed, non-sensitive classifiers of an unexpected failure are
-// surfaced: the original message and path may carry private project data.
-const INTERNAL_ERROR_CAUSE_FIELDS = Object.freeze({
-  code: /^[A-Z][A-Z0-9_]{0,63}$/u,
-  syscall: /^[a-z][a-z0-9_]{0,31}$/u,
-});
-
-function internalErrorCauseDetails(error) {
-  const cause = {};
-  for (const [field, pattern] of Object.entries(INTERNAL_ERROR_CAUSE_FIELDS)) {
-    let value;
-    try {
-      value = error?.[field];
-    } catch {
-      value = undefined;
-    }
-    if (typeof value === "string" && pattern.test(value)) cause[field] = value;
-  }
-  return Object.keys(cause).length > 0 ? { cause } : null;
-}
-
 function buildCliErrorPayload(
   error,
   options = {},
@@ -7145,10 +6118,6 @@ function resolveCliErrorRedactionPolicy(options) {
   }
 }
 
-function cliErrorRedactionResolution(policy, withholdDetails) {
-  return Object.freeze({ policy, withholdDetails });
-}
-
 function parseArgs(argv) {
   const options = {};
   const positionals = [];
@@ -7197,20 +6166,6 @@ function parseArgs(argv) {
   }
 
   return { options, positionals, help, version };
-}
-
-function parseBooleanOption(key, value) {
-  if (value === true || value === false) {
-    return value;
-  }
-  const normalized = String(value).trim().toLowerCase();
-  if (normalized === "true") {
-    return true;
-  }
-  if (normalized === "false") {
-    return false;
-  }
-  fail(`Option --${key} expects true or false, received '${value}'`);
 }
 
 function addOption(options, key, value) {
@@ -7423,13 +6378,6 @@ function buildContext(options) {
   };
 }
 
-function buildLegacyDefaultsProfile(legacyConfig) {
-  return {
-    id: LEGACY_CONFIG_PROFILE_ID,
-    sha256: computeStableHash(legacyConfig),
-  };
-}
-
 function pathEntryExistsNoFollow(filePath) {
   try {
     fs.lstatSync(filePath);
@@ -7438,29 +6386,6 @@ function pathEntryExistsNoFollow(filePath) {
     if (error?.code === "ENOENT") return false;
     throw error;
   }
-}
-
-function mergeMissingConfigDefaults(projectConfig, templateConfig) {
-  if (!projectConfig || typeof projectConfig !== "object" || Array.isArray(projectConfig)) {
-    return projectConfig;
-  }
-  const merge = (current, defaults) => {
-    if (!defaults || typeof defaults !== "object" || Array.isArray(defaults)) {
-      return current === undefined ? structuredClone(defaults) : current;
-    }
-    if (current === undefined) {
-      return structuredClone(defaults);
-    }
-    if (!current || typeof current !== "object" || Array.isArray(current)) {
-      return current;
-    }
-    const result = { ...current };
-    for (const [key, value] of Object.entries(defaults)) {
-      result[key] = merge(current[key], value);
-    }
-    return result;
-  };
-  return merge(projectConfig, templateConfig);
 }
 
 function configStatusGuidance(context, locale = "en") {
@@ -7550,18 +6475,6 @@ function showConfigStatus(context, options) {
     ...(context.configValidationError ? [`- Config validation: ${context.configValidationError}`] : []),
     ...verificationErrors.map((issue) => `- Lock check: ${issue.message}`),
   ].map((line) => line.replace(/^- /u, "")), options));
-}
-
-function normalizeRequestedAutonomyMode(options) {
-  const requested = getOptionString(options, "autonomy-mode");
-  if (!requested) return null;
-  if (!AUTONOMY_ROLLOUT_MODES.has(requested)) {
-    fail(
-      `Invalid --autonomy-mode '${requested}'. Valid values: `
-      + `${Array.from(AUTONOMY_ROLLOUT_MODES).join(", ")}.`,
-    );
-  }
-  return requested;
 }
 
 function prepareProjectConfigMigration(context, projectConfig, projectLock, autonomyMode = null) {
@@ -7721,61 +6634,6 @@ function attachLegacyBootstrapAdoption(context, options, application, adoptionSu
       ...receiptSubject,
       receipt_hash: computeStableHash(receiptSubject),
     },
-  };
-}
-
-function configMigrationChangeSummary(plan) {
-  if (plan.mode === "already_locked") {
-    return "The current configuration and lock already match; applying this plan will make no changes.";
-  }
-  if (plan.mode === "update_config") {
-    return `Applying this plan will update ${plan.changes.length} reviewed project policy value(s) and replace the matching lock.`;
-  }
-  if (plan.mode === "reconcile_drift") {
-    return "Applying this plan will accept the current materialized configuration and replace its stale lock.";
-  }
-  if (plan.changes.length === 0) {
-    return "Applying this plan will keep the current configuration and create its first lock.";
-  }
-  return `Applying this plan will materialize ${plan.changes.length} reviewed configuration change(s) and create a matching lock.`;
-}
-
-function formatConfigMigrationChange(change) {
-  const before = Object.hasOwn(change, "before") ? change.before : undefined;
-  const after = Object.hasOwn(change, "after") ? change.after : undefined;
-  const scalar = (value) => value === null || ["string", "number", "boolean"].includes(typeof value);
-  if (change.operation === "replace" && scalar(before) && scalar(after)) {
-    return `- replace ${change.path || "/"}: ${JSON.stringify(before)} -> ${JSON.stringify(after)}`;
-  }
-  if (change.operation === "add" && scalar(after)) {
-    return `- add ${change.path || "/"}: ${JSON.stringify(after)}`;
-  }
-  if (change.operation === "remove" && scalar(before)) {
-    return `- remove ${change.path || "/"}: ${JSON.stringify(before)}`;
-  }
-  return `- ${change.operation} ${change.path || "/"}`;
-}
-
-function configMigrationPlanPresentation(plan, { full = false } = {}) {
-  if (full) {
-    return {
-      detail_level: "full",
-      omitted_fields: [],
-      plan_complete: true,
-      plan_hash_verification: "self-contained",
-      plan,
-    };
-  }
-  const {
-    target_config: _targetConfig,
-    ...compactPlan
-  } = plan;
-  return {
-    detail_level: "compact",
-    omitted_fields: ["plan.target_config"],
-    plan_complete: false,
-    plan_hash_verification: "requires_full_preview",
-    plan: compactPlan,
   };
 }
 
@@ -8030,61 +6888,6 @@ function migrateProjectConfig(context, options) {
   ]);
 }
 
-function configMigrationBootstrapMutations(context, plan) {
-  const transactionLock = path.join(context.sdlcRoot, "locks", "config-migration.lock");
-  const receiptPath = path.join(
-    context.sdlcRoot,
-    "migrations",
-    "config",
-    `MIG-CONFIG-${plan.plan_hash.slice(0, 16)}.json`,
-  );
-  const tracePath = path.join(context.sdlcRoot, "traces", "project.jsonl");
-  const traceCheckpoint = traceIntegrityCheckpointPath(tracePath);
-  const traceCheckpointBackup = `${traceCheckpoint}.previous`;
-  const tracePolicy = buildTraceRedactionPolicy(context);
-  const tracePolicySource = describeRedactionPolicy(tracePolicy);
-  assertTraceEvidencePolicySourceSafety(tracePolicySource);
-  const tracePolicyBytes = `${JSON.stringify(tracePolicySource, null, 2)}\n`;
-  const tracePolicyPath = path.join(
-    context.root,
-    TRACE_EVIDENCE_POLICY_SOURCE_ROOT,
-    `${hashBuffer(Buffer.from(tracePolicyBytes, "utf8"))}.json`,
-  );
-  const exact = [
-    ["directory.create", path.join(context.sdlcRoot, "locks")],
-    ["lock.acquire", transactionLock],
-    ["lock.reclaim", transactionLock],
-    ["lock.release", transactionLock],
-    ["file.write", context.projectConfigPath],
-    ["file.write", context.configLockPath],
-    ["file.remove", context.configLockPath],
-    ["directory.create", path.join(context.sdlcRoot, "migrations")],
-    ["directory.create", path.join(context.sdlcRoot, "migrations", "config")],
-    ["file.write", receiptPath],
-    ["file.remove", receiptPath],
-    ["directory.create", path.dirname(tracePolicyPath)],
-    ["lock.acquire", `${tracePolicyPath}.lock`],
-    ["lock.release", `${tracePolicyPath}.lock`],
-    ["file.write", tracePolicyPath],
-    ["lock.acquire", `${tracePath}.lock`],
-    ["lock.release", `${tracePath}.lock`],
-    ["directory.create", path.dirname(traceCheckpoint)],
-    ["path.chmod", path.dirname(traceCheckpoint)],
-    ["lock.acquire", `${traceCheckpoint}.lock`],
-    ["lock.remove", `${traceCheckpoint}.lock`],
-    ["file.append", tracePath],
-    ["file.truncate", tracePath],
-    ["file.write", traceCheckpoint],
-    ["file.remove", traceCheckpoint],
-    ["path.rename.source", traceCheckpoint],
-    ["path.rename.target", traceCheckpoint],
-    ["path.rename.source", traceCheckpointBackup],
-    ["path.rename.target", traceCheckpointBackup],
-    ["file.remove", traceCheckpointBackup],
-  ].map(([operation, filePath]) => ({ operation, path: filePath }));
-  return [...new Map(exact.map((entry) => [`${entry.operation}\0${path.resolve(entry.path)}`, entry])).values()];
-}
-
 function assertConfigAllowsCommand(context, resolution, options, positionals = []) {
   if (
     resolution?.canonical_action === "onboard.existing-project"
@@ -8205,192 +7008,12 @@ function assertRecordSchema(record, schemaName, label) {
   return record;
 }
 
-function profileTaskStartReceiptSchemaName(receipt) {
-  return receipt?.schema_version === "profile-task-start-receipt:v1"
-    ? "profile-task-start-receipt-v1.schema.json"
-    : "profile-task-start-receipt.schema.json";
-}
-
 function appendRecordSchemaIssues(report, record, schemaName, label) {
   const result = validateRecordSchema(record, schemaName);
   for (const error of result.errors || []) {
     report.errors.push(`${label} schema: ${error.instance_path || "$"} ${error.message}`);
   }
   return result.valid;
-}
-
-function validateStoryLifecyclePolicy(policy = {}) {
-  if (policy.terminal_statuses === undefined) {
-    return;
-  }
-  if (!Array.isArray(policy.terminal_statuses) || policy.terminal_statuses.length === 0) {
-    fail("story_lifecycle.terminal_statuses must be a non-empty array");
-  }
-  for (const status of policy.terminal_statuses) {
-    if (!STORY_STATUSES.has(String(status || "").toLowerCase())) {
-      fail(`story_lifecycle.terminal_statuses contains unknown story status '${status}'`);
-    }
-  }
-}
-
-function validateClaimPolicy(policy = {}) {
-  const ttlSeconds = policy.default_ttl_seconds;
-  if (ttlSeconds !== undefined && ttlSeconds !== null && (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0)) {
-    fail("claim_policy.default_ttl_seconds must be a positive integer or null");
-  }
-}
-
-function validateBranchPolicy(policy = {}) {
-  const configured = policy?.branch_patterns ?? (policy?.branch_pattern ? [policy.branch_pattern] : []);
-  if (!Array.isArray(configured)) {
-    fail("parallel_work.branch_patterns must be an array");
-  }
-  for (const pattern of configured) {
-    const value = String(pattern || "");
-    const invalid =
-      !value.includes("<story-id>") ||
-      /[\\\s~^:?*\[]/.test(value) ||
-      value.includes("..") ||
-      value.includes("//") ||
-      value.startsWith("/") ||
-      value.endsWith("/") ||
-      value.endsWith(".");
-    if (invalid) {
-      fail(`Invalid parallel_work branch pattern '${value}'`);
-    }
-  }
-}
-
-function validateSdlcDirectoryList(values, field) {
-  if (values === undefined) {
-    return;
-  }
-  if (!Array.isArray(values)) {
-    fail(`${field} must be an array`);
-  }
-  for (const value of values) {
-    assertSafeSdlcRelativeDirectory(value, field);
-  }
-}
-
-function assertSafeSdlcRelativeDirectory(value, field) {
-  const raw = String(value || "").trim();
-  const normalized = path.posix.normalize(raw.replaceAll("\\", "/"));
-  if (!raw || raw === "." || normalized === "." || normalized.startsWith("../") || normalized === ".." || path.isAbsolute(raw)) {
-    fail(`${field} contains unsafe .sdlc-relative directory '${value}'`);
-  }
-  if (normalized.split("/").includes("..")) {
-    fail(`${field} contains unsafe .sdlc-relative directory '${value}'`);
-  }
-}
-
-function validateRoutingPolicy(policy) {
-  if (policy === undefined) {
-    return;
-  }
-  if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
-    fail("routing_policy must be a JSON object");
-  }
-  if (policy.routes !== undefined && !Array.isArray(policy.routes)) {
-    fail("routing_policy.routes must be an array");
-  }
-  if (policy.canonical_actions !== undefined && (!policy.canonical_actions || typeof policy.canonical_actions !== "object" || Array.isArray(policy.canonical_actions))) {
-    fail("routing_policy.canonical_actions must be an object");
-  }
-  const confidence = policy.confidence;
-  if (confidence !== undefined) {
-    if (!confidence || typeof confidence !== "object" || Array.isArray(confidence)) {
-      fail("routing_policy.confidence must be an object");
-    }
-    for (const key of ["auto_route_min", "confirm_min", "ask_below"]) {
-      if (confidence[key] !== undefined) {
-        const value = Number(confidence[key]);
-        if (!Number.isFinite(value) || value < 0 || value > 1) {
-          fail(`routing_policy.confidence.${key} must be a number between 0 and 1`);
-        }
-      }
-    }
-    if (confidence.always_confirm !== undefined && !Array.isArray(confidence.always_confirm)) {
-      fail("routing_policy.confidence.always_confirm must be an array");
-    }
-  }
-}
-
-function validateWorkBreakdownPolicy(policy) {
-  if (policy === undefined) {
-    return;
-  }
-  if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
-    fail("work_breakdown_policy must be a JSON object");
-  }
-  for (const field of ["levels", "claimable_units"]) {
-    if (policy[field] !== undefined) {
-      if (!Array.isArray(policy[field])) {
-        fail(`work_breakdown_policy.${field} must be an array`);
-      }
-      for (const value of policy[field]) {
-        const type = normalizeWorkItemType(value, { allowStory: true });
-        if (!WORK_ITEM_TYPES.has(type)) {
-          fail(`work_breakdown_policy.${field} contains unknown work item type '${value}'`);
-        }
-      }
-    }
-  }
-  for (const field of ["delivery_unit", "strict_gate_unit"]) {
-    if (policy[field] !== undefined) {
-      normalizeWorkItemType(policy[field], { allowStory: true });
-    }
-  }
-  if (policy.task_gate !== undefined && !["light", "strict", "none"].includes(String(policy.task_gate))) {
-    fail("work_breakdown_policy.task_gate must be light, strict, or none");
-  }
-}
-
-function validateApprovalPolicy(policy) {
-  if (policy === undefined) {
-    return;
-  }
-  if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
-    fail("approval_policy must be an object");
-  }
-  if (policy.accepted_sources !== undefined) {
-    if (!Array.isArray(policy.accepted_sources)) {
-      fail("approval_policy.accepted_sources must be an array");
-    }
-    for (const source of policy.accepted_sources) {
-      if (!APPROVAL_SOURCES.has(String(source))) {
-        fail(`approval_policy.accepted_sources contains invalid source '${source}'`);
-      }
-    }
-  }
-  if (
-    policy.legacy_approval_behavior !== undefined &&
-    !["warn", "error"].includes(String(policy.legacy_approval_behavior))
-  ) {
-    fail("approval_policy.legacy_approval_behavior must be 'warn' or 'error'");
-  }
-}
-
-function validateAutonomyPolicy(policy) {
-  if (policy === undefined) {
-    return;
-  }
-  if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
-    fail("autonomy_policy must be an object");
-  }
-  if (!AUTONOMY_ROLLOUT_MODES.has(String(policy.mode || ""))) {
-    fail("autonomy_policy.mode must be off, observe, enforce_new_only, or enforce_all");
-  }
-  const levels = Array.isArray(policy.allowed_levels) ? policy.allowed_levels : [];
-  const requiredLevels = AUTONOMY_LEVELS;
-  if (requiredLevels.some((level) => !levels.includes(level))) {
-    fail(`autonomy_policy.allowed_levels must include ${requiredLevels.join(", ")}`);
-  }
-  const deliveryKinds = Array.isArray(policy.delivery_kinds) ? policy.delivery_kinds : [];
-  if (["pull_request", "local_release"].some((kind) => !deliveryKinds.includes(kind))) {
-    fail("autonomy_policy.delivery_kinds must include pull_request and local_release");
-  }
-  assertSafeSdlcRelativeDirectory(policy.storage_root || "autonomy", "autonomy_policy.storage_root");
 }
 
 function decideRoute(context, options) {
@@ -9305,20 +7928,6 @@ function readExactGitWorkspaceStatus(context) {
   ));
 }
 
-function exactGitProjectPath(rawPath) {
-  const value = String(rawPath);
-  if (
-    !value
-    || value.includes("\u0000")
-    || path.posix.isAbsolute(value)
-    || /^[a-z]:[\\/]/iu.test(value)
-    || value.split("/").some((segment) => segment === "" || segment === "." || segment === "..")
-  ) {
-    fail(`Execution context preflight received an unsafe Git path: ${JSON.stringify(value)}`);
-  }
-  return value;
-}
-
 function resolveExactGitWorkspacePath(context, projectPath) {
   const normalized = exactGitProjectPath(projectPath);
   const filePath = path.resolve(context.root, ...normalized.split("/"));
@@ -9576,14 +8185,6 @@ function executionContextSourceEvolution(context, {
     binding_kind: bindingKind,
     binding_id: bindingId,
   });
-}
-
-function executionContextRecoveryMessage(sourcePath) {
-  return (
-    `${sourcePath} changed outside a valid pre-change execution snapshot. `
-    + "If the change happened before task start, restore the reviewed content or approve a new requirement/work brief. "
-    + "If task start was interrupted, restore the immutable preflight snapshot and rerun task preflight; do not bypass freshness."
-  );
 }
 
 function buildTaskStartDecision(context, options) {
@@ -10257,60 +8858,6 @@ function finalizeTaskStartExecution(context, result, routeDecision, options) {
   return dedupeTaskStartDecision(result);
 }
 
-function isAssessmentRouteIntent(context, routeDecision) {
-  const configured = normalizeListValue(context.config.assessment_workflow?.requested_actions, [
-    "functional_analysis",
-    "technical_analysis",
-    "technical_assessment",
-    "initial_technical_assessment",
-    "project_technical_assessment",
-    "project_assessment",
-    "architecture_assessment",
-    "technical_review",
-  ]).map(normalizeRouteToken);
-  return configured.includes(normalizeRouteToken(routeDecision.intent?.requested_action || ""));
-}
-
-function inferTaskPhase(routeDecision, options = {}) {
-  const explicitPhase = options.phase ? normalizeRoutePhase(options.phase) : null;
-  if (explicitPhase) {
-    return explicitPhase;
-  }
-  const intentPhase = routeDecision.intent?.proposed_phase || null;
-  if (intentPhase) {
-    return intentPhase;
-  }
-  switch (routeDecision.route) {
-    case "intake_requirement":
-      return "discovery";
-    case "decompose_stories":
-      return "design";
-    case "classify_artifact":
-    case "discover_capabilities":
-    case "technical_decision":
-      return "analysis";
-    case "claim_and_implement":
-      return "implementation";
-    case "validate_story":
-      return "validation";
-    case "release_story":
-      return "release";
-    default:
-      return null;
-  }
-}
-
-function taskRouteRequiresContract(route) {
-  return [
-    "classify_artifact",
-    "discover_capabilities",
-    "technical_decision",
-    "claim_and_implement",
-    "validate_story",
-    "release_story",
-  ].includes(route);
-}
-
 function findApplicableTaskContract(context, options = {}) {
   const checks = [];
   const phase = options.phase || null;
@@ -10400,10 +8947,6 @@ function readContractById(context, contractId, options = {}) {
   return contract;
 }
 
-function newestContract(contracts) {
-  return [...contracts].sort((left, right) => String(right.updated_at || right.created_at || "").localeCompare(String(left.updated_at || left.created_at || "")))[0] || null;
-}
-
 function summarizeTaskContract(context, contract) {
   const gaps = collectContractReadinessGaps(context, contract);
   const freshnessGaps = collectContractDependencyFreshnessGaps(context, contract);
@@ -10455,15 +8998,6 @@ function contractNegotiationQuestion(phase, storyId) {
   return `No approved ${phaseLabel} contract is ready for ${subject}. Confirm the expected output, delivery/presentation format, boundaries, constraints, and approval rules before work starts.`;
 }
 
-function contractNegotiationCommands(phase, storyId, contractId = null, options = {}) {
-  const normalizedPhase = phase || "<phase>";
-  const id = contractId || (storyId ? `contract-${storyId}-${normalizedPhase}` : `contract-${normalizedPhase}-<id>`);
-  return [
-    `agentic-sdlc contract create --phase ${normalizedPhase}${storyId ? ` --story ${storyId}` : ""} --id ${id} --context-summary <summary> --qa "<question>|<answer>"${options.force ? " --force" : ""}`,
-    `agentic-sdlc approval requests${storyId ? ` --story ${storyId}` : ""}`,
-  ];
-}
-
 function dedupeTaskStartDecision(decision) {
   decision.blocking_reasons = Array.from(new Set(decision.blocking_reasons));
   decision.questions = Array.from(new Set(decision.questions));
@@ -10513,42 +9047,6 @@ function renderTaskStartAssistantMessage(decision) {
       : 'You can answer naturally, for example "use README.md and src/ as context", "the proposed format is fine", or "change the scope to include X".',
   ];
   return lines.filter(Boolean).join("\n");
-}
-
-function taskStartAutonomyCopy(deliveryKind, locale = "en") {
-  const italian = locale === "it";
-  const localRelease = deliveryKind === "local_release";
-  return italian
-    ? {
-        question: localRelease
-          ? "Per questo rilascio locale, quanto vuoi che lavori in autonomia?"
-          : "Per questa PR, quanto vuoi che lavori in autonomia?",
-        choices: [
-          "Guidato: ti chiedo conferma prima dei passaggi importanti.",
-          "Autonomia con controlli: procedo da solo, ma mi fermo prima delle azioni delicate concordate.",
-          localRelease
-            ? "Autonomia completa entro questi limiti: completo questo rilascio locale senza pause ordinarie."
-            : "Autonomia completa entro questi limiti: completo questa PR senza pause ordinarie.",
-        ],
-        scope: localRelease
-          ? "Questa scelta vale solo per questo rilascio locale e non sarà riutilizzata."
-          : "Questa scelta vale solo per questa PR e non sarà riutilizzata.",
-      }
-    : {
-        question: localRelease
-          ? "For this local release, how independently should I work?"
-          : "For this pull request, how independently should I work?",
-        choices: [
-          "Guided: I ask for confirmation before important steps.",
-          "Autonomy with checks: I proceed independently, but stop before the sensitive actions we agree.",
-          localRelease
-            ? "Full autonomy within these limits: I complete this local release without routine pauses."
-            : "Full autonomy within these limits: I complete this pull request without routine pauses.",
-        ],
-        scope: localRelease
-          ? "This choice applies only to this local release and will not be reused."
-          : "This choice applies only to this pull request and will not be reused.",
-      };
 }
 
 function taskDecisionExampleAnswer(decision, locale = "en") {
@@ -10608,71 +9106,6 @@ function taskDecisionExampleAnswer(decision, locale = "en") {
         ? '“Usa l’API esistente, mantieni la compatibilità e chiedi prima di aggiungere dipendenze o accessi esterni.”'
         : '“Use the existing API, preserve backward compatibility, and ask before adding dependencies or external access.”';
   }
-}
-
-function userFriendlyTaskQuestion(decision, originalQuestion, locale = "en") {
-  const italian = locale === "it";
-  switch (decision.contract_action) {
-    case "agree_requirement":
-      return italian
-        ? "Quale risultato osservabile vuoi ottenere, come verifichiamo che sia completo, cosa deve restare escluso e qual è la massima autonomia consentita?"
-        : "What observable outcome do you need, how will we know it is complete, what must remain excluded, and what is the maximum independence allowed?";
-    case "approve_requirement":
-      return italian
-        ? "Quale requisito approvato e corrente devo scomporre in storie?"
-        : "Which current, approved requirement should I decompose into stories?";
-    case "record_decomposition":
-      return italian
-        ? "La scomposizione proposta rappresenta correttamente il requisito e le dipendenze?"
-        : "Does the proposed story breakdown accurately represent the requirement and its dependencies?";
-    case "select_delivery_autonomy":
-      if (!decision.delivery_kind) {
-        return italian
-          ? "Qual è la destinazione di questa consegna? Dopo averla definita, scegli quanto vuoi che lavori in autonomia."
-          : "What is this delivery's destination? Once it is defined, choose how independently I should work.";
-      }
-      return taskStartAutonomyCopy(decision.delivery_kind, locale).question;
-    case "repair_delivery_autonomy":
-      return italian
-        ? "Confermi di correggere i limiti esatti di questa consegna e di rivalutarla senza riusare approvazioni precedenti?"
-        : "Should I correct this delivery’s exact limits and evaluate it again without reusing an earlier approval?";
-    case "confirm_start":
-      return italian ? "Confermi l’avvio di questa attività entro l’incarico e i limiti mostrati?" : originalQuestion;
-    case "approve_contract":
-      return italian ? "Confermi che l’incarico mostrato descrive correttamente ciò che deve essere fatto e prodotto?" : originalQuestion;
-    case "replace_contract_after_story_revision":
-      return italian
-        ? "I criteri aggiornati descrivono correttamente il risultato e posso usarli per preparare un nuovo accordo di lavoro?"
-        : "Do the revised criteria correctly describe the outcome so I can prepare a new work agreement?";
-    case "revise_requirement_write_scope":
-      return italian
-        ? "Quali percorsi interni al progetto potranno cambiare per codice, test, documentazione ed evidenze di questa attività?"
-        : "Which project-internal paths may change for this work's code, tests, documentation, and evidence?";
-    case "initialize_sdlc":
-      return italian ? "Quali file e informazioni devo usare come contesto iniziale affidabile del progetto?" : originalQuestion;
-    default:
-      return italian ? "Conferma la decisione descritta sopra oppure indica cosa deve cambiare." : originalQuestion;
-  }
-}
-
-function taskStartAutonomyChoiceLines(decision, italian) {
-  if (decision.contract_action !== "select_delivery_autonomy") return [];
-  const locale = italian ? "it" : "en";
-  const choiceLines = (kind) => {
-    const copy = taskStartAutonomyCopy(kind, locale);
-    return [
-      copy.question,
-      ...copy.choices.map((choice, index) => `${index + 1}. ${choice}`),
-      copy.scope,
-    ];
-  };
-  if (decision.delivery_kind) return ["", ...choiceLines(decision.delivery_kind)];
-  return [
-    "",
-    italian
-      ? "Prima indica la destinazione esatta di questa consegna. Dopo che sarà definita, ti mostrerò una sola domanda con le tre scelte applicabili."
-      : "First identify this delivery's exact destination. Once it is defined, I will show one question with the three applicable choices.",
-  ];
 }
 
 function userFriendlyTaskStartIntro(decision, locale = "en") {
@@ -10858,81 +9291,6 @@ function userFriendlyBlockingReason(code, locale = "en", decision = {}) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function formatTaskStartDecision(decision) {
-  const italian = decision.__human_locale === "it";
-  const ready = decision.status === "ready_to_execute" && decision.execution_allowed;
-  const revisedAgreementRequired =
-    decision.contract_action === "replace_contract_after_story_revision";
-  const autonomyChoiceLines = taskStartAutonomyChoiceLines(decision, italian);
-  const lines = [
-    `${italian ? "Risultato" : "Outcome"}: ${revisedAgreementRequired
-      ? (italian
-          ? "I criteri di riuscita sono cambiati e il lavoro resta fermo."
-          : "The success criteria changed, so the work remains paused.")
-      : ready
-        ? (italian ? "Il lavoro concordato è pronto per iniziare." : "The agreed work is ready to start.")
-        : (italian ? "Il lavoro non è ancora iniziato." : "The work has not started yet.")}`,
-    `${italian ? "Cosa cambia in pratica" : "What this changes in practice"}: ${revisedAgreementRequired
-      ? (italian
-          ? "L’accordo precedente non viene riutilizzato per un risultato diverso."
-          : "The previous agreement will not be reused for a different outcome.")
-      : ready
-        ? (italian ? "Posso procedere con l’attività entro i limiti già concordati." : "I can proceed with the work inside the limits already agreed.")
-        : (italian ? "Nessuna modifica verrà avviata finché non viene chiarito il punto in attesa." : "No changes will begin until the pending point is clarified.")}`,
-    `${italian ? "Cosa devi decidere" : "What you need to decide"}: ${revisedAgreementRequired
-      ? (italian
-          ? "Conferma che i criteri aggiornati descrivano correttamente il risultato."
-          : "Confirm that the revised criteria correctly describe the intended outcome.")
-      : ready
-        ? (italian ? "Non devi prendere un’altra decisione per avviare questa attività." : "You do not need to make another decision to start this work.")
-        : (italian ? "Rispondi alla scelta descritta sotto oppure indica cosa deve cambiare." : "Answer the choice described below, or say what should change.")}`,
-    `${italian ? "Cosa resta protetto" : "What remains protected"}: ${italian
-      ? "Questo controllo non ha eseguito modifiche, pubblicazioni, rilasci o merge; quei passaggi restano separati."
-      : "This check did not change files, publish, release, or merge anything; those steps remain separate."}`,
-    `${italian ? "Prossimo passo" : "Next step"}: ${revisedAgreementRequired
-      ? (italian
-          ? "Prepara un nuovo accordo sui criteri aggiornati e chiedine l’approvazione prima di iniziare."
-          : "Prepare a new agreement for the revised criteria and obtain approval before starting.")
-      : ready
-        ? (italian ? "Inizia soltanto il lavoro già concordato." : "Begin only the work already agreed.")
-        : (italian ? "Leggi la spiegazione facoltativa e chiarisci il punto in attesa." : "Review the optional explanation and clarify the pending point.")}`,
-    ...autonomyChoiceLines,
-    "",
-    italian ? "Dettagli tecnici (facoltativi):" : "Technical details (optional):",
-    ...(decision.assistant_message
-      ? decision.assistant_message.split("\n").map((line) => line ? `- ${line}` : "-")
-      : []),
-    `- ${italian ? "Stato di avvio" : "Task start"}: ${decision.status}`,
-    `- ${italian ? "Esecuzione consentita" : "Execution allowed"}: ${decision.execution_allowed ? (italian ? "sì" : "yes") : "no"}`,
-    `- Route: ${decision.route}`,
-    `- ${italian ? "Fase" : "Phase"}: ${decision.phase || "n/a"}`,
-    `- ${italian ? "Attività" : "Story"}: ${decision.story_id || "n/a"}`,
-    `- ${italian ? "Incarico" : "Contract"}: ${decision.contract_id || "n/a"}`,
-    `- ${italian ? "Azione sull’incarico" : "Contract action"}: ${decision.contract_action || "n/a"}`,
-    decision.lifecycle_certification_warning
-      ? `- ${italian ? "Avviso certificazione lifecycle" : "Lifecycle certification warning"}: ${decision.lifecycle_certification_warning}`
-      : null,
-  ];
-  lines.push(
-    decision.blocking_reasons.length
-      ? `- ${italian ? "Codici di blocco" : "Blocking reason codes"}: ${decision.blocking_reasons.join(", ")}`
-      : `- ${italian ? "Codici di blocco" : "Blocking reason codes"}: ${italian ? "nessuno" : "none"}`,
-  );
-  if (decision.questions.length > 0) {
-    lines.push(`- ${italian ? "Domande tecniche" : "Technical questions"}:`);
-    lines.push(...decision.questions.map((question) => `  - ${question}`));
-  }
-  if (decision.approval_requests.length > 0) {
-    lines.push(`- ${italian ? "Richieste di decisione" : "Human input requests"}:`);
-    lines.push(...decision.approval_requests.map((request) => `  - ${request.title || request.summary}: ${request.user_prompt || request.summary}`));
-  }
-  if (decision.next_commands.length > 0) {
-    lines.push(`- ${italian ? "Prossimi comandi tecnici" : "Next technical commands"}:`);
-    lines.push(...decision.next_commands.map((command) => `  - ${command}`));
-  }
-  return lines.filter((line) => line !== null && line !== undefined);
-}
-
 function buildRouteDecision(context, options) {
   const policy = getRoutingPolicy(context);
   const intentLoad = loadRouteIntent(context, options);
@@ -11090,176 +9448,6 @@ function buildRouteDecision(context, options) {
   }
 }
 
-function getRoutingPolicy(context) {
-  const template = context.templateConfig.routing_policy || {};
-  const project = context.config.routing_policy || {};
-  const confidence = normalizeRoutingConfidence({
-    ...ROUTE_DEFAULT_CONFIDENCE,
-    ...(template.confidence || {}),
-    ...(project.confidence || {}),
-  });
-  return {
-    routes: new Set([
-      ...ROUTE_DEFAULT_ROUTES,
-      ...normalizeStringArray(template.routes),
-      ...normalizeStringArray(project.routes),
-    ]),
-    confidence,
-    canonical_actions: {
-      ...defaultRouteActions(),
-      ...normalizeRouteActionMap(template.canonical_actions || template.action_routes),
-      ...normalizeRouteActionMap(project.canonical_actions || project.action_routes),
-    },
-    entity_types: {
-      story: ["story"],
-      contract: ["contract"],
-      requirement: ["requirement"],
-      template: ["template", "output_template"],
-      ...(template.entity_types || {}),
-      ...(project.entity_types || {}),
-    },
-  };
-}
-
-function normalizeRoutingConfidence(confidence) {
-  const normalized = {
-    auto_route_min: Number(confidence.auto_route_min),
-    confirm_min: Number(confidence.confirm_min),
-    ask_below: Number(confidence.ask_below),
-    always_confirm: normalizeStringArray(confidence.always_confirm).map(normalizeRouteToken),
-  };
-  if (!Number.isFinite(normalized.auto_route_min)) {
-    normalized.auto_route_min = ROUTE_DEFAULT_CONFIDENCE.auto_route_min;
-  }
-  if (!Number.isFinite(normalized.confirm_min)) {
-    normalized.confirm_min = ROUTE_DEFAULT_CONFIDENCE.confirm_min;
-  }
-  if (!Number.isFinite(normalized.ask_below)) {
-    normalized.ask_below = ROUTE_DEFAULT_CONFIDENCE.ask_below;
-  }
-  normalized.ask_below = clamp01(normalized.ask_below);
-  normalized.confirm_min = clamp01(normalized.confirm_min);
-  normalized.auto_route_min = clamp01(normalized.auto_route_min);
-  if (normalized.confirm_min < normalized.ask_below) {
-    normalized.confirm_min = normalized.ask_below;
-  }
-  if (normalized.auto_route_min < normalized.confirm_min) {
-    normalized.auto_route_min = normalized.confirm_min;
-  }
-  return normalized;
-}
-
-function defaultRouteActions() {
-  const technicalAnalysisAction = () => ({
-    route: "classify_artifact",
-    confirmation_key: "create_canonical_artifact",
-    default_artifact_type: "technical-analysis",
-    requires_artifact_type: true,
-  });
-  return {
-    initialize_project: { route: "init_project" },
-    init_project: { route: "init_project" },
-    onboard_existing_project: { route: "onboard_existing_project" },
-    existing_project_onboarding: { route: "onboard_existing_project" },
-    create_baseline: { route: "onboard_existing_project", confirmation_key: "create_canonical_artifact" },
-    intake_requirement: { route: "intake_requirement" },
-    classify_artifact: { route: "classify_artifact", requires_artifact_type: true },
-    decompose_stories: { route: "decompose_stories", confirmation_key: "create_story" },
-    create_story: { route: "decompose_stories", confirmation_key: "create_story" },
-    create_contract: { route: "create_contract" },
-    discover_capabilities: {
-      route: "discover_capabilities",
-      confirmation_key: "discover_capabilities",
-    },
-    capability_discovery: {
-      route: "discover_capabilities",
-      confirmation_key: "discover_capabilities",
-    },
-    technical_decision: {
-      route: "technical_decision",
-      confirmation_key: "create_canonical_artifact",
-      default_artifact_type: "technical-decision-matrix",
-    },
-    implement_story: {
-      route: "claim_and_implement",
-      confirmation_key: "start_implementation",
-      requires_story: true,
-      requires_contract: true,
-    },
-    start_implementation: {
-      route: "claim_and_implement",
-      confirmation_key: "start_implementation",
-      requires_story: true,
-      requires_contract: true,
-    },
-    validate_story: { route: "validate_story", requires_story: true },
-    release_story: { route: "release_story", requires_story: true },
-    skip_phase: { route: "confirm_phase_skip", confirmation_key: "skip_phase" },
-    functional_analysis: {
-      route: "classify_artifact",
-      confirmation_key: "create_canonical_artifact",
-      default_artifact_type: "functional-analysis",
-      requires_artifact_type: true,
-    },
-    technical_analysis: technicalAnalysisAction(),
-    technical_assessment: technicalAnalysisAction(),
-    initial_technical_assessment: technicalAnalysisAction(),
-    project_technical_assessment: technicalAnalysisAction(),
-    project_assessment: technicalAnalysisAction(),
-    architecture_assessment: technicalAnalysisAction(),
-    technical_review: technicalAnalysisAction(),
-    create_canonical_artifact: {
-      route: "classify_artifact",
-      confirmation_key: "create_canonical_artifact",
-      requires_artifact_type: true,
-    },
-    new_output_template: {
-      route: "classify_artifact",
-      confirmation_key: "new_output_template",
-      requires_artifact_type: true,
-    },
-    duplicate_output: {
-      route: "classify_artifact",
-      confirmation_key: "duplicate_output",
-      requires_artifact_type: true,
-    },
-  };
-}
-
-function normalizeRouteActionMap(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-  const result = {};
-  for (const [rawAction, rawConfig] of Object.entries(value)) {
-    const action = normalizeRouteToken(rawAction);
-    if (!action) {
-      continue;
-    }
-    if (typeof rawConfig === "string") {
-      result[action] = { route: normalizeRouteToken(rawConfig) };
-    } else if (rawConfig && typeof rawConfig === "object" && !Array.isArray(rawConfig)) {
-      result[action] = {
-        ...rawConfig,
-        route: normalizeRouteToken(rawConfig.route),
-        confirmation_key: rawConfig.confirmation_key ? normalizeRouteToken(rawConfig.confirmation_key) : undefined,
-        default_artifact_type: rawConfig.default_artifact_type
-          ? normalizeRouteArtifactTypeValue(rawConfig.default_artifact_type)
-          : undefined,
-      };
-    }
-  }
-  return result;
-}
-
-function routeActionConfig(policy, action) {
-  const config = policy.canonical_actions[normalizeRouteToken(action)] || null;
-  if (!config || !policy.routes.has(config.route)) {
-    return null;
-  }
-  return config;
-}
-
 function loadRouteIntent(context, options) {
   const inline = getOptionString(options, "intent-json");
   const file = getOptionString(options, "intent-file");
@@ -11375,25 +9563,6 @@ function normalizeRouteIntent(rawIntent, policy, context) {
   };
 }
 
-function emptyRouteIntent() {
-  return {
-    requested_action: null,
-    confidence: 0,
-    referenced_entities: [],
-    provided_artifacts: [],
-    missing_context: [],
-    proposed_phase: null,
-    artifact_type: null,
-    skip_phases: [],
-  };
-}
-
-function decideInitProjectRoute(decision, policy, actionConfig, confidenceOutcome) {
-  decision.route = "init_project";
-  decision.next_commands.push(`agentic-sdlc init --root ${decision.root}`);
-  return finalizeConcreteRoute(decision, policy, actionConfig, confidenceOutcome);
-}
-
 function decideOnboardExistingProjectRoute(context, decision, policy, actionConfig, confidenceOutcome) {
   decision.route = "onboard_existing_project";
   const baselines = readBaselines(context);
@@ -11412,19 +9581,6 @@ function decideOnboardExistingProjectRoute(context, decision, policy, actionConf
       decision.next_commands.push(`agentic-sdlc baseline approve --id ${latest.id} --actor-type human --approval-source explicit-user --summary "<user-confirmed baseline>"`);
     }
   }
-  return finalizeConcreteRoute(decision, policy, actionConfig, confidenceOutcome);
-}
-
-function decideIntakeRequirementRoute(decision, policy, actionConfig, confidenceOutcome) {
-  decision.route = "intake_requirement";
-  const requirementId = routeEntityId(decision.intent, policy, "requirement") || "<requirement-id>";
-  pushAllUnique(decision.blocking_reasons, ["requirement_agreement_required"]);
-  pushAllUnique(decision.questions, [
-    "Describe the outcome you need, at least one observable acceptance criterion, explicit non-goals or things the solution must not do, and the maximum independence allowed: supervised, checkpointed, or bounded-autonomous.",
-  ]);
-  decision.next_commands.push(
-    `agentic-sdlc requirement propose --id ${requirementId} --title "<short title>" --summary "<required outcome>" --acceptance "<observable acceptance criterion>" --non-goal "<explicit exclusion>" --autonomy-ceiling <supervised|checkpointed|bounded-autonomous>`,
-  );
   return finalizeConcreteRoute(decision, policy, actionConfig, confidenceOutcome);
 }
 
@@ -12322,40 +10478,6 @@ function readStoryClaim(context, storyId) {
   return fs.existsSync(claimPath) ? readProjectJson(context, claimPath) : null;
 }
 
-function routeStoryId(intent, policy) {
-  const direct = routeScalar(intent.story_id);
-  if (direct) {
-    return normalizeRouteId(direct);
-  }
-  return routeEntityId(intent, policy, "story");
-}
-
-function routeEntityId(intent, policy, type) {
-  const aliases = new Set(normalizeStringArray(policy.entity_types[type] || [type]).map(normalizeRouteToken));
-  for (const entity of intent.referenced_entities || []) {
-    if (!entity || typeof entity !== "object" || Array.isArray(entity)) {
-      continue;
-    }
-    const entityType = normalizeRouteToken(entity.type || entity.entity_type || entity.kind || entity.role);
-    if (!aliases.has(entityType)) {
-      continue;
-    }
-    const id = routeScalar(entity.id || entity.identifier || entity.value || entity[`${type}_id`]);
-    if (id) {
-      return normalizeRouteId(id);
-    }
-  }
-  return null;
-}
-
-function normalizeRouteId(value) {
-  try {
-    return normalizeId(value);
-  } catch {
-    return null;
-  }
-}
-
 function createRouteDecision(context, options = {}) {
   return {
     schema_version: context.config.schema_version || context.templateConfig.schema_version,
@@ -12374,240 +10496,8 @@ function createRouteDecision(context, options = {}) {
   };
 }
 
-function addRouteCheck(decision, check, status, details = null) {
-  decision.deterministic_checks.push({
-    check,
-    status,
-    details,
-  });
-}
-
-function applyRouteConfidenceGate(decision, policy) {
-  const confidence = Number(decision.confidence);
-  addRouteCheck(
-    decision,
-    "confidence_policy",
-    confidence >= policy.confidence.confirm_min ? "passed" : "failed",
-    `confidence=${confidence.toFixed(2)}, ask_below=${policy.confidence.ask_below}, confirm_min=${policy.confidence.confirm_min}, auto_route_min=${policy.confidence.auto_route_min}`,
-  );
-  if (confidence < policy.confidence.ask_below || confidence < policy.confidence.confirm_min) {
-    return "ask";
-  }
-  if (confidence < policy.confidence.auto_route_min) {
-    return "confirm";
-  }
-  return "auto";
-}
-
-function finalizeAskRoute(decision, updates = {}) {
-  decision.route = "ask_clarification";
-  decision.status = updates.status || decision.status || "needs_clarification";
-  pushAllUnique(decision.blocking_reasons, updates.blocking_reasons || []);
-  pushAllUnique(decision.questions, updates.questions || []);
-  pushAllUnique(decision.next_commands, updates.next_commands || []);
-  decision.requires_confirmation = false;
-  dedupeRouteDecision(decision);
-  return decision;
-}
-
-function finalizeConcreteRoute(decision, policy, actionConfig = {}, confidenceOutcome = "auto") {
-  const confirmationKey = normalizeRouteToken(actionConfig?.confirmation_key || decision.intent?.requested_action || decision.route);
-  const alwaysConfirm = policy.confidence.always_confirm.includes(confirmationKey);
-  if (confidenceOutcome === "confirm" || alwaysConfirm || decision.route === "confirm_phase_skip") {
-    decision.requires_confirmation = true;
-  }
-  decision.status = decision.requires_confirmation ? "needs_confirmation" : "ready";
-  if (decision.blocking_reasons.length > 0 && !decision.requires_confirmation) {
-    decision.status = "blocked";
-  }
-  dedupeRouteDecision(decision);
-  return decision;
-}
-
-function dedupeRouteDecision(decision) {
-  decision.blocking_reasons = Array.from(new Set(decision.blocking_reasons));
-  decision.questions = Array.from(new Set(decision.questions));
-  decision.next_commands = Array.from(new Set(decision.next_commands));
-}
-
-function formatRouteDecision(decision, options = {}) {
-  const italian = humanGuidanceLocale(options) === "it";
-  const ready = ["ready", "needs_confirmation"].includes(decision.status)
-    && decision.route !== "ask_clarification";
-  const acceptanceMissing = decision.blocking_reasons.includes("missing_acceptance_criteria");
-  const agreementRequested = decision.intent?.requested_action === "create_contract";
-  const technicalLines = [
-    `Route: ${decision.route}`,
-    `Status: ${decision.status}`,
-    `Confidence: ${Number(decision.confidence).toFixed(2)}`,
-    `Requires confirmation: ${decision.requires_confirmation ? "yes" : "no"}`,
-  ];
-  technicalLines.push(
-    decision.blocking_reasons.length
-      ? `Blocking reasons: ${decision.blocking_reasons.join(", ")}`
-      : "Blocking reasons: none",
-  );
-  if (decision.questions.length > 0) {
-    technicalLines.push("Questions:");
-    technicalLines.push(...decision.questions.map((question) => `- ${question}`));
-  }
-  if (decision.deterministic_checks.length > 0) {
-    technicalLines.push("Deterministic checks:");
-    technicalLines.push(
-      ...decision.deterministic_checks.map((check) =>
-        `- ${check.check}: ${check.status}${check.details ? ` (${check.details})` : ""}`,
-      ),
-    );
-  }
-  if (decision.next_commands.length > 0) {
-    technicalLines.push("Next commands:");
-    technicalLines.push(...decision.next_commands.map((command) => `- ${command}`));
-  }
-  return [
-    `${italian ? "Risultato" : "Outcome"}: ${acceptanceMissing
-      ? agreementRequested
-        ? (italian
-            ? "L’attività non definisce ancora un risultato verificabile, quindi il suo accordo di lavoro non può essere preparato."
-            : "The work item does not yet define a verifiable result, so its work agreement cannot be prepared.")
-        : (italian
-            ? "L’attività non definisce ancora un risultato verificabile e non può essere avviata."
-            : "The work item does not yet define a verifiable result and cannot be started.")
-      : ready
-        ? (italian ? "La richiesta è stata compresa e può essere indirizzata correttamente." : "The request is understood and can be directed correctly.")
-        : (italian ? "La richiesta ha bisogno di un chiarimento prima di procedere." : "The request needs clarification before work can continue.")}`,
-    `${italian ? "Cosa cambia in pratica" : "What this changes in practice"}: ${acceptanceMissing
-      ? (italian
-          ? "Il plugin resta fermo e non inventa al posto tuo come riconoscere il completamento."
-          : "The plugin remains paused and will not invent how completion should be recognized.")
-      : ready
-        ? (italian ? "Il prossimo passaggio è stato individuato senza avviare modifiche." : "The next step was identified without starting any changes.")
-        : (italian ? "Il plugin resta fermo per evitare di scegliere al posto tuo." : "The plugin remains paused so it does not guess on your behalf.")}`,
-    `${italian ? "Cosa devi decidere" : "What you need to decide"}: ${acceptanceMissing
-      ? (italian
-          ? "Indica almeno un risultato osservabile che dimostri quando l’attività è completa."
-          : "State at least one observable result that will show when the work is complete.")
-      : decision.questions.length > 0
-        ? (italian ? "Chiarisci la scelta descritta nei dettagli facoltativi." : "Clarify the choice described in the optional details.")
-        : (italian ? "Non devi decidere altro per questo controllo." : "You do not need to decide anything else for this check.")}`,
-    `${italian ? "Cosa resta protetto" : "What remains protected"}: ${italian
-      ? "Questo controllo ha interpretato la richiesta ma non ha modificato file, pubblicato o eseguito merge."
-      : "This check interpreted the request but did not change files, publish, or merge anything."}`,
-    `${italian ? "Prossimo passo" : "Next step"}: ${acceptanceMissing
-      ? (italian
-          ? "Aggiungi il criterio osservabile e ripeti questo controllo."
-          : "Add the observable criterion and run this check again.")
-      : ready
-        ? (italian ? "Prosegui soltanto con il passaggio individuato." : "Continue only with the identified next step.")
-        : (italian ? "Fornisci il chiarimento richiesto e ripeti il controllo." : "Provide the requested clarification and run the check again.")}`,
-    "",
-    `${italian ? "Dettagli tecnici (facoltativi)" : "Technical details (optional)"}:`,
-    ...technicalLines.map((line) => `- ${line}`),
-  ];
-}
-
-function canonicalIntentQuestion() {
-  return `Provide canonical intent JSON with fields: ${ROUTE_REQUIRED_INTENT_FIELDS.join(", ")}.`;
-}
-
-function canonicalIntentCommand() {
-  return "agentic-sdlc route decide --intent-json '<canonical-intent-json>'";
-}
-
 function isKbInitialized(context) {
   return fs.existsSync(path.join(context.sdlcRoot, "project.json"));
-}
-
-function normalizeIntentArray(value, field, errors) {
-  if (!Array.isArray(value)) {
-    errors.push(`${field} must be an array`);
-    return [];
-  }
-  return value;
-}
-
-function normalizeIntentArtifactType(value, errors) {
-  const raw = routeScalar(value);
-  if (!raw) {
-    return null;
-  }
-  try {
-    return normalizeArtifactType(raw);
-  } catch (error) {
-    errors.push(error.message);
-    return null;
-  }
-}
-
-function normalizeRouteArtifactTypeValue(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-");
-}
-
-function routeQuestionFromContext(item) {
-  if (typeof item === "string") {
-    return `Provide missing context: ${item}.`;
-  }
-  if (item && typeof item === "object") {
-    return routeScalar(item.question || item.prompt || item.label || item.id) || "Provide the missing canonical context.";
-  }
-  return "Provide the missing canonical context.";
-}
-
-function nullableRouteToken(value) {
-  const scalar = routeScalar(value);
-  return scalar ? normalizeRouteToken(scalar) : null;
-}
-
-function nullableRoutePhase(value) {
-  const scalar = routeScalar(value);
-  return scalar ? normalizeRoutePhase(scalar) : null;
-}
-
-function normalizeRouteToken(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
-function normalizeRoutePhase(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
-
-function routeScalar(value) {
-  if (value === undefined || value === null || value === true) {
-    return null;
-  }
-  if (Array.isArray(value)) {
-    return value.length === 1 ? routeScalar(value[0]) : null;
-  }
-  const text = String(value).trim();
-  return text || null;
-}
-
-function normalizeStringArray(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.map((item) => String(item || "").trim()).filter(Boolean);
-}
-
-function pushAllUnique(target, values) {
-  for (const value of values) {
-    if (value && !target.includes(value)) {
-      target.push(value);
-    }
-  }
-}
-
-function clamp01(value) {
-  return Math.max(0, Math.min(1, Number(value)));
 }
 
 function initProject(context, options) {
@@ -12658,38 +10548,6 @@ function projectBootstrapDirectoryPaths(context) {
     path.join(context.sdlcRoot, "work-items", "tasks"),
     ...artifactParents,
   ]);
-}
-
-function projectBootstrapDirectoryAncestorClosure(context, directoryPaths) {
-  const projectRoot = path.resolve(context.root);
-  const sdlcRoot = path.resolve(context.sdlcRoot);
-  if (sdlcRoot !== path.resolve(projectRoot, SDLC_DIR)) {
-    fail("Project bootstrap directory inventory is not bound to the canonical .sdlc root.");
-  }
-  assertNoSymlinkSegmentsWithinBoundary(projectRoot, sdlcRoot);
-
-  const closure = new Map();
-  for (const directoryPath of directoryPaths) {
-    let current = path.resolve(String(directoryPath));
-    if (!isInsidePath(sdlcRoot, current)) {
-      fail(`Project bootstrap directory escapes the canonical .sdlc root: ${directoryPath}`);
-    }
-    assertNoSymlinkSegmentsWithinBoundary(projectRoot, current);
-    while (true) {
-      closure.set(current, current);
-      if (current === sdlcRoot) break;
-      const parent = path.dirname(current);
-      if (parent === current || !isInsidePath(sdlcRoot, parent)) {
-        fail(`Project bootstrap directory has an ambiguous ancestor chain: ${directoryPath}`);
-      }
-      current = parent;
-    }
-  }
-  closure.set(sdlcRoot, sdlcRoot);
-  return [...closure.values()].sort((left, right) => {
-    const depthDifference = left.split(path.sep).length - right.split(path.sep).length;
-    return depthDifference || left.localeCompare(right);
-  });
 }
 
 function projectBootstrapArtifactSpecifications(context) {
@@ -12885,65 +10743,6 @@ async function runDoctor(context, options) {
   ], options));
 }
 
-function readContextOptimizationPolicy(context) {
-  const configured = context.config.context_optimization_policy || {};
-  const provider = configured.provider || {};
-  const command = provider.command || {};
-  return {
-    enabled: configured.enabled !== false,
-    mode: configured.mode || "automatic",
-    fallback: configured.fallback || "native",
-    storage_root: configured.storage_root || "context-optimization",
-    provider: {
-      id: provider.id || RTK_ADAPTER_ID,
-      minimum_version: provider.minimum_version || "0.43.0",
-      command: {
-        executable: command.executable || "rtk",
-        arguments: Array.isArray(command.arguments) ? command.arguments : [],
-      },
-    },
-    response_provider: {
-      id: configured.response_provider?.id || "caveman",
-      version: configured.response_provider?.version || "1.9.1",
-      skill: configured.response_provider?.skill || "../caveman/SKILL.md",
-      mode: configured.response_provider?.mode || "adaptive",
-      default_intensity: configured.response_provider?.default_intensity || "full",
-      auto_clarity: configured.response_provider?.auto_clarity !== false,
-      usage_accounting: configured.response_provider?.usage_accounting || "measured_net_usage_only",
-    },
-    telemetry: {
-      enabled: configured.telemetry?.enabled !== false,
-      include_in_budget_status: configured.telemetry?.include_in_budget_status !== false,
-      auto_capture: Array.isArray(configured.telemetry?.auto_capture)
-        ? configured.telemetry.auto_capture
-        : ["apply", "checkpoint", "complete"],
-    },
-    budget_trigger_statuses: Array.isArray(configured.budget_trigger_statuses)
-      ? configured.budget_trigger_statuses
-      : ["warning", "soft_limit", "completion_reserve"],
-  };
-}
-
-function configuredRtkOptions(context, trust) {
-  const policy = readContextOptimizationPolicy(context);
-  if (!trust?.allowed || !trust.execution_executable) {
-    throw new Error("RTK provider options require an allowed, resolved invocation");
-  }
-  return {
-    executable: trust.execution_executable,
-    prefix_args: policy.provider.command.arguments,
-    minimum_version: policy.provider.minimum_version,
-    cwd: context.root,
-  };
-}
-
-function contextOptimizationRuntimeOptions(options = {}, extra = {}) {
-  return {
-    ...extra,
-    allow_custom_provider: options["trust-custom-rtk-command"] === true,
-  };
-}
-
 function configuredRtkTrust(context, options = {}) {
   const policy = readContextOptimizationPolicy(context);
   const configuredExecutable = policy.provider.command.executable;
@@ -13117,16 +10916,6 @@ async function inspectContextOptimization(context, options = {}) {
     };
   }
   return verifyConfiguredRtk(context, options);
-}
-
-function contextOptimizationExecutionRoot(context, proposalId) {
-  const configured = readContextOptimizationPolicy(context).storage_root;
-  assertSafeSdlcRelativeDirectory(configured, "context_optimization_policy.storage_root");
-  return path.join(context.sdlcRoot, configured, normalizeId(proposalId));
-}
-
-function contextOptimizationObservationsRoot(context, proposalId) {
-  return path.join(contextOptimizationExecutionRoot(context, proposalId), "observations");
 }
 
 function readContextOptimizationObservations(context, proposalId) {
@@ -13540,17 +11329,6 @@ function spawnCommandWithoutShell(executable, argv, cwd, options = {}) {
   });
 }
 
-function projectBootstrapJournalPath(context) {
-  return path.join(context.sdlcRoot, PROJECT_BOOTSTRAP_JOURNAL_FILE_NAME);
-}
-
-function projectBootstrapInitialIdentityHash(projectId, projectName) {
-  return computeStableHash({
-    project_id: String(projectId),
-    project_name: String(projectName),
-  });
-}
-
 function buildProjectBootstrapJournalRequest(context, options) {
   const projectName = String(options["project-name"] || path.basename(context.root));
   const projectId = String(options["project-id"] || slugify(projectName));
@@ -13659,14 +11437,6 @@ function readProjectBootstrapJournal(context) {
   return journal;
 }
 
-function projectBootstrapJournalReference(requestHash) {
-  return {
-    path: `${SDLC_DIR}/${PROJECT_BOOTSTRAP_JOURNAL_FILE_NAME}`,
-    schema_version: PROJECT_BOOTSTRAP_JOURNAL_SCHEMA_VERSION,
-    request_hash: requestHash,
-  };
-}
-
 function validatePreparedProjectBootstrapRecovery(context, journal) {
   const manifest = journal.prepared_manifest;
   assertRecordSchema(
@@ -13747,33 +11517,6 @@ function validatePreparedProjectBootstrapRecovery(context, journal) {
     );
   }
   return { manifest, project, configLock };
-}
-
-function projectBootstrapRecoveryResult(context, project, configLock, manifest) {
-  return {
-    payload: {
-      status: "initialized",
-      recovered: true,
-      root: context.root,
-      sdlc_root: context.sdlcRoot,
-      project,
-      config_lock: {
-        path: `${SDLC_DIR}/${PROJECT_CONFIG_LOCK_FILE_NAME}`,
-        hash: configLock.lock_hash,
-      },
-      bootstrap_manifest: {
-        path: `${SDLC_DIR}/${PROJECT_BOOTSTRAP_MANIFEST_FILE_NAME}`,
-        hash: manifest.manifest_hash,
-      },
-      contracts_created: [],
-    },
-    messages: [
-      `Recovered the exact interrupted Agentic SDLC bootstrap at ${SDLC_DIR}.`,
-      `Project: ${project.project_name} (${project.project_id})`,
-      "No project identity or core bootstrap record was regenerated.",
-      `Bootstrap completion sealed: ${SDLC_DIR}/${PROJECT_BOOTSTRAP_MANIFEST_FILE_NAME}`,
-    ],
-  };
 }
 
 function recoverInterruptedProjectBootstrap(context, options) {
@@ -14721,73 +12464,6 @@ function appendLegacyBootstrapEvidenceProblems(context, config, helpers) {
   }
 }
 
-function arraysEqual(left, right) {
-  return Array.isArray(left)
-    && Array.isArray(right)
-    && left.length === right.length
-    && left.every((value, index) => value === right[index]);
-}
-
-function parseSemanticVersion(value) {
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u.exec(
-    String(value || "").trim(),
-  );
-  if (!match) return null;
-  const core = match.slice(1, 4).map(Number);
-  if (core.some((part) => !Number.isSafeInteger(part))) return null;
-  const prerelease = match[4] ? match[4].split(".") : [];
-  if (prerelease.some((part) => /^\d+$/u.test(part) && !Number.isSafeInteger(Number(part)))) {
-    return null;
-  }
-  return { core, prerelease };
-}
-
-function compareSemanticVersions(left, right) {
-  const parsedLeft = parseSemanticVersion(left);
-  const parsedRight = parseSemanticVersion(right);
-  if (!parsedLeft || !parsedRight) return null;
-  for (let index = 0; index < parsedLeft.core.length; index += 1) {
-    if (parsedLeft.core[index] !== parsedRight.core[index]) {
-      return parsedLeft.core[index] < parsedRight.core[index] ? -1 : 1;
-    }
-  }
-  if (parsedLeft.prerelease.length === 0 || parsedRight.prerelease.length === 0) {
-    if (parsedLeft.prerelease.length === parsedRight.prerelease.length) return 0;
-    return parsedLeft.prerelease.length === 0 ? 1 : -1;
-  }
-  const length = Math.max(parsedLeft.prerelease.length, parsedRight.prerelease.length);
-  for (let index = 0; index < length; index += 1) {
-    const leftPart = parsedLeft.prerelease[index];
-    const rightPart = parsedRight.prerelease[index];
-    if (leftPart === undefined || rightPart === undefined) {
-      return leftPart === rightPart ? 0 : leftPart === undefined ? -1 : 1;
-    }
-    if (leftPart === rightPart) continue;
-    const leftNumeric = /^\d+$/u.test(leftPart);
-    const rightNumeric = /^\d+$/u.test(rightPart);
-    if (leftNumeric && rightNumeric) return Number(leftPart) < Number(rightPart) ? -1 : 1;
-    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
-    return leftPart < rightPart ? -1 : 1;
-  }
-  return 0;
-}
-
-function projectVersionRequiresBootstrapManifest(version) {
-  const comparison = compareSemanticVersions(
-    version,
-    PROJECT_BOOTSTRAP_MANIFEST_INTRODUCED_VERSION,
-  );
-  return comparison === null || comparison >= 0;
-}
-
-function failIncompleteExistingBootstrap(problems) {
-  fail(
-    `Existing ${SDLC_DIR} bootstrap is incomplete: ${problems.join("; ")}. No files were changed. `
-    + "Restore the canonical files or completed bootstrap manifest from version control. "
-    + "If this directory came only from an interrupted first onboarding, preserve any useful evidence and archive the incomplete .sdlc outside the project before rerunning onboard.",
-  );
-}
-
 function proposeBaseline(context, options) {
   ensureInitialized(context);
   const result = createBaselineProposal(context, options);
@@ -14909,74 +12585,6 @@ function createBaselineProposal(context, options) {
   return { baseline: persistedBaseline, baseline_path: baselinePath, report_path: reportPath };
 }
 
-function baselineProposalIntent(baseline) {
-  const {
-    audit: _audit,
-    created_at: _createdAt,
-    updated_at: _updatedAt,
-    proposal_intent_hash: _proposalIntentHash,
-    proposal_intent_hash_algorithm: _proposalIntentHashAlgorithm,
-    ...intent
-  } = baseline || {};
-  const repositorySnapshot = intent.repository_snapshot || {};
-  const repositoryGit = repositorySnapshot.git || {};
-  return {
-    ...intent,
-    repository_snapshot: {
-      ...repositorySnapshot,
-      git: {
-        is_git_repo: repositoryGit.is_git_repo ?? false,
-        branch: repositoryGit.branch ?? null,
-        head_sha: repositoryGit.head_sha ?? null,
-        remotes: Array.isArray(repositoryGit.remotes) ? repositoryGit.remotes : [],
-      },
-    },
-  };
-}
-
-function baselineProposalIntentHash(baseline) {
-  return computeStableHash(baselineProposalIntent(baseline));
-}
-
-function failBaselineProposalResume(id, reason) {
-  fail(
-    `Baseline ${id} cannot be resumed safely: ${reason}. No files were changed. `
-    + "Keep the existing proposal and use a new --id, or review it and explicitly decide whether to replace it with --force; replacement is never implicit.",
-  );
-}
-
-function assertBaselineProposalCanResume(existing, candidate) {
-  const id = candidate.id;
-  if (
-    existing.id !== id
-    || existing.status !== "proposed"
-    || !Array.isArray(existing.approvals)
-    || existing.approvals.length !== 0
-  ) {
-    failBaselineProposalResume(id, "the existing record has a different identity or has already progressed");
-  }
-  if (
-    existing.proposal_intent_hash_algorithm !== "sha256:stable-json:v1"
-    || !/^[a-f0-9]{64}$/u.test(String(existing.proposal_intent_hash || ""))
-    || existing.proposal_intent_hash !== baselineProposalIntentHash(existing)
-  ) {
-    failBaselineProposalResume(id, "the existing proposal has no valid immutable request fingerprint");
-  }
-  if (existing.proposal_intent_hash !== candidate.proposal_intent_hash) {
-    failBaselineProposalResume(
-      id,
-      "the existing record represents a different onboarding request or its source evidence changed",
-    );
-  }
-  if (
-    typeof existing.created_at !== "string"
-    || !existing.audit?.proposed_by
-    || typeof existing.audit.proposed_by !== "object"
-  ) {
-    failBaselineProposalResume(id, "the existing proposal is missing the audit data required for deterministic recovery");
-  }
-}
-
 function ensureBaselineProposalReport(context, baseline, reportPath) {
   const expectedReport = renderBaselineReport(baseline);
   if (!pathEntryExistsNoFollow(reportPath)) {
@@ -14991,36 +12599,6 @@ function ensureBaselineProposalReport(context, baseline, reportPath) {
     );
   }
   return { created: false };
-}
-
-function buildBaselineProposalTraceEvent(context, baseline, baselinePath, reportPath) {
-  const traceFingerprint = computeStableHash({
-    baseline_id: baseline.id,
-    proposal_intent_hash: baseline.proposal_intent_hash,
-    created_at: baseline.created_at,
-  });
-  return {
-    id: `TR-BASELINE-${traceFingerprint.slice(0, 24)}`,
-    story_id: null,
-    type: "decision",
-    summary: `Proposed project baseline ${baseline.id}`,
-    outcome: null,
-    actor: baseline.audit.proposed_by,
-    requested_by: null,
-    authorized_by: null,
-    request: null,
-    authorization_ref: null,
-    action: "baseline.propose",
-    evidence: [
-      toProjectPath(context, baselinePath),
-      toProjectPath(context, reportPath),
-      ...(baseline.imported_documents || []).map((item) => item.path),
-    ],
-    related: [baseline.id],
-    git: baseline.audit.git || {},
-    run: baseline.audit.run || {},
-    created_at: baseline.created_at,
-  };
 }
 
 function ensureBaselineProposalTrace(context, baseline, baselinePath, reportPath) {
@@ -15247,14 +12825,6 @@ function showBaselineStatus(context, options) {
   );
 }
 
-function requirementsRoot(context) {
-  return path.join(context.sdlcRoot, "requirements");
-}
-
-function requirementPath(context, id) {
-  return path.join(requirementsRoot(context), `${normalizeId(id)}.json`);
-}
-
 function readRequirement(context, id, options = {}) {
   const filePath = requirementPath(context, id);
   if (!fs.existsSync(filePath)) {
@@ -15264,93 +12834,6 @@ function readRequirement(context, id, options = {}) {
     fail(`Requirement ${id} does not exist.`);
   }
   return readProjectJson(context, filePath);
-}
-
-function autonomyRoot(context) {
-  const configured = context.config.autonomy_policy?.storage_root || "autonomy";
-  assertSafeSdlcRelativeDirectory(configured, "autonomy_policy.storage_root");
-  return path.join(context.sdlcRoot, configured);
-}
-
-function requirementAutonomyRoot(context) {
-  return path.join(autonomyRoot(context), "requirements");
-}
-
-function deliveryAutonomyRoot(context) {
-  return path.join(autonomyRoot(context), "deliveries");
-}
-
-function autonomyApprovalsRoot(context) {
-  return path.join(autonomyRoot(context), "approvals");
-}
-
-function autonomyDecisionsRoot(context) {
-  return path.join(autonomyRoot(context), "decisions");
-}
-
-function autonomyRevocationsRoot(context) {
-  return path.join(autonomyRoot(context), "revocations");
-}
-
-function autonomyExecutionsRoot(context) {
-  return path.join(autonomyRoot(context), "executions");
-}
-
-function autonomyActionsRoot(context) {
-  return path.join(autonomyRoot(context), "actions");
-}
-
-function autonomyActionIntentsRoot(context) {
-  return path.join(autonomyRoot(context), "action-intents");
-}
-
-function deliveryExecutionRoot(context, profileId) {
-  return path.join(autonomyExecutionsRoot(context), normalizeId(profileId));
-}
-
-function deliveryActionAttemptsRoot(context, profileId) {
-  return path.join(deliveryExecutionRoot(context, profileId), "attempts");
-}
-
-function deliveryActionAttemptPath(context, profileId, attemptId) {
-  return path.join(
-    deliveryActionAttemptsRoot(context, profileId),
-    `${normalizeId(attemptId)}.json`,
-  );
-}
-
-function deliveryStartReceiptPath(context, profileId) {
-  return path.join(deliveryExecutionRoot(context, profileId), "start.json");
-}
-
-function deliveryCloseReceiptPath(context, profileId) {
-  return path.join(deliveryExecutionRoot(context, profileId), "close.json");
-}
-
-function executionContextPreflightPath(context, profileId) {
-  return path.join(deliveryExecutionRoot(context, profileId), "context-preflight.json");
-}
-
-function requirementLifecycleRoot(context) {
-  return path.join(requirementsRoot(context), "lifecycle");
-}
-
-function requirementAutonomyPath(context, profileId) {
-  return path.join(requirementAutonomyRoot(context), `${normalizeId(profileId)}.json`);
-}
-
-function deliveryAutonomyPath(context, profileId) {
-  return path.join(deliveryAutonomyRoot(context), `${normalizeId(profileId)}.json`);
-}
-
-function deliveryExecutionProfileSchemaName(profile) {
-  if (profile?.schema_version === "delivery-execution-profile:v2") {
-    return "delivery-execution-profile-v2.schema.json";
-  }
-  if (profile?.schema_version === "delivery-execution-profile:v1") {
-    return "delivery-execution-profile.schema.json";
-  }
-  fail(`Unsupported delivery profile schema '${profile?.schema_version || "missing"}'.`);
 }
 
 function readRequirementAutonomyProfile(context, profileId, options = {}) {
@@ -15380,14 +12863,6 @@ function readDeliveryAutonomyProfile(context, profileId, options = {}) {
   }
   assertRecordSchema(profile, deliveryExecutionProfileSchemaName(profile), `Delivery autonomy profile ${profileId}`);
   return profile;
-}
-
-function buildDomainRecord(label, factory) {
-  try {
-    return factory();
-  } catch (error) {
-    fail(`${label}: ${error.message}`);
-  }
 }
 
 function resolveRequirementSources(context, values) {
@@ -15517,56 +12992,6 @@ function assertCanonicalRequirementWriteScope(context, profile, requirementId) {
     );
   }
   return canonicalMaterial;
-}
-
-function rejectLegacyRequirementWriteScope(requirementId, profileId, reason) {
-  fail(
-    `Requirement ${requirementId} has a non-canonical write scope in profile ${profileId}: ${reason}. `
-    + "Approval was refused without rewriting either proposal. Create a new immutable requirement revision "
-    + "and pass project-internal --write-path values; the CLI will store them as Git-relative paths.",
-    {
-      en: {
-        result: "This requirement cannot be approved because its file boundary uses an older or invalid path format.",
-        impact: "The requirement and its proposed working limits were left byte-for-byte unchanged.",
-        required_decision: "Create a new immutable revision that names the intended project file areas.",
-        protection_boundary: "No approval, implementation, delivery, external access, or wider file access was created.",
-        next_action: `Revise ${requirementId}, supplying the project-internal file areas that may change, then approve the new revision.`,
-        details: { requirement_id: requirementId, profile_id: profileId, reason },
-      },
-      it: {
-        result: "Questo requisito non può essere approvato perché il limite dei file usa un formato di percorso precedente o non valido.",
-        impact: "Il requisito e i limiti di lavoro proposti sono rimasti invariati byte per byte.",
-        required_decision: "Crea una nuova revisione immutabile indicando le aree di file del progetto previste.",
-        protection_boundary: "Non sono stati creati approvazioni, implementazioni, consegne, accessi esterni o accessi più ampi ai file.",
-        next_action: `Revisiona ${requirementId}, indicando le aree interne al progetto che potranno cambiare, poi approva la nuova revisione.`,
-        details: { requirement_id: requirementId, profile_id: profileId, reason },
-      },
-    },
-  );
-}
-
-function requirementMaterialScope(requirement, options = {}, canonicalWritePaths = null) {
-  const environments = normalizeListOption(options.environment).length > 0
-    ? normalizeListOption(options.environment)
-    : ["local"];
-  const capabilities = [...new Set([
-    ...normalizeListOption(options.capability),
-    ...normalizeListOption(options.tool),
-  ])];
-  return {
-    objective: requirement.summary,
-    scope: requirement.summary,
-    non_goals: requirement.non_goals,
-    acceptance_criteria: requirement.acceptance_criteria,
-    nfrs: requirement.non_functional_requirements,
-    integrations: requirement.integrations,
-    environment: environments.sort(),
-    write_paths: canonicalWritePaths || normalizeListOption(options["write-path"]).sort(),
-    capabilities: capabilities.sort(),
-    budget: null,
-    release_target: null,
-    requirement_constraints: requirement.constraints,
-  };
 }
 
 function buildRequirementProfileFor(context, requirement, options = {}, settings = {}) {
@@ -15725,15 +13150,6 @@ function proposeRequirement(context, options, settings = {}) {
       ...(settings.legacyAlias ? ["Command alias: create (deprecated; use requirement propose)"] : []),
     ], options),
   ]);
-}
-
-function autonomyApprovalSubject(context, profile, profilePath) {
-  return {
-    kind: profile.kind,
-    id: profile.id,
-    path: toProjectPath(context, profilePath),
-    hash: profile.profile_hash,
-  };
 }
 
 function loadAutonomyAuthorityAssurance(context, options, action, subject) {
@@ -16462,62 +13878,11 @@ function validateAutonomyApprovalRef(context, profile, label = `Autonomy profile
   return envelope;
 }
 
-function autonomyProfileApprovalProjection(profile) {
-  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return null;
-  const {
-    approval_ref: _approvalRef,
-    authority_assurance: _authorityAssurance,
-    profile_hash: _profileHash,
-    status: _status,
-    updated_at: _updatedAt,
-    extensions,
-    ...immutable
-  } = profile;
-  const projectedExtensions = { ...(extensions || {}) };
-  delete projectedExtensions.approved_profile_hash;
-  return { ...immutable, extensions: projectedExtensions };
-}
-
 function requirementByAutonomyProfileId(context, profileId) {
   return safeReadDir(requirementsRoot(context))
     .filter((name) => name.endsWith(".json"))
     .map((name) => readProjectJson(context, path.join(requirementsRoot(context), name)))
     .find((requirement) => requirement.autonomy_profile_id === profileId) || null;
-}
-
-function parsePullRequestUrlIdentity(value, expectedRepository, label) {
-  let parsed;
-  try {
-    parsed = new URL(value);
-  } catch {
-    fail(`${label} must be an absolute URL.`);
-  }
-  const segments = parsed.pathname.replace(/^\/+|\/+$/gu, "").split("/");
-  const repository = segments.length >= 2
-    ? `${parsed.hostname.toLowerCase()}/${segments[0].toLowerCase()}/${segments[1].replace(/\.git$/iu, "").toLowerCase()}`
-    : null;
-  if (
-    parsed.protocol !== "https:"
-    || parsed.search
-    || parsed.hash
-    || parsed.hostname.toLowerCase() !== "github.com"
-    || repository !== normalizeGitRepositoryIdentity(expectedRepository)
-    || segments[2] !== "pull"
-    || !/^[1-9]\d*$/u.test(segments[3] || "")
-    || segments.length !== 4
-  ) {
-    fail(`${label} must identify one exact pull request in the approved repository.`);
-  }
-  const number = Number(segments[3]);
-  if (!Number.isSafeInteger(number)) {
-    fail(`${label} pull-request number is outside the supported integer range.`);
-  }
-  parsed.pathname = `/${segments[0].toLowerCase()}/${segments[1].replace(/\.git$/iu, "").toLowerCase()}/pull/${number}`;
-  return {
-    number,
-    url: canonicalAbsoluteUrl(parsed.toString()),
-    repository,
-  };
 }
 
 function reviewedPullRequestHeadSha(context, headBranch, explicitSha) {
@@ -16763,129 +14128,6 @@ function deliveryConcreteIdentity(kind, target) {
   };
 }
 
-function configuredDeliveryProviderSelection(context) {
-  const configured = context.config.autonomy_policy?.delivery_providers || {};
-  return {
-    git_push: configured.git_push || DEFAULT_DELIVERY_PROVIDER_SELECTION.git_push,
-    pull_request: configured.pull_request || DEFAULT_DELIVERY_PROVIDER_SELECTION.pull_request,
-    local_release: configured.local_release || DEFAULT_DELIVERY_PROVIDER_SELECTION.local_release,
-  };
-}
-
-function normalizeDeliveryProviderId(value, label) {
-  const providerId = String(value || "").trim().toLowerCase();
-  if (!/^[a-z0-9][a-z0-9._-]*$/u.test(providerId)) {
-    fail(`${label} must be a safe provider id, for example git-remote or github-cli.`);
-  }
-  return providerId;
-}
-
-function deliveryProviderBindingsFromOptions(context, kind, options, target) {
-  const configured = configuredDeliveryProviderSelection(context);
-  const pullRequestActions = target?.pull_request_target?.mode === "existing"
-    ? ["pull_request.merge", "pull_request.update"]
-    : ["pull_request.create", "pull_request.merge", "pull_request.update"];
-  const selected = kind === "pull_request"
-    ? [
-        {
-          action: "git.push",
-          provider_id: normalizeDeliveryProviderId(
-            getOptionString(options, "git-provider") || configured.git_push,
-            "Git provider",
-          ),
-        },
-        ...pullRequestActions.map((action) => ({
-          action,
-          provider_id: normalizeDeliveryProviderId(
-            getOptionString(options, "pull-request-provider") || configured.pull_request,
-            "Pull-request provider",
-          ),
-        })),
-      ]
-    : [
-        ...(target?.local_release_target?.data_migration
-          ? ["data.migrate", "data.rollback"]
-          : []),
-        "release.local",
-        ...(target?.local_release_target?.rollback?.verification_required === true
-          ? ["rollback.verify"]
-          : []),
-      ].map((action) => ({
-        action,
-        provider_id: normalizeDeliveryProviderId(
-          getOptionString(options, "local-release-provider") || configured.local_release,
-          "Local-release provider",
-        ),
-      }));
-  const registry = createDefaultDeliveryProviderRegistry();
-  for (const binding of selected) {
-    try {
-      if (
-        !registry.supports(binding.provider_id, binding.action, "precondition")
-        || !registry.supports(binding.provider_id, binding.action, "completion")
-      ) {
-        fail(`The selected provider cannot verify ${binding.action}; choose a compatible installed provider.`);
-      }
-    } catch (error) {
-      if (error instanceof DeliveryProviderError) {
-        fail(`The selected provider cannot verify ${binding.action}; choose a compatible installed provider.`);
-      }
-      throw error;
-    }
-  }
-  return selected.sort((left, right) => left.action.localeCompare(right.action));
-}
-
-function normalizeDeliveryAction(kind, value) {
-  const raw = String(value || "").trim().toLowerCase();
-  const aliases = {
-    implement: "repository.write",
-    read: "repository.read",
-    test: "test.run",
-    commit: "git.commit",
-    push: "git.push",
-    update: "pull_request.update",
-    merge: "pull_request.merge",
-    build: "build.local",
-    migrate: "data.migrate",
-    rollback: "data.rollback",
-    "verify-rollback": "rollback.verify",
-    release: "release.local",
-  };
-  const action = aliases[raw] || raw;
-  const catalog = kind === "pull_request"
-    ? new Set([
-        "repository.read",
-        "repository.write",
-        "test.run",
-        "git.commit",
-        "git.push",
-        "pull_request.create",
-        "pull_request.update",
-        "pull_request.merge",
-      ])
-    : new Set([
-        "build.local",
-        "data.migrate",
-        "data.rollback",
-        "rollback.verify",
-        "test.run",
-        "release.local",
-      ]);
-  if (!catalog.has(action)) {
-    fail(`Unknown ${kind} delivery action '${value}'. Valid actions: ${[...catalog].sort().join(", ")}.`);
-  }
-  return action;
-}
-
-function pathMatchesApprovedWriteScope(filePath, allowedPaths) {
-  const normalized = String(filePath || "").replace(/\\/gu, "/").replace(/^\.\//u, "");
-  return allowedPaths.some((allowedPath) => {
-    const allowed = String(allowedPath || "").replace(/\\/gu, "/").replace(/^\.\//u, "").replace(/\/$/u, "");
-    return normalized === allowed || normalized.startsWith(`${allowed}/`);
-  });
-}
-
 function pullRequestChangedPaths(context, runtimeTarget, action) {
   let output = "";
   if (action === "git.commit") {
@@ -17111,16 +14353,6 @@ function buildDeliveryActionDetails(context, profile, action, runtimeTarget, opt
     }
   }
   return details;
-}
-
-function gitRuntimeWithoutHead(runtimeTarget) {
-  const { head_sha: _headSha, ...boundary } = runtimeTarget || {};
-  return boundary;
-}
-
-function gitRuntimeWithoutBaseSha(runtimeTarget) {
-  const { base_sha: _baseSha, ...boundary } = runtimeTarget || {};
-  return boundary;
 }
 
 function validatePullRequestMergeRuntimeTransition(context, authorization, runtimeTarget, completionProof) {
@@ -17367,137 +14599,6 @@ function verifyLegacyCompletedGitHubMerge(profile, authorization) {
   };
 }
 
-function canonicalAbsoluteUrl(value) {
-  try {
-    const parsed = new URL(value);
-    parsed.hash = "";
-    parsed.search = "";
-    return parsed.toString().replace(/\/$/u, "");
-  } catch {
-    return null;
-  }
-}
-
-function remoteAuthorizationProjection(action, actionDetails) {
-  const { checkpoint_policy: _checkpointPolicy, ...operationDetails } = actionDetails || {};
-  if (action === "git.push") {
-    const {
-      push_precondition: _pushPrecondition,
-      base_precondition: _basePrecondition,
-      commit_coverage: _commitCoverage,
-      provider_operation: _providerOperation,
-      remote_verification: _remoteVerification,
-      ...projection
-    } = operationDetails;
-    return projection;
-  }
-  if (action === "pull_request.merge") {
-    const {
-      merge_precondition: _precondition,
-      provider_operation: _providerOperation,
-      provider_verification: _providerVerification,
-      ...projection
-    } = operationDetails;
-    return projection;
-  }
-  return operationDetails;
-}
-
-const DELIVERY_PROVIDER_ACTIONS = new Set([
-  "data.migrate",
-  "data.rollback",
-  "git.push",
-  "pull_request.create",
-  "pull_request.merge",
-  "pull_request.update",
-  "release.local",
-  "rollback.verify",
-]);
-
-function resolveDeliveryProviderBinding(profile, action) {
-  if (!DELIVERY_PROVIDER_ACTIONS.has(action)) return null;
-  try {
-    const binding = providerBindingForAction(profile, action);
-    if (!binding) {
-      fail(`This delivery has no verification provider for ${action}; create a new delivery choice with an explicit provider.`);
-    }
-    if (binding.compatibility === "unsupported-fail-closed") {
-      fail(`This historical delivery cannot safely verify ${action}; create a new delivery choice with a compatible provider.`);
-    }
-    const registry = createDefaultDeliveryProviderRegistry();
-    if (
-      !registry.supports(binding.provider_id, action, "precondition")
-      || !registry.supports(binding.provider_id, action, "completion")
-    ) {
-      fail(`The provider selected for ${action} cannot verify both the before and after state.`);
-    }
-    return binding;
-  } catch (error) {
-    if (error instanceof DeliveryProviderError) {
-      fail(`The delivery provider for ${action} is unavailable or incompatible.`);
-    }
-    throw error;
-  }
-}
-
-function deliveryProviderOperationSubject(context, profile, action, actionDetails, authorizedAt) {
-  if (action === "git.push") {
-    return {
-      repository: profile.pull_request_target.repository,
-      remote: actionDetails.push.remote,
-      destination_ref: actionDetails.push.destination_ref,
-      base_ref: `refs/heads/${profile.pull_request_target.base_branch}`,
-      source_sha: actionDetails.push.source_sha,
-    };
-  }
-  if (["pull_request.create", "pull_request.merge", "pull_request.update"].includes(action)) {
-    const subject = {
-      repository: profile.pull_request_target.repository,
-      head_branch: profile.pull_request_target.head_branch,
-      base_branch: profile.pull_request_target.base_branch,
-      source_sha: actionDetails.source_sha,
-      authorized_at: authorizedAt,
-    };
-    if (action !== "pull_request.create") subject.pr_url = actionDetails.pull_request?.pr_url;
-    if (action === "pull_request.merge" && actionDetails.merge?.base_sha) {
-      subject.base_sha = actionDetails.merge.base_sha;
-    }
-    if (action === "pull_request.update") subject.expected = actionDetails.pull_request?.expected;
-    return subject;
-  }
-  if (action === "release.local") {
-    return {
-      root_path: profile.local_release_target.root_path,
-      allowed_write_paths: profile.local_release_target.allowed_write_paths,
-    };
-  }
-  if (action === "rollback.verify") {
-    const verification = actionDetails.rollback_verification;
-    return {
-      root_path: verification.target_root,
-      allowed_write_paths: verification.allowed_write_paths,
-      rollback_procedure: verification.rollback_procedure,
-      evidence_root: verification.evidence_root,
-      evidence: verification.evidence.map((item) => ({
-        path: path.resolve(verification.evidence_root, item.path),
-        sha256: item.sha256,
-      })),
-    };
-  }
-  if (["data.migrate", "data.rollback"].includes(action)) {
-    const migration = profile.local_release_target.data_migration;
-    return {
-      root_path: profile.local_release_target.root_path,
-      target_path: migration.target_path,
-      scopes: migration.scopes,
-      preview_evidence: migration.preview_evidence,
-      backup_path: migration.backup.path,
-      rollback: profile.local_release_target.rollback.procedure,
-    };
-  }
-  return null;
-}
-
 function observeDeliveryProviderPrecondition(context, profile, action, actionDetails, operationId, authorizedAt) {
   const binding = resolveDeliveryProviderBinding(profile, action);
   if (!binding) return null;
@@ -17570,192 +14671,6 @@ function verifyDeliveryProviderCompletion(context, profile, action, providerOper
     }
     throw error;
   }
-}
-
-function withProviderCompatibilityProjection(action, actionDetails, providerOperation) {
-  const precondition = providerOperation?.precondition_receipt?.proof;
-  const completion = providerOperation?.completion_receipt?.proof;
-  let projected = { ...actionDetails, provider_operation: providerOperation };
-  if (action === "git.push") {
-    projected = {
-      ...projected,
-      base_precondition: {
-        provider: providerOperation.binding.provider_id,
-        remote: precondition.remote,
-        base_ref: precondition.base_ref,
-        observed_sha: precondition.base_sha,
-      },
-      push_precondition: {
-        provider: providerOperation.binding.provider_id,
-        remote: precondition.remote,
-        destination_ref: precondition.destination_ref,
-        observed_sha: precondition.previous_sha,
-      },
-    };
-    if (completion) {
-      projected.remote_verification = {
-        provider: providerOperation.binding.provider_id,
-        remote: completion.remote,
-        destination_ref: completion.destination_ref,
-        observed_sha: completion.observed_sha,
-        verified_at: providerOperation.completion_receipt.observed_at,
-      };
-    }
-  }
-  if (["pull_request.create", "pull_request.merge", "pull_request.update"].includes(action)) {
-    const legacyPrecondition = { provider: providerOperation.binding.provider_id, ...precondition };
-    if (action === "pull_request.merge") projected.merge_precondition = legacyPrecondition;
-    else projected.provider_precondition = legacyPrecondition;
-    if (completion) projected.provider_verification = { provider: providerOperation.binding.provider_id, ...completion };
-  }
-  return projected;
-}
-
-function assertDeliveryProviderAuthorization(context, profile, authorization) {
-  if (!DELIVERY_PROVIDER_ACTIONS.has(authorization.action)) return;
-  const providerOperation = authorization.action_details?.provider_operation;
-  if (!providerOperation) {
-    if (profile.schema_version === "delivery-execution-profile:v1") return;
-    fail(`Delivery action authorization ${authorization.id} has no provider precondition proof.`);
-  }
-  const binding = resolveDeliveryProviderBinding(profile, authorization.action);
-  let precondition;
-  try {
-    precondition = assertProviderOperationReceiptIntegrity(providerOperation.precondition_receipt);
-  } catch (error) {
-    fail(`Delivery action authorization ${authorization.id} has an invalid provider precondition proof: ${error.message}`);
-  }
-  const expectedSubject = deliveryProviderOperationSubject(
-    context,
-    profile,
-    authorization.action,
-    authorization.action_details,
-    authorization.authorized_at,
-  );
-  if (
-    providerOperation.completion_receipt !== null
-    || providerOperation.binding?.action !== authorization.action
-    || providerOperation.binding?.provider_id !== binding.provider_id
-    || providerOperation.binding?.provider_bindings_hash !== (profile.provider_bindings_hash || null)
-    || precondition.provider.id !== binding.provider_id
-    || precondition.operation.id !== authorization.id
-    || precondition.operation.action !== authorization.action
-    || precondition.operation.phase !== "precondition"
-    || !deliveryProviderOperationSubjectsMatch(authorization.action, precondition.subject, expectedSubject)
-  ) {
-    fail(`Delivery action authorization ${authorization.id} provider proof does not match its exact action boundary.`);
-  }
-  if (authorization.action === "pull_request.merge" && authorization.action_details?.merge?.base_sha !== undefined) {
-    const authorizedBaseSha = authorization.runtime_target?.base_sha;
-    if (
-      authorization.action_details.merge.base_sha !== authorizedBaseSha
-      || precondition.subject?.base_sha !== authorizedBaseSha
-      || precondition.proof?.base_sha !== authorizedBaseSha
-    ) {
-      fail(`Delivery action authorization ${authorization.id} does not cross-bind its exact runtime and GitHub base SHA.`);
-    }
-  }
-}
-
-function normalizeSmokeTestCommand(value) {
-  const raw = String(value || "").trim();
-  let argv;
-  try {
-    argv = JSON.parse(raw);
-  } catch {
-    fail(`Smoke test must be a shell-free JSON argv array, for example '["node","--version"]': ${raw}`);
-  }
-  if (
-    !Array.isArray(argv)
-    || argv.length === 0
-    || argv.some((item) => typeof item !== "string" || item.length === 0 || item.includes("\0"))
-  ) {
-    fail("Smoke test JSON must be a non-empty array of non-empty strings.");
-  }
-  const executable = path.basename(argv[0]).toLowerCase();
-  if ([
-    "sh",
-    "bash",
-    "zsh",
-    "dash",
-    "ksh",
-    "csh",
-    "tcsh",
-    "fish",
-    "cmd",
-    "cmd.exe",
-    "powershell",
-    "powershell.exe",
-    "pwsh",
-    "pwsh.exe",
-  ].includes(executable)) {
-    fail(`Smoke test shell executable '${argv[0]}' is not allowed; use a direct argv command.`);
-  }
-  if (["env", "xargs", "nice", "nohup", "arch", "xcrun"].includes(executable)) {
-    fail(
-      `Smoke test dispatcher '${argv[0]}' is not allowed; invoke the reviewed executable directly.`,
-    );
-  }
-  if (
-    /^(?:node(?:js)?|python(?:\d+(?:\.\d+)*)?|ruby|perl|php)(?:[-.]\d.*)?$/u.test(executable)
-    && argv.slice(1).some((item) =>
-      /^(?:-e|--eval|-c|--print|-p)(?:=|.+)?$/u.test(String(item)))
-  ) {
-    fail(`Smoke test inline code execution is not allowed for ${argv[0]}.`);
-  }
-  if (["npx", "npx.cmd", "npx.exe", "bunx"].includes(executable)) {
-    fail(
-      `Smoke test package dispatcher '${argv[0]}' is not allowed; run a reviewed package script instead.`,
-    );
-  }
-  if ([
-    "npm",
-    "npm.cmd",
-    "npm.exe",
-    "pnpm",
-    "pnpm.cmd",
-    "pnpm.exe",
-    "yarn",
-    "yarn.cmd",
-    "yarn.exe",
-    "bun",
-  ].includes(executable)) {
-    const operation = String(argv[1] || "").toLowerCase();
-    if (
-      !(
-        operation === "test"
-        || (operation === "run" && typeof argv[2] === "string" && !argv[2].startsWith("-"))
-      )
-    ) {
-      fail(
-        `Package-manager smoke test '${argv[0]}' must use 'test' or 'run <reviewed-script>'.`,
-      );
-    }
-  }
-  return stableJson(argv);
-}
-
-function governedLocalSmokeCwd(profile) {
-  const target = profile.local_release_target || {};
-  const allowedWritePaths = [...new Set((target.allowed_write_paths || [])
-    .map((item) => path.resolve(String(item))))].sort();
-  let smokeCwd = target.smoke_cwd
-    ? path.resolve(String(target.smoke_cwd))
-    : null;
-  if (!smokeCwd) {
-    if (allowedWritePaths.length !== 1) {
-      fail(
-        `Historical local-release profile ${profile.id || "unknown"} has no governed smoke working directory `
-        + `and ${allowedWritePaths.length} allowed write paths. Create a new delivery profile with --smoke-cwd.`,
-      );
-    }
-    smokeCwd = allowedWritePaths[0];
-  }
-  const containingWritePath = allowedWritePaths.find((writePath) => isInsidePath(writePath, smokeCwd));
-  if (!containingWritePath) {
-    fail("Local release smoke working directory is outside the approved write paths.");
-  }
-  return { smokeCwd, containingWritePath };
 }
 
 function approvedLocalSmokeCwd(profile) {
@@ -17988,68 +14903,6 @@ function resolveLocalSmokeExecutable(command, cwd) {
     );
   }
   return resolved;
-}
-
-function localSmokeExecutableBase(value) {
-  return path.basename(String(value || "")).toLowerCase();
-}
-
-function localSmokePackageManager(command) {
-  const executable = localSmokeExecutableBase(command?.[0]);
-  if (["npm", "npm.cmd", "npm.exe"].includes(executable)) return "npm";
-  if (["pnpm", "pnpm.cmd", "pnpm.exe"].includes(executable)) return "pnpm";
-  if (["yarn", "yarn.cmd", "yarn.exe"].includes(executable)) return "yarn";
-  if (executable === "bun") return "bun";
-  return null;
-}
-
-function validateLocalSmokePackageManagerForm(command) {
-  const manager = localSmokePackageManager(command);
-  if (!manager) return null;
-  const operation = String(command[1] || "").toLowerCase();
-  if (
-    !(
-      operation === "test"
-      || (operation === "run" && typeof command[2] === "string" && !command[2].startsWith("-"))
-    )
-  ) {
-    fail(
-      `Package-manager smoke test '${command[0]}' must use 'test' or `
-      + "'run <reviewed-script>' from the governed package.json.",
-    );
-  }
-  return manager;
-}
-
-function validateResolvedLocalSmokeExecutable(resolvedCommand) {
-  const executable = localSmokeExecutableBase(resolvedCommand.realpath);
-  if ([
-    "sh",
-    "bash",
-    "zsh",
-    "dash",
-    "ksh",
-    "csh",
-    "tcsh",
-    "fish",
-    "cmd",
-    "cmd.exe",
-    "powershell",
-    "powershell.exe",
-    "pwsh",
-    "pwsh.exe",
-  ].includes(executable)) {
-    fail(
-      `Local smoke executable resolves to shell '${resolvedCommand.realpath}'. `
-      + "Invoke a reviewed artifact entrypoint directly.",
-    );
-  }
-  if (["env", "xargs", "nice", "nohup", "time", "arch", "xcrun"].includes(executable)) {
-    fail(
-      `Local smoke executable resolves to indirect dispatcher '${resolvedCommand.realpath}'. `
-      + "Invoke the reviewed runtime or artifact entrypoint directly.",
-    );
-  }
 }
 
 function localSmokeRuntimeDescriptor(resolvedCommand, command, cwd) {
@@ -18353,35 +15206,6 @@ function validateLocalSmokePayloadBindingsBeforeSpawn(launcher) {
   }
 }
 
-function localSmokeInterpreterOptionValueKind(runtimeBase, argument) {
-  const value = String(argument);
-  if (/^(?:node(?:js)?|bun|deno)(?:[-.]\d.*)?$/u.test(runtimeBase)) {
-    if (new Set([
-      "--conditions",
-      "--dns-result-order",
-      "--input-type",
-      "--inspect-port",
-      "--stack-trace-limit",
-      "--test-concurrency",
-      "--test-name-pattern",
-      "--title",
-      "--unhandled-rejections",
-    ]).has(value)) return "scalar";
-    if (new Set([
-      "--test-reporter",
-      "--test-reporter-destination",
-    ]).has(value)) return "artifact-path-if-explicit";
-  }
-  if (/^python(?:\d+(?:\.\d+)*)?(?:[-.]\d.*)?$/u.test(runtimeBase)) {
-    if (new Set([
-      "-W",
-      "-X",
-      "--check-hash-based-pycs",
-    ]).has(value)) return "scalar";
-  }
-  return null;
-}
-
 function localSmokeSandboxPolicyAttestation(profile) {
   const cwd = governedLocalSmokeCwd(profile).smokeCwd;
   const pluginIdentity = inspectBuildIdentity(PLUGIN_ROOT);
@@ -18448,46 +15272,6 @@ function localSmokeSandboxPolicyAttestation(profile) {
   };
 }
 
-function localReleaseArtifactManifestPolicy(context, profile) {
-  const target = profile.local_release_target;
-  const governanceRoot = path.resolve(context.sdlcRoot);
-  for (const targetPath of target.allowed_write_paths) {
-    const resolved = path.resolve(targetPath);
-    if (isInsidePath(resolved, governanceRoot) || isInsidePath(governanceRoot, resolved)) {
-      fail(
-        `Local release artifact path ${resolved} overlaps governed .sdlc records. `
-        + "Choose a narrower release directory outside .sdlc.",
-      );
-    }
-  }
-  const sortedPaths = [...target.allowed_write_paths].map((item) => path.resolve(item)).sort();
-  for (let index = 0; index < sortedPaths.length; index += 1) {
-    for (let candidate = index + 1; candidate < sortedPaths.length; candidate += 1) {
-      if (isInsidePath(sortedPaths[index], sortedPaths[candidate])) {
-        fail(
-          `Local release artifact paths must not overlap: ${sortedPaths[index]} and ${sortedPaths[candidate]}.`,
-        );
-      }
-    }
-  }
-  const subject = {
-    schema_version: "local-release-artifact-manifest-policy:v1",
-    root_path: path.resolve(target.root_path),
-    smoke_cwd: governedLocalSmokeCwd(profile).smokeCwd,
-    allowed_write_paths: sortedPaths,
-    symlinks: "rejected",
-    special_files: "rejected",
-    maximum_entries_per_path: 10_000,
-    maximum_bytes_per_path: 512 * 1024 * 1024,
-    snapshot_passes: 2,
-    hash_algorithm: "sha256:stable-json:v1",
-  };
-  return {
-    ...subject,
-    policy_hash: computeStableHash(subject),
-  };
-}
-
 function localReleaseArtifactManifest(context, profile) {
   const policy = localReleaseArtifactManifestPolicy(context, profile);
   approvedLocalSmokeCwd(profile);
@@ -18524,15 +15308,6 @@ function localReleaseIntegrityAttestation(context, profile) {
     ...subject,
     integrity_hash: computeStableHash(subject),
   };
-}
-
-function hashBoundRecordIsValid(record, hashField) {
-  if (!record || typeof record !== "object" || !/^[a-f0-9]{64}$/u.test(String(record[hashField] || ""))) {
-    return false;
-  }
-  const subject = { ...record };
-  delete subject[hashField];
-  return record[hashField] === computeStableHash(subject);
 }
 
 function localReleaseCompletionIntegrityErrors(context, profile, receipt, authorization, {
@@ -18747,21 +15522,6 @@ function plannedRealPath(rawPath) {
   return path.resolve(fs.realpathSync.native(existingParent), relative);
 }
 
-const GOVERNED_LOCAL_TARGET_ACTIONS = Object.freeze([
-  "rollback.verify",
-  "data.migrate",
-  "data.rollback",
-  "release.local",
-]);
-
-function localReleaseTargetEntryPaths(profile) {
-  const target = profile.local_release_target || {};
-  return [
-    path.resolve(String(target.root_path || "")),
-    ...(target.allowed_write_paths || []).map((item) => path.resolve(String(item))),
-  ];
-}
-
 function inspectLocalReleaseTargetEntry(rawPath) {
   const entryPath = path.resolve(String(rawPath || ""));
   if (!pathEntryExistsNoFollow(entryPath)) {
@@ -18922,27 +15682,6 @@ function localReleaseTargetSnapshotErrors(context, profile, snapshot, {
   return errors;
 }
 
-function localReleaseTargetEntryState(snapshot) {
-  return (snapshot?.entries || []).map((entry) => ({ ...entry }));
-}
-
-function localReleaseTargetHadAbsentEntries(snapshot) {
-  return (snapshot?.entries || []).some((entry) => entry?.status === "absent");
-}
-
-function localReleaseTargetHadOnlyDirectories(snapshot) {
-  return (
-    Array.isArray(snapshot?.entries)
-    && snapshot.entries.length > 0
-    && snapshot.entries.every((entry) => entry?.status === "directory")
-  );
-}
-
-function localReleaseTargetStateMatches(left, right) {
-  return stableJson(localReleaseTargetEntryState(left))
-    === stableJson(localReleaseTargetEntryState(right));
-}
-
 function validateLocalReleaseFilesystemBoundary(target, options = {}) {
   const rootPath = path.resolve(String(target?.root_path || ""));
   const requireExistingRoot = options.requireExistingRoot !== false;
@@ -19057,89 +15796,8 @@ function localReleaseBoundarySource(context, target) {
   };
 }
 
-function recordedPathInside(platform, parent, child) {
-  const pathApi = platform === "win32" ? path.win32 : path.posix;
-  const relative = pathApi.relative(pathApi.resolve(parent), pathApi.resolve(child));
-  return relative === "" || (
-    relative !== ".."
-    && !relative.startsWith(`..${pathApi.sep}`)
-    && !pathApi.isAbsolute(relative)
-  );
-}
-
-function localReleaseBoundaryCheckpointFromSource(source) {
-  return (
-    source.writes_outside_workspace_require_checkpoint === true
-    && source.target_outside_workspace === true
-  ) || (
-    source.machine_global_changes_require_checkpoint === true
-    && source.target_machine_global === true
-  );
-}
-
-function localReleaseRuntimeBoundaryProjection(source) {
-  if (!source || typeof source !== "object" || Array.isArray(source)) return null;
-  return {
-    schema_version: source.schema_version,
-    target_hash: source.target_hash,
-    platform: source.platform,
-    workspace_real_path: source.workspace_real_path,
-    target_real_path: source.target_real_path,
-    global_roots: Array.isArray(source.global_roots) ? [...source.global_roots] : source.global_roots,
-    target_outside_workspace: source.target_outside_workspace,
-    target_machine_global: source.target_machine_global,
-  };
-}
-
-function localDeliveryRuntimeBoundaryChanged(authorizedSnapshot, currentSnapshot) {
-  if (
-    authorizedSnapshot?.delivery_kind !== "local_release"
-    || currentSnapshot?.delivery_kind !== "local_release"
-    || authorizedSnapshot?.action !== currentSnapshot?.action
-    || !authorizedSnapshot?.local_boundary_source
-    || !currentSnapshot?.local_boundary_source
-  ) {
-    return false;
-  }
-  return stableJson(localReleaseRuntimeBoundaryProjection(authorizedSnapshot.local_boundary_source))
-    !== stableJson(localReleaseRuntimeBoundaryProjection(currentSnapshot.local_boundary_source));
-}
-
 function localReleaseBoundaryRequiresCheckpoint(context, target) {
   return localReleaseBoundaryCheckpointFromSource(localReleaseBoundarySource(context, target));
-}
-
-function normalizeGitRepositoryIdentity(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return null;
-  let host = null;
-  let repositoryPath = raw;
-  const scpMatch = raw.match(/^[^/@\s]+@([^:/\s]+):(.+)$/u);
-  if (scpMatch) {
-    host = scpMatch[1];
-    repositoryPath = scpMatch[2];
-  } else if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(raw)) {
-    try {
-      const parsed = new URL(raw);
-      host = parsed.hostname;
-      repositoryPath = parsed.pathname;
-    } catch {
-      return null;
-    }
-  }
-  repositoryPath = repositoryPath
-    .replace(/^\/+|\/+$/gu, "")
-    .replace(/\.git$/iu, "")
-    .toLowerCase();
-  const segments = repositoryPath.split("/").filter(Boolean);
-  if (!host && segments.length === 2) host = "github.com";
-  if (!host && segments.length >= 3 && segments[0].includes(".")) {
-    host = segments.shift();
-    repositoryPath = segments.join("/");
-  }
-  return host && repositoryPath.includes("/")
-    ? `${String(host).toLowerCase()}/${repositoryPath}`
-    : null;
 }
 
 function validatePullRequestGitBoundary(context, target) {
@@ -19213,36 +15871,6 @@ function validatePullRequestGitBoundary(context, target) {
     matching_remotes: matchingRemotes.sort(),
     remote_fingerprint: shortHashFull(stableJson(matchingRemoteFingerprints.sort((left, right) =>
       left.remote.localeCompare(right.remote)))),
-  };
-}
-
-function deliveryMaterialScope(input) {
-  const { profileId, deliveryId, deliveryKind, requirementProfiles, story, contract, target, constraints } = input;
-  const releaseTarget = deliveryKind === "pull_request"
-    ? target.pull_request_target
-    : target.local_release_target;
-  return {
-    objective: contract.purpose || story.title,
-    scope: {
-      delivery_profile_id: profileId,
-      delivery_id: deliveryId,
-      story_id: story.id,
-      contract_id: contract.id,
-      requirement_profile_ids: requirementProfiles.map((profile) => profile.id).sort(),
-    },
-    acceptance_criteria: storyAcceptanceCriteria(story),
-    environment: deliveryKind === "local_release" ? ["local"] : ["pull_request"],
-    write_paths: deliveryKind === "local_release"
-      ? target.local_release_target.allowed_write_paths
-      : constraints.allowed_write_paths,
-    capabilities: constraints.allowed_capabilities,
-    budget: constraints.budget_ref,
-    release_target: releaseTarget,
-    external_or_production_access: {
-      external: false,
-      production: false,
-      destructive: false,
-    },
   };
 }
 
@@ -19547,21 +16175,6 @@ function effectiveDeliveryProfileStatus(context, profile) {
   return revocation ? { status: "revoked", revocation } : { status: profile.status, revocation: null };
 }
 
-function autonomyLifecycleReceiptHash(record) {
-  const canonical = { ...(record || {}) };
-  delete canonical.receipt_hash;
-  delete canonical.hash_algorithm;
-  return shortHashFull(stableJson(canonical));
-}
-
-function autonomyRevocationSubject(record) {
-  return {
-    profile_id: record.profile_ref?.id,
-    profile_hash: record.profile_ref?.hash,
-    reason: record.reason,
-  };
-}
-
 function readAutonomyProfileRevocation(context, filePath) {
   const record = readProjectJson(context, filePath);
   assertRecordSchema(
@@ -19846,37 +16459,6 @@ function deliveryCapabilityBoundary(context, contract, requestedLevel) {
   };
 }
 
-function deliveryEnvironmentBoundary(profile) {
-  const targetBound = profile.delivery_kind === "local_release"
-    ? Boolean(profile.local_release_target?.root_path)
-    : Boolean(
-        profile.pull_request_target?.repository
-        && profile.pull_request_target?.base_branch
-        && profile.pull_request_target?.head_branch,
-      );
-  return {
-    max_level: targetBound ? profile.requested_level : "supervised",
-    allowed: targetBound,
-    status: targetBound ? "target_bound" : "unavailable",
-  };
-}
-
-function deliveryBudgetBoundary(current, requestedLevel) {
-  const refs = [
-    current.contract.execution_budget_ref,
-    ...current.requirementProfiles.map((profile) => profile.constraints?.budget_ref || null),
-  ].filter(Boolean);
-  // The generic delivery path can bind a budget reference, but it does not yet
-  // have a provider-neutral metering receipt. Never describe that boundary as
-  // "available" or grant unattended execution from an unverified assumption.
-  return {
-    max_level: "checkpointed",
-    allowed_to_start_next: true,
-    status: refs.length > 0 ? "configured_unmetered" : "not_configured",
-    requested_level: requestedLevel,
-  };
-}
-
 function approveDeliveryAutonomy(context, options) {
   ensureInitialized(context);
   const profileId = normalizeId(requireOption(options, "id"));
@@ -20089,129 +16671,6 @@ function ensureRevokedDeliveryCloseReceipt(context, profile, revocation) {
   return toProjectPath(context, closePath);
 }
 
-function deliveryTargetAllowedActions(profile) {
-  return profile.delivery_kind === "pull_request"
-    ? profile.pull_request_target?.allowed_actions || []
-    : profile.local_release_target?.allowed_actions || [];
-}
-
-const DELIVERY_BOUNDARY_CHECKPOINT_ACTIONS = Object.freeze(["deploy.remote", "pull_request.merge"]);
-const REVERSIBLE_DATA_ACTIONS = Object.freeze(["data.migrate", "data.rollback"]);
-const ROLLBACK_VERIFICATION_ACTIONS = Object.freeze(["rollback.verify"]);
-
-function deliveryBoundaryCheckpointActions(profile) {
-  if (profile.delivery_kind !== "local_release") {
-    return [...DELIVERY_BOUNDARY_CHECKPOINT_ACTIONS];
-  }
-  return [
-    ...DELIVERY_BOUNDARY_CHECKPOINT_ACTIONS,
-    ...(profile.local_release_target?.data_migration ? REVERSIBLE_DATA_ACTIONS : []),
-    ...(profile.local_release_target?.rollback?.verification_required === true
-      ? ROLLBACK_VERIFICATION_ACTIONS
-      : []),
-  ].sort();
-}
-
-function deliveryCheckpointPolicySourcesRoot(context) {
-  return path.join(context.sdlcRoot, "autonomy", "policy-sources");
-}
-
-function buildDeliveryCheckpointPolicySource(context) {
-  const effectiveConfig = structuredClone(context.config);
-  const effectiveConfigHash = hashApprovalSubject(effectiveConfig);
-  if (effectiveConfigHash !== context.configState.effective_config_hash) {
-    fail("Effective configuration changed while preparing the delivery checkpoint policy source.");
-  }
-  const sourceBase = {
-    kind: "delivery_checkpoint_policy_source",
-    schema_version: "delivery-checkpoint-policy-source:v1",
-    config: {
-      status: context.configState.status,
-      path: context.configState.config_path || `${SDLC_DIR}/${PROJECT_CONFIG_FILE_NAME}`,
-      raw_hash: context.configState.raw_config_hash || null,
-      effective_hash: effectiveConfigHash,
-      defaults_profile: context.configState.defaults_profile
-        ? structuredClone(context.configState.defaults_profile)
-        : null,
-      inherited_paths: [...(context.configState.inherited_paths || [])],
-    },
-    effective_config: effectiveConfig,
-  };
-  const source = {
-    ...sourceBase,
-    source_hash: hashApprovalSubject(sourceBase),
-    hash_algorithm: "sha256:stable-json:v1",
-  };
-  const sourcePath = path.join(deliveryCheckpointPolicySourcesRoot(context), `${source.source_hash}.json`);
-  return {
-    source,
-    sourcePath,
-    ref: {
-      path: toProjectPath(context, sourcePath),
-      hash: source.source_hash,
-      effective_config_hash: effectiveConfigHash,
-    },
-  };
-}
-
-function validateDeliveryCheckpointPolicySource(context, source, expectedRef = null) {
-  const errors = [];
-  if (!source || typeof source !== "object" || Array.isArray(source)) {
-    return { valid: false, errors: ["checkpoint policy source is not an object"] };
-  }
-  if (source.kind !== "delivery_checkpoint_policy_source") {
-    errors.push("checkpoint policy source kind is invalid");
-  }
-  if (source.schema_version !== "delivery-checkpoint-policy-source:v1") {
-    errors.push("checkpoint policy source schema version is unsupported");
-  }
-  if (source.hash_algorithm !== "sha256:stable-json:v1") {
-    errors.push("checkpoint policy source hash algorithm is invalid");
-  }
-  const { source_hash: storedHash, hash_algorithm: _hashAlgorithm, ...sourceBase } = source;
-  const expectedSourceHash = hashApprovalSubject(sourceBase);
-  if (storedHash !== expectedSourceHash) {
-    errors.push("checkpoint policy source hash is invalid");
-  }
-  const effectiveConfigHash = source.effective_config
-    && typeof source.effective_config === "object"
-    && !Array.isArray(source.effective_config)
-    ? hashApprovalSubject(source.effective_config)
-    : null;
-  if (!effectiveConfigHash || source.config?.effective_hash !== effectiveConfigHash) {
-    errors.push("checkpoint policy source does not reproduce its effective config hash");
-  }
-  if (
-    !source.config
-    || typeof source.config !== "object"
-    || Array.isArray(source.config)
-    || typeof source.config.path !== "string"
-    || source.config.path.length === 0
-    || !Array.isArray(source.config.inherited_paths)
-    || stableJson(source.config.inherited_paths) !== stableJson([...new Set(source.config.inherited_paths)].sort())
-  ) {
-    errors.push("checkpoint policy source config identity is invalid");
-  }
-  const defaultsProfile = source.config?.defaults_profile;
-  if (defaultsProfile !== null && (
-    !defaultsProfile
-    || typeof defaultsProfile !== "object"
-    || Array.isArray(defaultsProfile)
-    || typeof defaultsProfile.id !== "string"
-    || defaultsProfile.id.length === 0
-    || !/^[a-f0-9]{64}$/u.test(defaultsProfile.sha256 || "")
-  )) {
-    errors.push("checkpoint policy source defaults profile is invalid");
-  }
-  if (expectedRef && (
-    expectedRef.hash !== storedHash
-    || expectedRef.effective_config_hash !== effectiveConfigHash
-  )) {
-    errors.push("checkpoint policy source reference is stale");
-  }
-  return { valid: errors.length === 0, errors, effectiveConfigHash };
-}
-
 function persistDeliveryCheckpointPolicySource(context, preparedSource) {
   ensureDir(deliveryCheckpointPolicySourcesRoot(context));
   const releaseLock = acquireFileLock(`${preparedSource.sourcePath}.lock`);
@@ -20280,34 +16739,6 @@ function deliveryActionCheckpointRequired(context, profile, effectiveLevel, acti
     local_boundary_checkpoint: localBoundaryCheckpoint,
     local_boundary_source: localBoundarySource,
   };
-}
-
-function deliveryActionCheckpointPolicySnapshot(
-  context,
-  profile,
-  effectiveLevel,
-  action,
-  actionPolicy,
-  policySourceRef = buildDeliveryCheckpointPolicySource(context).ref,
-) {
-  const snapshot = {
-    schema_version: "delivery-action-checkpoint-policy:v1",
-    action,
-    delivery_kind: profile.delivery_kind,
-    effective_level: effectiveLevel,
-    profile_ref: { id: profile.id, hash: profile.profile_hash },
-    preset_checkpoints: actionPolicy.preset_checkpoints,
-    policy_source_ref: policySourceRef,
-    profile_checkpoints: actionPolicy.profile_checkpoints,
-    boundary_actions: actionPolicy.boundary_actions,
-    local_boundary_checkpoint: actionPolicy.local_boundary_checkpoint,
-    local_boundary_source: actionPolicy.local_boundary_source,
-    local_boundary_source_hash: actionPolicy.local_boundary_source
-      ? hashApprovalSubject(actionPolicy.local_boundary_source)
-      : null,
-    required: actionPolicy.required,
-  };
-  return { ...snapshot, policy_hash: hashApprovalSubject(snapshot) };
 }
 
 function validateDeliveryActionCheckpointPolicySnapshot(context, snapshot, profile, effectiveLevel, action) {
@@ -20481,55 +16912,6 @@ function deliveryActionAttemptReceipts(context, profileId) {
       String(left.started_at).localeCompare(String(right.started_at))
       || String(left.id).localeCompare(String(right.id))
     ));
-}
-
-function compareDeliveryAuthorizationOrder(left, right) {
-  return String(left.authorized_at).localeCompare(String(right.authorized_at))
-    || String(left.id).localeCompare(String(right.id));
-}
-
-function deliveryActionAuthorizationRequestHash(options = {}) {
-  const ignored = new Set(["full", "json", "locale"]);
-  const request = {};
-  for (const key of Object.keys(options).sort()) {
-    if (ignored.has(key) || options[key] === undefined) continue;
-    request[key] = Array.isArray(options[key]) ? [...options[key]] : options[key];
-  }
-  return hashApprovalSubject(request);
-}
-
-function deliveryActionAuthorizationIntentIdentity(context, profile, action, options = {}) {
-  if (getOptionString(options, "approval-source") !== "automation") {
-    return null;
-  }
-  const authorizationOption = getOptionString(options, "authorization");
-  if (!authorizationOption) {
-    return null;
-  }
-  const authorizationId = normalizeId(authorizationOption);
-  const requestHash = deliveryActionAuthorizationRequestHash(options);
-  const transactionKey = shortHashFull(stableJson({
-    profile_id: profile.id,
-    profile_hash: profile.profile_hash,
-    action,
-    authorization_id: authorizationId,
-    request_hash: requestHash,
-  }));
-  const id = `AUT-INT-${transactionKey}`;
-  return {
-    id,
-    transactionKey,
-    authorizationId,
-    profileId: profile.id,
-    profileHash: profile.profile_hash,
-    action,
-    requestHash,
-    path: path.join(autonomyActionIntentsRoot(context), `${id}.json`),
-  };
-}
-
-function deliveryActionIntentUseReceiptId(identity) {
-  return `AUSE-${identity.authorizationId}-${identity.transactionKey.slice(0, 24)}`;
 }
 
 function buildDeliveryActionAuthorizationTraceEvent(
@@ -20740,25 +17122,6 @@ function buildDeliveryActionAuthorizationIntent(
     ...intentBase,
     intent_hash: hashApprovalSubject(intentBase),
     hash_algorithm: "sha256:stable-json:v1",
-  };
-}
-
-function deliveryActionApprovalRecoveryProjection(approval = {}) {
-  return {
-    status: approval.status,
-    summary: approval.summary,
-    scope: approval.scope,
-    evidence: approval.evidence,
-    approval_source: approval.approval_source,
-    authorization_ref: approval.authorization_ref,
-    authorization_use_ref: approval.authorization_use_ref,
-    authorization_action: approval.authorization_action,
-    explicit_user_confirmation: approval.explicit_user_confirmation,
-    provisional: approval.provisional,
-    approved_content_hash: approval.approved_content_hash,
-    hash_algorithm: approval.hash_algorithm,
-    approved_by: approval.approved_by,
-    authority_assurance: approval.authority_assurance,
   };
 }
 
@@ -21185,45 +17548,6 @@ function pullRequestCommitLineage(context, profile) {
   });
 }
 
-function deliveryActionReceiptRef(context, receipt) {
-  return {
-    id: receipt.id,
-    path: toProjectPath(
-      context,
-      path.join(autonomyActionsRoot(context), `${normalizeId(receipt.id)}.json`),
-    ),
-    hash: receipt.receipt_hash,
-  };
-}
-
-function deliveryActionAttemptReceiptRef(context, profile, receipt) {
-  return {
-    id: receipt.id,
-    path: toProjectPath(
-      context,
-      deliveryActionAttemptPath(context, profile.id, receipt.id),
-    ),
-    hash: receipt.receipt_hash,
-  };
-}
-
-function deliveryStartReceiptRef(context, profile, receipt) {
-  return {
-    id: receipt.id,
-    path: toProjectPath(context, deliveryStartReceiptPath(context, profile.id)),
-    hash: receipt.receipt_hash,
-  };
-}
-
-function activeLegacyLocalStartError(profile) {
-  return (
-    `Active local delivery ${profile.id} has a legacy start receipt without an immutable `
-    + "local-target baseline, so it cannot authorize or complete another action. Create, approve, "
-    + "and start a new exact delivery profile; changing the root or recomputing receipt hashes "
-    + "cannot upgrade the historical start."
-  );
-}
-
 function localReleaseTargetBaselineState(context, profile, executionState, {
   requireCurrentWorkspace = true,
 } = {}) {
@@ -21254,23 +17578,6 @@ function localReleaseTargetBaselineState(context, profile, executionState, {
       receipt_ref: deliveryStartReceiptRef(context, profile, startReceipt),
       snapshot_hash: baseline.snapshot_hash,
     },
-  };
-}
-
-function localTargetBuildCompletionDetails(receipt) {
-  return receipt?.action_details?.local_target_build_completion || null;
-}
-
-function localTargetBuildPreconditionDetails(receipt) {
-  return receipt?.action_details?.local_target_build_precondition || null;
-}
-
-function localTargetBuildReceiptRef(context, receipt) {
-  return {
-    source: "build.local",
-    outcome: receipt.outcome,
-    receipt_ref: deliveryActionReceiptRef(context, receipt),
-    snapshot_hash: localTargetBuildCompletionDetails(receipt)?.snapshot?.snapshot_hash || null,
   };
 }
 
@@ -21484,19 +17791,6 @@ function assertCurrentLocalReleaseTargetState(context, profile, state, purpose, 
   return current;
 }
 
-function localTargetPredecessorStateMatches(predecessor, observedSnapshot) {
-  const baselineRoot = predecessor?.snapshot?.entries?.[0];
-  const observedRoot = observedSnapshot?.entries?.[0];
-  if (
-    ["delivery_start", "legacy_delivery_start"].includes(predecessor?.ref?.source)
-    && baselineRoot?.status === "directory"
-    && localReleaseTargetHadOnlyDirectories(predecessor.snapshot)
-  ) {
-    return stableJson(baselineRoot) === stableJson(observedRoot);
-  }
-  return localReleaseTargetStateMatches(predecessor?.snapshot, observedSnapshot);
-}
-
 function localTargetBuildAuthorizationPrecondition(
   context,
   profile,
@@ -21684,18 +17978,6 @@ function localTargetMaterializationRefErrors(
     errors.push("protected local action does not reference its exact antecedent target materialization");
   }
   return errors;
-}
-
-function validateCommitCoverageProfileRef(context, profile, profileRef, label) {
-  const expectedPath = toProjectPath(context, deliveryAutonomyPath(context, profile.id));
-  if (
-    profileRef?.id !== profile.id
-    || profileRef?.path !== expectedPath
-    || profileRef?.hash !== profile.profile_hash
-  ) {
-    return [`${label} profile reference is stale or non-canonical`];
-  }
-  return [];
 }
 
 function validateCommitMediationCandidate(
@@ -21954,10 +18236,6 @@ function buildGitCommitCoverageProof(context, profile, runtimeTarget) {
     errors: [],
     proof: { ...proofBase, coverage_hash: hashApprovalSubject(proofBase) },
   };
-}
-
-function labelForCommit(commitSha) {
-  return `Commit ${commitSha}`;
 }
 
 function validateGitCommitCoverageProof(context, profile, runtimeTarget, proof) {
@@ -22302,94 +18580,6 @@ function assertCurrentDeliveryActionAuthorization(context, profile, decision, ac
   return { checkpointRequired, auditWarnings };
 }
 
-function terminalStatusForDeliveryAction(action) {
-  return action === "pull_request.merge"
-    ? "merged"
-    : action === "release.local"
-      ? "released"
-      : null;
-}
-
-function canonicalDeliveryCompletionEvidence(evidence = []) {
-  return [...evidence]
-    .map((item) => ({ path: item.path, sha256: item.sha256 }))
-    .sort((left, right) => (
-      left.path.localeCompare(right.path)
-      || left.sha256.localeCompare(right.sha256)
-    ));
-}
-
-function deliveryCompletionOperationArgs(profile, action, options = {}) {
-  const operationArgs = {};
-  const scopePaths = normalizeRawListOption(options["scope-path"])
-    .map((item) => String(item).replace(/\\/gu, "/"))
-    .sort();
-  if (scopePaths.length > 0) {
-    operationArgs.scope_paths = scopePaths;
-  }
-  if (action === "git.push") {
-    operationArgs.remote = getOptionString(options, "remote") || null;
-  }
-  if (["pull_request.create", "pull_request.update", "pull_request.merge"].includes(action)) {
-    operationArgs.pr_url = getOptionString(options, "pr-url") || null;
-    operationArgs.expected_pr_title = getOptionString(options, "expected-pr-title") || null;
-    operationArgs.expected_pr_body_sha256 = getOptionString(options, "expected-pr-body-sha256") || null;
-    operationArgs.expected_pr_state = getOptionString(options, "expected-pr-state") || null;
-    operationArgs.expected_pr_base = getOptionString(options, "expected-pr-base") || null;
-  }
-  if (action === "release.local") {
-    const smokeCwdOption = getOptionString(options, "smoke-cwd");
-    operationArgs.smoke_cwd = smokeCwdOption
-      ? path.isAbsolute(smokeCwdOption)
-        ? path.resolve(smokeCwdOption)
-        : path.resolve(profile.local_release_target.root_path, smokeCwdOption)
-      : governedLocalSmokeCwd(profile).smokeCwd;
-    operationArgs.smoke_tests = normalizeListOption(options["smoke-test"])
-      .map(normalizeSmokeTestCommand)
-      .sort();
-    operationArgs.rollback = getOptionString(options, "rollback") || null;
-  }
-  return operationArgs;
-}
-
-function buildDeliveryCompletionRequest(
-  context,
-  profile,
-  action,
-  outcome,
-  evidence,
-  options,
-  authorization,
-) {
-  const requestBase = {
-    schema_version: "delivery-action-completion-request:v1",
-    profile_ref: {
-      id: profile.id,
-      path: toProjectPath(context, deliveryAutonomyPath(context, profile.id)),
-      hash: profile.profile_hash,
-    },
-    action,
-    outcome,
-    authorization_receipt_ref: deliveryActionReceiptRef(context, authorization),
-    evidence: canonicalDeliveryCompletionEvidence(evidence),
-    operation_args: deliveryCompletionOperationArgs(profile, action, options),
-  };
-  return {
-    ...requestBase,
-    request_hash: hashApprovalSubject(requestBase),
-    hash_algorithm: "sha256:stable-json:v1",
-  };
-}
-
-function localReleaseAttemptId(authorization, completionRequest) {
-  const identityHash = shortHashFull(stableJson({
-    authorization_id: authorization.id,
-    authorization_hash: authorization.receipt_hash,
-    completion_request_hash: completionRequest.request_hash,
-  }));
-  return `AUT-TRY-${identityHash.slice(0, 32)}`;
-}
-
 function buildLocalReleaseActionAttempt(
   context,
   profile,
@@ -22461,209 +18651,6 @@ function persistLocalReleaseActionAttempt(context, profile, attempt) {
       "delivery-action-attempt-receipt.schema.json",
     ),
     path: toProjectPath(context, attemptPath),
-  };
-}
-
-function completionRequestExecutionProjection(request) {
-  if (!request || typeof request !== "object") return null;
-  const projection = { ...request };
-  delete projection.outcome;
-  delete projection.request_hash;
-  return projection;
-}
-
-function localReleaseAttemptReceiptErrors(context, profile, attempt, authorization) {
-  const errors = [];
-  if (
-    attempt.profile_ref?.id !== profile.id
-    || attempt.profile_ref?.path !== toProjectPath(context, deliveryAutonomyPath(context, profile.id))
-    || attempt.profile_ref?.hash !== profile.profile_hash
-    || attempt.delivery?.id !== profile.delivery_id
-    || attempt.delivery?.kind !== "local_release"
-    || attempt.action !== "release.local"
-  ) {
-    errors.push("attempt does not bind the exact local delivery profile");
-  }
-  if (
-    !authorization
-    || authorization.status !== "authorized"
-    || authorization.action !== "release.local"
-    || stableJson(attempt.authorization_receipt_ref)
-      !== stableJson(deliveryActionReceiptRef(context, authorization))
-  ) {
-    errors.push("attempt does not reference its exact release.local authorization");
-    return errors;
-  }
-  if (attempt.id !== localReleaseAttemptId(authorization, attempt.completion_request)) {
-    errors.push("attempt id is not the deterministic identity of its authorization and request");
-  }
-  const authorizedAt = Date.parse(authorization.authorized_at || "");
-  const startedAt = Date.parse(attempt.started_at || "");
-  if (
-    !Number.isFinite(authorizedAt)
-    || !Number.isFinite(startedAt)
-    || startedAt < authorizedAt
-  ) {
-    errors.push("attempt start time predates or cannot be ordered after authorization");
-  }
-  const pseudoCompletion = {
-    profile_ref: attempt.profile_ref,
-    action: attempt.action,
-    outcome: "passed",
-    authorization_receipt_ref: attempt.authorization_receipt_ref,
-    evidence: attempt.completion_request?.evidence || [],
-    completion_request: attempt.completion_request,
-  };
-  const requestValidation = validateDeliveryCompletionRequest(
-    context,
-    pseudoCompletion,
-    authorization,
-  );
-  if (!requestValidation.valid) {
-    errors.push(`attempt completion request is invalid: ${requestValidation.errors.join("; ")}`);
-  }
-  const authorizedIntegrity = authorization.action_details?.local_release_integrity;
-  if (
-    !authorizedIntegrity
-    || authorizedIntegrity.schema_version !== "local-release-integrity:v2"
-    || authorizedIntegrity.smoke_execution_policy?.schema_version
-      !== "local-smoke-sandbox-policy:v2"
-    || !hashBoundRecordIsValid(authorizedIntegrity, "integrity_hash")
-    || !hashBoundRecordIsValid(authorizedIntegrity.smoke_execution_policy, "policy_hash")
-    || !hashBoundRecordIsValid(authorizedIntegrity.artifact_manifest_policy, "policy_hash")
-  ) {
-    errors.push("attempt authorization lacks a valid local-release integrity policy");
-    return errors;
-  }
-  if (
-    attempt.smoke_execution_policy_ref?.policy_hash
-      !== authorizedIntegrity.smoke_execution_policy.policy_hash
-  ) {
-    errors.push("attempt references a different smoke execution policy");
-  }
-  if (
-    !hashBoundRecordIsValid(attempt.artifact_before_smoke, "manifest_hash")
-    || stableJson(attempt.artifact_before_smoke?.policy)
-      !== stableJson(authorizedIntegrity.artifact_manifest_policy)
-  ) {
-    errors.push("attempt pre-smoke artifact manifest is invalid or uses another policy");
-  }
-  const expectedOperation = {
-    smoke_cwd: governedLocalSmokeCwd(profile).smokeCwd,
-    smoke_tests: [...(profile.local_release_target?.smoke_tests || [])].sort(),
-    rollback: profile.local_release_target?.rollback?.procedure || null,
-  };
-  const recordedOperation = attempt.completion_request?.operation_args || {};
-  if (
-    recordedOperation.smoke_cwd !== expectedOperation.smoke_cwd
-    || stableJson(recordedOperation.smoke_tests) !== stableJson(expectedOperation.smoke_tests)
-    || recordedOperation.rollback !== expectedOperation.rollback
-  ) {
-    errors.push("attempt operation differs from the exact approved smoke target, commands, or rollback");
-  }
-  return errors;
-}
-
-function validateDeliveryCompletionRequest(context, receipt, authorization) {
-  const request = receipt?.completion_request;
-  if (!request) {
-    const legacy = receipt?.schema_version === "delivery-action-receipt:v1";
-    return {
-      valid: false,
-      legacy,
-      errors: legacy
-        ? []
-        : [`${receipt?.schema_version || "current delivery action receipt"} completion requires a completion request`],
-    };
-  }
-  const {
-    request_hash: requestHash,
-    hash_algorithm: hashAlgorithm,
-    ...requestBase
-  } = request;
-  const errors = [];
-  if (request.schema_version !== "delivery-action-completion-request:v1") {
-    errors.push("completion request schema version is unsupported");
-  }
-  if (hashAlgorithm !== "sha256:stable-json:v1") {
-    errors.push("completion request hash algorithm is invalid");
-  }
-  if (requestHash !== hashApprovalSubject(requestBase)) {
-    errors.push("completion request hash is invalid");
-  }
-  if (
-    stableJson(request.profile_ref) !== stableJson(receipt.profile_ref)
-    || request.action !== receipt.action
-    || request.outcome !== receipt.outcome
-    || stableJson(request.authorization_receipt_ref)
-      !== stableJson(receipt.authorization_receipt_ref)
-    || stableJson(request.authorization_receipt_ref)
-      !== stableJson(deliveryActionReceiptRef(context, authorization))
-    || stableJson(request.evidence)
-      !== stableJson(canonicalDeliveryCompletionEvidence(receipt.evidence))
-    || !request.operation_args
-    || typeof request.operation_args !== "object"
-    || Array.isArray(request.operation_args)
-  ) {
-    errors.push("completion request differs from its persisted action receipt");
-  }
-  return { valid: errors.length === 0, legacy: false, errors };
-}
-
-function buildDeliveryActionCompletionTraceEvent(context, profile, receipt) {
-  const requestHash = receipt.completion_request?.request_hash || receipt.receipt_hash;
-  return {
-    id: `TR-COMP-${normalizeId(receipt.id)}`,
-    story_id: profile.story_refs[0]?.id || null,
-    type: receipt.action === "release.local" ? "release" : "gate",
-    summary: `Completed ${receipt.action} for exact delivery ${profile.delivery_id}`,
-    outcome: receipt.outcome,
-    actor: receipt.authorized_by,
-    requested_by: null,
-    authorized_by: null,
-    request: null,
-    authorization_ref: null,
-    action: receipt.action,
-    evidence: [
-      toProjectPath(
-        context,
-        path.join(autonomyActionsRoot(context), `${normalizeId(receipt.id)}.json`),
-      ),
-      ...(receipt.evidence || []).map((item) => item.path),
-    ],
-    related: [profile.id, profile.delivery_id],
-    git: receipt.audit?.git || {},
-    run: receipt.audit?.run || {},
-    correlation_id: `completion-${requestHash}`,
-    created_at: receipt.authorized_at,
-  };
-}
-
-function buildTerminalDeliveryCloseTraceEvent(context, profile, closeReceipt, completion) {
-  return {
-    id: `TR-CLOSE-${normalizeId(closeReceipt.id)}`,
-    story_id: profile.story_refs[0]?.id || null,
-    type: "gate",
-    summary: `Closed ${profile.delivery_kind} ${profile.delivery_id} from passing ${completion.action} receipt`,
-    outcome: "passed",
-    actor: closeReceipt.closed_by,
-    requested_by: null,
-    authorized_by: null,
-    request: null,
-    authorization_ref: null,
-    action: "autonomy.delivery.close.terminal-action",
-    evidence: [
-      toProjectPath(
-        context,
-        path.join(autonomyActionsRoot(context), `${normalizeId(completion.id)}.json`),
-      ),
-      toProjectPath(context, deliveryCloseReceiptPath(context, profile.id)),
-    ],
-    related: [profile.id, profile.delivery_id, completion.id],
-    git: closeReceipt.audit?.git || {},
-    run: closeReceipt.audit?.run || {},
-    correlation_id: `close-${completion.receipt_hash}`,
-    created_at: closeReceipt.closed_at,
   };
 }
 
@@ -24425,61 +20412,6 @@ function explainDeliveryAutonomy(context, options) {
   ]);
 }
 
-function assessmentsRoot(context) {
-  const configured = context.config.assessment_workflow?.storage_root || "assessments";
-  assertSafeSdlcRelativeDirectory(configured, "assessment_workflow.storage_root");
-  return path.join(context.sdlcRoot, configured);
-}
-
-function assessmentWorkflowDirectory(context, key, fallback) {
-  const configured = context.config.assessment_workflow?.paths?.[key] || fallback;
-  assertSafeSdlcRelativeDirectory(configured, `assessment_workflow.paths.${key}`);
-  return path.join(assessmentsRoot(context), configured);
-}
-
-function assessmentProposalsRoot(context) {
-  return assessmentWorkflowDirectory(context, "proposals", "proposals");
-}
-
-function assessmentWorkflowsRoot(context) {
-  return assessmentWorkflowDirectory(context, "workflows", "workflows");
-}
-
-function assessmentApprovalsRoot(context) {
-  return assessmentWorkflowDirectory(context, "approvals", "approvals");
-}
-
-function assessmentApplicationsRoot(context) {
-  return assessmentWorkflowDirectory(context, "applications", "applications");
-}
-
-function assessmentBudgetsRoot(context, proposalId = null) {
-  const configured = context.config.budget_policy?.storage_root || "budgets";
-  assertSafeSdlcRelativeDirectory(configured, "budget_policy.storage_root");
-  const root = path.join(context.sdlcRoot, configured);
-  return proposalId ? path.join(root, normalizeId(proposalId)) : root;
-}
-
-function assessmentProposalPath(context, id) {
-  return path.join(assessmentProposalsRoot(context), `${normalizeId(id)}.json`);
-}
-
-function assessmentWorkflowPath(context, id) {
-  return path.join(assessmentWorkflowsRoot(context), `${normalizeId(id)}.json`);
-}
-
-function assessmentApprovalPath(context, id) {
-  return path.join(assessmentApprovalsRoot(context), `${normalizeId(id)}.json`);
-}
-
-function assessmentApplicationPath(context, id) {
-  return path.join(assessmentApplicationsRoot(context), `${normalizeId(id)}.json`);
-}
-
-function assessmentBudgetSnapshotPath(context, proposalId) {
-  return path.join(assessmentBudgetsRoot(context, proposalId), "effective-budget.json");
-}
-
 function ensureAssessmentDirectories(context) {
   for (const directory of [
     assessmentProposalsRoot(context),
@@ -24962,15 +20894,6 @@ function formatAssessmentBudgetForHuman(context, budget) {
   return lines;
 }
 
-function assessmentApprovalSubject(context, proposal) {
-  return {
-    kind: "assessment_proposal",
-    id: proposal.id,
-    path: toProjectPath(context, assessmentProposalPath(context, proposal.id)),
-    hash: proposal.proposal_hash,
-  };
-}
-
 function loadHostApprovalReceipt(context, options, proposal) {
   const rawPath = getOptionString(options, "host-receipt-file");
   const required = (context.config.authority_policy?.mode || "audit_only") === "host_verified";
@@ -25068,43 +20991,6 @@ function loadHostApprovalReceipt(context, options, proposal) {
     assurance_label: "host_verified",
     receipt: { ...receipt, sha256: hashFile(filePath) },
     path: toProjectPath(context, filePath),
-  };
-}
-
-function assessmentAuthorizedUseDefinitions(context, proposal) {
-  const proposalRef = {
-    id: proposal.id,
-    path: toProjectPath(context, assessmentProposalPath(context, proposal.id)),
-    hash: proposal.proposal_hash,
-  };
-  return {
-    proposalRef,
-    uses: [
-      {
-        action: "assessment.proposal.apply",
-        settings: {
-          proposal_ref: proposalRef,
-          subject_id: proposal.id,
-          artifact_types: [proposal.deliverable.artifact_type],
-        },
-      },
-      ...proposal.write_set.map((entry) => ({
-        action: entry.action,
-        settings: {
-          proposal_ref: proposalRef,
-          subject_id: entry.subject_id,
-          artifact_types: entry.artifact_types || [],
-        },
-      })),
-      {
-        action: "assessment.proposal.complete",
-        settings: {
-          proposal_ref: proposalRef,
-          subject_id: proposal.id,
-          artifact_types: [proposal.deliverable.artifact_type],
-        },
-      },
-    ],
   };
 }
 
@@ -26434,46 +22320,6 @@ function applyProposalTaskStart(context, proposal, attribution, authorization, b
   return { kind: "task_start", id: receipt.id, status: "created", path: toProjectPath(context, receiptPath), sha256: hashFile(receiptPath) };
 }
 
-function assessmentUsageRoot(context, proposalId) {
-  return path.join(assessmentBudgetsRoot(context, proposalId), "usage");
-}
-
-function assessmentAmendmentsRoot(context, proposalId) {
-  return path.join(assessmentBudgetsRoot(context, proposalId), "amendments");
-}
-
-function assessmentBudgetMutationLockPath(context, proposalId) {
-  return path.join(assessmentBudgetsRoot(context, proposalId), "mutation.lock");
-}
-
-function exactMeteringMetrics(receipt) {
-  return Object.entries(receipt?.metering || {})
-    .filter(([, level]) => level === "exact")
-    .map(([metric]) => metric)
-    .sort();
-}
-
-function exactMeteringPolicyTrustErrors(context, budget) {
-  const hardMetrics = Object.entries(budget?.limits || {})
-    .filter(([, spec]) => spec.hard !== null && spec.hard !== undefined)
-    .map(([metric]) => metric);
-  if (hardMetrics.length === 0) return [];
-  const policy = context.config.budget_policy?.exact_metering;
-  const approvedHash = budget?.extensions?.exact_metering_policy_hash;
-  if (!policy || !approvedHash) {
-    return ["hard-limit budget is missing its approved exact_metering policy hash"];
-  }
-  let currentHash;
-  try {
-    currentHash = computeExactMeteringPolicyHash(policy);
-  } catch (error) {
-    return [`current exact_metering policy cannot be hashed: ${error.message}`];
-  }
-  return currentHash === approvedHash
-    ? []
-    : [`exact_metering policy changed after budget approval (approved ${approvedHash}, current ${currentHash}); prepare and approve a new proposal`];
-}
-
 function inspectExactMeteringSource(context, receipt, budget, metrics = exactMeteringMetrics(receipt)) {
   if (metrics.length === 0) {
     return { errors: [], attestation: null, measurement: null, trusted_source: null };
@@ -26555,10 +22401,6 @@ function inspectExactMeteringSource(context, receipt, budget, metrics = exactMet
 
 function exactMeteringSourceTrustErrors(context, receipt, budget, metrics = exactMeteringMetrics(receipt)) {
   return inspectExactMeteringSource(context, receipt, budget, metrics).errors;
-}
-
-function workflowExecutionStartedAt(workflow) {
-  return (workflow?.history || []).find((entry) => entry.to === "running")?.at || null;
 }
 
 function hardLimitMeteringCoverage(context, budget, receipts, options = {}) {
@@ -26755,14 +22597,6 @@ function evaluateAssessmentBudgetUsage(context, proposalId, effectiveBudget, rec
   }
 }
 
-function budgetMeterRoot(context, proposalId, adapterId) {
-  return path.join(assessmentBudgetsRoot(context, proposalId), "metering", normalizeId(adapterId));
-}
-
-function budgetMeterBaselinePath(context, proposalId, adapterId, baselineId) {
-  return path.join(budgetMeterRoot(context, proposalId, adapterId), "baselines", `${normalizeId(baselineId)}.json`);
-}
-
 function budgetMeterAdapter(context, options) {
   const configuredDefault = context.config.budget_policy?.default_metering_adapter;
   const adapterId = String(
@@ -26780,34 +22614,6 @@ function budgetMeterAdapter(context, options) {
     fail(`Budget meter adapter '${adapterId}' is disabled or missing from budget_policy.metering_adapters.`);
   }
   return { adapter, config };
-}
-
-function resolveBudgetMeterMapping(budget, config, adapter) {
-  const allowedSources = new Set(adapter.supported_sources);
-  if (!config.metric_mapping || typeof config.metric_mapping !== "object" || Array.isArray(config.metric_mapping)) {
-    fail(`${adapter.label} metric_mapping must be a configuration object.`);
-  }
-  const mapping = {};
-  for (const [metric, source] of Object.entries(config.metric_mapping)) {
-    if (!Object.hasOwn(budget.limits, metric)) {
-      continue;
-    }
-    if (!allowedSources.has(source)) {
-      fail(`${adapter.label} metric_mapping.${metric} uses unsupported source '${source}'.`);
-    }
-    const spec = budget.limits[metric];
-    if (source === "cost" && !spec.currency) {
-      fail(`${adapter.label} cost mapping requires budget metric '${metric}' to declare currency.`);
-    }
-    if (source.startsWith("tokens.") && spec.unit !== "tokens") {
-      fail(`${adapter.label} token source '${source}' requires budget metric '${metric}' to use unit 'tokens'.`);
-    }
-    mapping[metric] = source;
-  }
-  if (Object.keys(mapping).length === 0) {
-    fail(`${adapter.label} has no configured mapping for this budget. Budget metrics: ${Object.keys(budget.limits).join(", ")}.`);
-  }
-  return Object.fromEntries(Object.entries(mapping).sort(([left], [right]) => left.localeCompare(right)));
 }
 
 function codeBurnQuery(context, options, config, stored = null) {
@@ -26832,101 +22638,6 @@ function codexSessionQuery(_context, options, _config, stored = null) {
     );
   }
   return { thread_id: threadId };
-}
-
-function budgetMeterExecutionOptions(context, config) {
-  const command = config.command;
-  return {
-    cwd: context.root,
-    ...(command ? {
-      executable: command.executable,
-      prefix_args: command.arguments,
-    } : {}),
-  };
-}
-
-async function collectCodeBurnBudgetMeterSnapshot(context, _proposalId, config, query, idPrefix) {
-  try {
-    return await collectCodeBurnMeteringSnapshot(
-      {
-        id: normalizeId(`${idPrefix}-SNAPSHOT`),
-        query,
-      },
-      budgetMeterExecutionOptions(context, config),
-    );
-  } catch (error) {
-    fail(`CodeBurn collection failed: ${error.message}${error.stderr ? `; ${error.stderr}` : ""}`);
-  }
-}
-
-async function collectCodexSessionBudgetMeterSnapshot(
-  context,
-  _proposalId,
-  _config,
-  query,
-  idPrefix,
-  options,
-) {
-  try {
-    return await collectCodexSessionMeteringSnapshot(
-      {
-        id: normalizeId(`${idPrefix}-SNAPSHOT`),
-        query,
-      },
-      {
-        project_root: context.root,
-        session_file: getOptionString(options, "session-file") || undefined,
-      },
-    );
-  } catch (error) {
-    fail(`Codex session collection failed: ${error.message}`);
-  }
-}
-
-async function collectBudgetMeterSnapshot(
-  context,
-  proposalId,
-  adapter,
-  config,
-  query,
-  idPrefix,
-  options,
-) {
-  return adapter.collect(context, proposalId, config, query, idPrefix, options);
-}
-
-function buildBudgetMeterBaseline(context, proposal, budget, adapterId, baselineId, mapping, snapshot) {
-  const body = {
-    kind: "budget_meter_baseline",
-    schema_version: "budget-meter-baseline:v1",
-    id: baselineId,
-    proposal_ref: { id: proposal.id, hash: proposal.proposal_hash },
-    budget_ref: { id: budget.id, hash: budget.budget_hash },
-    adapter: adapterId,
-    metric_mapping: mapping,
-    snapshot,
-    created_at: snapshot.captured_at,
-  };
-  return { ...body, baseline_hash: shortHashFull(stableJson(body)), hash_algorithm: "sha256:stable-json:v1" };
-}
-
-function validateBudgetMeterBaseline(baseline, proposal, budget, adapter, mapping) {
-  const { baseline_hash: hash, hash_algorithm: algorithm, ...body } = baseline || {};
-  if (algorithm !== "sha256:stable-json:v1" || hash !== shortHashFull(stableJson(body))) {
-    fail("Budget meter baseline failed immutable content validation.");
-  }
-  if (baseline.proposal_ref?.id !== proposal.id || baseline.proposal_ref?.hash !== proposal.proposal_hash ||
-      baseline.budget_ref?.id !== budget.id || baseline.budget_ref?.hash !== budget.budget_hash || baseline.adapter !== adapter.id) {
-    fail("Budget meter baseline is not bound to the current proposal, effective budget, and adapter.");
-  }
-  if (stableJson(baseline.metric_mapping) !== stableJson(mapping)) {
-    fail(`${adapter.label} metric mapping changed after baseline capture; create a new named baseline before recording usage.`);
-  }
-  const integrity = adapter.validateSnapshot(baseline.snapshot);
-  if (!integrity.valid) {
-    fail(`Budget meter baseline snapshot is invalid: ${integrity.errors.join("; ")}`);
-  }
-  return baseline;
 }
 
 function writeImmutableMeterRecord(context, filePath, record, hashField, label, schemaName = null) {
@@ -26991,36 +22702,6 @@ async function startBudgetMeter(context, options) {
   } finally {
     releaseLock();
   }
-}
-
-function mappedCodeBurnUsage(delta, budget, mapping) {
-  const token = delta.usage.tokens;
-  const total = [token.input, token.output, token.cache_read, token.cache_write]
-    .reduce((sum, value) => sum + BigInt(value), 0n);
-  if (total > BigInt(Number.MAX_SAFE_INTEGER)) {
-    fail("CodeBurn total token delta exceeds the JavaScript safe integer range.");
-  }
-  const sourceValues = {
-    "tokens.total": Number(total),
-    "tokens.input": token.input,
-    "tokens.output": token.output,
-    "tokens.cache_read": token.cache_read,
-    "tokens.cache_write": token.cache_write,
-    calls: delta.usage.calls,
-    cost: delta.usage.cost,
-  };
-  const usage = {};
-  for (const [metric, source] of Object.entries(mapping)) {
-    if (source === "cost") {
-      if (delta.usage.cost.currency !== budget.limits[metric].currency) {
-        fail(`CodeBurn currency ${delta.usage.cost.currency} does not match budget metric ${metric} currency ${budget.limits[metric].currency}.`);
-      }
-      usage[metric] = delta.usage.cost;
-    } else {
-      usage[metric] = sourceValues[source];
-    }
-  }
-  return usage;
 }
 
 function readBudgetMeterSnapshotReference(context, proposalId, adapter, reference) {
@@ -27250,17 +22931,6 @@ function budgetUsageFromOptions(context, options, proposalId, budget) {
   }
 }
 
-function completionReserveRisks(budget, decision) {
-  const reserve = Number(budget.completion_reserve_percent ?? 0);
-  if (!Number.isFinite(reserve) || reserve <= 0) {
-    return [];
-  }
-  const threshold = 100 - reserve;
-  return Object.entries(decision.utilization_percent || {})
-    .filter(([, percent]) => percent !== null && Number(percent) >= threshold)
-    .map(([metric, percent]) => ({ metric, utilization_percent: Number(percent), reserve_percent: reserve }));
-}
-
 async function recordBudgetUsage(context, options) {
   ensureInitialized(context);
   const proposalId = normalizeId(requireOption(options, "proposal"));
@@ -27414,25 +23084,6 @@ async function showBudgetStatus(context, options) {
       : `Proposal delta: ${proposalDelta.status}.`,
     `Optimization action: ${optimizationAdvisory.action}; usage adjustment applied: 0.`,
   ]);
-}
-
-function buildProposalContextOptimizationDelta(observations) {
-  return buildContextOptimizationLineageDelta(observations.map((item) => item.observation));
-}
-
-function budgetAmendmentApprovalSubject(proposal, amendment) {
-  return {
-    kind: "budget_amendment",
-    id: amendment.id,
-    proposal_ref: { id: proposal.id, hash: proposal.proposal_hash },
-    base_budget_ref: { id: amendment.base_budget_id, hash: amendment.base_budget_hash },
-    result_budget_ref: { id: amendment.result_budget.id, hash: amendment.result_budget_hash },
-    changes: amendment.changes,
-    changes_hash: shortHashFull(stableJson(amendment.changes)),
-    reason: amendment.reason,
-    reason_hash: shortHashFull(amendment.reason),
-    approved_by: amendment.approved_by,
-  };
 }
 
 function validateBudgetAmendmentHostApprovalReceipt(context, proposal, amendment, receipt, filePath, usedAt) {
@@ -27820,63 +23471,12 @@ function amendAssessmentBudgetLocked(context, options, proposalId) {
   ]);
 }
 
-function releaseManifestPath(context, id) {
-  const root = configuredSdlcDirectory(
-    context,
-    context.config.release_evidence_policy?.manifest_directory,
-    "releases/manifests",
-    "release_evidence_policy.manifest_directory",
-  );
-  return path.join(root, `${normalizeId(id)}.json`);
-}
-
-function releaseGateReceiptsRoot(context) {
-  return configuredSdlcDirectory(
-    context,
-    context.config.release_evidence_policy?.gate_receipt_directory,
-    "releases/gates",
-    "release_evidence_policy.gate_receipt_directory",
-  );
-}
-
-function releaseGateReceiptPath(context, id) {
-  return path.join(releaseGateReceiptsRoot(context), `${normalizeId(id)}.json`);
-}
-
 function hashedFileReference(context, id, filePath, logicalHash = null) {
   return {
     id: normalizeId(id),
     path: toProjectPath(context, filePath),
     hash: logicalHash || hashFile(filePath),
   };
-}
-
-function buildReleaseGateReceipt(context, input) {
-  const receipt = {
-    kind: "release_gate_receipt",
-    schema_version: "release-gate-receipt:v1",
-    version: 1,
-    id: normalizeId(input.id),
-    status: "passed",
-    scope: {
-      manifest_id: normalizeId(input.manifest_id),
-      proposal_ref: input.proposal_ref,
-    },
-    checks: input.checks.map((check) => ({
-      name: check.name,
-      status: "passed",
-      subject_hash: shortHashFull(stableJson(check.subject ?? check.evidence ?? [])),
-      evidence: Array.from(
-        new Map((check.evidence || []).map((reference) => [stableJson(reference), reference])).values(),
-      ),
-    })),
-    generated_at: input.generated_at,
-    actor: input.actor,
-    audit: input.audit,
-  };
-  receipt.receipt_hash = shortHashFull(stableJson(receipt));
-  receipt.hash_algorithm = "sha256:stable-json:v1";
-  return receipt;
 }
 
 function validateReleaseManifestIntegrity(context, manifest) {
@@ -28578,35 +24178,6 @@ function closeContentAuthorization(context, authorizationId, reason, actor) {
   }
 }
 
-function rewindInterruptedCompletedWorkflow(workflow) {
-  const integrity = validateAssessmentWorkflowIntegrity(workflow);
-  if (!integrity.valid || workflow.state !== "completed") {
-    fail(`Cannot rewind assessment workflow recovery state: ${integrity.errors.join("; ") || workflow.state}.`);
-  }
-  const history = [...workflow.history];
-  const completedEntry = history.at(-1);
-  if (!completedEntry || completedEntry.to !== "completed") {
-    fail("Completed assessment workflow has no terminal completion transition to recover from.");
-  }
-  history.pop();
-  const { workflow_hash: _hash, hash_algorithm: _algorithm, ...base } = workflow;
-  const recovered = {
-    ...base,
-    state: completedEntry.from,
-    revision: history.length,
-    terminal: false,
-    updated_at: history.at(-1)?.at || workflow.created_at,
-    history,
-  };
-  recovered.workflow_hash = shortHashFull(stableJson(recovered));
-  recovered.hash_algorithm = "sha256:stable-json:v1";
-  const recoveredIntegrity = validateAssessmentWorkflowIntegrity(recovered);
-  if (!recoveredIntegrity.valid) {
-    fail(`Cannot recover interrupted completed workflow: ${recoveredIntegrity.errors.join("; ")}`);
-  }
-  return recovered;
-}
-
 function recoverAssessmentCompletionFromManifest(context, options, proposal, workflow, application, manifestFile, manifest) {
   const { manifest_hash: storedHash, hash_algorithm: algorithm, ...hashSubject } = manifest || {};
   if (
@@ -29190,143 +24761,6 @@ function assessmentNextAction(state, id) {
   return actions[state] || "inspect workflow state";
 }
 
-function authorizationRoot(context) {
-  return path.join(context.sdlcRoot, "authorizations");
-}
-
-function authorizationPath(context, id) {
-  return path.join(authorizationRoot(context), `${normalizeId(id)}.json`);
-}
-
-function authorizationLifecycleRoot(context) {
-  return path.join(context.sdlcRoot, "receipts", "authorization-lifecycle");
-}
-
-function authorizationLifecyclePath(context, id) {
-  return path.join(authorizationLifecycleRoot(context), `${normalizeId(id)}.json`);
-}
-
-function authorizationUsesRoot(context, authorizationId = null) {
-  const configured = context.config.authority_policy?.usage_receipts_root || "authorization-uses";
-  assertSafeSdlcRelativeDirectory(configured, "authority_policy.usage_receipts_root");
-  const root = path.join(context.sdlcRoot, configured);
-  return authorizationId ? path.join(root, normalizeId(authorizationId)) : root;
-}
-
-function authorizationUsePath(context, authorizationId, receiptId) {
-  return path.join(authorizationUsesRoot(context, authorizationId), `${normalizeId(receiptId)}.json`);
-}
-
-function normalizeAuthorizedActions(value) {
-  const actions = normalizeListOption(value).map((action) => action.toLowerCase());
-  for (const action of actions) {
-    if (action !== "*" && !/^[a-z0-9][a-z0-9._-]*(?:\.\*)?$/.test(action)) {
-      fail(`Invalid authorized action '${action}'. Use an exact CLI action such as contract.approve, a prefix such as capability.*, or *.`);
-    }
-  }
-  return Array.from(new Set(actions));
-}
-
-function buildLegacyAuthorizationUses(actions, subjects, options = {}) {
-  const normalizedActions = Array.from(new Set((actions || []).map((action) => String(action).trim().toLowerCase()))).sort();
-  const normalizedSubjects = Array.from(new Set((subjects || []).map((subject) => subject === null ? null : String(subject))));
-  const bindingSubjects = normalizedSubjects.length > 0 ? normalizedSubjects : [null];
-  if (normalizedActions.length === 0) {
-    if (options.failOnAmbiguous) {
-      fail(`${options.label || "Authorization"} has no allowed action.`);
-    }
-    return [];
-  }
-  if (normalizedActions.length > 1 && bindingSubjects.length > 1 && options.failOnAmbiguous) {
-    fail(`${options.label || "Authorization"} cannot combine multiple --allow-action and multiple --allow-subject values without explicit action-subject pairs. Create separate grants so legacy compatibility remains fail-closed.`);
-  }
-  return normalizedActions
-    .flatMap((action) => bindingSubjects.map((subjectId) => {
-      const useSubject = { action, subject_id: subjectId };
-      return { ...useSubject, use_hash: shortHashFull(stableJson(useSubject)) };
-    }))
-    .sort((left, right) => left.use_hash.localeCompare(right.use_hash));
-}
-
-function parseLegacyAuthorizationUses(value) {
-  const usesByHash = new Map();
-  for (const [index, rawEntry] of normalizeListOption(value).entries()) {
-    const separator = rawEntry.indexOf("=");
-    if (separator <= 0 || separator === rawEntry.length - 1) {
-      fail(`Invalid --allow-use value at position ${index + 1}. Use action=subject, for example contract.approve=contract-ST-001-implementation.`);
-    }
-    const action = normalizeAuthorizedActions([rawEntry.slice(0, separator)])[0];
-    const rawSubject = rawEntry.slice(separator + 1).trim();
-    const subjectId = rawSubject === "*" ? "*" : normalizeId(rawSubject);
-    const use = { action, subject_id: subjectId };
-    const normalized = { ...use, use_hash: shortHashFull(stableJson(use)) };
-    usesByHash.set(normalized.use_hash, normalized);
-  }
-  return Array.from(usesByHash.values()).sort((left, right) => left.use_hash.localeCompare(right.use_hash));
-}
-
-function sameLegacyAuthorizationProjection(left, right) {
-  const normalize = (values) => Array.from(new Set(values || [])).sort();
-  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
-}
-
-function legacyAuthorizationBindingErrors(record, action, subjectId) {
-  const errors = [];
-  const normalizedAction = String(action || "").trim().toLowerCase();
-  const normalizedSubjectId = subjectId || null;
-  let uses;
-  if (Array.isArray(record?.allowed_uses) && record.allowed_uses.length > 0) {
-    uses = record.allowed_uses;
-    for (const [index, use] of uses.entries()) {
-      const expectedHash = shortHashFull(stableJson({
-        action: String(use?.action || "").trim().toLowerCase(),
-        subject_id: use?.subject_id || null,
-      }));
-      if (!use || use.use_hash !== expectedHash) {
-        errors.push(`authorization allowed_uses[${index}] has an invalid action-subject hash`);
-      }
-    }
-    const projectedActions = uses.map((use) => String(use?.action || "").trim().toLowerCase());
-    const projectedSubjects = uses.map((use) => use?.subject_id || null).filter((value) => value !== null);
-    if (!sameLegacyAuthorizationProjection(record.allowed_actions, projectedActions)) {
-      errors.push("authorization allowed_actions does not match the projection of allowed_uses");
-    }
-    if (!sameLegacyAuthorizationProjection(record.allowed_subjects, projectedSubjects)) {
-      errors.push("authorization allowed_subjects does not match the projection of allowed_uses");
-    }
-  } else {
-    if (record?.schema_version === "authorization:v3") {
-      return ["authorization:v3 requires explicit allowed_uses action-subject pairs and must fail closed without them"];
-    }
-    const actions = Array.isArray(record?.allowed_actions) ? record.allowed_actions : [];
-    const subjects = Array.isArray(record?.allowed_subjects) ? record.allowed_subjects : [];
-    if (actions.length > 1 && subjects.length > 1) {
-      return ["authorization has multiple actions and multiple subjects without explicit pairs and must fail closed"];
-    }
-    uses = buildLegacyAuthorizationUses(actions, subjects, { label: `Authorization ${record?.id || "unknown"}` });
-  }
-  const actionMatches = (use) => {
-    const allowedAction = String(use?.action || "").trim().toLowerCase();
-    return allowedAction === "*" || allowedAction === normalizedAction ||
-      (allowedAction.endsWith(".*") && normalizedAction.startsWith(allowedAction.slice(0, -1)));
-  };
-  const subjectMatches = (use) => {
-    const allowedSubject = use?.subject_id || null;
-    return allowedSubject === "*" || allowedSubject === normalizedSubjectId;
-  };
-  const matches = uses.some((use) => actionMatches(use) && subjectMatches(use));
-  if (!matches) {
-    if (!uses.some(actionMatches)) {
-      errors.push(`authorization does not allow action ${normalizedAction}`);
-    } else if (!uses.some(subjectMatches)) {
-      errors.push(`authorization does not allow subject ${normalizedSubjectId || "<none>"}`);
-    } else {
-      errors.push(`authorization does not allow action ${normalizedAction} for subject ${normalizedSubjectId || "<none>"}`);
-    }
-  }
-  return errors;
-}
-
 function grantAuthorization(context, options) {
   ensureInitialized(context);
   const id = normalizeId(requireOption(options, "id"));
@@ -29528,171 +24962,6 @@ function revokeAuthorization(context, options) {
   output(options, result, [`Revoked authorization ${id}`]);
 }
 
-function authorizationAllowsAction(record, action) {
-  const normalized = String(action || "").trim().toLowerCase();
-  const allowedActions = Array.isArray(record.allowed_actions) ? record.allowed_actions : [];
-  return allowedActions.some((allowed) =>
-    allowed === "*" || allowed === normalized || (allowed.endsWith(".*") && normalized.startsWith(allowed.slice(0, -1))),
-  );
-}
-
-function authorizationArtifactTypes(settings = {}) {
-  const values = [
-    settings.artifact_type,
-    ...(Array.isArray(settings.artifact_types) ? settings.artifact_types : []),
-  ];
-  return Array.from(new Set(values.map((value) => String(value || "").trim().toLowerCase()).filter(Boolean)));
-}
-
-function contractArtifactTypes(contract = {}) {
-  return authorizationArtifactTypes({
-    artifact_types: (Array.isArray(contract.output_contract_refs) ? contract.output_contract_refs : [])
-      .map((reference) => reference?.artifact_type),
-  });
-}
-
-function contractDirectApprovalRequirements(contract = {}) {
-  const policyRequirements = Array.isArray(contract.capability_policy?.approval_required_for)
-    ? contract.capability_policy.approval_required_for
-    : [];
-  const bindingRequirements = (Array.isArray(contract.capability_bindings) ? contract.capability_bindings : [])
-    .flatMap((binding) => Array.isArray(binding?.requires_approval_for) ? binding.requires_approval_for : []);
-  return Array.from(new Set([...policyRequirements, ...bindingRequirements].map((value) => String(value).trim()).filter(Boolean)));
-}
-
-function authorizationAllowsSubject(record, subjectId) {
-  if (isCanonicalContentAuthorization(record)) {
-    const allowedSubjects = Array.isArray(record.scope?.allowed_subject_ids) ? record.scope.allowed_subject_ids : [];
-    return !subjectId || allowedSubjects.includes(subjectId);
-  }
-  const allowedSubjects = Array.isArray(record.allowed_subjects) ? record.allowed_subjects : [];
-  return !subjectId || allowedSubjects.includes("*") || allowedSubjects.includes(subjectId);
-}
-
-function authorizationAllowsArtifactType(record, artifactType) {
-  if (isCanonicalContentAuthorization(record)) {
-    const allowedArtifactTypes = Array.isArray(record.scope?.allowed_artifact_types)
-      ? record.scope.allowed_artifact_types
-      : [];
-    return !artifactType || allowedArtifactTypes.includes(artifactType);
-  }
-  const allowedArtifactTypes = Array.isArray(record.allowed_artifact_types) ? record.allowed_artifact_types : [];
-  return !artifactType || allowedArtifactTypes.includes(artifactType);
-}
-
-function authorizationApprovalBoundaries(settings = {}) {
-  return Array.from(new Set(
-    (Array.isArray(settings.approval_boundaries) ? settings.approval_boundaries : [])
-      .map((value) => String(value || "").trim())
-      .filter(Boolean),
-  ));
-}
-
-function canonicalAuthorizationUseSubject(settings = {}) {
-  const proposalRef = settings.proposal_ref
-    ? { id: settings.proposal_ref.id, hash: settings.proposal_ref.hash }
-    : null;
-  return {
-    proposal_ref: proposalRef,
-    subject_id: settings.subject_id || null,
-    subject_hash: settings.subject_hash || null,
-    artifact_types: authorizationArtifactTypes(settings).sort(),
-    approval_boundaries: authorizationApprovalBoundaries(settings).sort(),
-  };
-}
-
-function isCanonicalContentAuthorization(record) {
-  return record?.kind === "content_authorization" &&
-    ["content-authorization:v1", "content-authorization:v2"].includes(record?.schema_version);
-}
-
-function authorityAssuranceLabel(value) {
-  return typeof value === "string" ? value : value?.mode || value?.source || "audit_only";
-}
-
-function authorizationRecordHash(record) {
-  return isCanonicalContentAuthorization(record) ? record.authorization_hash : record?.approved_content_hash;
-}
-
-function authorizationReceiptAccepted(receipt) {
-  return receipt?.valid_at_use === true && (receipt.status === "accepted" || receipt.decision === "allow");
-}
-
-function authorizationAllowsApprovalBoundary(record, boundary) {
-  const allowedBoundaries = Array.isArray(record.allowed_approval_boundaries)
-    ? record.allowed_approval_boundaries
-    : [];
-  return allowedBoundaries.includes("*") || allowedBoundaries.includes(boundary);
-}
-
-function hashAuthorizationRecord(record) {
-  if (record?.hash_algorithm === "sha256:stable-json:v1") {
-    return hashAuthorizationRecordV1(record);
-  }
-  const {
-    approved_content_hash,
-    hash_algorithm,
-    status,
-    updated_at,
-    revoked_at,
-    revocation_reason,
-    consumed_at,
-    closed_at,
-    closed_reason,
-    use_count,
-    ...subject
-  } = record || {};
-  return hashApprovalSubject(subject);
-}
-
-function hashAuthorizationRecordV1(record) {
-  const { approved_content_hash, hash_algorithm, revoked_at, revocation_reason, ...subject } = record || {};
-  return hashApprovalSubject(subject);
-}
-
-function exactAuthorizationProposalRefMatch(actualRef, expectedRef) {
-  const actual = actualRef ?? null;
-  const expected = expectedRef ?? null;
-  if (actual === null || expected === null) {
-    return actual === null && expected === null;
-  }
-  return (
-    typeof actual === "object"
-    && !Array.isArray(actual)
-    && typeof expected === "object"
-    && !Array.isArray(expected)
-    && typeof actual.id === "string"
-    && actual.id.length > 0
-    && typeof actual.hash === "string"
-    && actual.hash.length > 0
-    && typeof expected.id === "string"
-    && expected.id.length > 0
-    && typeof expected.hash === "string"
-    && expected.hash.length > 0
-    && actual.id === expected.id
-    && actual.hash === expected.hash
-  );
-}
-
-function describeAuthorizationProposalRef(reference) {
-  return reference === null
-    ? "no proposal binding"
-    : `proposal ${reference?.id || "<missing-id>"} at hash ${reference?.hash || "<missing-hash>"}`;
-}
-
-function authorizationProposalBindingError(record, expectedRef) {
-  const actual = record?.proposal_ref ?? null;
-  const expected = expectedRef ?? null;
-  if (exactAuthorizationProposalRefMatch(actual, expected)) {
-    return null;
-  }
-  return (
-    `Authorization ${record?.id || "unknown"} proposal binding mismatch: `
-    + `grant has ${describeAuthorizationProposalRef(actual)}; `
-    + `this action expects ${describeAuthorizationProposalRef(expected)}.`
-  );
-}
-
 function authorizationUseErrors(record, action, settings = {}) {
   const errors = [];
   if (record.__lifecycle?.effective_at && Date.parse(record.__lifecycle.effective_at) <= Date.now()) {
@@ -29739,17 +25008,6 @@ function authorizationUseErrors(record, action, settings = {}) {
     }
   }
   return errors;
-}
-
-function authorizationUseKey(action, settings = {}) {
-  const proposalRef = canonicalAuthorizationUseSubject(settings).proposal_ref;
-  return shortHashFull(stableJson({
-    action: String(action || "").trim().toLowerCase(),
-    subject_id: settings.subject_id || null,
-    artifact_types: authorizationArtifactTypes(settings).sort(),
-    approval_boundaries: authorizationApprovalBoundaries(settings).sort(),
-    proposal_ref: proposalRef,
-  }));
 }
 
 function existingExactAuthorizationUse(context, authorization, action, settings = {}) {
@@ -29936,139 +25194,6 @@ function readAuthorizationUseReceipt(context, reference, options = {}) {
   return readProjectJson(context, filePath);
 }
 
-function authorizationUseReceiptProposalBindingErrors(receipt, expectedRef) {
-  const expected = expectedRef ?? null;
-  const references = [
-    {
-      label: "recorded use",
-      value: ["authorization-usage-receipt:v1", "authorization-usage-receipt:v2"]
-        .includes(receipt?.schema_version)
-        ? receipt?.subject?.proposal_ref ?? null
-        : receipt?.proposal_ref ?? null,
-    },
-  ];
-  if (["authorization-usage-receipt:v1", "authorization-usage-receipt:v2"]
-    .includes(receipt?.schema_version)) {
-    references.push(
-      {
-        label: "authorization snapshot",
-        value: receipt?.authorization_snapshot?.proposal_ref ?? null,
-      },
-      {
-        label: "receipt proposal reference",
-        value: receipt?.proposal_ref ?? null,
-      },
-    );
-  }
-  return references
-    .filter(({ value }) => !exactAuthorizationProposalRefMatch(value, expected))
-    .map(({ label, value }) =>
-      `authorization usage receipt ${receipt?.id || "unknown"} proposal binding mismatch: `
-      + `${label} has ${describeAuthorizationProposalRef(value)}; `
-      + `this action expects ${describeAuthorizationProposalRef(expected)}`);
-}
-
-function validateAuthorizationUseReceipt(receipt, settings = {}) {
-  const errors = [];
-  if (!receipt || receipt.kind !== "authorization_usage_receipt") {
-    return ["authorization usage receipt is missing or has the wrong kind"];
-  }
-  const hasExpectedProposalBinding = Object.hasOwn(settings, "proposal_ref");
-  if (hasExpectedProposalBinding) {
-    errors.push(...authorizationUseReceiptProposalBindingErrors(
-      receipt,
-      settings.proposal_ref ?? null,
-    ));
-  }
-  if (["authorization-usage-receipt:v1", "authorization-usage-receipt:v2"].includes(receipt.schema_version)) {
-    const integrity = validateCanonicalAuthorizationUsageReceipt(receipt);
-    if (!integrity.valid) {
-      errors.push(...integrity.errors.map((error) => `authorization usage receipt ${receipt.id || "unknown"}: ${error}`));
-    }
-    if (!receipt.valid_at_use || receipt.decision !== "allow") {
-      errors.push(`authorization usage receipt ${receipt.id || "unknown"} was not allowed at use time`);
-    }
-    if (settings.authorization_id && receipt.authorization_id !== settings.authorization_id) {
-      errors.push(`authorization usage receipt references ${receipt.authorization_id}, expected ${settings.authorization_id}`);
-    }
-    if (settings.action && receipt.action !== settings.action) {
-      errors.push(`authorization usage receipt action is ${receipt.action}, expected ${settings.action}`);
-    }
-    const expectedSubject = canonicalAuthorizationUseSubject({
-      ...settings,
-      proposal_ref: hasExpectedProposalBinding
-        ? settings.proposal_ref ?? null
-        : receipt.subject?.proposal_ref ?? null,
-      subject_id: settings.subject_id || receipt.subject?.subject_id || null,
-      subject_hash: settings.subject_hash || receipt.subject?.subject_hash || null,
-      artifact_types: authorizationArtifactTypes(settings).length > 0
-        ? authorizationArtifactTypes(settings)
-        : receipt.subject?.artifact_types || [],
-      approval_boundaries: authorizationApprovalBoundaries(settings).length > 0
-        ? authorizationApprovalBoundaries(settings)
-        : receipt.subject?.approval_boundaries || [],
-    });
-    if (settings.subject_id && receipt.subject?.subject_id !== settings.subject_id) {
-      errors.push(`authorization usage receipt subject is ${receipt.subject?.subject_id || "missing"}, expected ${settings.subject_id}`);
-    }
-    if (computeAuthorizationSubjectHash(receipt.subject) !== computeAuthorizationSubjectHash(expectedSubject)) {
-      errors.push(`authorization usage receipt is not bound to the expected subject content`);
-    }
-    return errors;
-  }
-  const supportedLegacyVersions = [
-    "authorization-usage-receipt:legacy-v1",
-    "authorization-usage-receipt:legacy-v2",
-  ];
-  if (!supportedLegacyVersions.includes(receipt.schema_version)) {
-    errors.push(`authorization usage receipt ${receipt.id || "unknown"} has unsupported schema version ${receipt.schema_version || "missing"}`);
-  }
-  if (receipt.schema_version === "authorization-usage-receipt:legacy-v1" &&
-      Object.hasOwn(receipt.authorization_snapshot || {}, "allowed_uses")) {
-    errors.push(`legacy-v1 authorization usage receipt ${receipt.id || "unknown"} must not declare allowed_uses`);
-  }
-  if (receipt.schema_version === "authorization-usage-receipt:legacy-v2" &&
-      (!Array.isArray(receipt.authorization_snapshot?.allowed_uses) || receipt.authorization_snapshot.allowed_uses.length === 0)) {
-    errors.push(`legacy-v2 authorization usage receipt ${receipt.id || "unknown"} requires allowed_uses`);
-  }
-  const { receipt_hash: receiptHash, hash_algorithm: _algorithm, ...subject } = receipt;
-  if (!receiptHash || receiptHash !== shortHashFull(stableJson(subject))) {
-    errors.push(`authorization usage receipt ${receipt.id || "unknown"} changed after use`);
-  }
-  if (receipt.status !== "accepted" || receipt.valid_at_use !== true) {
-    errors.push(`authorization usage receipt ${receipt.id || "unknown"} was not accepted at use time`);
-  }
-  if (settings.authorization_id && receipt.authorization_id !== settings.authorization_id) {
-    errors.push(`authorization usage receipt references ${receipt.authorization_id}, expected ${settings.authorization_id}`);
-  }
-  if (settings.action && receipt.action !== settings.action) {
-    errors.push(`authorization usage receipt action is ${receipt.action}, expected ${settings.action}`);
-  }
-  if (settings.subject_id && receipt.subject_id !== settings.subject_id) {
-    errors.push(`authorization usage receipt subject is ${receipt.subject_id}, expected ${settings.subject_id}`);
-  }
-  errors.push(...legacyAuthorizationBindingErrors({
-    id: receipt.authorization_id,
-    allowed_actions: receipt.authorization_snapshot?.allowed_actions,
-    allowed_subjects: receipt.authorization_snapshot?.allowed_subjects,
-    allowed_uses: receipt.authorization_snapshot?.allowed_uses,
-  }, receipt.action, receipt.subject_id).map(
-    (error) => `authorization usage receipt ${receipt.id || "unknown"}: ${error}`,
-  ));
-  for (const artifactType of authorizationArtifactTypes(settings)) {
-    if (!receipt.artifact_types?.includes(artifactType)) {
-      errors.push(`authorization usage receipt does not cover artifact type ${artifactType}`);
-    }
-  }
-  if (receipt.authorization_snapshot?.status_at_use !== "active") {
-    errors.push(`authorization was ${receipt.authorization_snapshot?.status_at_use || "unknown"} when used`);
-  }
-  if (receipt.authorization_snapshot?.expires_at && Date.parse(receipt.authorization_snapshot.expires_at) <= Date.parse(receipt.used_at)) {
-    errors.push(`authorization was expired when receipt ${receipt.id || "unknown"} was created`);
-  }
-  return errors;
-}
-
 function requireAutomationAuthorization(context, options, action, settings = {}) {
   const id = getOptionString(options, "authorization");
   if (!id) {
@@ -30134,32 +25259,6 @@ function storyActionCheckpointPolicy(context, storyId, action) {
     profile,
     profile_ref: profileRef,
   };
-}
-
-function storyActionCheckpointSubjectId(storyId, action, settings = {}) {
-  if (action === "story.complete-step" && settings.step) {
-    return normalizeId(`${storyId}.step.${normalizeId(settings.step)}`);
-  }
-  return storyId;
-}
-
-function storyActionAuthorizationSettings(policy, subjectId, artifactTypes = []) {
-  return {
-    subject_id: subjectId,
-    artifact_types: authorizationArtifactTypes({ artifact_types: artifactTypes }),
-    proposal_ref: policy.story?.proposal_ref
-      ? { id: policy.story.proposal_ref.id, hash: policy.story.proposal_ref.hash }
-      : null,
-  };
-}
-
-function canRecoverConsumedLegacyAuthorizationUse(authorization, errors, existingUse) {
-  return Boolean(
-    existingUse
-    && !isCanonicalContentAuthorization(authorization)
-    && errors.length === 1
-    && errors[0] === `Authorization ${authorization.id} is consumed.`,
-  );
 }
 
 function consumeStoryActionCheckpoint(context, storyId, action, options, settings = {}) {
@@ -30454,41 +25553,6 @@ function approvalRequestsPrimarySummary(requests, options, { internalRefreshOnly
   ];
 }
 
-function approvalRequestPrimaryCopy(request, italian = false) {
-  const copies = {
-    baseline_approval: italian
-      ? { label: "Fatti del progetto da usare", decision: "Decidi se descrivono correttamente il progetto." }
-      : { label: "Project facts to rely on", decision: "Decide whether they describe the project correctly." },
-    capability_profile_approval: italian
-      ? { label: "Fonti e limiti di accesso", decision: "Decidi se sono le fonti e i limiti corretti per questo lavoro." }
-      : { label: "Evidence and access boundaries", decision: "Decide whether these are the right sources and limits for this work." },
-    capability_profile_refresh_required: italian
-      ? { label: "Fonti e limiti di accesso", decision: "Aggiornerò i riferimenti senza ampliare il lavoro concordato." }
-      : { label: "Evidence and access boundaries", decision: "I will refresh the references without widening the agreed work." },
-    capability_recommendation_approval: italian
-      ? { label: "Strumenti e accessi", decision: "Decidi se posso usare soltanto gli strumenti e gli accessi descritti." }
-      : { label: "Tools and access", decision: "Decide whether I may use only the tools and access described." },
-    capability_recommendation_refresh_required: italian
-      ? { label: "Strumenti e accessi", decision: "Aggiornerò i riferimenti senza aggiungere strumenti o permessi." }
-      : { label: "Tools and access", decision: "I will refresh the references without adding tools or permissions." },
-    output_template_approval: italian
-      ? { label: "Struttura e formato del risultato", decision: "Decidi se sezioni, dettaglio e formato sono adatti." }
-      : { label: "Result structure and format", decision: "Decide whether its sections, detail, and format are right." },
-    contract_clarification: italian
-      ? { label: "Informazioni mancanti sul lavoro", decision: "Fornisci i fatti o i vincoli mancanti prima che prepari la proposta." }
-      : { label: "Missing work information", decision: "Provide the missing facts or limits before I prepare the proposal." },
-    contract_approval: italian
-      ? { label: "Proposta di lavoro", decision: "Decidi se obiettivo, contesto, limiti, strumenti e risultato atteso corrispondono a ciò che vuoi." }
-      : { label: "Proposed work brief", decision: "Decide whether the goal, context, limits, tools, and expected result match what you want." },
-    output_link_required: italian
-      ? { label: "File da considerare come risultato ufficiale", decision: "Indica quale risultato completato deve essere riutilizzato e verificato in seguito." }
-      : { label: "Official result file", decision: "Choose which completed result should be reused and verified later." },
-  };
-  return copies[request.type] || (italian
-    ? { label: "Scelta in attesa", decision: "Conferma se va bene o spiega cosa deve cambiare." }
-    : { label: "Pending choice", decision: "Confirm whether it is right or explain what should change." });
-}
-
 function approvalRequestPrimaryHighlights(request, italian = false) {
   return userVisibleReviewItems(request)
     .map((item) => safePrimaryGuidanceText(item, request))
@@ -30538,27 +25602,6 @@ function localizeApprovalHighlightItalian(request, item) {
     .replace(/^Validation:/u, "Verifica:");
 }
 
-function safePrimaryGuidanceText(value, request = {}) {
-  const text = compactText(value, 260);
-  if (!text || findForbiddenHumanGuidanceTerms(text).length > 0) return null;
-  if (
-    /--[a-z]|(?:^|\s)\/(?:[^\s/]+\/)*[^\s]*|(?:^|\s)[A-Za-z]:\\[^\s]+|(?:^|\s)\\\\[^\\\s]+\\[^\s]+|(?:^|\s)\.?[A-Za-z0-9_-]+[\\/][A-Za-z0-9_.\\/-]+|\.(?:json|jsonl|md|ya?ml)\b/iu.test(text)
-    || /(?:^|\s)(?:npm|npx|node|python3?|pip3?|git|gh|rtk|codex|bash|zsh|fish|pwsh|powershell|sh)\s+(?:[^\s]+(?:\s+[^\s]+)*)/iu.test(text)
-  ) {
-    return null;
-  }
-  const technicalLiterals = [
-    request.id,
-    request.subject_id,
-    request.story_id,
-    request.template_id,
-    request.artifact_type,
-    ...(request.sources || []),
-  ].map((item) => String(item || "").trim()).filter((item) => item.length > 2);
-  if (technicalLiterals.some((literal) => text.includes(literal))) return null;
-  return text;
-}
-
 function collectApprovalRequests(context, options = {}) {
   const scope = normalizeApprovalCollectionScope(options);
   const baselineRequests = collectBaselineApprovalRequests(context, scope.storyId);
@@ -30576,15 +25619,6 @@ function collectApprovalRequests(context, options = {}) {
   return scope.activeOnly
     ? filterApprovalRequestsForActiveScope(context, requests, scope)
     : requests;
-}
-
-function normalizeApprovalCollectionScope(options = {}) {
-  return {
-    storyId: options.storyId ? normalizeId(options.storyId) : null,
-    phase: options.phase ? normalizeRoutePhase(options.phase) : null,
-    contractId: options.contractId ? normalizeId(options.contractId) : null,
-    activeOnly: options.activeOnly === true,
-  };
 }
 
 function activeContractForApprovalScope(context, scope) {
@@ -30652,22 +25686,6 @@ function filterApprovalRequestsForActiveScope(context, requests, scope) {
       || Boolean(scope.contractId && request.subject_id === scope.contractId)
     );
   });
-}
-
-function approvalSubjectMatchesActiveScope(subject, scope) {
-  if (!subject || typeof subject !== "object") {
-    return false;
-  }
-  if (scope.storyId && subject.story_id !== scope.storyId) {
-    return false;
-  }
-  if (scope.phase && subject.phase && subject.phase !== scope.phase) {
-    return false;
-  }
-  return Boolean(
-    (scope.storyId && subject.story_id === scope.storyId)
-    || (scope.phase && subject.phase === scope.phase),
-  );
 }
 
 function renderApprovalRequestsAssistantMessage(requests) {
@@ -30750,33 +25768,6 @@ function approvalAssistantMessageLinesForLocale(requests, options, englishMessag
     );
   }
   return lines;
-}
-
-function assistantMessagePresentationFields() {
-  const preservedLiterals = [
-    "record IDs",
-    "file paths",
-    "CLI commands",
-    "status and reason codes",
-    "schema keys",
-  ];
-  return {
-    assistant_message_source_language: "en",
-    assistant_message_presentation: {
-      translate_to_chat_language: true,
-      contextualize_for_user: true,
-      presenter: "codex",
-      preserve_literals: preservedLiterals,
-      preserve_literals_in_technical_details_only: preservedLiterals,
-      instruction:
-        "Before showing assistant_message to a human, translate and contextualize it in the active chat language. Use plain product language and begin with outcome, practical impact, the decision needed or an explicit statement that none is needed, what remains protected, and one next action. Do not place record IDs, internal autonomy terms, status or reason codes, hashes, schema keys, file paths, or CLI commands in that primary explanation. Preserve those literals exactly only after an optional Technical details or Dettagli tecnici divider. If an internal freshness check needs a refresh but the user-approved scope has not changed, explain that the internal reference will be updated and work will continue inside the same scope; do not present it as a new product decision. Summarize relevant contents directly instead of sending the user to inspect files. State what approval covers and what it does not cover. A yes or ok applies only to the displayed decision unless the user explicitly grants a broader approval level; later delegated approvals must be recorded as automation, not misattributed as direct user actions.",
-    },
-  };
-}
-
-function attachAssistantMessagePresentation(payload) {
-  Object.assign(payload, assistantMessagePresentationFields());
-  return payload;
 }
 
 function collectBaselineApprovalRequests(context, storyId = null) {
@@ -31029,14 +26020,6 @@ function buildCapabilityRecommendationApprovalRequest(context, recommendation, o
   };
 }
 
-function capabilityRecordMatchesStory(context, record, storyId = null) {
-  if (!storyId) {
-    return true;
-  }
-  const subjectStoryId = record.subject?.story_id || null;
-  return !subjectStoryId || subjectStoryId === storyId;
-}
-
 function capabilityRecommendationMatchesStory(context, recommendation, storyId = null) {
   if (!storyId) {
     return true;
@@ -31047,10 +26030,6 @@ function capabilityRecommendationMatchesStory(context, recommendation, storyId =
   } catch {
     return true;
   }
-}
-
-function capabilityRecommendationNeedsInstallApproval(recommendation) {
-  return (recommendation.recommendations || []).some((item) => item.install_required && !item.install_approved);
 }
 
 function buildBaselineApprovalRequest(context, baseline) {
@@ -31129,171 +26108,6 @@ function buildBaselineRefreshRequest(context, baseline, baselinePath, reportPath
     suggested_question: `The evidence behind ${baseline.id} changed. Should I refresh that project context before continuing?`,
     suggested_command: `agentic-sdlc baseline propose --id ${baseline.id} --source <current-path> --force --summary "<updated observable context>"`,
   };
-}
-
-function formatBaselineCurrentStateSummary(baseline, fallback = null) {
-  const stack = (baseline.repository_snapshot?.detected_stack || [])
-    .slice(0, 6)
-    .map((item) => item.name || item.type)
-    .filter(Boolean);
-  const keyFiles = (baseline.repository_snapshot?.key_files || [])
-    .slice(0, 8)
-    .map((item) => item.path)
-    .filter(Boolean);
-  const documents = (baseline.imported_documents || [])
-    .slice(0, 5)
-    .map((item) => item.path)
-    .filter(Boolean);
-  const caveats = normalizeListValue(baseline.inferred_context?.caveats || [], []).slice(0, 2);
-  const questions = normalizeListValue(baseline.open_questions || [], []).slice(0, 3);
-  const parts = [
-    baseline.summary ? `summary: ${baseline.summary}` : null,
-    baseline.inferred_context?.product_signal ? `product signal: ${compactText(baseline.inferred_context.product_signal, 260)}` : null,
-    baseline.inferred_context?.component_roots?.length ? `component roots: ${baseline.inferred_context.component_roots.join(", ")}` : null,
-    stack.length ? `detected stack: ${stack.join(", ")}` : null,
-    keyFiles.length ? `key files: ${keyFiles.join(", ")}` : null,
-    documents.length ? `documents: ${documents.join(", ")}` : null,
-    questions.length ? `open questions: ${questions.join(" ")}` : null,
-    caveats.length ? `caveats: ${caveats.join(" ")}` : null,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" | ") : fallback;
-}
-
-function formatBaselineDetectedStack(baseline) {
-  const stack = baseline.repository_snapshot?.detected_stack || [];
-  if (!stack.length) {
-    return null;
-  }
-  const entries = stack
-    .slice(0, 8)
-    .map((item) => [item.name || item.type, item.source_path ? `from ${item.source_path}` : null].filter(Boolean).join(" "))
-    .filter(Boolean);
-  return entries.length ? `Technology signals I found: ${formatLimitedList(entries, 8)}` : null;
-}
-
-function formatBaselineImportedDocuments(baseline) {
-  const documents = Array.isArray(baseline.imported_documents) ? baseline.imported_documents : [];
-  if (!documents.length) {
-    return null;
-  }
-  const entries = documents
-    .slice(0, 5)
-    .map((document) => document.excerpt ? `${document.path}: ${compactText(document.excerpt, 180)}` : document.path)
-    .filter(Boolean);
-  return entries.length ? `Documents I read: ${formatLimitedList(entries, 5)}` : null;
-}
-
-function formatBaselineKeyFiles(baseline) {
-  const keyFiles = baseline.repository_snapshot?.key_files || [];
-  if (!keyFiles.length) {
-    return null;
-  }
-  const entries = keyFiles.slice(0, 10).map((item) => item.path).filter(Boolean);
-  return entries.length ? `Important project files or folders detected: ${formatLimitedList(entries, 10)}` : null;
-}
-
-function formatLimitedList(values, maxItems = 8) {
-  const items = normalizeListValue(values, []).filter(Boolean);
-  const visible = items.slice(0, maxItems);
-  const hidden = Math.max(0, items.length - visible.length);
-  return `${visible.join(", ")}${hidden ? `, plus ${hidden} more` : ""}`;
-}
-
-function formatCapabilitySubject(subject = {}) {
-  const parts = [
-    subject.scope ? `scope ${subject.scope}` : null,
-    subject.phase ? `phase ${subject.phase}` : null,
-    subject.story_id ? `work item ${subject.story_id}` : null,
-    subject.requirement_ids?.length ? `requirements ${subject.requirement_ids.join(", ")}` : null,
-  ].filter(Boolean);
-  return parts.length ? parts.join(", ") : "project-level work";
-}
-
-function formatDetectedStackForUser(stack = []) {
-  const entries = stack
-    .slice(0, 10)
-    .map((item) => [item.name || item.type, item.source_path ? `from ${item.source_path}` : null].filter(Boolean).join(" "))
-    .filter(Boolean);
-  return entries.length ? formatLimitedList(entries, 10) : "none detected";
-}
-
-function formatCapabilityEvidenceForUser(evidence = []) {
-  const entries = evidence
-    .slice(0, 10)
-    .map((item) => {
-      const label = [item.type || "evidence", item.path ? `from ${item.path}` : null].filter(Boolean).join(" ");
-      return item.summary ? `${label}: ${compactText(item.summary, 140)}` : label;
-    })
-    .filter(Boolean);
-  return entries.length ? formatLimitedList(entries, 10) : "no evidence listed";
-}
-
-function formatCapabilityRecommendationsForUser(recommendations = []) {
-  const entries = recommendations
-    .slice(0, 10)
-    .map((item) => {
-      const permissionText = item.permissions?.length ? ` permissions ${item.permissions.join("/")}` : "";
-      const installText = item.install_required ? " requires install approval" : " no install";
-      const purposeText = item.purpose ? ` - ${compactText(item.purpose, 120)}` : "";
-      return `${item.type}:${item.name} (${item.availability || "unknown"};${permissionText}${installText})${purposeText}`;
-    })
-    .filter(Boolean);
-  return entries.length ? formatLimitedList(entries, 10) : "no concrete capabilities listed";
-}
-
-function formatCapabilityPolicyPatchForUser(policy = null) {
-  const normalized = buildCapabilityPolicy(policy);
-  const group = (name) => normalized[name] || emptyCapabilitySet();
-  const required = [
-    ...group("skills").required.map((name) => `skill:${name}`),
-    ...group("mcp").required.map((name) => `mcp:${name}`),
-    ...group("tools").required.map((name) => `tool:${name}`),
-    ...group("plugins").required.map((name) => `plugin:${name}`),
-    ...group("connectors").required.map((name) => `connector:${name}`),
-    ...group("models").required.map((name) => `model:${name}`),
-  ];
-  const allowed = [
-    ...group("skills").allowed.map((name) => `skill:${name}`),
-    ...group("mcp").allowed.map((name) => `mcp:${name}`),
-    ...group("tools").allowed.map((name) => `tool:${name}`),
-    ...group("plugins").allowed.map((name) => `plugin:${name}`),
-    ...group("connectors").allowed.map((name) => `connector:${name}`),
-    ...group("models").allowed.map((name) => `model:${name}`),
-  ];
-  const forbidden = [
-    ...group("skills").forbidden.map((name) => `skill:${name}`),
-    ...group("mcp").forbidden.map((name) => `mcp:${name}`),
-    ...group("tools").forbidden.map((name) => `tool:${name}`),
-    ...group("plugins").forbidden.map((name) => `plugin:${name}`),
-    ...group("connectors").forbidden.map((name) => `connector:${name}`),
-    ...group("models").forbidden.map((name) => `model:${name}`),
-  ];
-  return [
-    required.length ? `Required tools/capabilities: ${formatLimitedList(required, 8)}` : null,
-    allowed.length ? `Allowed tools/capabilities: ${formatLimitedList(allowed, 8)}` : null,
-    forbidden.length ? `Forbidden tools/capabilities: ${formatLimitedList(forbidden, 8)}` : null,
-    normalized.approval_required_for.length ? `Extra approval required for: ${formatLimitedList(normalized.approval_required_for, 8)}` : null,
-  ].filter(Boolean).join(" | ") || null;
-}
-
-function formatCapabilityBindingsForUser(bindings = []) {
-  const entries = bindings
-    .slice(0, 8)
-    .map((binding) => {
-      const permissions = binding.permissions?.length ? ` permissions ${binding.permissions.join("/")}` : "";
-      const target = binding.target && Object.keys(binding.target).length ? ` target ${compactText(JSON.stringify(binding.target), 120)}` : "";
-      return `${binding.type}:${binding.name}${binding.binding_id ? ` (${binding.binding_id})` : ""}${permissions}${target}`;
-    })
-    .filter(Boolean);
-  return entries.length ? formatLimitedList(entries, 8) : "no specific bindings";
-}
-
-function formatCapabilityInstallNeeds(recommendations = []) {
-  const installs = (recommendations || [])
-    .filter((item) => item.install_required && !item.install_approved)
-    .map((item) => `${item.type}:${item.name}`)
-    .filter(Boolean);
-  return installs.length ? formatLimitedList(installs, 8) : "no pending installs";
 }
 
 function collectOutputTemplateApprovalRequests(context, storyId = null) {
@@ -31583,117 +26397,12 @@ function contractMatchesStoryApprovalScope(context, contract, rawScope = {}) {
   return true;
 }
 
-function isIntactBootstrapPhaseContract(context, contract) {
-  const phase = String(contract?.phase || "");
-  if (
-    !phase
-    || !context.config.phase_order.includes(phase)
-    || contract.id !== `contract-${phase}-v1`
-    || contract.story_id
-  ) {
-    return false;
-  }
-  const contextualization = contract.contextualization || {};
-  return (
-    contract.status === "draft"
-    && (!Array.isArray(contract.approvals) || contract.approvals.length === 0)
-    && (!Array.isArray(contract.output_contract_refs) || contract.output_contract_refs.length === 0)
-    && (!Array.isArray(contract.capability_bindings) || contract.capability_bindings.length === 0)
-    && (!Array.isArray(contract.capability_recommendation_refs) || contract.capability_recommendation_refs.length === 0)
-    && (!Array.isArray(contract.requirement_refs) || contract.requirement_refs.length === 0)
-    && (!Array.isArray(contract.requirement_execution_profile_refs) || contract.requirement_execution_profile_refs.length === 0)
-    && !contract.delivery_execution_profile_id
-    && !String(contextualization.summary || "").trim()
-    && (!Array.isArray(contextualization.context_sources) || contextualization.context_sources.length === 0)
-    && (!Array.isArray(contextualization.questions) || contextualization.questions.length === 0)
-    && (!Array.isArray(contextualization.constraints) || contextualization.constraints.length === 0)
-    && (!Array.isArray(contextualization.assumptions) || contextualization.assumptions.length === 0)
-    && Number(contextualization.open_questions || 0) === 0
-  );
-}
-
 function contractIsActiveStoryContract(context, contract) {
   if (!contract.story_id) {
     return false;
   }
   const story = readStory(context, contract.story_id);
   return Boolean(story?.contract_id && story.contract_id === contract.id);
-}
-
-function humanApprovalFields(fields = {}) {
-  const reviewItems = normalizeListValue(fields.review_items, [])
-    .map((item) => (item === null || item === undefined ? null : String(item).trim()))
-    .filter(Boolean);
-  return {
-    title: fields.title || null,
-    why_needed: fields.why_needed || null,
-    review_items: reviewItems,
-    delivery_format_options: normalizeDeliveryFormatOptions(fields.delivery_format_options || []),
-    recommended_delivery_format: fields.recommended_delivery_format || null,
-    delivery_question: fields.delivery_question || null,
-    approval_meaning: fields.approval_meaning || null,
-    approval_scope: normalizeApprovalRequestScope(fields.approval_scope),
-    approve_if: fields.approve_if || null,
-    change_if: fields.change_if || null,
-    after_approval: fields.after_approval || null,
-    user_prompt: fields.user_prompt || null,
-    approval_phrase: fields.approval_phrase || null,
-  };
-}
-
-function normalizeApprovalRequestScope(scope = null) {
-  return {
-    applies_only_to_presented_item: true,
-    cannot_approve_future_artifacts: true,
-    requires_fresh_confirmation_for_new_artifacts: true,
-    ...(scope && typeof scope === "object" ? scope : {}),
-  };
-}
-
-function normalizeDeliveryFormatOptions(options = []) {
-  const rawOptions = Array.isArray(options) ? options : [];
-  return rawOptions
-    .map((option) => {
-      if (typeof option === "string") {
-        const label = option.trim();
-        return label ? { id: slugify(label), label, description: null } : null;
-      }
-      if (!option || typeof option !== "object") {
-        return null;
-      }
-      const label = String(option.label || option.id || "").trim();
-      const id = slugify(option.id || label);
-      if (!id || !label) {
-        return null;
-      }
-      return {
-        id,
-        label,
-        description: option.description ? String(option.description).trim() : null,
-        when_to_use: option.when_to_use ? String(option.when_to_use).trim() : null,
-      };
-    })
-    .filter(Boolean);
-}
-
-function formatDeliveryFormatOption(option) {
-  return [
-    option.label,
-    option.description ? ` - ${option.description}` : null,
-    option.when_to_use ? ` Use when: ${option.when_to_use}` : null,
-  ].filter(Boolean).join("");
-}
-
-function canonicalOutputFormatOptions() {
-  return Object.entries(OUTPUT_FORMATS)
-    .filter(([format]) => format !== "custom")
-    .map(([format, descriptor]) => ({
-      id: format,
-      label: `${descriptor.label} (${descriptor.extension})`,
-      description: descriptor.generator
-        ? `Canonical file generated and verified with the ${descriptor.generator} artifact capability.`
-        : "Canonical file stored in the project and verified by the SDLC gate.",
-    }));
 }
 
 function deliveryFormatOptionsForOutput(artifactType = "", phase = null) {
@@ -31844,59 +26553,14 @@ function deliveryFormatOptionsForOutput(artifactType = "", phase = null) {
   return dedupeDeliveryFormatOptions(options);
 }
 
-function matchesAny(value, terms) {
-  return terms.some((term) => value.includes(term));
-}
-
-function dedupeDeliveryFormatOptions(options) {
-  const seen = new Set();
-  const result = [];
-  for (const option of normalizeDeliveryFormatOptions(options)) {
-    if (seen.has(option.id)) {
-      continue;
-    }
-    seen.add(option.id);
-    result.push(option);
-  }
-  return result;
-}
-
-function recommendedDeliveryFormatForOutput(artifactType = "", phase = null) {
-  const normalized = String(artifactType || phase || "").toLowerCase();
-  if (matchesAny(normalized, ["implementation", "code", "patch", "change"])) {
-    return "changed-files-summary + modified-classes-components + tests-and-verification; include diff-review or key-code-snippets only when the user asks for code-level review.";
-  }
-  if (matchesAny(normalized, ["validation", "test", "qa", "verification"])) {
-    return "test-evidence + regression-risk-summary, with failure-triage when checks fail.";
-  }
-  if (matchesAny(normalized, ["release", "deploy", "deployment", "handoff"])) {
-    return "release-notes + deployment-checklist + handoff-summary.";
-  }
-  if (matchesAny(normalized, ["design", "architecture", "api", "ux", "ui"])) {
-    return "Project document plus chat summary, with design rationale and interface contracts when implementation will follow.";
-  }
-  return "Project document plus chat summary: save the result and provide a concise chat summary.";
-}
-
 function deliveryQuestionForOutput(artifactType = "", phase = null) {
   const label = humanOutputLabel(artifactType || phase || "this output");
   const optionLabels = deliveryFormatOptionsForOutput(artifactType, phase).map((option) => option.label).join(", ");
   return `How should I present ${label} results to you? Choose one option or combine several: ${optionLabels}. You can also ask for a custom delivery format.`;
 }
 
-function contractDeliveryDescriptor(contract) {
-  const outputTypes = Array.isArray(contract.output_contract_refs)
-    ? contract.output_contract_refs.map((ref) => ref.artifact_type).filter(Boolean)
-    : [];
-  return [contract.phase, ...outputTypes].filter(Boolean).join(" ");
-}
-
 function deliveryFormatOptionsForContract(contract) {
   return deliveryFormatOptionsForOutput(contractDeliveryDescriptor(contract), contract.phase);
-}
-
-function recommendedDeliveryFormatForContract(contract) {
-  return recommendedDeliveryFormatForOutput(contractDeliveryDescriptor(contract), contract.phase);
 }
 
 function deliveryQuestionForContract(contract) {
@@ -32128,19 +26792,6 @@ function readProjectMarkdownHeadings(context, relativePath, maxHeadings = 8) {
   } catch {
     return [];
   }
-}
-
-function compactText(value, maxLength = 220) {
-  const normalized = String(value || "").replace(/\s+/g, " ").trim();
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-  return `${normalized.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
-}
-
-function capitalizeLabel(value) {
-  const text = String(value || "phase");
-  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function collectStoryTemplateIds(context, storyId, registry = null) {
@@ -32461,22 +27112,6 @@ function createContractLocked(context, options, settings) {
   );
 }
 
-function contractProposalHumanGuidance(contract, options) {
-  const italian = humanGuidanceLocale(options) === "it";
-  return {
-    result: italian ? "È pronta una bozza del lavoro da esaminare." : "A draft work brief is ready for review.",
-    impact: italian ? "Nessun lavoro descritto nella bozza inizierà finché non confermi che corrisponde a ciò che vuoi." : "None of the work described in the draft will start until you confirm that it matches what you want.",
-    required_decision: italian ? "Controlla obiettivo, contesto, risultato atteso, limiti e verifiche; approva la bozza oppure indica cosa cambiare." : "Review the goal, context, expected result, limits, and checks; approve the draft or say what should change.",
-    protection_boundary: italian ? "La creazione della bozza non autorizza modifiche al prodotto, merge, rilasci, produzione, segreti o attività fuori dai limiti descritti." : "Creating the draft does not authorize product changes, merges, releases, production, secrets, or work outside the described limits.",
-    next_action: italian ? "Leggi il riepilogo qui sotto e conferma la proposta, correggila o rifiutala prima di iniziare." : "Read the summary below and confirm, correct, or reject the proposal before work starts.",
-    details: {
-      contract_id: contract.id,
-      lifecycle_status: contract.status,
-      story_id: contract.story_id || null,
-    },
-  };
-}
-
 function contractProposalPrimarySummary(contract, options) {
   const italian = humanGuidanceLocale(options) === "it";
   const request = {
@@ -32734,20 +27369,6 @@ function collectContractReadinessGaps(context, contract) {
   return gaps;
 }
 
-function collectCapabilityPolicyReadinessGaps(contract) {
-  const label = `contract ${contract.id || contract.phase || "work brief"}`;
-  const policy = contract.capability_policy ?? buildCapabilityPolicy(null);
-  const report = { errors: [] };
-  validateCapabilityPolicy(policy, `${label} capability_policy`, report);
-  return report.errors.map((error) => ({
-    code: "invalid_capability_policy",
-    summary: error,
-    question:
-      "Replace capability_policy with valid skills, mcp, and tools groups "
-      + "whose required, allowed, and forbidden lists do not conflict.",
-  }));
-}
-
 function collectOutputContractRefReadinessGaps(context, contract) {
   const gaps = [];
   const rawRefs = contract.output_contract_refs;
@@ -32892,32 +27513,6 @@ function collectCapabilityBindingReadinessGaps(context, contract) {
   return { bindings, gaps };
 }
 
-function collectMissingRequiredCapabilityBindings(contract, options = {}) {
-  const policy = contract.capability_policy || buildCapabilityPolicy(null);
-  const rawBindings = Array.isArray(contract.capability_bindings) ? contract.capability_bindings : [];
-  const bindings = Array.isArray(options.bindings)
-    ? options.bindings
-    : rawBindings.map((binding, index) => normalizeCapabilityBinding(binding, index));
-  const missing = [];
-  for (const type of ["mcp", "tools"]) {
-    const required = Array.isArray(policy?.[type]?.required)
-      ? policy[type].required
-          .filter((name) => typeof name === "string")
-          .map((name) => name.trim())
-          .filter(Boolean)
-      : [];
-    for (const name of required) {
-      if (
-        !capabilityHasBinding(bindings, type, name)
-        && !contractHasCapabilityOpenQuestion(contract, type, name)
-      ) {
-        missing.push({ type, name });
-      }
-    }
-  }
-  return missing;
-}
-
 function explainOpenQuestion(context, rawQuestion) {
   const record = typeof rawQuestion === "string" ? { question: rawQuestion } : rawQuestion || {};
   const question = String(record.question || record.prompt || "").trim();
@@ -32944,17 +27539,6 @@ function explainOpenQuestion(context, rawQuestion) {
       : ["Indica l’opzione preferita e i limiti importanti; per esempio: «Usa l’API esistente, non aggiungere un nuovo servizio e mantieni la retrocompatibilità»."],
     effect_of_answer: record.effect_of_answer || guidance.effect_of_answer || "The answer will be written into the contract and become a testable execution boundary.",
   };
-}
-
-function formatExplainedOpenQuestion(explanation, index = null) {
-  const prefix = index === null ? "Open question" : `Open question ${index}`;
-  return [
-    `${prefix}: ${explanation.question}`,
-    `What I need: ${explanation.what_is_requested}`,
-    `Why: ${explanation.why_needed}`,
-    `Example answer: ${explanation.example_answers[0]}`,
-    `Effect: ${explanation.effect_of_answer}`,
-  ].join(" ");
 }
 
 function collectContractDependencyFreshnessGaps(context, contract) {
@@ -33031,16 +27615,6 @@ function collectContractDependencyFreshnessGaps(context, contract) {
   }
 
   return gaps;
-}
-
-function contractExecutionContext(contract) {
-  return contract?.story_id && contract?.id && contract?.delivery_execution_profile_id
-    ? {
-        storyId: contract.story_id,
-        contractId: contract.id,
-        profileId: contract.delivery_execution_profile_id,
-      }
-    : null;
 }
 
 function storyOutputResolveHint(contract) {
@@ -33392,53 +27966,6 @@ function buildContract(context, phase, overrides = {}) {
   };
 }
 
-function buildExecutionPolicy(context, overrides = {}) {
-  const config = context.config.execution_policy || {};
-  const runtime = String(config.runtime || "codex");
-  const allowedReasoningLevels = normalizeReasoningLevels(config.reasoning_levels);
-  const rawModel = normalizeScalarOption(
-    overrides.model === undefined ? config.default_model : overrides.model,
-    "model",
-  );
-  const rawReasoning = normalizeScalarOption(
-    overrides.reasoning === undefined ? config.default_reasoning : overrides.reasoning,
-    "reasoning",
-  );
-  const model = buildExecutionPolicySelection(rawModel, "value");
-  const reasoning = buildExecutionPolicySelection(rawReasoning, "level", {
-    allowedValues: allowedReasoningLevels,
-    optionName: "reasoning",
-  });
-
-  return {
-    runtime,
-    model,
-    reasoning,
-    notes: [...(overrides.execution_notes || [])],
-  };
-}
-
-function buildExecutionPolicySelection(rawValue, valueKey, options = {}) {
-  if (!rawValue || rawValue.toLowerCase() === "inherit") {
-    return {
-      mode: "inherit",
-      [valueKey]: null,
-    };
-  }
-
-  const value = valueKey === "level" ? rawValue.toLowerCase() : rawValue;
-  if (options.allowedValues && !options.allowedValues.includes(value)) {
-    fail(
-      `Unknown --${options.optionName} '${rawValue}'. Valid values: ${options.allowedValues.join(", ")}`,
-    );
-  }
-
-  return {
-    mode: "override",
-    [valueKey]: value,
-  };
-}
-
 function loadCapabilityPolicy(context, options) {
   const inline = getOptionString(options, "capability-policy-json");
   const file = getOptionString(options, "capability-policy-file");
@@ -33476,166 +28003,6 @@ function loadCapabilityBindings(context, options) {
   });
 }
 
-function buildCapabilityPolicy(policy) {
-  const empty = {
-    skills: emptyCapabilitySet(),
-    mcp: emptyCapabilitySet(),
-    tools: emptyCapabilitySet(),
-    approval_required_for: [],
-  };
-  if (policy === null || policy === undefined) {
-    return empty;
-  }
-  if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
-    fail("capability_policy must be a JSON object");
-  }
-  const normalized = {
-    skills: normalizeCapabilitySet(policy.skills),
-    mcp: normalizeCapabilitySet(policy.mcp),
-    tools: normalizeCapabilitySet(policy.tools),
-    approval_required_for: normalizeListValue(policy.approval_required_for, []),
-  };
-  validateCapabilityPolicy(normalized, "capability_policy");
-  return normalized;
-}
-
-function emptyCapabilitySet() {
-  return {
-    required: [],
-    allowed: [],
-    forbidden: [],
-  };
-}
-
-function normalizeCapabilitySet(value) {
-  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  return {
-    required: normalizeListValue(source.required, []),
-    allowed: normalizeListValue(source.allowed, []),
-    forbidden: normalizeListValue(source.forbidden, []),
-  };
-}
-
-function validateCapabilityPolicy(policy, label, report = null) {
-  const errors = [];
-  if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
-    errors.push(`${label} must be an object`);
-  } else {
-    for (const type of CAPABILITY_TYPES) {
-      const group = policy[type];
-      if (!group || typeof group !== "object" || Array.isArray(group)) {
-        errors.push(`${label}.${type} must be an object`);
-        continue;
-      }
-      for (const key of CAPABILITY_GROUPS) {
-        if (!Array.isArray(group[key])) {
-          errors.push(`${label}.${type}.${key} must be an array`);
-          continue;
-        }
-        for (const [index, value] of group[key].entries()) {
-          if (typeof value !== "string" || !value.trim()) {
-            errors.push(`${label}.${type}.${key}[${index}] must be a non-empty string`);
-          }
-        }
-      }
-      const required = new Set(
-        Array.isArray(group.required)
-          ? group.required
-              .filter((value) => typeof value === "string" && value.trim())
-              .map((value) => value.trim())
-          : [],
-      );
-      const allowed = new Set(
-        Array.isArray(group.allowed)
-          ? group.allowed
-              .filter((value) => typeof value === "string" && value.trim())
-              .map((value) => value.trim())
-          : [],
-      );
-      const forbidden = new Set(
-        Array.isArray(group.forbidden)
-          ? group.forbidden
-              .filter((value) => typeof value === "string" && value.trim())
-              .map((value) => value.trim())
-          : [],
-      );
-      for (const value of required) {
-        if (forbidden.has(value)) {
-          errors.push(`${label}.${type} capability '${value}' cannot be both required and forbidden`);
-        }
-      }
-      for (const value of allowed) {
-        if (forbidden.has(value)) {
-          errors.push(`${label}.${type} capability '${value}' cannot be both allowed and forbidden`);
-        }
-      }
-    }
-    if (!Array.isArray(policy.approval_required_for)) {
-      errors.push(`${label}.approval_required_for must be an array`);
-    }
-  }
-  if (report) {
-    report.errors.push(...errors);
-    return errors.length === 0;
-  }
-  if (errors.length > 0) {
-    fail(errors.join("; "));
-  }
-  return true;
-}
-
-function normalizeCapabilityBindings(bindings) {
-  if (!Array.isArray(bindings)) {
-    fail("capability_bindings must be an array");
-  }
-  return bindings.map((binding, index) => normalizeCapabilityBinding(binding, index));
-}
-
-function normalizeCapabilityRecommendationRefs(refs) {
-  if (!Array.isArray(refs)) {
-    fail("capability_recommendation_refs must be an array");
-  }
-  return refs.map((ref, index) => {
-    if (!ref || typeof ref !== "object" || Array.isArray(ref)) {
-      fail(`capability recommendation ref ${index + 1} must be a JSON object`);
-    }
-    return {
-      id: normalizeId(ref.id),
-      profile_id: ref.profile_id ? normalizeId(ref.profile_id) : null,
-      path: String(ref.path || "").trim(),
-      approved_content_hash: String(ref.approved_content_hash || "").trim(),
-    };
-  });
-}
-
-function normalizeCapabilityBinding(binding, index = 0) {
-  if (!binding || typeof binding !== "object" || Array.isArray(binding)) {
-    fail(`capability binding ${index + 1} must be a JSON object`);
-  }
-  const type = String(binding.type || "").trim().toLowerCase();
-  if (!["skill", "mcp", "tool"].includes(type)) {
-    fail(`capability binding ${index + 1} type must be skill, mcp, or tool`);
-  }
-  const name = String(binding.name || "").trim();
-  if (!name) {
-    fail(`capability binding ${index + 1} is missing name`);
-  }
-  const target = binding.target && typeof binding.target === "object" && !Array.isArray(binding.target) ? binding.target : null;
-  if (!target || Object.keys(target).length === 0) {
-    fail(`capability binding ${index + 1} is missing a concrete target object`);
-  }
-  return {
-    type,
-    name,
-    binding_id: normalizeId(binding.binding_id || `${type}-${name}`),
-    target,
-    permissions: normalizeListValue(binding.permissions, []),
-    requires_approval_for: normalizeListValue(binding.requires_approval_for, []),
-    environment: binding.environment ? String(binding.environment) : null,
-    notes: normalizeListValue(binding.notes, []),
-  };
-}
-
 function validateCapabilityBindings(context, contract, label, report) {
   const policy = contract.capability_policy || buildCapabilityPolicy(null);
   validateCapabilityPolicy(policy, `${label} capability_policy`, report);
@@ -33662,157 +28029,6 @@ function validateCapabilityBindings(context, contract, label, report) {
     );
   }
   validateCapabilityBindingTargets(context, normalizedBindings, label, report);
-}
-
-function capabilityHasBinding(bindings, type, name) {
-  const bindingType = type === "tools" ? "tool" : type === "skills" ? "skill" : type;
-  return bindings.some((binding) => binding.type === bindingType && binding.name === name);
-}
-
-function contractHasCapabilityOpenQuestion(contract, type, name) {
-  const questions = contract.contextualization?.questions || [];
-  return questions.some((question) => {
-    const text = `${question.question || ""} ${question.id || ""} ${question.label || ""}`.toLowerCase();
-    return question.status !== "answered" && text.includes(type.toLowerCase()) && text.includes(String(name).toLowerCase());
-  });
-}
-
-function capabilityTargetValueIsConcrete(value, seen = new WeakSet()) {
-  if (typeof value === "string") {
-    const text = value.trim();
-    if (!text) {
-      return false;
-    }
-    return !(
-      /<[^<>]+>/u.test(text)
-      || /\$\{[^{}]+\}/u.test(text)
-      || /\{\{[^{}]+\}\}/u.test(text)
-    );
-  }
-  if (typeof value === "number") {
-    return Number.isFinite(value);
-  }
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  if (seen.has(value)) {
-    return false;
-  }
-  seen.add(value);
-  const values = Array.isArray(value) ? value : Object.values(value);
-  return values.some((item) => capabilityTargetValueIsConcrete(item, seen));
-}
-
-function capabilityTargetKeyIsPathLike(key) {
-  const tokens = String(key || "")
-    .replace(/([a-z0-9])([A-Z])/gu, "$1_$2")
-    .toLowerCase()
-    .split(/[^a-z0-9]+/u)
-    .filter(Boolean);
-  const pathTokens = new Set([
-    "path",
-    "root",
-    "workspace",
-    "directory",
-    "dir",
-    "folder",
-    "file",
-    "cwd",
-    "repository",
-    "repo",
-    "location",
-  ]);
-  return tokens.some((token) => {
-    if (pathTokens.has(token)) {
-      return true;
-    }
-    if (token.endsWith("s") && pathTokens.has(token.slice(0, -1))) {
-      return true;
-    }
-    if (token.endsWith("ies") && pathTokens.has(`${token.slice(0, -3)}y`)) {
-      return true;
-    }
-    return false;
-  });
-}
-
-function capabilityTargetValueLooksLikePath(value) {
-  const text = String(value || "").trim();
-  if (!text) {
-    return false;
-  }
-  if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(text)) {
-    return text.toLowerCase().startsWith("file://");
-  }
-  return (
-    path.isAbsolute(text)
-    || path.win32.isAbsolute(text)
-    || text.startsWith("./")
-    || text.startsWith("../")
-    || text.includes("/")
-    || text.includes("\\")
-  );
-}
-
-function visitCapabilityTargetValues(
-  value,
-  visitor,
-  settings = {},
-  seen = new WeakSet(),
-) {
-  const trail = settings.trail || [];
-  const pathLike = settings.pathLike === true;
-  if (!value || typeof value !== "object") {
-    visitor(value, { trail, pathLike });
-    return;
-  }
-  if (seen.has(value)) {
-    return;
-  }
-  seen.add(value);
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => {
-      visitCapabilityTargetValues(
-        item,
-        visitor,
-        { trail: [...trail, String(index)], pathLike },
-        seen,
-      );
-    });
-    return;
-  }
-  for (const [key, item] of Object.entries(value)) {
-    visitCapabilityTargetValues(
-      item,
-      visitor,
-      {
-        trail: [...trail, key],
-        pathLike: pathLike || capabilityTargetKeyIsPathLike(key),
-      },
-      seen,
-    );
-  }
-}
-
-function capabilityTargetFilesystemPath(value, pathLike) {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const text = value.trim();
-  if (!text) {
-    return null;
-  }
-  const uri = text.match(/^([a-z][a-z0-9+.-]*):\/\//iu);
-  if (uri && uri[1].toLowerCase() !== "file") {
-    return null;
-  }
-  if (!pathLike && !capabilityTargetValueLooksLikePath(text)) {
-    return null;
-  }
-  if (uri?.[1].toLowerCase() === "file") {
-    return decodeURIComponent(new URL(text).pathname);
-  }
-  return text;
 }
 
 function validateCapabilityBindingTargets(context, bindings, label, report) {
@@ -33948,21 +28164,6 @@ function validateContractCapabilityRecommendations(context, report, contract, la
   }
 }
 
-function mergeCapabilityPolicies(...policies) {
-  const merged = buildCapabilityPolicy(null);
-  for (const policy of policies.filter(Boolean)) {
-    const normalized = buildCapabilityPolicy(policy);
-    for (const type of CAPABILITY_TYPES) {
-      for (const group of CAPABILITY_GROUPS) {
-        pushAllUnique(merged[type][group], normalized[type][group]);
-      }
-    }
-    pushAllUnique(merged.approval_required_for, normalized.approval_required_for);
-  }
-  validateCapabilityPolicy(merged, "capability_policy");
-  return merged;
-}
-
 function loadCapabilityRecommendationsForContract(context, options) {
   const ids = normalizeRawListOption(options["capability-recommendation"]).map(normalizeId);
   const result = {
@@ -34000,35 +28201,6 @@ function loadCapabilityRecommendationsForContract(context, options) {
   return result;
 }
 
-function normalizeCapabilityOpenQuestions(questions, recommendationId) {
-  if (!Array.isArray(questions)) {
-    return [];
-  }
-  return questions
-    .map((question) => {
-      if (typeof question === "string") {
-        return question;
-      }
-      if (question && typeof question === "object") {
-        return question.question || question.prompt || question.label || question.id;
-      }
-      return null;
-    })
-    .filter(Boolean)
-    .map((question) => `Capability recommendation ${recommendationId}: ${question}`);
-}
-
-function normalizeExecutionPolicySuggestions(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { model: undefined, reasoning: undefined, notes: [] };
-  }
-  return {
-    model: value.model && typeof value.model === "object" ? value.model.value || undefined : value.model || undefined,
-    reasoning: value.reasoning && typeof value.reasoning === "object" ? value.reasoning.level || undefined : value.reasoning || undefined,
-    notes: normalizeListValue(value.notes, []),
-  };
-}
-
 function buildAttribution(context, options = {}, action = "unknown") {
   return {
     action,
@@ -34048,23 +28220,6 @@ function buildApprovalEvidence(context, options = {}) {
       sha256: hashFile(evidencePath),
     };
   });
-}
-
-function getApprovalPolicy(context) {
-  const policy = context.config.approval_policy || {};
-  return {
-    principle:
-      policy.principle ||
-      "Implementation authorization is not formal SDLC approval. Formal approvals must record an explicit source, approver, summary or evidence, and immutable subject hash.",
-    formal_approval_requires_explicit_source: policy.formal_approval_requires_explicit_source !== false,
-    require_summary_or_evidence_for_explicit_user: policy.require_summary_or_evidence_for_explicit_user !== false,
-    require_summary_or_evidence_for_automation: policy.require_summary_or_evidence_for_automation !== false,
-    allow_bootstrap_approvals_in_strict_gate: Boolean(policy.allow_bootstrap_approvals_in_strict_gate),
-    legacy_approval_behavior: policy.legacy_approval_behavior || "error",
-    accepted_sources: Array.isArray(policy.accepted_sources)
-      ? policy.accepted_sources
-      : ["explicit-user", "ci", "automation", "bootstrap"],
-  };
 }
 
 function buildApprovalRecord(context, options, attribution, settings = {}) {
@@ -34104,162 +28259,6 @@ function buildApprovalRecord(context, options, attribution, settings = {}) {
     git: attribution.git,
     run: attribution.run,
     created_at: now(),
-  };
-}
-
-function buildApprovalRecordScope(source, settings = {}) {
-  const baseScope = defaultApprovalRecordScope(source, settings);
-  const explicitScope = settings.scope;
-  if (source === "automation" && settings.authorization) {
-    return {
-      ...baseScope,
-      subject_scope: explicitScope ? String(explicitScope) : null,
-    };
-  }
-  if (!explicitScope) {
-    return baseScope;
-  }
-  if (source === "explicit-user" || source === "automation") {
-    if (explicitScope && typeof explicitScope === "object" && !Array.isArray(explicitScope)) {
-      return { ...baseScope, ...explicitScope };
-    }
-    return {
-      ...baseScope,
-      approval_level: String(explicitScope),
-    };
-  }
-  return explicitScope || baseScope;
-}
-
-function defaultApprovalRecordScope(source, settings = {}) {
-  const artifactTypes = authorizationArtifactTypes(settings);
-  const approvalBoundaries = authorizationApprovalBoundaries(settings);
-  if (source === "explicit-user") {
-    return {
-      principle: "A human approval applies only to the specific artifact or decision shown to the user before the approval.",
-      subject_id: settings.subject_id || null,
-      subject_label: settings.label || "approval",
-      applies_only_to_presented_subject: true,
-      does_not_approve_future_artifacts: true,
-      requires_fresh_user_confirmation_for_new_artifacts: true,
-    };
-  }
-  if (source === "automation") {
-    return {
-      principle:
-        "An automation approval is valid only under an explicit delegated approval level or configured automation policy recorded in the summary or evidence.",
-      subject_id: settings.subject_id || null,
-      subject_label: settings.label || "approval",
-      delegated_approval: true,
-      applies_to_declared_approval_level: true,
-      must_stay_within_declared_scope: true,
-      requires_summary_or_evidence_of_delegation: true,
-      does_not_expand_to_installs_deploys_secrets_external_access_or_destructive_actions: true,
-      ask_user_if_scope_changes: true,
-      authorization_ref: settings.authorization?.id || null,
-      approval_level: settings.authorization?.scope || null,
-      allowed_actions: settings.authorization?.allowed_actions || [],
-      ...(artifactTypes.length > 0 ? { artifact_types: artifactTypes } : {}),
-      ...(approvalBoundaries.length > 0 ? { approval_boundaries: approvalBoundaries } : {}),
-    };
-  }
-  return settings.scope || undefined;
-}
-
-function normalizeApprovalSource(context, options, attribution, label, status) {
-  if (status !== "approved") {
-    return getOptionString(options, "approval-source") || null;
-  }
-  const source = getOptionString(options, "approval-source");
-  if (!source && attribution.actor.type === "ci") {
-    return "ci";
-  }
-  const policy = getApprovalPolicy(context);
-  if (!source) {
-    if (policy.formal_approval_requires_explicit_source) {
-      fail(`${label} requires --approval-source explicit-user|ci|automation|bootstrap. Implementation permission is not formal SDLC approval.`);
-    }
-    return null;
-  }
-  const normalized = String(source).trim().toLowerCase();
-  if (!APPROVAL_SOURCES.has(normalized) || !policy.accepted_sources.includes(normalized)) {
-    fail(`Unknown approval source '${source}'. Valid sources: ${policy.accepted_sources.join(", ")}`);
-  }
-  return normalized;
-}
-
-function validateApprovalSourceForActor(context, approval) {
-  if (approval.status !== "approved") {
-    return;
-  }
-  const policy = getApprovalPolicy(context);
-  if (!approval.source && policy.formal_approval_requires_explicit_source) {
-    fail(`${approval.label} requires --approval-source.`);
-  }
-  if (approval.source === "explicit-user" && approval.actor?.type !== "human") {
-    fail(`${approval.label} uses approval_source explicit-user but actor type is '${approval.actor?.type || "unknown"}'.`);
-  }
-  if (approval.source === "ci" && approval.actor?.type !== "ci") {
-    fail(`${approval.label} uses approval_source ci but actor type is '${approval.actor?.type || "unknown"}'.`);
-  }
-  if (approval.source === "automation" && !["agent", "system", "ci"].includes(approval.actor?.type)) {
-    fail(`${approval.label} uses approval_source automation but actor type is '${approval.actor?.type || "unknown"}'.`);
-  }
-  if (
-    approval.source === "explicit-user" &&
-    policy.require_summary_or_evidence_for_explicit_user &&
-    !approval.summary &&
-    approval.evidence.length === 0
-  ) {
-    fail(`${approval.label} requires --summary or --approval-evidence when --approval-source explicit-user is used.`);
-  }
-  if (approval.source === "bootstrap" && !approval.summary && approval.evidence.length === 0) {
-    fail(`${approval.label} bootstrap approval requires --summary or --approval-evidence so future readers can distinguish migration from user consent.`);
-  }
-  if (
-    approval.source === "automation" &&
-    policy.require_summary_or_evidence_for_automation &&
-    !approval.summary &&
-    approval.evidence.length === 0
-  ) {
-    fail(`${approval.label} requires --summary or --approval-evidence when --approval-source automation is used, including the delegated approval level and scope.`);
-  }
-}
-
-function approvalAuthorizationSettings(approval = {}, settings = {}) {
-  const scope = approval.scope && typeof approval.scope === "object"
-    ? approval.scope
-    : approval.approval_scope && typeof approval.approval_scope === "object"
-      ? approval.approval_scope
-      : {};
-  const subjectId = settings.subject_id || scope.subject_id || [
-    "baseline_id",
-    "contract_id",
-    "breakdown_id",
-    "dependency_id",
-    "profile_id",
-    "recommendation_id",
-    "template_id",
-    "story_id",
-  ].map((field) => approval[field]).find(Boolean) || null;
-  return {
-    scope,
-    subject_id: subjectId,
-    proposal_ref: settings.proposal_ref || scope.proposal_ref || approval.proposal_ref || null,
-    subject_hash: settings.subject_hash || scope.subject_hash || approval.subject_hash || null,
-    artifact_types: authorizationArtifactTypes({
-      artifact_type: settings.artifact_type || approval.artifact_type,
-      artifact_types: [
-        ...(Array.isArray(settings.artifact_types) ? settings.artifact_types : []),
-        ...(Array.isArray(scope.artifact_types) ? scope.artifact_types : []),
-      ],
-    }),
-    approval_boundaries: authorizationApprovalBoundaries({
-      approval_boundaries: [
-        ...(Array.isArray(settings.approval_boundaries) ? settings.approval_boundaries : []),
-        ...(Array.isArray(scope.approval_boundaries) ? scope.approval_boundaries : []),
-      ],
-    }),
   };
 }
 
@@ -34373,70 +28372,6 @@ function validateFormalApprovalRecord(context, report, approval, label, actor, s
   }
 }
 
-function approvalIssueSeverity(context, report, approval) {
-  if (!report.strict) {
-    return "warnings";
-  }
-  const policy = getApprovalPolicy(context);
-  if (!approval?.approval_source && policy.legacy_approval_behavior === "warn") {
-    return "warnings";
-  }
-  return "errors";
-}
-
-function approvedRecordIssueSeverity(context, report, record) {
-  if (record?.status !== "approved") {
-    return "warnings";
-  }
-  return approvalIssueSeverity(context, report, latestApprovedRecordApproval(record));
-}
-
-function hashApprovalSubject(value) {
-  return shortHashFull(stableJson(stripApprovalVolatileFields(value)));
-}
-
-function stripApprovalVolatileFields(value, depth = 0) {
-  if (Array.isArray(value)) {
-    return value.map((item) => stripApprovalVolatileFields(item, depth + 1));
-  }
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-  const stripped = {};
-  const volatile = depth === 0
-    ? new Set([
-        "__path",
-        "__relative_path",
-        "approvals",
-        "audit",
-        "created_at",
-        "updated_at",
-        "approved_at",
-        "approved_by",
-        "status",
-      ])
-    : new Set();
-  for (const key of Object.keys(value).sort()) {
-    if (!volatile.has(key)) {
-      stripped[key] = stripApprovalVolatileFields(value[key], depth + 1);
-    }
-  }
-  return stripped;
-}
-
-function stableJson(value) {
-  if (Array.isArray(value)) {
-    return `[${value.map(stableJson).join(",")}]`;
-  }
-  if (!value || typeof value !== "object") {
-    return JSON.stringify(value);
-  }
-  return `{${Object.keys(value)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
-    .join(",")}}`;
-}
-
 function buildActor(options = {}, root = process.cwd()) {
   const explicitActor = getOptionString(options, "actor");
   const commandAgent = getOptionString(options, "agent");
@@ -34513,18 +28448,6 @@ function buildTraceAuthorityMetadata(context, options = {}, attribution = null) 
   };
 }
 
-function buildTraceRequestMetadata(options = {}, attribution = null) {
-  const request = {
-    id: getOptionString(options, "request-id") || null,
-    summary: getOptionString(options, "request-summary") || null,
-    source: getOptionString(options, "request-source") || null,
-    thread_id: getOptionString(options, "request-thread-id") || attribution?.run?.thread_id || null,
-    run_id: getOptionString(options, "request-run-id") || attribution?.run?.run_id || null,
-    session_id: getOptionString(options, "request-session-id") || attribution?.run?.session_id || null,
-  };
-  return Object.values(request).some((value) => value !== null && value !== "") ? request : null;
-}
-
 function inferActorType(options = {}, actorId = "") {
   if (options.agent || process.env.CODEX_AGENT_NAME || String(actorId).toLowerCase().includes("codex")) {
     return "agent";
@@ -34536,15 +28459,6 @@ function inferActorType(options = {}, actorId = "") {
     return "human";
   }
   return "unknown";
-}
-
-function normalizeActorType(value) {
-  const normalized = String(value || "unknown").trim().toLowerCase();
-  const allowed = ["human", "agent", "system", "ci", "unknown"];
-  if (!allowed.includes(normalized)) {
-    fail(`Unknown --actor-type '${value}'. Valid values: ${allowed.join(", ")}`);
-  }
-  return normalized;
 }
 
 function buildGitMetadata(root) {
@@ -34588,15 +28502,6 @@ function buildRunMetadata(options = {}) {
     tool: "agentic-sdlc-cli",
     version: VERSION,
   };
-}
-
-function getOptionString(options = {}, ...keys) {
-  for (const key of keys) {
-    if (options[key] !== undefined) {
-      return normalizeScalarOption(options[key], key);
-    }
-  }
-  return null;
 }
 
 function gitConfigValue(root, key) {
@@ -34652,24 +28557,6 @@ function buildContextSources(context, contextFiles) {
   });
 }
 
-function buildQuestionRecords(questions, qaItems) {
-  const records = questions.map((question) => ({
-    question,
-    answer: null,
-    status: "open",
-  }));
-  for (const item of qaItems) {
-    const [question, ...answerParts] = String(item).split("|");
-    const answer = answerParts.join("|").trim();
-    records.push({
-      question: question.trim(),
-      answer: answer || null,
-      status: answer ? "answered" : "open",
-    });
-  }
-  return records.filter((record) => record.question);
-}
-
 function buildOutputContractRefs(rawRefs, phaseOrder = []) {
   const refs = rawRefs.map((rawRef) => {
     const parts = String(rawRef).split(":").map((part) => part.trim());
@@ -34707,55 +28594,10 @@ function buildOutputContractRefs(rawRefs, phaseOrder = []) {
   return refs;
 }
 
-function mergeList(base, additions = []) {
-  const merged = [...base];
-  for (const item of additions) {
-    if (!merged.includes(item)) {
-      merged.push(item);
-    }
-  }
-  return merged;
-}
-
-function storyMutationLockPath(context, storyId) {
-  return path.join(
-    context.sdlcRoot,
-    "contracts",
-    `.story-${shortHash(normalizeId(storyId))}.lock`,
-  );
-}
-
 function findStoryInFlightWorkTrace(context, storyId) {
   return readTraceEvents(context, storyId).find((event) =>
     ["implementation", "test", "release"].includes(String(event.type || "").toLowerCase())
     || ["output.link", "story.complete-step", "task.start.confirm"].includes(event.action));
-}
-
-const STORY_COMMAND_COMMON_OPTIONS = new Set([
-  "root",
-  "locale",
-  "json",
-  "full",
-  "view",
-  "actor",
-  "actor-type",
-  "actor-name",
-  "actor-email",
-  "thread-id",
-  "run-id",
-  "session-id",
-  "template-dir",
-]);
-
-function assertStoryCommandOptions(options, command, allowed) {
-  const permitted = new Set([...STORY_COMMAND_COMMON_OPTIONS, ...allowed]);
-  const unsupported = Object.keys(options).filter((name) => !permitted.has(name)).sort();
-  if (unsupported.length > 0) {
-    fail(
-      `${command} does not accept ${unsupported.map((name) => `--${name}`).join(", ")}. `
-      + "Use the dedicated contract, workflow, breakdown, or lifecycle command for governed changes.",
-    );
-  }
 }
 
 function assertStoryWorkspaceFilesAreRegular(context, storyDir) {
@@ -34845,50 +28687,6 @@ function storyAcceptanceRecoveryGuidance(options, storyId, {
       contract_review_required: Boolean(contractReviewRequired),
       previous_contract_id: previousContractId || null,
       stale_delivery_profile_ids: deliveryProfileIds,
-    },
-  };
-}
-
-function storyCreationGuidance(options, story) {
-  const italian = humanGuidanceLocale(options) === "it";
-  const missingAcceptance = storyAcceptanceCriteria(story).length === 0;
-  return {
-    result: missingAcceptance
-      ? (italian
-          ? "È pronta una nuova story in bozza, ancora senza un criterio di successo osservabile."
-          : "A new draft story is ready, but it does not yet have an observable success criterion.")
-      : (italian
-          ? "È pronta una nuova story con criteri di successo osservabili."
-          : "A new story with observable success criteria is ready."),
-    impact: missingAcceptance
-      ? (italian
-          ? "Titolo e spazio di lavoro sono registrati, ma non è ancora possibile preparare l’accordo di lavoro."
-          : "Its title and workspace are recorded, but the work agreement cannot be prepared yet.")
-      : (italian
-          ? "Il risultato atteso è registrato e può guidare la preparazione dell’accordo di lavoro."
-          : "The expected result is recorded and can guide preparation of the work agreement."),
-    required_decision: missingAcceptance
-      ? (italian
-          ? "Indica almeno un risultato verificabile che dimostri quando il lavoro è riuscito."
-          : "State at least one verifiable result that will show when the work has succeeded.")
-      : (italian
-          ? "Non serve una nuova decisione, salvo che tu voglia correggere i criteri prima di proseguire."
-          : "No new decision is needed unless you want to correct the criteria before continuing."),
-    protection_boundary: italian
-      ? "La creazione della story non avvia il lavoro e non approva modifiche, merge, rilasci, produzione o segreti."
-      : "Creating the story does not start work or approve changes, merges, releases, production, or secrets.",
-    next_action: missingAcceptance
-      ? (italian
-          ? "Aggiungi il risultato osservabile, poi prepara l’accordo di lavoro."
-          : "Add the observable result, then prepare the work agreement.")
-      : (italian
-          ? "Esamina i criteri e prepara l’accordo di lavoro governato."
-          : "Review the criteria and prepare the governed work agreement."),
-    details: {
-      story_id: story.id,
-      lifecycle_status: story.status,
-      acceptance_criteria_count: storyAcceptanceCriteria(story).length,
-      acceptance_required_before_contract: missingAcceptance,
     },
   };
 }
@@ -35996,46 +29794,14 @@ function ensurePlanningDirectories(context) {
   ensureDir(dependenciesRoot(context));
 }
 
-function workItemsRoot(context) {
-  return path.join(context.sdlcRoot, "work-items");
-}
-
-function workBreakdownRoot(context) {
-  return path.join(context.sdlcRoot, "work-breakdown");
-}
-
-function dependenciesRoot(context) {
-  return path.join(context.sdlcRoot, "dependencies");
-}
-
-function capabilityDiscoveryRoot(context) {
-  return path.join(context.sdlcRoot, "capability-discovery");
-}
-
-function capabilityProfilesRoot(context) {
-  return path.join(capabilityDiscoveryRoot(context), "profiles");
-}
-
-function capabilityRecommendationsRoot(context) {
-  return path.join(capabilityDiscoveryRoot(context), "recommendations");
-}
-
 function ensureCapabilityDiscoveryDirectories(context) {
   ensureDir(capabilityDiscoveryRoot(context));
   ensureDir(capabilityProfilesRoot(context));
   ensureDir(capabilityRecommendationsRoot(context));
 }
 
-function baselineRoot(context) {
-  return path.join(context.sdlcRoot, "baseline");
-}
-
 function ensureBaselineDirectory(context) {
   ensureDir(baselineRoot(context));
-}
-
-function baselinePathById(context, id) {
-  return path.join(baselineRoot(context), `${normalizeId(id)}.json`);
 }
 
 function readBaselines(context) {
@@ -36196,77 +29962,6 @@ function inferTestRoots(context) {
     .filter((entry) => fs.existsSync(path.join(context.root, entry)) && fs.statSync(path.join(context.root, entry)).isDirectory());
 }
 
-function buildInferredContext(repoSnapshot, detectedStack, documents) {
-  const primaryDocument = documents.find((document) => /(^|\/)readme\./i.test(document.path)) || documents[0] || null;
-  return {
-    product_signal: repoSnapshot.package_summary?.description || primaryDocument?.excerpt || null,
-    document_map: documents.map((document) => ({
-      path: document.path,
-      title: document.title || null,
-      headings: document.headings || [],
-      summary: document.excerpt || null,
-    })),
-    architecture_signals: documents
-      .filter((document) => /architecture|design|adr|api|requirement/i.test(`${document.path} ${(document.headings || []).join(" ")}`))
-      .map((document) => ({ path: document.path, headings: document.headings || [], summary: document.excerpt || null })),
-    component_roots: repoSnapshot.source_roots || [],
-    runtime_and_validation_scripts: repoSnapshot.package_scripts || {},
-    stack_summary: detectedStack.map((item) => `${item.type}:${item.name}`),
-    likely_entrypoints: repoSnapshot.key_files.map((item) => item.path),
-    test_surface: Object.keys(repoSnapshot.package_scripts || {}).filter((script) => /test|check|lint|smoke/i.test(script)),
-    imported_document_count: documents.length,
-    confidence: detectedStack.length > 0 || documents.length > 0 ? 0.7 : 0.35,
-    caveats: [
-      "This is inferred from repository files and imported documents.",
-      "Historical authorship, prior approvals, and rationale are unknown unless present in evidence files.",
-    ],
-  };
-}
-
-function renderBaselineReport(baseline) {
-  return [
-    `# ${baseline.id} Current State`,
-    "",
-    `Status: ${baseline.status}`,
-    `Kind: ${baseline.kind}`,
-    "",
-    "## Summary",
-    baseline.summary || "No summary provided.",
-    "",
-    "## Product Signal",
-    baseline.inferred_context?.product_signal || "Not evidenced.",
-    "",
-    "## Architecture And Component Signals",
-    ...listOrNone([
-      ...(baseline.inferred_context?.component_roots || []).map((root) => `Source root: ${root}`),
-      ...(baseline.inferred_context?.architecture_signals || []).map((item) => `${item.path}: ${(item.headings || []).join(" > ") || item.summary || "architecture evidence"}`),
-    ]),
-    "",
-    "## Detected Stack",
-    ...listOrNone((baseline.repository_snapshot?.detected_stack || []).map((item) => `${item.type}: ${item.name}${item.source_path ? ` (${item.source_path})` : ""}`)),
-    "",
-    "## Key Files",
-    ...listOrNone((baseline.repository_snapshot?.key_files || []).map((item) => `${item.path} (${item.sha256})`)),
-    "",
-    "## Imported Documents",
-    ...listOrNone((baseline.imported_documents || []).map((item) => `${item.path}: ${item.title || "Untitled"}; sections ${(item.headings || []).join(" > ") || "not detected"}; evidence ${item.sha256}`)),
-    "",
-    "## Open Questions",
-    ...listOrNone(baseline.open_questions || []),
-    "",
-    "## Caveats",
-    ...listOrNone(baseline.inferred_context?.caveats || []),
-    "",
-    "## Approval Guidance",
-    "Approve this baseline only after the user confirms which inferred facts are canonical. Use bootstrap only for migration/provisional records.",
-    "",
-  ].join("\n");
-}
-
-function listOrNone(values) {
-  return values.length ? values.map((value) => `- ${value}`) : ["- None"];
-}
-
 function validateBaselineSourceHashes(context, baseline, label, options = {}) {
   const issues = [];
   const sourceHashes = baseline.source_hashes || {};
@@ -36315,14 +30010,6 @@ function validateBaselineSourceHashes(context, baseline, label, options = {}) {
   return issues;
 }
 
-function capabilityProfilePath(context, id) {
-  return path.join(capabilityProfilesRoot(context), `${normalizeId(id)}.json`);
-}
-
-function capabilityRecommendationPath(context, id) {
-  return path.join(capabilityRecommendationsRoot(context), `${normalizeId(id)}.json`);
-}
-
 function readCapabilityProfile(context, id) {
   const profilePath = capabilityProfilePath(context, id);
   if (!fs.existsSync(profilePath)) {
@@ -36366,33 +30053,6 @@ function loadOptionalJsonInput(context, options, inlineKey, fileKey, label) {
   }
 }
 
-function normalizeCapabilitySubject(options, subject) {
-  const requirementIds = mergeList(
-    normalizeListValue(subject.requirement_ids || subject.requirements, []),
-    normalizeListOption(options.requirement),
-  ).map(normalizeId);
-  return {
-    story_id: options.story ? normalizeId(String(options.story)) : subject.story_id ? normalizeId(subject.story_id) : null,
-    requirement_ids: requirementIds,
-    phase: options.phase ? normalizeRoutePhase(options.phase) : subject.phase ? normalizeRoutePhase(subject.phase) : null,
-    scope: String(options.scope || subject.scope || "project"),
-  };
-}
-
-function normalizeCapabilityEvidence(evidence) {
-  if (!Array.isArray(evidence)) {
-    return [];
-  }
-  return evidence
-    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
-    .map((item) => ({
-      type: String(item.type || "evidence"),
-      path: item.path ? String(item.path) : null,
-      summary: item.summary ? String(item.summary) : null,
-      sha256: item.sha256 ? String(item.sha256) : null,
-    }));
-}
-
 function buildCapabilityEvidenceFromContextFiles(context, contextFiles) {
   return contextFiles.map((rawPath) => {
     const snapshot = stableContextSourceSnapshot(context, rawPath, "Capability context file");
@@ -36428,158 +30088,6 @@ function buildSourceHashes(context, sourcePaths) {
     hashes[sourcePath] = snapshot.sha256;
   }
   return hashes;
-}
-
-function normalizeObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
-function normalizeConfidence(value) {
-  const confidence = Number(value);
-  if (!Number.isFinite(confidence)) {
-    fail("Capability confidence must be a number between 0 and 1");
-  }
-  return clamp01(confidence);
-}
-
-function normalizeCapabilityRecommendations(recommendations) {
-  if (!Array.isArray(recommendations)) {
-    fail("Capability recommendations must be an array");
-  }
-  return recommendations.map((item, index) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      fail(`Capability recommendation ${index + 1} must be a JSON object`);
-    }
-    const type = normalizeCapabilityItemType(item.type);
-    const name = String(item.name || "").trim();
-    if (!name) {
-      fail(`Capability recommendation ${index + 1} is missing name`);
-    }
-    const availability = normalizeCapabilityAvailability(item.availability || item.status || "unknown");
-    const installRequired = Boolean(item.install_required || availability === "install_required");
-    return {
-      type,
-      name,
-      availability: installRequired ? "install_required" : availability,
-      purpose: item.purpose ? String(item.purpose) : null,
-      rationale: item.rationale ? String(item.rationale) : null,
-      risk: item.risk ? String(item.risk) : null,
-      permissions: normalizeListValue(item.permissions, []),
-      install_required: installRequired,
-      install_approved: Boolean(item.install_approved),
-      approval_required: item.approval_required !== undefined ? Boolean(item.approval_required) : installRequired,
-    };
-  });
-}
-
-function normalizeCapabilityItemType(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!["skill", "mcp", "tool", "plugin", "connector", "model"].includes(normalized)) {
-    fail(`Unknown capability recommendation type '${value}'`);
-  }
-  return normalized;
-}
-
-function normalizeCapabilityAvailability(value) {
-  const normalized = String(value || "unknown").trim().toLowerCase();
-  if (!CAPABILITY_RECOMMENDATION_AVAILABILITY.has(normalized)) {
-    fail(`Unknown capability availability '${value}'`);
-  }
-  return normalized;
-}
-
-function buildDefaultCapabilityRecommendations(profile, availableCapabilities) {
-  const availableSkills = new Set(normalizeAvailableCapabilityNames(availableCapabilities, "skills"));
-  const recommendations = [
-    {
-      type: "skill",
-      name: "agentic-sdlc",
-      // This default is produced by the running Agentic SDLC plugin itself.
-      // The optional inventory is needed only to attest additional host
-      // capabilities; absence of that inventory must not make the plugin's own
-      // intrinsic governance capability unusable after approval.
-      availability: "available",
-      purpose: "Govern the work through contracts, gates, traces, and shared project KB.",
-      rationale: availableSkills.has("agentic-sdlc")
-        ? "The reviewed inventory and the running plugin both confirm this capability."
-        : "The running plugin provides this intrinsic governance capability.",
-      install_required: false,
-    },
-  ];
-  const hasNode = (profile.detected_stack || []).some((item) => ["node", "npm", "package-json"].includes(item.name) || item.type === "node");
-  if (hasNode) {
-    recommendations.push({
-      type: "tool",
-      name: "test-runner",
-      availability: "available",
-      purpose: "Run the repository's Node checks and tests.",
-      rationale: "package.json is present and exposes the project test surface.",
-      permissions: ["read", "execute"],
-      install_required: false,
-    });
-  }
-  const declaredGroups = [
-    ["skills", "skill"],
-    ["tools", "tool"],
-    ["mcp", "mcp"],
-    ["plugins", "plugin"],
-    ["connectors", "connector"],
-    ["models", "model"],
-  ];
-  const recommendedKeys = new Set(recommendations.map((item) => `${item.type}\0${item.name}`));
-  for (const [group, type] of declaredGroups) {
-    for (const item of normalizeAvailableCapabilityEntries(availableCapabilities, group)) {
-      const key = `${type}\0${item.name}`;
-      if (recommendedKeys.has(key) || item.recommended === false) continue;
-      recommendations.push({
-        type,
-        name: item.name,
-        availability: "available",
-        purpose: item.purpose || item.description || `Use the declared available ${type} capability for this work.`,
-        rationale: item.rationale || "The capability was supplied in the reviewed available-capabilities inventory.",
-        permissions: normalizeListValue(item.permissions, type === "tool" ? ["read", "execute"] : []),
-        install_required: false,
-      });
-      recommendedKeys.add(key);
-    }
-  }
-  return recommendations;
-}
-
-function normalizeAvailableCapabilityEntries(availableCapabilities, key) {
-  const value = availableCapabilities?.[key] || availableCapabilities?.[key.replace(/s$/, "")] || [];
-  const rawEntries = Array.isArray(value)
-    ? value
-    : value && typeof value === "object"
-      ? value.installed || value.available || value.names || []
-      : [];
-  return (Array.isArray(rawEntries) ? rawEntries : [])
-    .map((item) => typeof item === "string" ? { name: item } : item)
-    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
-    .map((item) => ({ ...item, name: String(item.name || "").trim() }))
-    .filter((item) => item.name);
-}
-
-function normalizeAvailableCapabilityNames(availableCapabilities, key) {
-  return normalizeAvailableCapabilityEntries(availableCapabilities, key).map((item) => item.name);
-}
-
-function buildDefaultCapabilityPolicyPatch(recommendations) {
-  const policy = buildCapabilityPolicy(null);
-  for (const item of recommendations) {
-    const group = item.install_required ? "required" : "allowed";
-    if (item.type === "skill") {
-      pushAllUnique(policy.skills[group], [item.name]);
-    } else if (item.type === "mcp") {
-      pushAllUnique(policy.mcp[group], [item.name]);
-    } else if (item.type === "tool") {
-      pushAllUnique(policy.tools[group], [item.name]);
-    }
-    if (item.approval_required) {
-      pushAllUnique(policy.approval_required_for, [`${item.type}:${item.name}`]);
-    }
-  }
-  return policy;
 }
 
 function detectProjectStack(context) {
@@ -36761,66 +30269,6 @@ function validateApprovedCapabilityRecommendationForUse(context, recommendation,
   }
 }
 
-function workItemPath(context, type, id) {
-  const directory = type === "epic" ? "epics" : type === "task" ? "tasks" : `${type}s`;
-  return path.join(workItemsRoot(context), directory, `${id}.json`);
-}
-
-function breakdownPathById(context, id) {
-  return path.join(workBreakdownRoot(context), `${id}.json`);
-}
-
-function dependencyProposalPath(context, id) {
-  return path.join(dependenciesRoot(context), `${id}.json`);
-}
-
-function dependencyGraphPath(context) {
-  return path.join(dependenciesRoot(context), "graph.json");
-}
-
-function normalizeWorkItemType(value, options = {}) {
-  const normalized = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
-  const allowed = options.allowStory ? WORK_ITEM_TYPES : WORK_ITEM_CREATE_TYPES;
-  if (!allowed.has(normalized)) {
-    fail(`Unknown work item type '${value}'. Valid values: ${Array.from(allowed).join(", ")}`);
-  }
-  return normalized;
-}
-
-function parseBreakdownItemRef(value) {
-  const parts = String(value || "").split(":").map((part) => part.trim());
-  if (parts.length !== 2 || parts.some((part) => !part)) {
-    fail("Breakdown items must use --item type:id");
-  }
-  return {
-    type: normalizeWorkItemType(parts[0], { allowStory: true }),
-    id: normalizeId(parts[1]),
-  };
-}
-
-function parseDependencyEdge(value) {
-  const parts = String(value || "").split(":").map((part) => part.trim());
-  if (parts.length !== 5 || parts.some((part) => !part)) {
-    fail("Dependency edges must use --edge from:to:type:blocks:required_state");
-  }
-  const [from, to, type, blocks, requiredState] = parts;
-  const normalizedType = String(type).trim().toLowerCase();
-  const normalizedBlocks = String(blocks).trim().toLowerCase();
-  if (!DEPENDENCY_TYPES.has(normalizedType)) {
-    fail(`Unknown dependency type '${type}'. Valid values: ${Array.from(DEPENDENCY_TYPES).join(", ")}`);
-  }
-  if (!DEPENDENCY_BLOCK_SCOPES.has(normalizedBlocks)) {
-    fail(`Unknown dependency blocking scope '${blocks}'. Valid values: ${Array.from(DEPENDENCY_BLOCK_SCOPES).join(", ")}`);
-  }
-  return {
-    from: normalizeId(from),
-    to: normalizeId(to),
-    type: normalizedType,
-    blocks: normalizedBlocks,
-    required_state: String(requiredState).trim().toLowerCase(),
-  };
-}
-
 function readEffectiveBreakdownPolicy(context) {
   const configured = context.config.work_breakdown_policy || {};
   const defaults = {
@@ -36849,58 +30297,11 @@ function readEffectiveBreakdownPolicy(context) {
   return policy;
 }
 
-function normalizeListValue(value, fallback = []) {
-  if (!Array.isArray(value)) {
-    return [...fallback];
-  }
-  return value.map((item) => String(item || "").trim()).filter(Boolean);
-}
-
 function readBreakdowns(context) {
   const root = workBreakdownRoot(context);
   return safeReadDir(root)
     .filter((name) => name.endsWith(".json") && name !== "project-policy.json")
     .map((name) => readProjectJson(context, path.join(root, name)));
-}
-
-function latestApprovedRecordApproval(record) {
-  return [...(record.approvals || [])]
-    .filter((approval) => approval?.status === "approved")
-    .sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")))
-    .at(-1);
-}
-
-function isApprovedRecordFresh(record) {
-  const latest = latestApprovedRecordApproval(record);
-  return Boolean(latest?.approved_content_hash && latest.approved_content_hash === hashApprovalSubject(record));
-}
-
-function requireFormalApprovalActor(context, options, attribution, action) {
-  const source = getOptionString(options, "approval-source");
-  if (String(source || "").trim().toLowerCase() === "automation") {
-    if (!isAutomationApprovalActor(attribution.actor)) {
-      fail(`${action} with --approval-source automation requires --actor-type agent, system, or ci.`);
-    }
-    return;
-  }
-  if (!["human", "ci"].includes(attribution.actor.type)) {
-    fail(`${action} requires --actor-type human or an approved CI actor.`);
-  }
-}
-
-function isAutomationApprovalActor(actor) {
-  return ["agent", "system", "ci"].includes(actor?.type);
-}
-
-function hasFormalApprovalAttribution(actor, source = null) {
-  if (source === "automation") {
-    return isAutomationApprovalActor(actor);
-  }
-  return ["human", "ci"].includes(actor?.type);
-}
-
-function formalApprovalActorDescription(source = null) {
-  return source === "automation" ? "agent/system/CI delegated automation" : "human/CI";
 }
 
 function readDependencyGraph(context, options = {}) {
@@ -36927,21 +30328,6 @@ function readDependencyProposals(context) {
     .filter((name) => name.endsWith(".json") && name !== "graph.json")
     .map((name) => readProjectJson(context, path.join(dependenciesRoot(context), name)))
     .sort((a, b) => String(a.id).localeCompare(String(b.id)));
-}
-
-function upsertDependencyEdge(graph, edge) {
-  graph.edges = Array.isArray(graph.edges) ? graph.edges : [];
-  const key = dependencyEdgeKey(edge);
-  const index = graph.edges.findIndex((candidate) => dependencyEdgeKey(candidate) === key);
-  if (index >= 0) {
-    graph.edges[index] = edge;
-  } else {
-    graph.edges.push(edge);
-  }
-}
-
-function dependencyEdgeKey(edge) {
-  return [edge.from, edge.to, edge.type, edge.blocks].join("::");
 }
 
 function buildDependencyStatus(context, storyId = null, query = null) {
@@ -37000,10 +30386,6 @@ function inspectDependencyEdge(context, edge, story = null, query = null) {
   return { blocking: false, satisfied: true, message };
 }
 
-function isHardDependencyEdge(edge) {
-  return edge.blocks !== "none" && ["blocks", "requires_artifact", "requires_contract"].includes(edge.type);
-}
-
 function shouldDependencyBlockStory(context, edge, story) {
   if (!story || edge.blocks === "none") {
     return true;
@@ -37015,18 +30397,6 @@ function storyPhaseRank(context, story) {
   const lifecycle = effectiveStoryLifecycleProjection(context, story);
   const value = String(lifecycle.phase || lifecycle.status || "").toLowerCase();
   return phaseRank(value);
-}
-
-function phaseRank(value) {
-  const order = ["discovery", "analysis", "design", "implementation", "validation", "release"];
-  if (["in_progress", "review"].includes(value)) {
-    return order.indexOf("implementation");
-  }
-  if (value === "done") {
-    return order.indexOf("release");
-  }
-  const index = order.indexOf(value);
-  return index >= 0 ? index : order.indexOf("design");
 }
 
 function isDependencySatisfied(context, edge, query = null) {
@@ -37118,42 +30488,6 @@ function hasDependencyRevalidationTrace(context, storyId, edge, since, query = n
       event.related.includes(edge.to)
     );
   });
-}
-
-function findBlockingDependencyCycles(edges) {
-  const graph = new Map();
-  for (const edge of edges.filter(isHardDependencyEdge)) {
-    if (!graph.has(edge.from)) {
-      graph.set(edge.from, []);
-    }
-    graph.get(edge.from).push(edge.to);
-  }
-  const cycles = [];
-  const visiting = new Set();
-  const visited = new Set();
-  const stack = [];
-  function visit(node) {
-    if (visiting.has(node)) {
-      const start = stack.indexOf(node);
-      cycles.push([...stack.slice(start), node]);
-      return;
-    }
-    if (visited.has(node)) {
-      return;
-    }
-    visiting.add(node);
-    stack.push(node);
-    for (const next of graph.get(node) || []) {
-      visit(next);
-    }
-    stack.pop();
-    visiting.delete(node);
-    visited.add(node);
-  }
-  for (const node of graph.keys()) {
-    visit(node);
-  }
-  return cycles;
 }
 
 function buildDependencyQuery(context, { stories = [], traceEvents = [], session = null } = {}) {
@@ -38088,28 +31422,6 @@ function appendTraceLocked(context, options, type, summary, storyId) {
   output(options, { status: "appended", trace_path: tracePath, event: sealedEvent }, [`Appended ${type} trace ${sealedEvent.id}`]);
 }
 
-function assertManualTraceActionIsSafe(event) {
-  const generatedBy = {
-    "data.migrate": "autonomy delivery action",
-    "data.rollback": "autonomy delivery action",
-    "git.commit": "autonomy delivery action",
-    "git.push": "autonomy delivery action",
-    "pull_request.merge": "autonomy delivery action",
-    "release.local": "autonomy delivery action",
-    "sync.commit": "sync record",
-    "sync.merge": "sync record",
-    "sync.push": "sync record",
-    "workflow.instance.start": "workflow instance start",
-    "workflow.instance.transition": "workflow instance transition",
-  };
-  const command = generatedBy[event.action];
-  if (!command) return;
-  fail(
-    `Protected action '${event.action}' cannot be appended manually because one incomplete event would permanently block strict gates. `
-    + `Run '${command}' for the exact action instead; it records the verified receipt and trace automatically.`,
-  );
-}
-
 function snapshotManualTraceEvidence(context, event) {
   if (!["test", "release"].includes(event.type) || !Array.isArray(event.evidence) || event.evidence.length === 0) {
     return event;
@@ -38277,24 +31589,6 @@ function bindHistoricalTraceEvidencePolicy(context, options) {
   }, [`Bound ${bindings.length} historical evidence references to ${policyName}`]);
 }
 
-function traceEvidenceRefHash(ref) {
-  return hashBuffer(Buffer.from(stableJson(ref), "utf8"));
-}
-
-function traceEvidencePolicyBindingKey(target) {
-  if (!target || typeof target !== "object") return null;
-  const values = [
-    target.event_id,
-    target.event_hash,
-    target.evidence_path,
-    target.evidence_sha256,
-    target.evidence_ref_sha256,
-  ];
-  return values.every((value) => typeof value === "string" && value.length > 0)
-    ? values.join("\u0000")
-    : null;
-}
-
 function recordSyncEvent(context, options) {
   ensureInitialized(context);
   const event = normalizeGitEvent(requireOption(options, "event"));
@@ -38324,46 +31618,6 @@ function recordSyncEvent(context, options) {
     run: attribution.run,
   });
   output(options, { status: "recorded", event: traceEvent }, [`Recorded sync ${event}`]);
-}
-
-function testRunsRoot(context) {
-  return path.join(context.sdlcRoot, "tests");
-}
-
-function normalizeRecordedCommandArgv(value) {
-  const raw = String(value || "").trim();
-  let argv;
-  try {
-    argv = JSON.parse(raw);
-  } catch {
-    fail(`--command must be a JSON argument vector, for example '["npm","test"]': ${raw}`);
-  }
-  if (
-    !Array.isArray(argv)
-    || argv.length === 0
-    || argv.some((item) => typeof item !== "string" || item.length === 0 || item.includes("\0"))
-  ) {
-    fail("--command must be a non-empty JSON array of non-empty strings.");
-  }
-  return argv;
-}
-
-function boundedNonNegativeIntegerOption(options, key, { defaultValue = 0, maximum } = {}) {
-  const raw = options[key];
-  const value = raw === undefined || raw === null || raw === "" || raw === true
-    ? defaultValue
-    : Number(raw);
-  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
-    fail(`--${key} must be an integer between 0 and ${maximum}`);
-  }
-  return value;
-}
-
-function deriveTestRunOutcome(exitCode, totals) {
-  if (exitCode !== 0 || totals.failed > 0) {
-    return "failed";
-  }
-  return totals.passed > 0 ? "passed" : "skipped";
 }
 
 function buildTestRunEvidence(context, options) {
@@ -38526,26 +31780,6 @@ function readTestRunRecords(context, storyId) {
   return records.sort((left, right) =>
     String(left.record.finished_at || "").localeCompare(String(right.record.finished_at || ""), "en")
     || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
-}
-
-function operationsRoot(context) {
-  return path.join(context.sdlcRoot, "operations");
-}
-
-function requireEnumOption(options, key, values) {
-  const value = requireOption(options, key);
-  if (!values.includes(value)) {
-    fail(`--${key} must be one of: ${values.join(", ")}`);
-  }
-  return value;
-}
-
-function resolveIncidentFeedbackPhase(context, options, story) {
-  const phase = getOptionString(options, "phase") || story.phase || null;
-  if (phase && !context.config.phases[phase]) {
-    fail(`Unknown phase '${phase}'. Use one of: ${Object.keys(context.config.phases).join(", ")}`);
-  }
-  return phase;
 }
 
 function resolveOperationsReleaseManifestId(context, options) {
@@ -38781,32 +32015,6 @@ function appendOperationsPhaseGateChecks(context, report, storyId, story) {
   }
 }
 
-function secretScansRoot(context) {
-  return path.join(context.sdlcRoot, "security");
-}
-
-/**
- * Reads gate_policy.secret_scan from the effective project configuration.
- *
- * `enabled` is compared against true and not against false. A project whose
- * configuration predates this block keeps the gate it agreed to; only a project
- * initialized from the current template, or migrated through the reviewed
- * `config migrate` path, gets the blocking check. Rules and exclusions are
- * project data merged over the shipped defaults by the scanner, so a project
- * can retune one pattern without restating the rest.
- */
-function secretScanPolicy(context) {
-  return {
-    enabled: context.config.gate_policy?.secret_scan?.enabled === true,
-    rules: Array.isArray(context.config.gate_policy?.secret_scan?.rules)
-      ? context.config.gate_policy.secret_scan.rules
-      : [],
-    excludePaths: Array.isArray(context.config.gate_policy?.secret_scan?.exclude_paths)
-      ? context.config.gate_policy.secret_scan.exclude_paths
-      : [],
-  };
-}
-
 function resolveSecretScanCommit(context, ref, label) {
   const sha = execGit(context.root, ["rev-parse", "--verify", `${ref}^{commit}`]);
   if (!sha || !/^[a-f0-9]{40,64}$/iu.test(sha)) {
@@ -38929,9 +32137,6 @@ function listProjectFilesUnder(context, directoryPath) {
   }
   return files;
 }
-
-/** Content above this size, or holding a NUL byte, is not text and is not scanned. */
-const SECRET_SCAN_MAX_FILE_BYTES = 4 * 1024 * 1024;
 
 function readSecretScanFiles(context, projectPaths) {
   const files = [];
@@ -39092,10 +32297,6 @@ function readSecretScanRecords(context, storyId) {
   return records.sort((left, right) =>
     String(left.record.finished_at || "").localeCompare(String(right.record.finished_at || ""), "en")
     || String(left.record.id || "").localeCompare(String(right.record.id || ""), "en"));
-}
-
-function codeReviewsRoot(context) {
-  return path.join(context.sdlcRoot, "reviews");
 }
 
 /**
@@ -39638,81 +32839,6 @@ function resolveOutput(context, options) {
       resolution.next_action,
     ].filter(Boolean), options),
   );
-}
-
-function outputResolutionGuidance(resolution, options = {}) {
-  const italian = humanGuidanceLocale(options) === "it";
-  if (resolution.recommendation === "template_required") {
-    return {
-      result: italian
-        ? "Manca ancora un formato governato per questo risultato."
-        : "A governed format for this result is still missing.",
-      impact: italian
-        ? "Il risultato non può essere creato o collegato finché struttura e formato canonico non sono stati concordati."
-        : "The result cannot be created or linked until its structure and canonical file format are agreed.",
-      required_decision: italian
-        ? "Esamina la struttura proposta e approvala, oppure chiedi di cambiare sezioni o formato del file."
-        : "Review and approve the proposed structure, or ask to change its sections or file format.",
-      protection_boundary: italian
-        ? "Questa verifica non crea documenti, non approva formati e non autorizza una consegna."
-        : "This lookup creates no document, approves no format, and authorizes no delivery.",
-      next_action: italian
-        ? "Proponi il formato, esamina la struttura mostrata e approvala prima di scrivere il risultato."
-        : "Propose the format, review the displayed structure, and approve it before writing the result.",
-      details: {},
-    };
-  }
-  if (resolution.recommendation === "reuse_delta") {
-    return {
-      result: italian
-        ? "Esiste già un risultato approvato che può essere riutilizzato."
-        : "An approved result already exists and can be reused.",
-      impact: italian
-        ? "È sufficiente produrre solo le differenze necessarie, senza duplicare tutto il documento."
-        : "Only the necessary differences need to be produced instead of duplicating the whole document.",
-      required_decision: italian
-        ? "Conferma che il risultato precedente sia ancora una base valida, oppure richiedi un nuovo documento completo."
-        : "Confirm that the earlier result is still a valid base, or request a complete new document.",
-      protection_boundary: italian
-        ? "La base esistente non viene modificata e nessun nuovo risultato viene collegato da questa verifica."
-        : "The existing base is not modified, and this lookup links no new result.",
-      next_action: italian
-        ? "Conferma il riuso; poi crea e collega soltanto le differenze concordate."
-        : "Confirm reuse, then create and link only the agreed differences.",
-      details: {},
-    };
-  }
-  return {
-    result: resolution.recommendation === "linked"
-      ? (italian ? "Il risultato ufficiale è già collegato." : "The official result is already linked.")
-      : (italian ? "È disponibile un formato approvato per creare il risultato." : "An approved format is available for creating the result."),
-    impact: resolution.recommendation === "linked"
-      ? (italian ? "I controlli successivi useranno il file già registrato." : "Later checks will use the file already recorded.")
-      : (italian ? "Il risultato può essere scritto nel formato concordato e poi collegato ai controlli." : "The result can be written in the agreed format and then linked for checks."),
-    required_decision: italian
-      ? "Non serve una nuova decisione, salvo che tu voglia cambiare formato o sostituire il risultato."
-      : "No new decision is needed unless you want to change the format or replace the result.",
-    protection_boundary: italian
-      ? "Questa verifica non crea, modifica o collega alcun file."
-      : "This lookup creates, changes, or links no file.",
-    next_action: resolution.recommendation === "linked"
-      ? (italian ? "Continua con il prossimo controllo concordato." : "Continue with the next agreed check.")
-      : (italian ? "Crea il file nel formato approvato e collegalo come risultato ufficiale." : "Create the file in the approved format and link it as the official result."),
-    details: {},
-  };
-}
-
-function outputResolutionFingerprint(resolution) {
-  const comparable = { ...resolution };
-  delete comparable.cache_used;
-  return stableJson(comparable);
-}
-
-function outputRenderEvidenceOptions(options) {
-  return Array.from(new Set([
-    ...normalizeListOption(options["render-evidence"]),
-    ...normalizeListOption(options.evidence),
-  ]));
 }
 
 function linkOutputArtifact(context, options) {
@@ -40399,65 +33525,6 @@ function buildReportQueryResult(context, rawQuery, options = {}) {
   };
 }
 
-function normalizeReportQuery(rawQuery, options = {}) {
-  if (!rawQuery || typeof rawQuery !== "object" || Array.isArray(rawQuery)) {
-    fail("Report query must be a JSON object.");
-  }
-  const subjects = normalizeStringArray(rawQuery.subjects || rawQuery.subject || ["activity"]).map((subject) =>
-    String(subject).trim().toLowerCase(),
-  );
-  if (subjects.length === 0) {
-    fail("Report query subjects cannot be empty.");
-  }
-  for (const subject of subjects) {
-    if (!REPORT_QUERY_SUBJECTS.has(subject)) {
-      fail(`Unknown report query subject '${subject}'. Valid subjects: ${Array.from(REPORT_QUERY_SUBJECTS).join(", ")}`);
-    }
-  }
-  const time = rawQuery.time && typeof rawQuery.time === "object" && !Array.isArray(rawQuery.time) ? rawQuery.time : {};
-  const filters = rawQuery.filters && typeof rawQuery.filters === "object" && !Array.isArray(rawQuery.filters) ? rawQuery.filters : {};
-  const limit = boundedPositiveInteger(rawQuery.limit ?? options.limit, "limit", {
-    defaultValue: 50,
-    maximum: 500,
-  });
-  const sort = String(rawQuery.sort || "created_at_desc");
-  if (!["created_at_desc", "created_at_asc", "updated_at_desc", "updated_at_asc", "kind_asc"].includes(sort)) {
-    fail("Report query sort must be created_at_desc, created_at_asc, updated_at_desc, updated_at_asc, or kind_asc.");
-  }
-  return {
-    intent: String(rawQuery.intent || "find_records"),
-    confidence: rawQuery.confidence === undefined ? null : Number(rawQuery.confidence),
-    subjects,
-    time: {
-      since: time.since || options.since || null,
-      until: time.until || options.until || null,
-      field: String(time.field || "created_at"),
-    },
-    filters: normalizeReportQueryFilters(filters),
-    sort,
-    limit,
-  };
-}
-
-function normalizeReportQueryFilters(filters) {
-  return {
-    actor: normalizeStringArray(filters.actor),
-    executor: normalizeStringArray(filters.executor || filters.executed_by),
-    requester: normalizeStringArray(filters.requester || filters.requested_by || filters.requestedBy),
-    authorizer: normalizeStringArray(filters.authorizer || filters.authorized_by || filters.authorizedBy),
-    story_id: normalizeStringArray(filters.story_id || filters.story),
-    requirement: normalizeStringArray(filters.requirement || filters.requirements),
-    artifact_type: normalizeStringArray(filters.artifact_type || filters.output_type),
-    event_type: normalizeStringArray(filters.event_type || filters.type),
-    action: normalizeStringArray(filters.action),
-    phase: normalizeStringArray(filters.phase),
-    status: normalizeStringArray(filters.status),
-    kind: normalizeStringArray(filters.kind),
-    path: normalizeStringArray(filters.path),
-    text: normalizeStringArray(filters.text || filters.contains),
-  };
-}
-
 function collectReportQueryRecords(context, session = openProjectQuerySession(context)) {
   const registry = readOutputRegistry(context, { missingOk: true });
   const registryIndex = createOutputRegistryQueryIndex(registry);
@@ -40743,21 +33810,6 @@ function inferArtifactTypeFromTrace(event) {
   return null;
 }
 
-function inferStoryArtifactType(story) {
-  const text = stableJson(story).toLowerCase();
-  if (text.includes("functional-analysis") || text.includes("functional")) {
-    return "functional-analysis";
-  }
-  if (text.includes("technical-analysis") || text.includes("technical")) {
-    return "technical-analysis";
-  }
-  return null;
-}
-
-function reportQuerySubjectMatches(record, query) {
-  return query.subjects.includes("all") || query.subjects.includes(record.kind);
-}
-
 function reportQueryTimeMatches(record, query) {
   if (!query.time.since && !query.time.until) {
     return true;
@@ -40772,101 +33824,6 @@ function reportQueryTimeMatches(record, query) {
   return timestamps.some((timestamp) => (!since || timestamp >= since.getTime()) && (!until || timestamp <= until.getTime()));
 }
 
-function reportQueryFiltersMatch(record, query) {
-  const filters = query.filters;
-  return (
-    listFilterMatches(filters.kind, record.kind) &&
-    actorFilterMatches(filters.actor, record.actor) &&
-    actorFilterMatches(filters.executor, record.actor) &&
-    actorFilterMatches(filters.requester, record.requested_by) &&
-    actorFilterMatches(filters.authorizer, record.authorized_by) &&
-    listFilterMatches(filters.story_id, record.story_id) &&
-    listFilterOverlaps(filters.requirement, record.requirements || []) &&
-    listFilterOverlaps(filters.artifact_type, [record.artifact_type, ...(record.artifact_types || [])].filter(Boolean)) &&
-    listFilterMatches(filters.event_type, record.event_type) &&
-    listFilterMatches(filters.action, record.action) &&
-    listFilterMatches(filters.phase, record.phase) &&
-    listFilterMatches(filters.status, record.status) &&
-    listFilterOverlaps(filters.path, (record.sources || []).map((source) => source.path)) &&
-    textFilterMatches(filters.text, record.text)
-  );
-}
-
-function actorFilterMatches(filters, actor) {
-  if (!filters.length) {
-    return true;
-  }
-  return filters.some((filter) => traceActorMatches(actor, filter));
-}
-
-function listFilterMatches(filters, value) {
-  if (!filters.length) {
-    return true;
-  }
-  return filters.map(normalizeQueryToken).includes(normalizeQueryToken(value));
-}
-
-function listFilterOverlaps(filters, values) {
-  if (!filters.length) {
-    return true;
-  }
-  const normalizedValues = new Set((Array.isArray(values) ? values : [values]).map(normalizeQueryToken));
-  return filters.some((filter) => normalizedValues.has(normalizeQueryToken(filter)));
-}
-
-function textFilterMatches(filters, text) {
-  if (!filters.length) {
-    return true;
-  }
-  const normalized = normalizeText(text).toLowerCase();
-  return filters.every((filter) => normalizeText(filter).toLowerCase().split(" ").filter(Boolean).every((term) => normalized.includes(term)));
-}
-
-function normalizeQueryToken(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function compareReportQueryRecords(left, right, sort) {
-  if (sort === "kind_asc") {
-    return `${left.kind}:${left.id}`.localeCompare(`${right.kind}:${right.id}`);
-  }
-  const field = sort.startsWith("updated_at") ? "updated_at" : "created_at";
-  const direction = sort.endsWith("_asc") ? 1 : -1;
-  return direction * String(left[field] || "").localeCompare(String(right[field] || ""));
-}
-
-function formatReportQueryRecord(record) {
-  return {
-    kind: record.kind,
-    id: record.id,
-    summary: record.summary,
-    created_at: record.created_at,
-    updated_at: record.updated_at,
-    actor: record.actor,
-    action: record.action,
-    event_type: record.event_type,
-    story_id: record.story_id,
-    artifact_type: record.artifact_type,
-    artifact_types: record.artifact_types || [],
-    requirements: record.requirements || [],
-    phase: record.phase,
-    status: record.status,
-    requested_by: record.requested_by || null,
-    authorized_by: record.authorized_by || null,
-    request: record.request || null,
-    sources: record.sources || [],
-  };
-}
-
-function countBy(items, keyOrFn) {
-  const result = {};
-  for (const item of items) {
-    const key = typeof keyOrFn === "function" ? keyOrFn(item) : item[keyOrFn];
-    result[key || "unknown"] = (result[key || "unknown"] || 0) + 1;
-  }
-  return result;
-}
-
 function writeReportQueryResult(context, report, options) {
   const reportPath = resolveProjectFilePath(context, options.out, { mustExist: false });
   assertNotDerivedArtifact(context, reportPath, "Report query result");
@@ -40875,28 +33832,6 @@ function writeReportQueryResult(context, report, options) {
     return;
   }
   writeJsonFile(reportPath, report, { force: Boolean(options.force) });
-}
-
-function renderReportQueryMarkdown(report) {
-  return [
-    "# SDLC Query Report",
-    "",
-    `- Intent: ${report.query.intent}`,
-    `- Subjects: ${report.query.subjects.join(", ")}`,
-    `- Results: ${report.summary.result_count}`,
-    "",
-    "## Results",
-    ...(report.results.length
-      ? report.results.map((item) => {
-          const source = item.sources?.[0] ? ` (${item.sources[0].path}:${item.sources[0].line})` : "";
-          return `- ${item.created_at || item.updated_at || "unknown"} ${item.kind} ${item.id}: ${item.summary}${source}`;
-        })
-      : ["- No canonical KB records matched this query"]),
-    "",
-    "## Sources",
-    ...(report.source_paths.length ? report.source_paths.map((sourcePath) => `- ${sourcePath}`) : ["- None"]),
-    "",
-  ].join("\n");
 }
 
 function buildActivityReport(context, options = {}) {
@@ -40938,14 +33873,6 @@ function buildActivityReport(context, options = {}) {
     source_hashes: buildSourceHashMap(context, sourcePaths, session),
     source_policy: "Only canonical .sdlc trace files are summarized; cache and indexes are not cited as evidence.",
   };
-}
-
-function normalizeActivityReportView(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!ACTIVITY_REPORT_VIEWS.has(normalized)) {
-    fail(`Unknown activity report view '${value}'. Valid values: ${Array.from(ACTIVITY_REPORT_VIEWS).join(", ")}`);
-  }
-  return normalized;
 }
 
 function readAllTraceEvents(context, options = {}) {
@@ -40999,125 +33926,6 @@ function readAllTraceEvents(context, options = {}) {
   return events;
 }
 
-function inferStoryIdFromTraceFile(filePath) {
-  const base = path.basename(filePath, ".jsonl");
-  return base === "project" ? null : base;
-}
-
-function isEventInsideWindow(event, sinceDate, untilDate) {
-  const timestamp = Date.parse(String(event.created_at || ""));
-  return Number.isFinite(timestamp) && timestamp >= sinceDate.getTime() && timestamp <= untilDate.getTime();
-}
-
-function traceActorMatches(actor, filter) {
-  if (!filter) {
-    return true;
-  }
-  if (typeof actor === "string") {
-    return actor === filter;
-  }
-  return [actor?.id, actor?.name, actor?.email, actor?.type].filter(Boolean).some((value) => String(value) === filter);
-}
-
-function formatActivityEventForView(event, view) {
-  const base = {
-    created_at: event.created_at || null,
-    story_id: event.story_id || null,
-    type: event.type || null,
-    action: event.action || event.type || null,
-    summary: event.summary || null,
-    actor: event.actor || null,
-    sources: [event.source].filter(Boolean),
-  };
-  if (view === "business") {
-    return {
-      ...base,
-      impact: businessImpactForTrace(event),
-      evidence_count: Array.isArray(event.evidence) ? event.evidence.length : 0,
-      related: Array.isArray(event.related) ? event.related : [],
-    };
-  }
-  if (view === "dev") {
-    return {
-      ...base,
-      evidence: Array.isArray(event.evidence) ? event.evidence : [],
-      related: Array.isArray(event.related) ? event.related : [],
-      git: {
-        branch: event.git?.branch || null,
-        head_sha: event.git?.head_sha || null,
-        event: event.git?.event || null,
-        remote: event.git?.remote || null,
-        after_sha: event.git?.after_sha || null,
-      },
-    };
-  }
-  return {
-    ...base,
-    evidence: Array.isArray(event.evidence) ? event.evidence : [],
-    related: Array.isArray(event.related) ? event.related : [],
-    git: event.git || null,
-    run: event.run || null,
-    raw: event,
-  };
-}
-
-function businessImpactForTrace(event) {
-  const action = String(event.action || event.type || "");
-  if (event.type === "decision" || action.includes("approve")) {
-    return "decision";
-  }
-  if (event.type === "test" || action.includes("validation")) {
-    return "validation";
-  }
-  if (event.type === "release") {
-    return "release";
-  }
-  if (event.type === "risk") {
-    return "risk";
-  }
-  if (event.type === "handoff") {
-    return "handoff";
-  }
-  if (event.type === "implementation") {
-    return "implementation";
-  }
-  return "activity";
-}
-
-function summarizeActivityEvents(events) {
-  const byType = {};
-  const byAction = {};
-  const byStory = {};
-  const byActor = {};
-  for (const event of events) {
-    incrementCounter(byType, event.type || "unknown");
-    incrementCounter(byAction, event.action || event.type || "unknown");
-    incrementCounter(byStory, event.story_id || "project");
-    incrementCounter(byActor, traceActorKey(event.actor));
-  }
-  return {
-    event_count: events.length,
-    story_count: Object.keys(byStory).filter((storyId) => storyId !== "project").length,
-    by_type: byType,
-    by_action: byAction,
-    by_story: byStory,
-    by_actor: byActor,
-    first_event_at: events[0]?.created_at || null,
-    last_event_at: events.at(-1)?.created_at || null,
-  };
-}
-
-function incrementCounter(target, key) {
-  target[key] = (target[key] || 0) + 1;
-}
-
-function traceActorKey(actor) {
-  if (typeof actor === "string") {
-    return actor || "unknown";
-  }
-  return actor?.id || actor?.name || actor?.type || "unknown";
-}
-
 function parseDateBoundary(value, label, options = {}) {
   const raw = String(value || "").trim();
   if (raw === "now") {
@@ -41146,32 +33954,6 @@ function writeActivityReport(context, report, options) {
     return;
   }
   writeJsonFile(reportPath, report, { force: Boolean(options.force) });
-}
-
-function renderActivityReportMarkdown(report) {
-  return [
-    "# SDLC Activity Report",
-    "",
-    `- View: ${report.view}`,
-    `- Window: ${report.window.since} -> ${report.window.until}`,
-    `- Events: ${report.summary.event_count}`,
-    `- Stories: ${report.summary.story_count}`,
-    "",
-    "## Summary",
-    ...Object.entries(report.summary.by_type).map(([type, count]) => `- ${type}: ${count}`),
-    "",
-    "## Activity",
-    ...(report.items.length
-      ? report.items.map((item) => {
-          const source = item.sources?.[0] ? ` (${item.sources[0].path}:${item.sources[0].line})` : "";
-          return `- ${item.created_at || "unknown"} ${item.story_id || "project"} ${item.action}: ${item.summary}${source}`;
-        })
-      : ["- No canonical trace events in this window"]),
-    "",
-    "## Sources",
-    ...(report.source_paths.length ? report.source_paths.map((sourcePath) => `- ${sourcePath}`) : ["- None"]),
-    "",
-  ].join("\n");
 }
 
 function rebuildManifests(context, options) {
@@ -41584,15 +34366,6 @@ function collectArchiveCandidates(context, beforeDate) {
     }
   }
   return candidates.sort((a, b) => a.source_path.localeCompare(b.source_path));
-}
-
-function logicalArchiveRoot(context) {
-  return configuredSdlcDirectory(
-    context,
-    context.config.release_evidence_policy?.archive_directory,
-    "archive",
-    "release_evidence_policy.archive_directory",
-  );
 }
 
 function releaseManifestEvidenceEntries(context, manifest, manifestPath = null) {
@@ -42453,60 +35226,6 @@ function buildOutputResolution(context, storyId, artifactType, options = {}) {
   };
 }
 
-function createOutputRegistryQueryIndex(registry) {
-  const templatesByType = new Map();
-  const linksByStory = new Map();
-  const linksByStoryAndType = new Map();
-  const linksByRequirementAndType = new Map();
-  const linkOrder = new Map();
-
-  for (const template of registry?.templates || []) {
-    const templates = templatesByType.get(template.type) || [];
-    templates.push(template);
-    templatesByType.set(template.type, templates);
-  }
-  for (let index = 0; index < (registry?.links || []).length; index += 1) {
-    const link = registry.links[index];
-    linkOrder.set(link, index);
-    const linksForStory = linksByStory.get(link.story_id) || [];
-    linksForStory.push(link);
-    linksByStory.set(link.story_id, linksForStory);
-    const storyKey = outputRegistryPairKey(link.story_id, link.artifact_type);
-    const storyLinks = linksByStoryAndType.get(storyKey) || [];
-    storyLinks.push(link);
-    linksByStoryAndType.set(storyKey, storyLinks);
-    for (const requirement of new Set(link.requirements || [])) {
-      const requirementKey = outputRegistryPairKey(requirement, link.artifact_type);
-      const requirementLinks = linksByRequirementAndType.get(requirementKey) || [];
-      requirementLinks.push(link);
-      linksByRequirementAndType.set(requirementKey, requirementLinks);
-    }
-  }
-
-  return {
-    templates_by_type: templatesByType,
-    links_by_story: linksByStory,
-    links_by_story_and_type: linksByStoryAndType,
-    links_by_requirement_and_type: linksByRequirementAndType,
-    link_order: linkOrder,
-  };
-}
-
-function relatedOutputLinksFromIndex(index, storyId, artifactType, requirements) {
-  const related = new Set();
-  for (const requirement of new Set(requirements || [])) {
-    const key = outputRegistryPairKey(requirement, artifactType);
-    for (const link of index.links_by_requirement_and_type.get(key) || []) {
-      if (link.story_id !== storyId) related.add(link);
-    }
-  }
-  return [...related].sort((left, right) => index.link_order.get(left) - index.link_order.get(right));
-}
-
-function outputRegistryPairKey(left, right) {
-  return `${left ?? ""}\u0000${right ?? ""}`;
-}
-
 function buildCache(context) {
   const generatedAt = now();
   const session = openProjectQuerySession(context);
@@ -42695,26 +35414,6 @@ function outputContractsRoot(context) {
   return path.join(context.sdlcRoot, "output-contracts");
 }
 
-function configuredSdlcDirectory(context, configuredValue, fallback, label) {
-  const raw = String(configuredValue || fallback).trim().replaceAll("\\", "/");
-  const relative = raw.startsWith(`${SDLC_DIR}/`) ? raw.slice(`${SDLC_DIR}/`.length) : raw;
-  assertSafeSdlcRelativeDirectory(relative, label);
-  return path.join(context.sdlcRoot, relative);
-}
-
-function verificationReceiptsRoot(context) {
-  return configuredSdlcDirectory(
-    context,
-    context.config.verification_policy?.receipt_directory,
-    "receipts/verification",
-    "verification_policy.receipt_directory",
-  );
-}
-
-function verificationReceiptPath(context, id) {
-  return path.join(verificationReceiptsRoot(context), `${normalizeId(id)}.json`);
-}
-
 function outputRegistryPath(context) {
   return path.join(outputContractsRoot(context), "registry.json");
 }
@@ -42751,21 +35450,6 @@ function withOutputRegistryLock(context, callback) {
   } finally {
     releaseLock();
   }
-}
-
-function findOutputTemplate(registry, id) {
-  return (registry.templates || []).find((template) => template.id === id) || null;
-}
-
-function normalizeArtifactType(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-");
-  if (!/^[a-z0-9][a-z0-9._-]*$/.test(normalized)) {
-    fail(`Invalid artifact type '${value}'. Use lowercase letters, numbers, dots, underscores, and hyphens.`);
-  }
-  return normalized;
 }
 
 function normalizeOutputMode(value) {
@@ -42841,53 +35525,6 @@ function outputDeliveryIsFresh(template = {}) {
   return Boolean(
     template.approved_delivery_hash &&
     template.approved_delivery_hash === hashApprovalSubject(effectiveOutputDelivery(template)),
-  );
-}
-
-function formatOutputDeliveryForHuman(delivery) {
-  return [
-    `${delivery.label} (${delivery.extension})`,
-    delivery.generator ? `created with the ${delivery.generator} artifact capability` : "created directly",
-    delivery.mode === "artifact-plus-chat-summary" ? "plus a concise chat summary" : "as the canonical file",
-  ].join(", ");
-}
-
-function validateArtifactDeliveryPath(artifactPath, delivery, label = "Output") {
-  if (!delivery.extension) {
-    return;
-  }
-  if (!String(artifactPath).toLowerCase().endsWith(delivery.extension.toLowerCase())) {
-    fail(`${label} requires a ${delivery.extension} canonical artifact, but received ${path.basename(artifactPath)}.`);
-  }
-}
-
-function verificationArtifactSha256(receipt = {}) {
-  return receipt.artifact?.sha256 || receipt.artifact_sha256 || null;
-}
-
-function verificationArtifactFormat(receipt = {}) {
-  return receipt.artifact?.format || receipt.format || null;
-}
-
-function verificationDimensionStatus(receipt = {}, dimension) {
-  const value = receipt[dimension]?.status;
-  if (value === "passed") {
-    return "verified";
-  }
-  if (value === "not_required") {
-    return "not-required";
-  }
-  return value || null;
-}
-
-function verificationReceiptSatisfies(receipt, { visual = false } = {}) {
-  if (!receipt || receipt.status !== "passed") {
-    return false;
-  }
-  return (
-    verificationDimensionStatus(receipt, "container_verified") === "verified" &&
-    verificationDimensionStatus(receipt, "content_verified") === "verified" &&
-    verificationDimensionStatus(receipt, "render_verified") === (visual ? "verified" : "not-required")
   );
 }
 
@@ -43117,47 +35754,6 @@ function verifyOutputArtifact(context, artifactPath, delivery, options = {}) {
   return receipt;
 }
 
-function verifyOoxmlSemanticContent(filePath, entries, format, rootXml) {
-  if (format === "docx") {
-    const text = Array.from(rootXml.matchAll(/<(?:\w+:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:\w+:)?t>/gi))
-      .map((match) => match[1].replace(/<[^>]+>/g, " ").trim())
-      .filter(Boolean)
-      .join(" ");
-    if (text.length < 20) {
-      fail(`${path.basename(filePath)} has a Word document container but no meaningful document text.`);
-    }
-    return [`Word document contains ${text.length} visible text character(s)`];
-  }
-  if (format === "xlsx") {
-    const sheetDeclarations = Array.from(rootXml.matchAll(/<(?:\w+:)?sheet\b/gi)).length;
-    const worksheetEntries = Array.from(entries.keys()).filter((name) => /^xl\/worksheets\/sheet\d+\.xml$/i.test(name));
-    if (sheetDeclarations === 0 || worksheetEntries.length === 0) {
-      fail(`${path.basename(filePath)} has a workbook container but no declared worksheet.`);
-    }
-    const populated = worksheetEntries.filter((name) => {
-      const xml = readZipEntry(filePath, entries.get(name)).toString("utf8");
-      return /<(?:\w+:)?c\b|<(?:\w+:)?v\b|<(?:\w+:)?is\b/i.test(xml);
-    });
-    if (populated.length === 0) {
-      fail(`${path.basename(filePath)} declares worksheet(s), but none contains cells or values.`);
-    }
-    return [`workbook declares ${sheetDeclarations} sheet(s)`, `${populated.length} worksheet(s) contain cells or values`];
-  }
-  const slideDeclarations = Array.from(rootXml.matchAll(/<(?:\w+:)?sldId\b/gi)).length;
-  const slideEntries = Array.from(entries.keys()).filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name));
-  if (slideDeclarations === 0 || slideEntries.length === 0) {
-    fail(`${path.basename(filePath)} has a presentation container but no slide.`);
-  }
-  const visibleText = slideEntries.flatMap((name) => {
-    const xml = readZipEntry(filePath, entries.get(name)).toString("utf8");
-    return Array.from(xml.matchAll(/<(?:\w+:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:\w+:)?t>/gi)).map((match) => match[1].trim());
-  }).filter(Boolean).join(" ");
-  if (visibleText.length < 20) {
-    fail(`${path.basename(filePath)} contains slide containers but no meaningful slide text.`);
-  }
-  return [`presentation declares ${slideDeclarations} slide(s)`, `slides contain ${visibleText.length} visible text character(s)`];
-}
-
 function verifyVisualEvidenceFile(filePath, extension) {
   const bytes = fs.readFileSync(filePath);
   if (bytes.length < 32) {
@@ -43216,23 +35812,6 @@ function readArtifactGeneratorReceipt(context, receiptFile, artifactPath, delive
   };
 }
 
-function inspectZipContainer(filePath, requiredEntries = []) {
-  return withEvidenceFormatFailure(() => inspectZipContainerStructure(filePath, requiredEntries));
-}
-
-function readZipEntry(filePath, entry) {
-  return withEvidenceFormatFailure(() => readZipEntryBytes(filePath, entry));
-}
-
-function withEvidenceFormatFailure(operation) {
-  try {
-    return operation();
-  } catch (error) {
-    if (error instanceof EvidenceFormatError) fail(error.message);
-    throw error;
-  }
-}
-
 function resolveProjectFilePath(context, rawPath, options = {}) {
   const value = normalizeProjectPathInput(rawPath);
   if (!value) {
@@ -43267,10 +35846,6 @@ function resolveProjectFilePath(context, rawPath, options = {}) {
   return resolved;
 }
 
-function normalizeProjectPathInput(rawPath) {
-  return String(rawPath || "").trim().replace(/\\/g, "/");
-}
-
 function nearestExistingParent(filePath) {
   let current = path.dirname(path.resolve(filePath));
   while (!fs.existsSync(current)) {
@@ -43281,41 +35856,6 @@ function nearestExistingParent(filePath) {
     current = next;
   }
   return current;
-}
-
-function assertPathInsideRoot(context, resolvedPath, label) {
-  if (!isInsidePath(context.root, resolvedPath)) {
-    fail(`Path must stay inside the target project root: ${label}`);
-  }
-}
-
-function toProjectPath(context, filePath) {
-  return path.relative(context.root, path.resolve(filePath)).split(path.sep).join("/");
-}
-
-function isDerivedArtifactPath(context, filePath) {
-  if (!isInsidePath(context.sdlcRoot, filePath)) {
-    return false;
-  }
-  const relative = path.relative(context.sdlcRoot, path.resolve(filePath));
-  const first = relative.split(path.sep)[0];
-  const derived = new Set(context.config.cache_policy?.derived_directories || ["cache", "indexes"]);
-  return derived.has(first);
-}
-
-function assertNotDerivedArtifact(context, filePath, label) {
-  if (isDerivedArtifactPath(context, filePath)) {
-    fail(`${label} cannot be under .sdlc/cache or .sdlc/indexes because those directories are derived artifacts.`);
-  }
-}
-
-function upsertById(items, item) {
-  const index = items.findIndex((candidate) => candidate.id === item.id);
-  if (index >= 0) {
-    items[index] = item;
-  } else {
-    items.push(item);
-  }
 }
 
 function outputStatusTypes(context, registry, options = {}) {
@@ -43343,38 +35883,6 @@ function outputStatusTypes(context, registry, options = {}) {
     }
   }
   return collectOutputArtifactTypes(context, registry);
-}
-
-function collectOutputArtifactTypes(context, registry) {
-  const types = new Set();
-  for (const type of context.config.output_consistency_policy?.artifact_types || []) {
-    types.add(normalizeArtifactType(type));
-  }
-  if (registry) {
-    for (const template of registry.templates || []) {
-      if (template.type) {
-        types.add(normalizeArtifactType(template.type));
-      }
-    }
-    for (const link of registry.links || []) {
-      if (link.artifact_type) {
-        types.add(normalizeArtifactType(link.artifact_type));
-      }
-    }
-  }
-  return Array.from(types).sort();
-}
-
-function outputResolutionKey(storyId, artifactType) {
-  return `${storyId}::${artifactType}`;
-}
-
-function openProjectQuerySession(context) {
-  return openCanonicalQuerySession({
-    root: context.root,
-    canonicalRoot: SDLC_DIR,
-    derivedDirectories: context.config.cache_policy?.derived_directories,
-  });
 }
 
 function knowledgeSourceRoots(context) {
@@ -43432,14 +35940,6 @@ function collectKnowledgeSourceFiles(context, session = null) {
   return Array.from(new Set(files)).sort((a, b) => a.localeCompare(b));
 }
 
-function shouldIndexFile(context, filePath) {
-  if (isDerivedArtifactPath(context, filePath)) {
-    return false;
-  }
-  const extension = path.extname(filePath);
-  return context.config.indexable_extensions.includes(extension);
-}
-
 function readAllStories(context, session = null) {
   if (session) {
     return session.stories()
@@ -43454,88 +35954,6 @@ function readAllStories(context, session = null) {
     })
     .filter(Boolean)
     .sort((a, b) => String(a.id).localeCompare(String(b.id)));
-}
-
-function buildTemplateResolution(registry) {
-  const result = {};
-  for (const template of registry?.templates || []) {
-    const type = template.type || "unknown";
-    result[type] = result[type] || {
-      approved_template_ids: [],
-      draft_template_ids: [],
-      default_template_id: null,
-    };
-    if (template.status === "approved") {
-      result[type].approved_template_ids.push(template.id);
-      result[type].default_template_id = result[type].default_template_id || template.id;
-    } else {
-      result[type].draft_template_ids.push(template.id);
-    }
-  }
-  return result;
-}
-
-function buildStoryRequirementGraph(stories) {
-  return stories.map((story) => ({
-    story_id: story.id,
-    requirements: Array.isArray(story.links?.requirements) ? story.links.requirements : [],
-  }));
-}
-
-function buildStoryDependencyGraph(stories) {
-  const nodes = stories.map((story) => story.id);
-  const storyIndexesByRequirement = new Map();
-  for (let storyIndex = 0; storyIndex < stories.length; storyIndex += 1) {
-    const requirements = new Set(stories[storyIndex].links?.requirements || []);
-    for (const requirement of requirements) {
-      const indexes = storyIndexesByRequirement.get(requirement) || [];
-      indexes.push(storyIndex);
-      storyIndexesByRequirement.set(requirement, indexes);
-    }
-  }
-
-  // Build only pairs that actually share a requirement. The previous
-  // implementation compared every story with every other story even when the
-  // graph was sparse, which became the dominant cache-build cost at scale.
-  const sharedByPair = new Map();
-  for (const [requirement, indexes] of storyIndexesByRequirement) {
-    for (let leftOffset = 0; leftOffset < indexes.length; leftOffset += 1) {
-      for (let rightOffset = leftOffset + 1; rightOffset < indexes.length; rightOffset += 1) {
-        const left = indexes[leftOffset];
-        const right = indexes[rightOffset];
-        const key = `${left}\u0000${right}`;
-        const shared = sharedByPair.get(key) || new Set();
-        shared.add(requirement);
-        sharedByPair.set(key, shared);
-      }
-    }
-  }
-
-  const edges = [...sharedByPair.entries()]
-    .map(([key, shared]) => {
-      const [left, right] = key.split("\u0000").map(Number);
-      const requirements = [];
-      const emitted = new Set();
-      for (const requirement of stories[left].links?.requirements || []) {
-        if (shared.has(requirement) && !emitted.has(requirement)) {
-          requirements.push(requirement);
-          emitted.add(requirement);
-        }
-      }
-      return {
-        left,
-        right,
-        edge: {
-          from: stories[left].id,
-          to: stories[right].id,
-          reason: "shared_requirements",
-          requirements,
-        },
-      };
-    })
-    .sort((first, second) => first.left - second.left || first.right - second.right)
-    .map(({ edge }) => edge);
-  return { nodes, edges };
 }
 
 function buildArtifactFingerprints(context, registry) {
@@ -43566,42 +35984,6 @@ function buildArtifactFingerprints(context, registry) {
     });
 }
 
-function findRelatedOutputLinks(registry, link) {
-  const requirements = link.requirements || [];
-  return (registry.links || []).filter((candidate) => {
-    if (candidate.id === link.id || candidate.artifact_type !== link.artifact_type) {
-      return false;
-    }
-    if (overlaps(candidate.requirements || [], requirements)) {
-      return true;
-    }
-    if (link.base_artifact && candidate.artifact_path === link.base_artifact) {
-      return true;
-    }
-    return candidate.artifact_path && candidate.artifact_path === link.artifact_path;
-  });
-}
-
-function overlaps(left, right) {
-  if (!Array.isArray(left) || !Array.isArray(right) || left.length === 0 || right.length === 0) {
-    return false;
-  }
-  const rightSet = new Set(right);
-  return left.some((item) => rightSet.has(item));
-}
-
-function hasApprovedOutputDecision(decisions, decisionId) {
-  if (!decisionId) {
-    return false;
-  }
-  return decisions.some(
-    (decision) =>
-      decision.id === decisionId &&
-      decision.status === "approved" &&
-      ["output_link_override", "duplicate_output_approved"].includes(decision.type),
-  );
-}
-
 function findUnlinkedStoryOutputCandidates(context, storyId) {
   const storyDir = path.join(context.sdlcRoot, "stories", storyId);
   const outputsDir = path.join(storyDir, "outputs");
@@ -43614,14 +35996,6 @@ function findUnlinkedStoryOutputCandidates(context, storyId) {
     .filter((filePath) => shouldIndexFile(context, filePath))
     .map((filePath) => toProjectPath(context, filePath))
     .filter((relativePath) => !linked.has(relativePath));
-}
-
-function shortHash(value) {
-  return crypto.createHash("sha256").update(String(value)).digest("hex").slice(0, 8);
-}
-
-function shortHashFull(value) {
-  return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
 
 function hashFile(filePath) {
@@ -43771,14 +36145,6 @@ function stableContextSourceSnapshot(context, rawPath, label = "Context source")
     projectPath: toProjectPath(context, filePath),
     ...readStableRegularFileBuffer(filePath, context.root),
   };
-}
-
-function hashJsonFileValue(value) {
-  return hashBuffer(Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8"));
-}
-
-function hashBuffer(buffer) {
-  return crypto.createHash("sha256").update(buffer).digest("hex");
 }
 
 function sealGovernedTraceEvent(context, tracePath, event) {
@@ -43964,14 +36330,6 @@ function workflowTraceSealTestHooks(event) {
   };
 }
 
-function failTraceIntegrityWrite(error) {
-  if (error instanceof MutationGovernanceError) throw error;
-  const code = /^[a-z][a-z0-9_.-]{0,63}$/u.test(String(error?.code || ""))
-    ? error.code
-    : "trace_integrity_failed";
-  fail(`Trace integrity blocked the write (${code}). Run the integrity check before retrying.`);
-}
-
 function assertNoPendingWorkflowTraceTransaction(context, tracePath) {
   const projectTracePath = path.join(context.sdlcRoot, "traces", "project.jsonl");
   if (path.resolve(tracePath) !== path.resolve(projectTracePath)) return;
@@ -43991,18 +36349,6 @@ function assertNoPendingWorkflowTraceTransaction(context, tracePath) {
   if (pending.length > 0) {
     fail(`Project trace has a pending workflow transaction (${pending.sort().join(", ")}); recover it before appending another audit event.`);
   }
-}
-
-function buildTraceRedactionPolicy(context) {
-  return createTraceRedactionPolicy(context, createOperationalRedactionPolicy);
-}
-
-function buildLegacyEvidenceV1RedactionPolicy(context) {
-  return createTraceRedactionPolicy(context, createLegacyEvidenceV1RedactionPolicy);
-}
-
-function buildHistoricalOperationalEvidenceV1RedactionPolicy(context) {
-  return createTraceRedactionPolicy(context, createHistoricalOperationalEvidenceV1RedactionPolicy);
 }
 
 function traceEvidencePolicySourceRef(context, policy) {
@@ -44068,90 +36414,6 @@ function loadTraceEvidencePolicySource(context, ref, options = {}) {
   } catch {
     fail("Trace evidence policy source is unsupported or non-canonical.");
   }
-}
-
-function assertTraceEvidencePolicySourceSafety(source, allowedAlgorithms) {
-  const permitted = new Set(allowedAlgorithms ?? [
-    "legacy_evidence_v1",
-    "operational_evidence_v1",
-    "operational_v2",
-  ]);
-  if (!source || typeof source !== "object" || Array.isArray(source) || !permitted.has(source.algorithm)) {
-    throw new TypeError("unsupported trace evidence redaction algorithm");
-  }
-  const baselinePolicy = source.algorithm === "legacy_evidence_v1"
-    ? createLegacyEvidenceV1RedactionPolicy()
-    : source.algorithm === "operational_evidence_v1"
-      ? createHistoricalOperationalEvidenceV1RedactionPolicy()
-      : createOperationalRedactionPolicy();
-  const baseline = describeRedactionPolicy(baselinePolicy);
-  if (
-    stableJson(source.limits) !== stableJson(baseline.limits)
-    || source.replacement !== baseline.replacement
-    || stableJson(source.credential_assignment_detector)
-      !== stableJson(baseline.credential_assignment_detector)
-  ) {
-    throw new TypeError("trace evidence redaction safety boundary changed");
-  }
-  if (
-    !Array.isArray(source.sensitive_keys)
-    || source.sensitive_keys.length > 256
-    || source.sensitive_keys.some((key) => typeof key !== "string" || key.length === 0 || key.length > 128)
-    || !Array.isArray(source.detectors)
-    || !Array.isArray(source.identifier_allow_patterns)
-    || source.detectors.length + source.identifier_allow_patterns.length > baseline.limits.maxPatterns
-  ) {
-    throw new TypeError("trace evidence redaction policy exceeds its immutable safety limits");
-  }
-  const hasCanonicalEntry = (entries, required) => {
-    const serialized = new Set(entries.map((entry) => stableJson(entry)));
-    return required.every((entry) => serialized.has(stableJson(entry)));
-  };
-  if (
-    !baseline.sensitive_keys.every((key) => source.sensitive_keys.includes(key))
-    || !hasCanonicalEntry(source.detectors, baseline.detectors)
-    || !hasCanonicalEntry(source.identifier_allow_patterns, baseline.identifier_allow_patterns)
-  ) {
-    throw new TypeError("trace evidence redaction policy omits a mandatory privacy detector");
-  }
-}
-
-function createTraceRedactionPolicy(context, factory) {
-  const configured = context.config.observability?.redaction;
-  const secretPatterns = normalizeTraceDetectorPatterns(configured?.secret_patterns, "secret_patterns", "configured_secret");
-  const piiPatterns = normalizeTraceDetectorPatterns(configured?.pii_patterns, "pii_patterns", "configured_pii");
-  const identifierAllowPatterns = normalizeTraceDetectorPatterns(
-    configured?.identifier_allow_patterns,
-    "identifier_allow_patterns",
-    "configured_identifier",
-  );
-  const sensitiveKeys = configured?.sensitive_keys;
-  if (sensitiveKeys !== undefined && (
-    !Array.isArray(sensitiveKeys)
-    || sensitiveKeys.some((value) => typeof value !== "string" || value.trim() === "")
-  )) {
-    fail("observability.redaction.sensitive_keys must be an array of non-empty strings");
-  }
-  try {
-    return factory({
-      secretPatterns,
-      piiPatterns,
-      identifierAllowPatterns,
-      ...(sensitiveKeys === undefined ? {} : { sensitiveKeys }),
-    });
-  } catch {
-    fail("The configured observability redaction policy is invalid.");
-  }
-}
-
-function normalizeTraceDetectorPatterns(value, fieldName, prefix) {
-  if (value === undefined) return [];
-  if (!Array.isArray(value)) fail(`observability.redaction.${fieldName} must be an array`);
-  return value.map((entry, index) => {
-    if (typeof entry === "string") return { name: `${prefix}_${index + 1}`, pattern: entry };
-    if (entry && typeof entry === "object" && !Array.isArray(entry)) return entry;
-    fail(`Observability redaction pattern ${prefix}_${index + 1} must be a string or object`);
-  });
 }
 
 function buildTraceEvidenceRefs(context, event, policy) {
@@ -44223,23 +36485,6 @@ function redactedEvidenceRepresentation(context, filePath, policy) {
   const presented = redactValueWithMetadata(source, policy);
   if (presented.limited) fail("Trace evidence redaction reached its safety limit.");
   return presented.value;
-}
-
-function shouldVerifyTraceEvidence(event, projectPath) {
-  if (["test", "release"].includes(event.type)) return true;
-  if ([
-    "data.migrate",
-    "data.rollback",
-    "git.commit",
-    "git.push",
-    "pull_request.merge",
-    "release.local",
-    "rollback.verify",
-  ].includes(event.action)) {
-    return String(projectPath).replace(/\\/gu, "/").startsWith(`${SDLC_DIR}/autonomy/actions/`)
-      || String(projectPath).replace(/\\/gu, "/").includes("/evidence/");
-  }
-  return false;
 }
 
 function buildGovernedTraceEvent(context, storyId, event) {
@@ -44757,26 +37002,6 @@ function readStory(context, storyId) {
   return fs.existsSync(storyPath) ? normalizeStoryRecord(readProjectJson(context, storyPath)) : null;
 }
 
-function normalizeStoryRecord(story) {
-  if (!story || typeof story !== "object") {
-    return story;
-  }
-  const acceptanceCriteria = storyAcceptanceCriteria(story);
-  return {
-    ...story,
-    acceptance: Array.isArray(story.acceptance) ? story.acceptance : acceptanceCriteria,
-    acceptance_criteria: acceptanceCriteria,
-  };
-}
-
-function storyAcceptanceCriteria(story) {
-  const canonical = Array.isArray(story?.acceptance_criteria) ? story.acceptance_criteria : [];
-  if (canonical.length > 0) {
-    return canonical;
-  }
-  return normalizeListValue(story?.acceptance, []);
-}
-
 function writeGateReport(context, report, options) {
   assertRecordSchema(report, "gate-report.schema.json", `Gate report ${report.story_id || "project"}`);
   const reportPath = resolveProjectFilePath(context, options.out, { mustExist: false });
@@ -44787,52 +37012,6 @@ function writeGateReport(context, report, options) {
     return;
   }
   writeJsonFile(reportPath, report, { force: Boolean(options.force) });
-}
-
-function renderGateReportMarkdown(report) {
-  return [
-    `# SDLC Gate Report`,
-    "",
-    `- Status: ${report.status}`,
-    `- Strict: ${report.strict}`,
-    `- Scope: ${report.scope}`,
-    `- Story: ${report.story_id || "all"}`,
-    `- Checked at: ${report.checked_at}`,
-    `- Checked items: ${report.checked.length}`,
-    "",
-    "## Errors",
-    ...(report.errors.length ? report.errors.map((item) => `- ${item}`) : ["- None"]),
-    "",
-    "## Warnings",
-    ...(report.warnings.length ? report.warnings.map((item) => `- ${item}`) : ["- None"]),
-    "",
-    "## Human Input Requests",
-    ...(report.approval_requests?.length
-      ? report.approval_requests.flatMap((item, index) => formatMarkdownApprovalRequest(item, index + 1))
-      : ["- None"]),
-    "",
-    "## Checked",
-    ...(report.checked.length ? report.checked.map((item) => `- ${item}`) : ["- None"]),
-    "",
-  ].join("\n");
-}
-
-function formatMarkdownApprovalRequest(request, index = null) {
-  const prefix = index === null ? "-" : `${index}.`;
-  const lines = [
-    `${prefix} ${request.title || request.summary}`,
-    request.why_needed ? `   - Why: ${request.why_needed}` : null,
-    request.review_items?.length ? "   - What to review:" : null,
-    ...(request.review_items || []).slice(0, 6).map((item) => `     - ${item}`),
-    request.delivery_format_options?.length ? "   - Delivery / presentation options:" : null,
-    ...(request.delivery_format_options || []).slice(0, 10).map((option) => `     - ${formatDeliveryFormatOption(option)}`),
-    request.recommended_delivery_format ? `   - Recommended delivery: ${request.recommended_delivery_format}` : null,
-    request.delivery_question ? `   - Delivery question: ${request.delivery_question}` : null,
-    request.approval_meaning ? `   - What approval means: ${request.approval_meaning}` : null,
-    request.user_prompt ? `   - Question: ${request.user_prompt}` : null,
-    request.suggested_command ? `   - Command: \`${request.suggested_command}\`` : null,
-  ];
-  return lines.filter(Boolean);
 }
 
 function showStatus(context, options) {
@@ -45078,17 +37257,6 @@ function validCurrentWorkflowFinalReceipt(context, storyId, instance) {
   }
 }
 
-/**
- * The phase whose completion closes a delivery. It is "release" whenever the
- * project's phase order has one, even when a later phase such as operations
- * follows it; a custom phase order without "release" keeps its last phase, as
- * before operations existed.
- */
-function releasePhaseName(context) {
-  const phaseOrder = configuredPhaseOrder(context);
-  return phaseOrder.includes("release") ? "release" : phaseOrder.at(-1);
-}
-
 function storyReleaseReadiness(context, storyId) {
   const missing = [];
   const releaseStep = readStoryStepRecords(context, storyId)
@@ -45118,18 +37286,6 @@ function storyReleaseReadiness(context, storyId) {
     missing,
     profile_id: profileId,
   };
-}
-
-function outputLinkAuthorizationId(link) {
-  if (link?.authorization_ref) {
-    return link.authorization_ref;
-  }
-  for (const sourcePath of link?.source_paths || []) {
-    const match = String(sourcePath)
-      .match(/^\.sdlc\/authorization-uses\/([^/]+)\//u);
-    if (match?.[1]) return match[1];
-  }
-  return null;
 }
 
 function outputLinkRepairCommand(link) {
@@ -46436,71 +38592,6 @@ function readHandoffs(context) {
     .map((name) => readProjectJson(context, path.join(handoffsRoot, name)));
 }
 
-function configuredPhaseOrder(context) {
-  return normalizeListValue(
-    context?.config?.phase_order,
-    Object.keys(context?.config?.phases || {}),
-  );
-}
-
-function configuredStorySteps(context) {
-  const configuredPhases = configuredPhaseOrder(context);
-  const configuredPhaseSet = new Set(configuredPhases);
-  return [
-    ...configuredPhases,
-    ...Array.from(LEGACY_STORY_STEP_PHASE_ALIASES.entries())
-      .filter(([, phase]) => configuredPhaseSet.has(phase))
-      .map(([alias]) => alias),
-  ];
-}
-
-function normalizeStoryStep(context, value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-");
-  const validSteps = new Set(configuredStorySteps(context));
-  if (!validSteps.has(normalized)) {
-    fail(`Unknown story step '${value}'. Valid values: ${Array.from(validSteps).join(", ")}`);
-  }
-  return normalized;
-}
-
-function storyStepPhase(context, step) {
-  const aliasPhase = LEGACY_STORY_STEP_PHASE_ALIASES.get(step);
-  return aliasPhase && configuredPhaseOrder(context).includes(aliasPhase)
-    ? aliasPhase
-    : step;
-}
-
-function defaultNextStoryStep(context, step) {
-  const configuredOrder = configuredPhaseOrder(context);
-  const configuredIndex = configuredOrder.indexOf(step);
-  if (configuredIndex >= 0) {
-    return configuredIndex < configuredOrder.length - 1
-      ? configuredOrder[configuredIndex + 1]
-      : null;
-  }
-  if (
-    step === "functional-analysis"
-    && LEGACY_STORY_STEP_PHASE_ALIASES.get(step)
-    && configuredOrder.includes("analysis")
-  ) {
-    return "technical-analysis";
-  }
-  if (
-    step === "technical-analysis"
-    && LEGACY_STORY_STEP_PHASE_ALIASES.get(step)
-    && configuredOrder.includes("analysis")
-  ) {
-    const aliasPhaseIndex = configuredOrder.indexOf("analysis");
-    return aliasPhaseIndex >= 0 && aliasPhaseIndex < configuredOrder.length - 1
-      ? configuredOrder[aliasPhaseIndex + 1]
-      : null;
-  }
-  return null;
-}
-
 function buildCanonicalEvidence(context, rawPaths, label) {
   return rawPaths.map((rawPath) => {
     const filePath = resolveProjectFilePath(context, rawPath, { mustExist: true, fileOnly: true });
@@ -46511,14 +38602,6 @@ function buildCanonicalEvidence(context, rawPaths, label) {
       hash_algorithm: "sha256:file:v1",
     };
   });
-}
-
-function collectStoryOutputLinksForStep(context, registry, storyId, outputTypes) {
-  const typeFilter = new Set(outputTypes);
-  return (registry?.links || [])
-    .filter((link) => link.story_id === storyId)
-    .filter((link) => typeFilter.size === 0 || typeFilter.has(link.artifact_type))
-    .sort((a, b) => String(a.artifact_type || "").localeCompare(String(b.artifact_type || "")));
 }
 
 function assertReleaseClaimPrecondition(context, storyId, options) {
@@ -46667,49 +38750,6 @@ function isExpired(value) {
   }
   const timestamp = Date.parse(String(value));
   return Number.isFinite(timestamp) && timestamp < Date.now();
-}
-
-function effectiveStoryLifecyclePolicy(context) {
-  return {
-    ...(context.templateConfig?.story_lifecycle || {}),
-    ...(context.config?.story_lifecycle || {}),
-  };
-}
-
-function terminalStoryStatuses(context) {
-  return normalizeListValue(
-    effectiveStoryLifecyclePolicy(context).terminal_statuses,
-    Array.from(TERMINAL_STORY_STATUSES),
-  )
-    .map((item) => String(item).toLowerCase())
-    .filter(Boolean);
-}
-
-function storyRecordLifecycleProjection(rawStatus, rawPhase, rawTerminal, workflowInstanceId = null) {
-  return {
-    status: rawStatus,
-    phase: rawPhase,
-    terminal: rawTerminal,
-    blocked: false,
-    source: "story_record",
-    workflow_instance_id: workflowInstanceId,
-  };
-}
-
-function blockedWorkflowLifecycleProjection(
-  rawStatus,
-  rawPhase,
-  source,
-  workflowInstanceId = null,
-) {
-  return {
-    status: rawStatus,
-    phase: rawPhase,
-    terminal: false,
-    blocked: true,
-    source,
-    workflow_instance_id: workflowInstanceId,
-  };
 }
 
 function validLegacyWorkflowFinalReceipt(context, storyId, receipt) {
@@ -47026,26 +39066,6 @@ function effectiveStoryLifecycleProjection(context, story) {
       selected.entry,
     );
   }
-}
-
-function effectiveClaimPolicy(context) {
-  return {
-    ...(context.templateConfig?.claim_policy || {}),
-    ...(context.config?.claim_policy || {}),
-  };
-}
-
-function defaultClaimExpiration(context, claimedAt) {
-  const ttlSeconds = effectiveClaimPolicy(context).default_ttl_seconds;
-  const claimedAtMs = Date.parse(String(claimedAt || ""));
-  if (ttlSeconds === null || ttlSeconds === undefined || !Number.isFinite(claimedAtMs)) {
-    return null;
-  }
-  return new Date(claimedAtMs + ttlSeconds * 1_000).toISOString();
-}
-
-function effectiveClaimExpiration(context, claim) {
-  return claim?.expires_at || defaultClaimExpiration(context, claim?.claimed_at);
 }
 
 function isClaimExpired(context, claim) {
@@ -47410,25 +39430,6 @@ function validateOutputContracts(context, report, storyId = null) {
   }
 }
 
-function effectiveOutputDecisions(decisions) {
-  const result = [];
-  const latestTemplateDecision = new Map();
-  for (const decision of decisions) {
-    if (decision.type !== "template_approved" || !decision.template_id) {
-      result.push(decision);
-      continue;
-    }
-    const current = latestTemplateDecision.get(decision.template_id);
-    const currentKey = `${current?.created_at || ""}\u0000${current?.id || ""}`;
-    const candidateKey = `${decision.created_at || ""}\u0000${decision.id || ""}`;
-    if (!current || candidateKey > currentKey) {
-      latestTemplateDecision.set(decision.template_id, decision);
-    }
-  }
-  result.push(...latestTemplateDecision.values());
-  return result;
-}
-
 function validateOutputDecision(context, report, decision) {
   const label = `output decision ${decision.id || "unknown"}`;
   if (decision.type === "template_approved_by_assessment_proposal") {
@@ -47777,46 +39778,6 @@ function validateOutputLinkDecision(context, report, decisions, link, label) {
   return decision;
 }
 
-function outputLinkHasMatchingApprovedDecision(decisions, link) {
-  if (!link.decision_id || !hasApprovedOutputDecision(decisions, link.decision_id)) {
-    return false;
-  }
-  const decision = decisions.find((candidate) => candidate.id === link.decision_id);
-  if (!decision || !decision.subject || !decision.approved_content_hash) {
-    return false;
-  }
-  const expectedSubject = buildOutputLinkDecisionSubject(link);
-  return (
-    decision.approved_content_hash === hashApprovalSubject(expectedSubject) &&
-    stableJson(decision.subject) === stableJson(expectedSubject)
-  );
-}
-
-function buildOutputLinkDecisionSubject(link) {
-  return {
-    story_id: link.story_id,
-    artifact_type: link.artifact_type,
-    artifact_path: link.artifact_path,
-    template_id: link.template_id,
-    mode: link.mode,
-    base_artifact: link.base_artifact || null,
-    requirements: Array.isArray(link.requirements) ? link.requirements : [],
-    rationale: link.rationale || null,
-  };
-}
-
-function autonomyDecisionSemanticProjection(decision) {
-  if (!decision || typeof decision !== "object") return null;
-  const {
-    id: _id,
-    evaluated_at: _evaluatedAt,
-    decision_hash: _decisionHash,
-    hash_algorithm: _hashAlgorithm,
-    ...semantic
-  } = decision;
-  return semantic;
-}
-
 function validateCompletedGitCommitReceipt(context, report, receipt, authorization, label) {
   const commit = receipt.action_details?.commit;
   const { commit: _commit, ...authorizedProjection } = receipt.action_details || {};
@@ -48092,16 +40053,6 @@ function validateCompletedRemoteActionReceipt(context, report, profile, receipt,
   ) {
     report.errors.push(`${label} lacks exact GitHub provider proof for the authorized merge`);
   }
-}
-
-function deliveryActionEvidenceRevision(receipt) {
-  const candidates = [
-    receipt.action_details?.commit?.after_sha,
-    receipt.action_details?.push?.source_sha,
-    receipt.action_details?.merge?.source_sha,
-    receipt.runtime_target?.head_sha,
-  ];
-  return candidates.find((candidate) => /^[a-f0-9]{40,64}$/u.test(candidate || "")) || null;
 }
 
 function hashDeliveryActionEvidenceAtRevision(context, receipt, evidencePath) {
@@ -49268,17 +41219,6 @@ function validateContractContextSources(context, report, contract, label) {
   }
 }
 
-function hasApprovedContractApproval(contract) {
-  if (!Array.isArray(contract.approvals) || contract.approvals.length === 0) {
-    return false;
-  }
-  const latest = [...contract.approvals]
-    .filter((approval) => approval && approval.status)
-    .sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")))
-    .at(-1);
-  return latest?.status === "approved";
-}
-
 function validateContractApprovals(context, report, contract, label) {
   for (const approval of contract.approvals || []) {
     const approvalLabel = `${label} approval ${approval.id || "unknown"}`;
@@ -49304,24 +41244,6 @@ function validateContractApprovals(context, report, contract, label) {
       }
     }
   }
-}
-
-function hasFreshApprovedContractApproval(contract) {
-  if (!Array.isArray(contract.approvals) || contract.approvals.length === 0) {
-    return false;
-  }
-  const latest = latestContractApproval(contract);
-  if (!latest || latest.status !== "approved" || !latest.approved_content_hash) {
-    return false;
-  }
-  return latest.approved_content_hash === hashApprovalSubject(contract);
-}
-
-function latestContractApproval(contract) {
-  return [...(contract.approvals || [])]
-    .filter((approval) => approval && approval.status)
-    .sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")))
-    .at(-1);
 }
 
 function validateContractOutputRefs(
@@ -49538,43 +41460,6 @@ function deriveCurrentStoryWorkflowScope(context, storyId, report) {
   }
 }
 
-function validateExecutionPolicy(context, contract, label, report) {
-  const policy = contract.execution_policy;
-  if (!policy || typeof policy !== "object") {
-    return;
-  }
-  if (policy.runtime !== "codex") {
-    report.errors.push(`${label} execution_policy.runtime must be 'codex'`);
-  }
-  validateExecutionPolicySelection(policy.model, "model", "value", label, report);
-  validateExecutionPolicySelection(policy.reasoning, "reasoning", "level", label, report, {
-    allowedValues: normalizeReasoningLevels(context.config.execution_policy?.reasoning_levels),
-  });
-  if (!Array.isArray(policy.notes)) {
-    report.errors.push(`${label} execution_policy.notes must be an array`);
-  }
-}
-
-function validateExecutionPolicySelection(selection, name, valueKey, label, report, options = {}) {
-  if (!selection || typeof selection !== "object") {
-    report.errors.push(`${label} execution_policy.${name} must be an object`);
-    return;
-  }
-  if (!["inherit", "override"].includes(selection.mode)) {
-    report.errors.push(`${label} execution_policy.${name}.mode must be 'inherit' or 'override'`);
-  }
-  const value = selection[valueKey];
-  if (selection.mode === "override") {
-    if (typeof value !== "string" || value.trim() === "") {
-      report.errors.push(`${label} execution_policy.${name}.${valueKey} is required when mode is 'override'`);
-    } else if (options.allowedValues && !options.allowedValues.includes(value)) {
-      report.errors.push(
-        `${label} execution_policy.${name}.${valueKey} '${value}' is not allowed. Valid values: ${options.allowedValues.join(", ")}`,
-      );
-    }
-  }
-}
-
 function validateTraces(context, report, storyId = null, options = {}) {
   const tracesRoot = path.join(context.sdlcRoot, "traces");
   const candidates = new Map();
@@ -49751,14 +41636,6 @@ function traceGateSnapshotTestHooks(filePath) {
       fs.renameSync(replacement, targetPath);
     },
   };
-}
-
-function traceIntegrityCheckpointPath(tracePath) {
-  return path.join(
-    path.dirname(tracePath),
-    ".integrity",
-    `${path.basename(tracePath)}.checkpoint.json`,
-  );
 }
 
 function storyTraceIsExpected(context, storyId) {
@@ -50048,22 +41925,6 @@ function validateTraceEvidenceRefs(context, report, event, label, evidencePolicy
       }
     }
   }
-}
-
-function evidenceRepresentationMatchesRef(representation, ref) {
-  const bytes = Buffer.from(representation, "utf8");
-  return bytes.length === ref.size_bytes && hashBuffer(bytes) === ref.sha256;
-}
-
-function hasTraceActor(event) {
-  return hasActorAttribution(event.actor);
-}
-
-function hasActorAttribution(actor) {
-  if (typeof actor === "string") {
-    return actor.trim().length > 0;
-  }
-  return Boolean(actor && typeof actor === "object" && String(actor.id || "").trim());
 }
 
 function validateStory(
@@ -51486,18 +43347,6 @@ function validateClaim(context, storyId, claim, report, options = {}) {
   );
 }
 
-function storyBranchPatterns(context, storyId) {
-  const configured = context.config.parallel_work?.branch_patterns;
-  const patterns = Array.isArray(configured) && configured.length > 0
-    ? configured
-    : [context.config.parallel_work?.branch_pattern || "codex/<story-id>"];
-  return Array.from(new Set(patterns.map((pattern) => String(pattern).replaceAll("<story-id>", storyId))));
-}
-
-function defaultStoryBranch(context, storyId) {
-  return storyBranchPatterns(context, storyId)[0];
-}
-
 function readTraceEvents(context, storyId) {
   const tracePath = path.join(context.sdlcRoot, "traces", `${storyId}.jsonl`);
   if (!fs.existsSync(tracePath)) {
@@ -51513,15 +43362,6 @@ function readTraceEvents(context, storyId) {
         return { type: "invalid" };
       }
     });
-}
-
-function latestTraceEvent(events, type) {
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    if (events[index]?.type === type) {
-      return events[index];
-    }
-  }
-  return null;
 }
 
 function buildIndex(context) {
@@ -51576,38 +43416,6 @@ function getIndexStatus(context) {
     Object.keys(currentHashes).length === Object.keys(cachedHashes).length &&
     Object.entries(currentHashes).every(([sourcePath, hash]) => cachedHashes[sourcePath] === hash);
   return { exists: true, valid, index_path: indexPath, index };
-}
-
-function scoreEntry(entry, terms) {
-  const text = entry.search_text.toLowerCase();
-  let score = 0;
-  for (const term of terms) {
-    const occurrences = text.split(term).length - 1;
-    score += occurrences;
-    if (entry.path.toLowerCase().includes(term)) {
-      score += 2;
-    }
-    if (String(entry.title || "").toLowerCase().includes(term)) {
-      score += 3;
-    }
-  }
-  return score;
-}
-
-function inferTitle(filePath, raw) {
-  if (filePath.endsWith(".md")) {
-    const header = raw.split(/\r?\n/).find((line) => line.startsWith("# "));
-    return header ? header.replace(/^#\s+/, "").trim() : path.basename(filePath);
-  }
-  if (filePath.endsWith(".json")) {
-    try {
-      const data = JSON.parse(raw);
-      return data.title || data.id || data.project_name || path.basename(filePath);
-    } catch {
-      return path.basename(filePath);
-    }
-  }
-  return path.basename(filePath);
 }
 
 function ensureInitialized(context) {
@@ -51755,15 +43563,6 @@ function readStableTemplateAsset(selection) {
   });
 }
 
-function renderTemplate(template, variables) {
-  return template.replace(/\{\{([A-Z0-9_]+)\}\}/g, (_, key) => {
-    if (variables[key] === undefined) {
-      return "";
-    }
-    return String(variables[key]);
-  });
-}
-
 function readJson(filePath) {
   try {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -51831,22 +43630,10 @@ function writeJsonFile(filePath, value, options = {}) {
   writeTextFile(filePath, `${JSON.stringify(value, null, 2)}\n`, options);
 }
 
-function executeIdentityMutation(request, effect) {
-  return withGovernedMutation(request, () => {
-    assertMutationExecutionAuthorized(request);
-    return effect();
-  });
-}
-
 executeIdentityMutation.revalidate = function revalidateIdentityMutation(request) {
   assertMutationExecutionAuthorized(request);
   return true;
 };
-
-function executePreparedIdentityMutation(request, effect) {
-  assertMutationExecutionAuthorized(request);
-  return effect();
-}
 
 executePreparedIdentityMutation.revalidate = function revalidatePreparedIdentityMutation(request) {
   assertMutationExecutionAuthorized(request);
@@ -51862,19 +43649,6 @@ executePreparedIdentityMutation.prepare = function prepareIdentityMutationBatch(
   }
   return withGovernedMutationBatch(descriptor.exact_mutations, effect);
 };
-
-function preparedIdentityWritePath(projectRoot, descriptor, targetPath) {
-  const projectPath = path.relative(projectRoot, targetPath).split(path.sep).join("/");
-  const prepared = descriptor?.prepared_writes?.find((entry) => entry.target_path === projectPath);
-  if (!prepared) {
-    throw new MutationGovernanceError(
-      `Identity migration tried to write '${projectPath}' outside its reviewed execution descriptor`,
-      "MUTATION_BATCH_MISS",
-      { project_path: projectPath },
-    );
-  }
-  return path.join(projectRoot, ...prepared.temporary_path.split("/"));
-}
 
 function removePathGoverned(filePath, options = {}) {
   const operation = options.recursive ? "directory.remove" : "file.remove";
@@ -52136,20 +43910,6 @@ function readFileFromStableParent(filePath, parentIdentity, options = {}) {
   }
 }
 
-function sameStableFileIdentity(left, right) {
-  if (Number(left.ino) === 0 || Number(right.ino) === 0) return true;
-  return sameFileIdentityValues(left, right);
-}
-
-function sameStableFileSnapshot(left, right) {
-  return sameStableFileIdentity(left, right)
-    && fileIdentity(left).dev === fileIdentity(right).dev
-    && Number(left.mode) === Number(right.mode)
-    && Number(left.size) === Number(right.size)
-    && sameStatTime(left, right, "mtime")
-    && sameStatTime(left, right, "ctime");
-}
-
 function writeFileToStableParent(filePath, content, parentIdentity, options = {}) {
   assertMutationExecutionAuthorized({
     operation: "file.write",
@@ -52364,32 +44124,8 @@ function reclaimStaleInternalLock(lockPath) {
   });
 }
 
-function processIsAlive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error?.code === "EPERM";
-  }
-}
-
 function sleepSync(milliseconds) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
-}
-
-function assertNoSymlinkPathSegments(filePath, boundaryRoot = currentMutationGovernance()?.root) {
-  const resolved = path.resolve(filePath);
-  if (!boundaryRoot) {
-    fail(`Cannot validate path without a trusted project boundary: ${resolved}`);
-  }
-  try {
-    assertNoSymlinkSegmentsWithinBoundary(path.resolve(boundaryRoot), resolved);
-  } catch (error) {
-    if (error instanceof ProjectPathSafetyError) {
-      fail(error.message);
-    }
-    throw error;
-  }
 }
 
 /**
@@ -52509,199 +44245,6 @@ function countCanonicalRecords(directory, dirPath) {
   }).length;
 }
 
-function normalizeText(value) {
-  return String(value)
-    .replace(/[{}\[\]",:]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function safeEvidenceExcerpt(filePath, value, maxLength) {
-  const name = path.basename(filePath || "").toLowerCase();
-  if (/^(?:\.env(?:\..*)?|credentials|secrets?)(?:\..*)?$/.test(name) || /(?:^|[-_.])(?:secret|credential|private[-_]?key)(?:[-_.]|$)/.test(name)) {
-    return "[REDACTED:SENSITIVE_FILE_CONTENT]";
-  }
-  return normalizeText(redactSensitiveText(value)).slice(0, maxLength);
-}
-
-function redactSensitiveText(value) {
-  return String(value)
-    .replace(/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi, "[REDACTED:PRIVATE_KEY]")
-    .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[REDACTED:AWS_ACCESS_KEY]")
-    .replace(/\b(?:gh[opusr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{16,})\b/g, "[REDACTED:ACCESS_TOKEN]")
-    .replace(/\b(Bearer\s+)[A-Za-z0-9._~+\/-]+=*/gi, "$1[REDACTED:TOKEN]")
-    .replace(/\b((?:api[_-]?key|client[_-]?secret|access[_-]?token|auth[_-]?token|password|passwd|pwd)\s*[:=]\s*)[^\s,;]+/gi, "$1[REDACTED:SECRET]")
-    .replace(/([a-z][a-z0-9+.-]*:\/\/[^\s:/]+:)[^@\s/]+@/gi, "$1[REDACTED:PASSWORD]@");
-}
-
-function tokenize(query) {
-  return normalizeText(query)
-    .toLowerCase()
-    .split(" ")
-    .filter((term) => term.length > 1);
-}
-
-function normalizeListOption(value) {
-  if (value === undefined || value === null || value === true) {
-    return [];
-  }
-  const values = Array.isArray(value) ? value : [value];
-  return values
-    .flatMap((item) => String(item).split("|"))
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function normalizeRawListOption(value) {
-  if (value === undefined || value === null || value === true) {
-    return [];
-  }
-  const values = Array.isArray(value) ? value : [value];
-  return values.map((item) => String(item).trim()).filter(Boolean);
-}
-
-function normalizeScalarOption(value, key) {
-  if (value === undefined || value === null || value === true) {
-    return null;
-  }
-  if (Array.isArray(value)) {
-    if (value.length > 1) {
-      fail(`Option --${key} can be used only once`);
-    }
-    return normalizeScalarOption(value[0], key);
-  }
-  const text = String(value).trim();
-  return text || null;
-}
-
-function normalizeReasoningLevels(value) {
-  const fallback = ["inherit", "minimal", "low", "medium", "high"];
-  const levels = Array.isArray(value) && value.length > 0 ? value : fallback;
-  return levels.map((level) => String(level).trim().toLowerCase()).filter(Boolean);
-}
-
-function normalizeApprovalStatus(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  const allowed = ["approved", "changes_requested", "rejected"];
-  if (!allowed.includes(normalized)) {
-    fail(`Unknown approval status '${value}'. Valid values: ${allowed.join(", ")}`);
-  }
-  return normalized;
-}
-
-function normalizeGitEvent(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  const allowed = ["push", "commit", "merge", "pull", "rebase", "branch", "handoff", "pr"];
-  if (!allowed.includes(normalized)) {
-    fail(`Unknown git event '${value}'. Valid values: ${allowed.join(", ")}`);
-  }
-  return normalized;
-}
-
-function normalizeTraceOutcome(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!TRACE_OUTCOMES.has(normalized)) {
-    fail(`Unknown trace outcome '${value}'. Valid values: ${Array.from(TRACE_OUTCOMES).join(", ")}`);
-  }
-  return normalized;
-}
-
-function normalizeHandoffCloseStatus(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  const allowed = ["accepted", "closed", "cancelled"];
-  if (!allowed.includes(normalized)) {
-    fail(`Unknown handoff status '${value}'. Valid values: ${allowed.join(", ")}`);
-  }
-  return normalized;
-}
-
-function normalizeHandoffStatus(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!HANDOFF_STATUSES.has(normalized)) {
-    fail(`Unknown handoff status '${value}'. Valid values: ${Array.from(HANDOFF_STATUSES).join(", ")}`);
-  }
-  return normalized;
-}
-
-function requireCoordinationOverrideActor(attribution, action) {
-  if (!["human", "ci"].includes(attribution.actor?.type)) {
-    fail(`${action} requires --actor-type human or an approved CI actor after coordination.`);
-  }
-}
-
-function normalizeStoryStatus(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!STORY_STATUSES.has(normalized)) {
-    fail(`Unknown story status '${value}'. Valid values: ${Array.from(STORY_STATUSES).join(", ")}`);
-  }
-  return normalized;
-}
-
-function normalizeClaimStatus(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!CLAIM_STATUSES.has(normalized)) {
-    fail(`Unknown claim status '${value}'. Valid values: ${Array.from(CLAIM_STATUSES).join(", ")}`);
-  }
-  return normalized;
-}
-
-function normalizeLockStatus(value) {
-  const normalized = String(value || "").trim().toLowerCase();
-  if (!LOCK_STATUSES.has(normalized)) {
-    fail(`Unknown lock status '${value}'. Valid values: ${Array.from(LOCK_STATUSES).join(", ")}`);
-  }
-  return normalized;
-}
-
-function normalizeOptionalDateTime(value, label) {
-  const text = String(value || "").trim();
-  const timestamp = Date.parse(text);
-  if (!text || !Number.isFinite(timestamp)) {
-    fail(`Invalid --${label} '${value}'. Use an ISO-8601 date-time.`);
-  }
-  return text;
-}
-
-function normalizeId(value) {
-  const normalized = String(value).trim().replace(/\s+/g, "-");
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(normalized)) {
-    fail(`Invalid id '${value}'. Use only letters, numbers, dots, underscores, and hyphens; do not use path separators.`);
-  }
-  if (normalized.endsWith(".")) {
-    fail(`Invalid id '${value}'. IDs cannot end with a period because they must remain portable across supported filesystems.`);
-  }
-  if (/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(normalized)) {
-    fail(`Invalid id '${value}'. This name is reserved by Windows and cannot be used for a portable project artifact.`);
-  }
-  return normalized;
-}
-
-function isInsidePath(parent, child) {
-  const relative = path.relative(path.resolve(parent), path.resolve(child));
-  return relative === "" || (
-    relative !== ".." &&
-    !relative.startsWith(`..${path.sep}`) &&
-    !path.isAbsolute(relative)
-  );
-}
-
-function slugify(value) {
-  return String(value)
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-") || "project";
-}
-
-function requireOption(options, key) {
-  const value = options[key];
-  if (value === undefined || value === true || value === "") {
-    fail(`Missing required option --${key}`);
-  }
-  return String(value);
-}
-
 function now() {
   return new Date().toISOString();
 }
@@ -52737,165 +44280,6 @@ function output(options, jsonPayload, lines) {
   for (const line of finalLines) {
     console.log(line);
   }
-}
-
-function isHumanGuidanceOutput(lines) {
-  const english = [
-    "Outcome:",
-    "What this changes in practice:",
-    "What you need to decide:",
-    "What remains protected:",
-    "Next step:",
-  ];
-  const italian = [
-    "Risultato:",
-    "Cosa cambia in pratica:",
-    "Cosa devi decidere:",
-    "Cosa resta protetto:",
-    "Prossimo passo:",
-  ];
-  const hasFiveFields = [english, italian].some((labels) =>
-    labels.every((label, index) => lines[index]?.startsWith(label)));
-  if (!hasFiveFields) return false;
-  const dividerIndex = lines.findIndex((line) =>
-    line === "Technical details (optional):" || line === "Dettagli tecnici (facoltativi):");
-  if (dividerIndex < 5) return false;
-  return findForbiddenHumanGuidanceTerms(lines.slice(0, dividerIndex).join("\n")).length === 0;
-}
-
-function legacyOutputGuidance(payload, options = {}) {
-  const italian = humanGuidanceLocale(options) === "it";
-  const status = String(payload?.status || "").toLowerCase();
-  const blocked = ["blocked", "failed", "invalid", "needs_repair", "exception_pending"].includes(status);
-  const needsDecision = ["needs_user_input", "pending", "proposed", "awaiting_approval"].includes(status);
-  if (blocked) {
-    return {
-      result: italian ? "Il controllo richiesto ha trovato un problema." : "The requested check found a problem.",
-      impact: italian ? "Il lavoro che dipende da questo risultato non deve ancora proseguire." : "Work that depends on this result should not continue yet.",
-      required_decision: italian ? "Non devi approvare nulla finché il problema non è stato corretto." : "You do not need to approve anything until the problem is corrected.",
-      protection_boundary: italian ? "Questo risultato non autorizza modifiche, merge, rilasci, distribuzioni, produzione, segreti o lavoro fuori dai limiti concordati." : "This result does not authorize changes, merges, releases, deployments, production, secrets, or work outside the agreed limits.",
-      next_action: italian ? "Leggi la diagnosi facoltativa, correggi il problema e ripeti il controllo." : "Review the optional diagnosis, correct the problem, and run the check again.",
-      details: {},
-    };
-  }
-  if (needsDecision) {
-    return {
-      result: italian ? "Serve una decisione prima del prossimo passo." : "A decision is needed before the next step.",
-      impact: italian ? "Il lavoro resta in pausa finché la scelta mostrata non viene chiarita." : "Work remains paused until the displayed choice is clarified.",
-      required_decision: italian ? "Esamina la scelta nei dettagli facoltativi e rispondi in linguaggio naturale." : "Review the choice in the optional details and answer in natural language.",
-      protection_boundary: italian ? "Nessuna risposta viene interpretata come permesso per altre consegne, merge, rilasci, produzione, segreti o file non concordati." : "No answer is treated as permission for another delivery, merge, release, production, secrets, or unagreed files.",
-      next_action: italian ? "Conferma, correggi o rifiuta soltanto la scelta mostrata." : "Confirm, correct, or reject only the displayed choice.",
-      details: {},
-    };
-  }
-  return {
-    result: italian ? "Il risultato richiesto è pronto." : "The requested result is ready.",
-    impact: italian ? "Puoi vedere cosa è stato controllato o registrato senza dover interpretare i termini interni." : "You can review what was checked or recorded without interpreting internal labels.",
-    required_decision: italian ? "Questo risultato non richiede una nuova decisione, salvo che i dettagli facoltativi indichino esplicitamente una scelta in attesa." : "This result needs no new decision unless the optional details explicitly show a pending choice.",
-    protection_boundary: italian ? "Il risultato non autorizza da solo merge, rilasci, distribuzioni, produzione, segreti o lavoro fuori dai limiti concordati." : "The result does not by itself authorize merges, releases, deployments, production, secrets, or work outside the agreed limits.",
-    next_action: italian ? "Consulta i dettagli facoltativi e continua soltanto con il prossimo passo già concordato." : "Review the optional details and continue only with the next step already agreed.",
-    details: {},
-  };
-}
-
-function humanGuidanceLocale(options = {}) {
-  const requested = String(getOptionString(options, "locale") || "en").trim().toLowerCase();
-  const locale = requested.split(/[-_]/u)[0];
-  if (!["en", "it"].includes(locale)) {
-    fail(`Unsupported human guidance locale '${requested}'. Use en or it.`);
-  }
-  return locale;
-}
-
-function humanGuidanceLines(guidance, detailLines = [], options = {}, summaryLines = []) {
-  const italian = humanGuidanceLocale(options) === "it";
-  return [
-    `${italian ? "Risultato" : "Outcome"}: ${guidance.result}`,
-    `${italian ? "Cosa cambia in pratica" : "What this changes in practice"}: ${guidance.impact}`,
-    `${italian ? "Cosa devi decidere" : "What you need to decide"}: ${guidance.required_decision}`,
-    `${italian ? "Cosa resta protetto" : "What remains protected"}: ${guidance.protection_boundary}`,
-    `${italian ? "Prossimo passo" : "Next step"}: ${guidance.next_action}`,
-    ...summaryLines,
-    "",
-    italian ? "Dettagli tecnici (facoltativi):" : "Technical details (optional):",
-    ...detailLines.map((line) => String(line).trim()).filter(Boolean).map((line) => `- ${line}`),
-  ];
-}
-
-function autonomyVerificationTechnicalLines(guidance, options = {}) {
-  if (!guidance?.details?.digital_approver_verification) return [];
-  return humanGuidanceLocale(options) === "it"
-    ? [
-        "Verifica digitale dell'approvatore: non attiva; l'esecuzione effettiva resta checkpointed.",
-        "Per abilitarla: imposta authority_policy.mode=host_verified, configura la chiave pubblica Ed25519 in authority_policy.trusted_host_keys e fornisci l'approvazione esterna firmata con --host-receipt-file.",
-      ]
-    : [
-        "Digital approver verification: not active; effective execution remains checkpointed.",
-        "To enable it: set authority_policy.mode=host_verified, configure the Ed25519 public key in authority_policy.trusted_host_keys, and supply the externally signed approval with --host-receipt-file.",
-      ];
-}
-
-function compactIndexEntry(entry, sourceHash = null) {
-  return {
-    path: entry.path,
-    title: entry.title,
-    extension: entry.extension,
-    size_bytes: entry.size_bytes,
-    snippet: entry.snippet,
-    source_hash: sourceHash,
-  };
-}
-
-function buildCompactCacheStatus(status) {
-  const { cache, ...summary } = status;
-  const omittedBytes = cache ? Buffer.byteLength(JSON.stringify(cache), "utf8") : 0;
-  return {
-    ...summary,
-    cache_summary: cache ? {
-      entries: Array.isArray(cache.full_text_index) ? cache.full_text_index.length : 0,
-      source_paths: Array.isArray(cache.source_paths) ? cache.source_paths.length : 0,
-      stories: Object.keys(cache.story_requirement_graph || {}).length,
-      artifact_fingerprints: Object.keys(cache.artifact_fingerprints || {}).length,
-      output_resolutions: Object.keys(cache.output_resolutions || {}).length,
-    } : null,
-    context_optimization: buildContextOptimizationMetadata({
-      profile: "cache-status-compact:v1",
-      omittedFields: cache ? ["cache"] : [],
-      omittedBytes,
-      fullPayloadFlag: "--full",
-    }),
-  };
-}
-
-function buildContextOptimizationMetadata({ profile, omittedFields, omittedBytes, fullPayloadFlag }) {
-  return {
-    profile,
-    lossless_for_reported_fields: true,
-    omitted_fields: omittedFields,
-    omitted_bytes: omittedBytes,
-    estimated_tokens_avoided: Math.ceil(omittedBytes / 4),
-    full_payload_flag: fullPayloadFlag,
-  };
-}
-
-function boundedPositiveInteger(rawValue, label, options = {}) {
-  const defaultValue = options.defaultValue;
-  const maximum = options.maximum;
-  const value = rawValue === undefined || rawValue === null || rawValue === ""
-    ? defaultValue
-    : Number(rawValue);
-  if (!Number.isSafeInteger(value) || value < 1 || value > maximum) {
-    fail(`--${label} must be an integer between 1 and ${maximum}`);
-  }
-  return value;
-}
-
-function fail(message, humanGuidance = null) {
-  throw new UserError(message, humanGuidance);
-}
-
-function failUsage(message, humanGuidance = null) {
-  throw new UsageError(message, humanGuidance);
 }
 
 await main();
