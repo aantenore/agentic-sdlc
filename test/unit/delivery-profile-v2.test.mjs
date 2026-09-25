@@ -47,7 +47,7 @@ function sharedInput(overrides = {}) {
       budget_ref: null,
     },
     pull_request_target: {
-      repository: "aantenore/agentic-sdlc-codex-plugin",
+      repository: "aantenore/agentic-sdlc",
       base_branch: "main",
       head_branch: "codex/provider-v2",
       allowed_actions: ["git.push", "pull_request.create", "pull_request.update"],
@@ -118,12 +118,12 @@ test("v2 existing PR profiles pin number, URL, and reviewed head without a creat
     ...sharedInput({
       delivery_id: "PR-184",
       pull_request_target: {
-        repository: "aantenore/agentic-sdlc-codex-plugin",
+        repository: "aantenore/agentic-sdlc",
         base_branch: "main",
         head_branch: "codex/provider-v2",
         mode: "existing",
         pr_number: 184,
-        pr_url: "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/184",
+        pr_url: "https://github.com/aantenore/agentic-sdlc/pull/184",
         reviewed_head_sha: reviewedHeadSha,
         allowed_actions: ["git.push", "pull_request.update"],
         merge_allowed: false,
@@ -145,7 +145,7 @@ test("v2 existing PR profiles pin number, URL, and reviewed head without a creat
     ...input,
     pull_request_target: {
       ...input.pull_request_target,
-      pr_url: "https://github.com/aantenore/agentic-sdlc-codex-plugin/pull/185",
+      pr_url: "https://github.com/aantenore/agentic-sdlc/pull/185",
     },
   }), /must identify the exact approved PR number/u);
   assert.throws(() => buildDeliveryExecutionProfileV2({

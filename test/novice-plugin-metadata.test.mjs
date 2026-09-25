@@ -234,7 +234,7 @@ test("the Claude Code installation guide documents the marketplace flow and the 
   const docsIndex = read("docs/README.md");
   const readme = read("README.md");
 
-  assert.match(guide, /\/plugin marketplace add aantenore\/agentic-sdlc-codex-plugin/u);
+  assert.match(guide, /\/plugin marketplace add aantenore\/agentic-sdlc/u);
   assert.match(guide, /\/plugin install agentic-sdlc@aantenore/u);
   assert.match(guide, /\$\{CLAUDE_PLUGIN_ROOT\}/u);
   assert.match(guide, /install-personal-marketplace-v2\.py/u);
