@@ -121,7 +121,8 @@ For implementation work, Codex follows one visible order:
    and moves the bound workflow into `release`.
 
 9. **Finish and certify at the named destination**
-   Only after entering `release`, Codex creates or updates the one approved PR,
+   Only after entering `release`, Codex creates or updates the one approved PR
+   and, when merge is not included, closes that delivery as `ready_for_review`,
    or completes the local-only release, release trace, release step, and smoke
    test. It releases the completed story claim, then runs the distinct
    lifecycle-complete gate. Merge, remote

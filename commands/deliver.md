@@ -15,5 +15,5 @@ Rules for this command:
 - Follow the skill's `Required Delivery Order`. Do not skip a stage because it looks obvious.
 - The delivery kind is `pull_request`. A prior pull-request choice is never reused: propose a delivery execution profile for this delivery and get it approved.
 - `pull_request.create` and `git.push` are authorized actions. They need an approved profile that names them; ask before the first remote-visible action.
-- Protected-branch merge, deployment, and production access stay outside this command.
+- Protected-branch merge, deployment, and production access stay outside this command. After the verified `pull_request.create` completion (and any later `pull_request.update`), close the delivery with `autonomy delivery close --terminal-status ready_for_review` before the lifecycle-complete gate.
 - If `$ARGUMENTS` is empty, ask for the requirement before touching any record.

@@ -15,4 +15,5 @@ Rules for this command:
 - The delivery kind is `pull_request` and the allowed action is `pull_request.update`. Do not request or use `pull_request.create`.
 - Bind the work to the existing head branch recorded in the delivery execution profile. If no profile covers this pull request, propose one and get it approved first.
 - Re-run the verification that the contract requires, and link the produced outputs before claiming the update is complete.
+- After the verified `pull_request.update` completion, close the delivery with `autonomy delivery close --terminal-status ready_for_review` before the lifecycle-complete gate; merge stays outside this command.
 - If `$ARGUMENTS` does not identify a pull request, ask for it before touching any record.
