@@ -297,6 +297,10 @@ class InstallerTransactionTests(unittest.TestCase):
         for thread in threads:
             thread.join(timeout=10)
 
+        self.assertFalse(
+            any(thread.is_alive() for thread in threads),
+            "a concurrent apply is still waiting for the installer lock",
+        )
         self.assertEqual(sorted(outcomes), ["applied", "stale"])
         self.assertEqual(
             (
@@ -334,6 +338,83 @@ class InstallerTransactionTests(unittest.TestCase):
                     self.fail("a live process must retain its installer lock")
 
         self.assertEqual(json.loads(lock_path.read_text(encoding="utf-8")), owner)
+
+    def test_lock_release_survives_a_peer_reading_the_lock(self) -> None:
+        # Windows refuses to delete a file while a waiting peer has it open to
+        # check the owner. Release must still complete so the peer can proceed.
+        lock_path = (
+            self.home
+            / ".agents"
+            / "plugins"
+            / f".{INSTALLER.PLUGIN_NAME}.install.lock"
+        )
+        original_unlink = Path.unlink
+        denied: list[Path] = []
+
+        def unlink_denied_once(path, *args, **kwargs):
+            if path == lock_path and not denied:
+                denied.append(path)
+                raise PermissionError(13, "file in use by another process", str(path))
+            return original_unlink(path, *args, **kwargs)
+
+        with mock.patch.object(
+            INSTALLER, "_lock_access_denial_is_transient", return_value=True
+        ), mock.patch.object(
+            Path, "unlink", autospec=True, side_effect=unlink_denied_once
+        ):
+            with INSTALLER._exclusive_install_lock(lock_path):
+                pass
+
+        self.assertEqual(denied, [lock_path])
+        self.assertFalse(lock_path.exists())
+        with mock.patch.object(INSTALLER, "INSTALL_LOCK_WAIT_SECONDS", 0.01):
+            with INSTALLER._exclusive_install_lock(lock_path):
+                pass
+
+    def test_lock_release_failure_is_reported_instead_of_leaking_the_lock(self) -> None:
+        lock_path = (
+            self.home
+            / ".agents"
+            / "plugins"
+            / f".{INSTALLER.PLUGIN_NAME}.install.lock"
+        )
+        with mock.patch.object(
+            INSTALLER, "_lock_access_denial_is_transient", return_value=False
+        ), mock.patch.object(
+            Path, "unlink", side_effect=PermissionError(13, "denied")
+        ):
+            with self.assertRaisesRegex(
+                INSTALLER.InstallError, "Could not release installer lock"
+            ):
+                with INSTALLER._exclusive_install_lock(lock_path):
+                    pass
+
+    def test_lock_acquire_waits_while_a_released_lock_is_being_deleted(self) -> None:
+        # Windows denies creating a file whose previous copy is still pending
+        # deletion; that is contention, not a permanent failure.
+        lock_path = (
+            self.home
+            / ".agents"
+            / "plugins"
+            / f".{INSTALLER.PLUGIN_NAME}.install.lock"
+        )
+        original_open = os.open
+        denied: list[str] = []
+
+        def open_denied_once(path, *args, **kwargs):
+            if os.fspath(path) == os.fspath(lock_path) and not denied:
+                denied.append(os.fspath(path))
+                raise PermissionError(13, "delete pending", os.fspath(path))
+            return original_open(path, *args, **kwargs)
+
+        with mock.patch.object(
+            INSTALLER, "_lock_access_denial_is_transient", return_value=True
+        ), mock.patch.object(INSTALLER.os, "open", side_effect=open_denied_once):
+            with INSTALLER._exclusive_install_lock(lock_path):
+                self.assertTrue(lock_path.is_file())
+
+        self.assertEqual(denied, [os.fspath(lock_path)])
+        self.assertFalse(lock_path.exists())
 
     def test_unmanaged_and_linked_destinations_fail_closed(self) -> None:
         destination = self.home / "plugins" / INSTALLER.PLUGIN_NAME

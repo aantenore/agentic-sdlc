@@ -28,6 +28,7 @@ EXCLUDED_NAMES = frozenset({".git", ".sdlc", "test", ".DS_Store"})
 EXCLUDED_DISTRIBUTION_METADATA = frozenset({".npmignore"})
 EXCLUDED_FILE_SUFFIXES = (".pyc", ".pyo")
 INSTALL_LOCK_WAIT_SECONDS = 30.0
+INSTALL_LOCK_RELEASE_SECONDS = 5.0
 MINIMUM_PYTHON = (3, 8)
 RTK_MINIMUM_VERSION = (0, 43, 0)
 RTK_COMMAND_TIMEOUT_SECONDS = 20.0
@@ -496,18 +497,40 @@ def _exclusive_install_lock(lock_path: Path):
                     continue
                 except OSError:
                     pass
-            if time.monotonic() >= deadline:
-                raise InstallError(f"Timed out waiting for installer lock: {lock_path}")
-            time.sleep(0.05)
+        except PermissionError as exc:
+            if not _lock_access_denial_is_transient(exc):
+                raise
+        if time.monotonic() >= deadline:
+            raise InstallError(f"Timed out waiting for installer lock: {lock_path}")
+        time.sleep(0.05)
     try:
         yield
     finally:
+        _release_install_lock(lock_path, nonce)
+
+
+def _lock_access_denial_is_transient(error: OSError) -> bool:
+    """Windows denies lock access while a peer reads or deletes the lock file."""
+
+    return os.name == "nt" and isinstance(error, PermissionError)
+
+
+def _release_install_lock(lock_path: Path, nonce: str) -> None:
+    deadline = time.monotonic() + INSTALL_LOCK_RELEASE_SECONDS
+    while True:
         try:
             current = json.loads(lock_path.read_text(encoding="utf-8"))
             if current.get("nonce") == nonce:
-                lock_path.unlink(missing_ok=True)
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
-            pass
+                lock_path.unlink()
+            return
+        except (FileNotFoundError, json.JSONDecodeError):
+            return
+        except OSError as exc:
+            if not _lock_access_denial_is_transient(exc) or time.monotonic() >= deadline:
+                raise InstallError(
+                    f"Could not release installer lock {lock_path}: {exc}"
+                ) from exc
+            time.sleep(0.05)
 
 
 def _read_package_allowlist(repo_root: Path) -> tuple[str, ...]:
