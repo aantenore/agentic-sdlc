@@ -4667,6 +4667,15 @@ test("a credential committed during a governed workflow blocks the validation ga
   assert.ok(!found.stdout.includes(plantedToken));
   mustFail(strictGate, project, /secret scan .* found 1 credential match\(es\) in src\/client\.mjs/u);
 
+  // A narrower range that excludes the committed credential cannot replace the finding.
+  const narrow = mustRunJson([
+    "secret", "scan", "--root", project, "--story", fixture.storyId, "--base", "HEAD",
+  ], project);
+  assert.equal(narrow.secret_scan.outcome, "clean");
+  assert.equal(narrow.secret_scan.file_count, 0);
+  assert.equal(narrow.covers_delivery_base, false);
+  mustFail(strictGate, project, /credential match\(es\) in src\/client\.mjs/u);
+
   mustFail([
     "workflow", "instance", "transition",
     "--root", project,

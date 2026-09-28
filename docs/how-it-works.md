@@ -554,7 +554,9 @@ a scan take longer than the text it reads.
 
 `gate_policy.secret_scan.enabled` turns the check into a gate: a story in
 validation then needs a record whose outcome is `clean` for the current head,
-and an older record proves nothing about the content being validated now. A
+and an older record proves nothing about the content being validated now.
+Only a record whose range starts at the task-start commit, or earlier, counts,
+so a later scan over a narrower range cannot replace a finding. A
 story bound to a workflow instance is in validation when the instance is, since
 transitions never rewrite `story.json`. The `--lifecycle-complete` gate checks
 the scan again, so a commit made after validation needs its own clean scan. The

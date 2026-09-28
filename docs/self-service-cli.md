@@ -213,7 +213,7 @@ node "$PLUGIN_CLI" secret scan --root /path/to/project \
 | Input | Purpose |
 |---|---|
 | `--story` | The story the delivery belongs to; it must already exist. |
-| `--base`, `--head` | The exact commits to compare. `--base` defaults to the commit the story's task start recorded and `--head` to the current `HEAD`. |
+| `--base`, `--head` | The exact commits to compare. `--base` defaults to the commit the story's task start recorded and `--head` to the current `HEAD`. The gate only accepts a scan whose base is the task-start commit or an ancestor of it, so a later `--base` cannot hide a change the delivery already committed. |
 | `--delivery` | Bind the record to one exact delivery. |
 | `--summary`, `--id` | Optional text and an explicit record ID. |
 | `--requirement` | Link the scan to the requirements the delivery serves. |
