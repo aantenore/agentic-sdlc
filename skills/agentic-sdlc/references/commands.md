@@ -858,6 +858,7 @@ node bin/agentic-sdlc.mjs incident record \
   --summary "Checkout latency spike" \
   --impact "5% of checkouts timed out for 20 minutes" \
   --incident-action "Rolled back the checkout service" \
+  --detected-at 2026-09-16T10:00:00Z \
   --resolved-at 2026-09-16T10:20:00Z
 
 node bin/agentic-sdlc.mjs feedback record \

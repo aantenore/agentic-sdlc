@@ -169,10 +169,12 @@ test("a story in the operations phase records incidents and feedback against a r
     "--severity", "sev2", "--summary", "Checkout latency spike",
     "--impact", "5% of checkouts timed out for 20 minutes",
     "--incident-action", "Rolled back the checkout service",
+    "--detected-at", "2026-01-05T09:30:00Z",
     "--resolved-at", new Date().toISOString(),
     "--json",
   ]).stdout);
   assert.equal(incident.status, "recorded");
+  assert.equal(incident.incident.detected_at, "2026-01-05T09:30:00Z");
   assert.equal(incident.incident.kind, "incident");
   assert.equal(incident.incident.schema_version, "incident:v1");
   assert.equal(incident.incident.story_id, storyId);
@@ -180,6 +182,20 @@ test("a story in the operations phase records incidents and feedback against a r
   assert.equal(incident.incident.severity, "sev2");
   assert.equal(incident.incident.actions.length, 1);
   assert.ok(fs.existsSync(path.join(project, incident.incident_path)));
+
+  const incidentFiles = () => fs.readdirSync(path.join(project, ".sdlc", "operations")).filter((name) => name.includes("-incident-"));
+  const incidentCount = incidentFiles().length;
+  const incidentBase = [
+    "incident", "record", "--root", project, "--story", storyId, "--release-manifest", releaseManifestId,
+    "--severity", "sev4", "--summary", "Refused timing", "--impact", "None; refused before write",
+  ];
+  mustFail([...incidentBase, "--resolved-at", "2026-01-05T10:00:00Z"], /earlier than the default detection time.*--detected-at/);
+  mustFail(
+    [...incidentBase, "--detected-at", "2026-01-05T10:00:00Z", "--resolved-at", "2026-01-05T09:00:00Z"],
+    /--resolved-at 2026-01-05T09:00:00Z is earlier than --detected-at 2026-01-05T10:00:00Z/,
+  );
+  mustFail([...incidentBase, "--detected-at", "2026-01-05"], /Invalid --detected-at '2026-01-05'\. Use an RFC 3339 date-time/);
+  assert.equal(incidentFiles().length, incidentCount, "refused incident records must not be written");
 
   const feedback = JSON.parse(mustRun([
     "feedback", "record", "--root", project, "--story", storyId,
