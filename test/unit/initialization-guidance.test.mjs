@@ -30,6 +30,18 @@ test("an empty project is guided to init", (context) => {
   assert.doesNotMatch(result.stderr, /onboard existing-project/u);
 });
 
+test("a freshly git-initialized folder with no files is still guided to init", (context) => {
+  const root = temporaryRoot(context, "git-only");
+  fs.mkdirSync(path.join(root, ".git"));
+  fs.writeFileSync(path.join(root, ".git", "HEAD"), "ref: refs/heads/main\n");
+
+  const result = runStatus(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /new empty project/u);
+  assert.match(result.stderr, /agentic-sdlc init/u);
+  assert.doesNotMatch(result.stderr, /onboard existing-project/u);
+});
+
 test("an initialized repository with evidence and no completed work is still guided to onboarding", (context) => {
   const root = temporaryRoot(context, "initialized-existing");
   const initialized = runCli(root, [
