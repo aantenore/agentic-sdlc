@@ -221,12 +221,13 @@ node "$PLUGIN_CLI" secret scan --root /path/to/project \
 The changed files come from the commit range when one is available, together
 with every uncommitted and untracked file, from the uncommitted workspace alone
 when there is no base to compare against, and from the story's approved write
-paths for a local release with neither. The record binds the state of the
-working tree it read, and the gate accepts it only while that state is
-unchanged. A range named with `--base` or `--head` is scanned exactly, without
-the working tree, so the gate accepts it only while the working tree is clean. Files are read through
-the project path-safety boundary: nothing outside the project root is opened and
-no symlink is followed.
+paths for a local release with neither. A repository without its first commit
+is scanned from its working tree, and the record names no head commit. The
+record binds the state of the working tree it read, and the gate accepts it only
+while that state is unchanged. A range named with `--base` or `--head` is
+scanned exactly, without the working tree, so the gate accepts it only while the
+working tree is clean. Files are read through the project path-safety boundary:
+nothing outside the project root is opened and no symlink is followed.
 
 Matches are printed and stored redacted, as the rule that matched plus at most
 four leading characters. A scan that finds nothing exits `0`; a scan with

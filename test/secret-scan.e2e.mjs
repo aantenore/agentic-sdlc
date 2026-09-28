@@ -32,14 +32,16 @@ function writeJson(filePath, value) {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-function createProject() {
+function createProject({ commit = true } = {}) {
   const directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "sdlc-secret-scan-")));
   git(directory, ["init", "--initial-branch", "main"]);
   git(directory, ["config", "user.email", "scan@example.test"]);
   git(directory, ["config", "user.name", "Scan Fixture"]);
   fs.writeFileSync(path.join(directory, "README.md"), "# Scan fixture\n", "utf8");
-  git(directory, ["add", "."]);
-  git(directory, ["commit", "-m", "initial"]);
+  if (commit) {
+    git(directory, ["add", "."]);
+    git(directory, ["commit", "-m", "initial"]);
+  }
 
   const initialized = run(["init", "--root", directory, "--project-name", "Secret scan fixture"]);
   assert.equal(initialized.status, 0, initialized.stderr || initialized.stdout);
@@ -155,6 +157,43 @@ test("an explicit commit range scans only what that range changed", () => {
     assert.equal(payload.secret_scan.file_count, 1);
     assert.ok(payload.secret_scan.rule_ids.includes("github_token"));
     assert.match(payload.secret_scan.rule_set_hash, /^[a-f0-9]{64}$/u);
+  } finally {
+    fs.rmSync(project, { force: true, recursive: true });
+  }
+});
+
+test("a repository without its first commit is scanned from the working tree", () => {
+  const project = createProject({ commit: false });
+  try {
+    const sourcePath = path.join(project, "src", "client.js");
+    fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+    fs.writeFileSync(sourcePath, `export const auth = "${PLANTED_TOKEN}";\n`, "utf8");
+    const story = readJson(storyPath(project));
+    writeJson(storyPath(project), { ...story, phase: "validation", status: "validation" });
+
+    const found = run(["secret", "scan", "--root", project, "--story", STORY_ID, "--json"]);
+    assert.equal(found.status, 1, found.stderr || found.stdout);
+    const record = JSON.parse(found.stdout).secret_scan;
+    assert.equal(record.source, "git_workspace");
+    assert.equal(record.head_sha, null);
+    assert.ok(record.scanned_paths.includes("src/client.js"));
+    assert.ok(
+      gateErrors(project).some((error) => error.includes("credential match") && error.includes("src/client.js")),
+      "the validation gate did not report the credential in the uncommitted repository",
+    );
+
+    fs.writeFileSync(sourcePath, "export const auth = process.env.API_TOKEN;\n", "utf8");
+    const clean = run(["secret", "scan", "--root", project, "--story", STORY_ID]);
+    assert.equal(clean.status, 0, clean.stderr || clean.stdout);
+    assert.equal(
+      gateErrors(project).filter((error) => error.toLowerCase().includes("secret scan")).length,
+      0,
+      "a clean scan of a repository without commits did not satisfy the gate",
+    );
+
+    // Editing the scanned working tree makes the clean record stale.
+    fs.appendFileSync(sourcePath, "export const extra = true;\n", "utf8");
+    assert.ok(gateErrors(project).some((error) => error.includes("has no secret scan for the current project state")));
   } finally {
     fs.rmSync(project, { force: true, recursive: true });
   }
