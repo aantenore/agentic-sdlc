@@ -408,7 +408,7 @@ flowchart LR
 For PR-184 choose bounded-autonomous. You may implement, test, commit, push, and update
 that PR on the displayed repository and branches. Do not merge the protected branch,
 deploy remotely, use secrets, or write outside the approved paths. This choice expires
-when PR-184 is merged, closed, or cancelled and does not apply to another PR.
+when PR-184 is merged, left ready for review, closed, or cancelled and does not apply to another PR.
 ```
 
 A local release is a first-class delivery unit. Its profile must name the local root, allowed actions and write paths, smoke tests, their governed working directory, and a required rollback procedure. The smoke directory must be inside an allowed write path; it defaults to the only allowed write path and must be explicit when several are present. Local does not mean unrestricted: machine-global changes, writes outside the workspace, destructive actions, external access, remote deployment, and production access remain explicit exception boundaries.

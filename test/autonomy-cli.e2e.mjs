@@ -1261,7 +1261,7 @@ test("requirement ceiling and an exact PR profile govern task start without leak
   assert.match(proposalResponse.human_guidance.required_decision, /applies only to this pull request and will not be reused/u);
   assert.doesNotMatch(proposalResponse.human_guidance.required_decision, /deployed outside the local machine/u);
   assert.match(proposalResponse.human_guidance.required_decision, /before the pull request is merged/u);
-  assert.match(proposalResponse.human_guidance.required_decision, /no separate calendar deadline.*ends when the pull request is merged, closed, or cancelled/u);
+  assert.match(proposalResponse.human_guidance.required_decision, /no separate calendar deadline.*ends when the pull request is merged, left ready for review, closed, or cancelled/u);
   assert.equal(proposalResponse.human_guidance.details.project_name, "Autonomy E2E");
   assert.equal(
     proposalResponse.human_guidance.details.repository,
