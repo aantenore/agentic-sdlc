@@ -12,6 +12,8 @@ import {
   buildDeliveryExecutionProfile,
   computeDeliveryExecutionProfileHash,
 } from "../lib/autonomy-policy.mjs";
+import { buildContext } from "../lib/engine/common.mjs";
+import { storyReleaseReadiness } from "../lib/engine/delivery.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const bin = path.join(repoRoot, "bin", "agentic-sdlc.mjs");
@@ -215,6 +217,7 @@ function fakeGitHubEnv(project, values) {
     AUTONOMY_FAKE_GH_BASE_SHA: baseSha,
     AUTONOMY_FAKE_GH_MERGED_AT: values.mergedAt || "",
     AUTONOMY_FAKE_GH_MERGE_SHA: values.mergeSha || "",
+    AUTONOMY_FAKE_GH_UPDATED_AT: values.updatedAt || "",
   };
 }
 
@@ -999,6 +1002,122 @@ test("an existing pull request is pinned before approval and cannot be retargete
   ], /no longer descended from the reviewed commit/u);
 });
 
+test("a pull request delivery without merge ends ready for review only from its latest verified PR update", () => {
+  const project = tmpProject("pull-request-ready-for-review");
+  initializeAutonomyProject(project);
+  createApprovedImplementationContract(project, {
+    storyId: "ST-PR-READY",
+    contractId: "CONTRACT-PR-READY",
+    profileId: "AUT-PR-READY",
+  });
+  const proofPath = path.join(project, "src", "pr-update-proof.txt");
+  fs.mkdirSync(path.dirname(proofPath), { recursive: true });
+  fs.writeFileSync(proofPath, "exact reviewed head marked ready\n", "utf8");
+  mustGit(project, ["add", "--", "src/pr-update-proof.txt"]);
+  mustGit(project, ["commit", "-m", "test: establish ready-for-review head"]);
+  const headSha = mustGit(project, ["rev-parse", "HEAD"]);
+  const baseSha = mustGit(project, ["rev-parse", "refs/remotes/origin/main"]);
+  const prUrl = "https://github.com/aantenore/agentic-sdlc/pull/185";
+  mustRunJson([
+    "autonomy", "delivery", "propose",
+    "--root", project,
+    "--id", "AUT-PR-READY",
+    "--delivery", "PR-185",
+    "--kind", "pull_request",
+    "--pr-mode", "existing",
+    "--pr-number", "185",
+    "--pr-url", prUrl,
+    "--story", "ST-PR-READY",
+    "--contract", "CONTRACT-PR-READY",
+    "--requirement", "REQ-AUTONOMY",
+    "--level", "checkpointed",
+    "--repository", "aantenore/agentic-sdlc",
+    "--base", "main",
+    "--head", "codex/pr-1",
+    "--write-path", "src",
+  ]);
+  mustRunJson([
+    "autonomy", "delivery", "approve",
+    "--root", project,
+    "--id", "AUT-PR-READY",
+    ...humanApproval("Approve work on existing PR 185 without merge"),
+  ]);
+  const started = mustRunJson([
+    "task", "start",
+    "--root", project,
+    "--intent-json", taskIntent("ST-PR-READY"),
+    "--delivery-profile", "AUT-PR-READY",
+  ]);
+  assert.equal(started.execution_allowed, true);
+
+  const closeReady = [
+    "autonomy", "delivery", "close",
+    "--root", project,
+    "--id", "AUT-PR-READY",
+    "--terminal-status", "ready_for_review",
+    "--reason", "The pull request is open for review at its verified head.",
+  ];
+  mustFail(closeReady, /cannot close as ready_for_review: .*not a passing pull_request\.create or pull_request\.update completion/u);
+  const releaseReadiness = () => storyReleaseReadiness(buildContext({ root: project }), "ST-PR-READY");
+  assert.equal(releaseReadiness().ready_for_review_close_available, false);
+
+  const draftState = {
+    state: "OPEN",
+    url: prUrl,
+    headSha,
+    headBranch: "codex/pr-1",
+    baseBranch: "main",
+    baseSha,
+    isDraft: true,
+  };
+  const update = [
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", "AUT-PR-READY",
+    "--action", "pull_request.update",
+    "--pr-url", prUrl,
+    "--expected-pr-state", "ready",
+  ];
+  const authorization = mustRunJson([
+    ...update,
+    "--confirm-action",
+    ...humanApproval("Approve marking this exact pull request ready for review"),
+  ], { env: fakeGitHubEnv(project, draftState) });
+  assert.equal(authorization.status, "authorized");
+  const updatedAt = new Date(Date.parse(authorization.action_receipt.authorized_at) + 1_000).toISOString();
+  const completion = mustRunJson([
+    ...update,
+    "--outcome", "passed",
+    "--evidence", "src/pr-update-proof.txt",
+  ], { env: fakeGitHubEnv(project, { ...draftState, isDraft: false, updatedAt }) });
+  assert.equal(completion.status, "completed");
+  assert.equal(completion.lifecycle_status, "started");
+  assert.equal(releaseReadiness().ready_for_review_close_available, true);
+
+  const closed = mustRunJson(closeReady);
+  assert.equal(releaseReadiness().ready_for_review_close_available, false);
+  assert.equal(releaseReadiness().missing.includes("terminal successful delivery"), false);
+  assert.equal(closed.terminal_status, "ready_for_review");
+  assert.equal(closed.close_receipt.terminal_action_receipt_ref.id, completion.action_receipt.id);
+  assert.equal(closed.close_receipt.terminal_action_receipt_ref.hash, completion.action_receipt.receipt_hash);
+
+  const gate = run([
+    "gate", "check",
+    "--root", project,
+    "--strict",
+    "--story", "ST-PR-READY",
+    "--lifecycle-complete",
+    "--json",
+  ]);
+  assert.equal(gate.error, undefined, gate.error?.message);
+  const report = JSON.parse(gate.stdout);
+  assert.equal(
+    report.errors.some((error) => /terminal pull_request delivery|terminal ready_for_review receipt/u.test(error)),
+    false,
+    gate.stdout,
+  );
+});
+
 test("requirement ceiling and an exact PR profile govern task start without leaking autonomy to another PR", () => {
   const project = tmpProject("pull-request");
   initializeAutonomyProject(project);
@@ -1142,7 +1261,7 @@ test("requirement ceiling and an exact PR profile govern task start without leak
   assert.match(proposalResponse.human_guidance.required_decision, /applies only to this pull request and will not be reused/u);
   assert.doesNotMatch(proposalResponse.human_guidance.required_decision, /deployed outside the local machine/u);
   assert.match(proposalResponse.human_guidance.required_decision, /before the pull request is merged/u);
-  assert.match(proposalResponse.human_guidance.required_decision, /no separate calendar deadline.*ends when the pull request is merged, closed, or cancelled/u);
+  assert.match(proposalResponse.human_guidance.required_decision, /no separate calendar deadline.*ends when the pull request is merged, left ready for review, closed, or cancelled/u);
   assert.equal(proposalResponse.human_guidance.details.project_name, "Autonomy E2E");
   assert.equal(
     proposalResponse.human_guidance.details.repository,

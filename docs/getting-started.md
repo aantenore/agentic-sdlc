@@ -121,9 +121,11 @@ For implementation work, Codex follows one visible order:
    and moves the bound workflow into `release`.
 
 9. **Finish and certify at the named destination**
-   Only after entering `release`, Codex creates or updates the one approved PR,
+   Only after entering `release`, Codex creates or updates the one approved PR
+   and, when merge is not included, closes that delivery as `ready_for_review`,
    or completes the local-only release, release trace, release step, and smoke
-   test. It releases the completed story claim, then runs the distinct
+   test. It then moves the workflow to `operations` and completes the
+   `operations` step, releases the completed story claim, and runs the distinct
    lifecycle-complete gate. Merge, remote
    deployment, and production remain separate unless explicitly included and
    approved.
@@ -271,7 +273,7 @@ Use:
 Continue this existing pull request, verify the requested changes, and update the PR without creating a new one.
 ```
 
-Include the PR URL or exact repository and PR number. Codex resolves and displays the existing repository, base, head, current SHA, requested delta, allowed files, checks, and update actions. It must update that PR and must not create a second one.
+Include the PR URL or exact repository and PR number. Codex resolves and displays the existing repository, base, head, current SHA, requested delta, allowed files, checks, and update actions. It must update that PR and must not create a second one. The delivery choice is recorded with `--pr-mode existing` and the exact PR number and URL, so the CLI refuses an update aimed at a different PR or at a head that does not descend from the reviewed commit.
 
 A changed PR head, base, repository, or material requirement is drift. Codex pauses and shows the new boundary instead of applying an old approval to changed work.
 

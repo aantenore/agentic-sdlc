@@ -40,6 +40,7 @@ if (provider === "gh" && ["gh", "gh.exe"].includes(invoked)) {
     baseRefOid: process.env.AUTONOMY_FAKE_GH_BASE_SHA,
     mergedAt: state === "MERGED" ? process.env.AUTONOMY_FAKE_GH_MERGED_AT : null,
     mergeCommit: state === "MERGED" ? { oid: process.env.AUTONOMY_FAKE_GH_MERGE_SHA } : null,
+    updatedAt: process.env.AUTONOMY_FAKE_GH_UPDATED_AT || null,
   };
   process.stdout.write(JSON.stringify(response));
   process.exit(0);

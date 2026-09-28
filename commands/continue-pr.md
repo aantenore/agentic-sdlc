@@ -13,6 +13,7 @@ Rules for this command:
 
 - The plugin root is `${CLAUDE_PLUGIN_ROOT}`. The deterministic CLI is `${CLAUDE_PLUGIN_ROOT}/bin/agentic-sdlc.mjs`; run it with `node` and pass `--root` for the target project.
 - The delivery kind is `pull_request` and the allowed action is `pull_request.update`. Do not request or use `pull_request.create`.
-- Bind the work to the existing head branch recorded in the delivery execution profile. If no profile covers this pull request, propose one and get it approved first.
+- Bind the work to the existing head branch recorded in the delivery execution profile. If no profile covers this pull request, propose one with `autonomy delivery propose --kind pull_request --pr-mode existing --pr-number <n> --pr-url <url>` (add `--pr-head-sha <sha>` when the local head branch cannot supply the reviewed head) and get it approved first. That pins the exact PR and reviewed head so the CLI refuses another PR or an unrelated history.
 - Re-run the verification that the contract requires, and link the produced outputs before claiming the update is complete.
+- After the verified `pull_request.update` completion, close the delivery with `autonomy delivery close --terminal-status ready_for_review` before the lifecycle-complete gate; merge stays outside this command.
 - If `$ARGUMENTS` does not identify a pull request, ask for it before touching any record.
