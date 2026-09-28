@@ -37,6 +37,22 @@ const UNSUPPORTED_RUNTIME_IMPORT = `data:text/javascript,${
   )
 }`;
 
+
+// The CLI's implementation spans the entry point and the modules it was split
+// into; source assertions read all of it, so moving code between them does
+// not change what they check.
+function readCliImplementation(root) {
+  const files = [path.join(root, "bin/agentic-sdlc.mjs")];
+  for (const directory of ["lib/engine", "lib/lifecycle", "lib/cli"]) {
+    const absolute = path.join(root, directory);
+    if (!fs.existsSync(absolute)) continue;
+    for (const name of fs.readdirSync(absolute).sort()) {
+      if (name.endsWith(".mjs")) files.push(path.join(absolute, name));
+    }
+  }
+  return files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
+}
+
 test("runtime support excludes Node releases without the shutdown fix", () => {
   for (const version of ["18.18.0", "18.20.2", "19.9.0", "20.11.1", "21.5.0"]) {
     assert.equal(isSupportedNodeRuntime(version), false, version);
@@ -91,7 +107,7 @@ test("package, documentation, and CI/release matrices use the safe runtime floor
 });
 
 test("CLI doctor and both benchmarks consume the shared runtime policy", () => {
-  const cli = fs.readFileSync(CLI_PATH, "utf8");
+  const cli = readCliImplementation(PROJECT_ROOT);
   assert.match(cli, /isSupportedNodeRuntime\(process\.versions\.node\)/u);
   assert.match(cli, /isSupportedNodeRuntime\(nodeVersion\)/u);
   assert.match(cli, /rawStringOptionValue\(rawArgs, "locale"\)/u);
@@ -99,11 +115,7 @@ test("CLI doctor and both benchmarks consume the shared runtime policy", () => {
     cli,
     /new UnsupportedNodeRuntimeError\(process\.versions\.node, rawLocale\)/u,
   );
-  // The error class is a pure declaration and lives with the other lifecycle
-  // classes; the CLI imports it.
-  const lifecycleClasses = fs.readFileSync(path.join(PROJECT_ROOT, "lib/lifecycle/classes.mjs"), "utf8");
-  assert.match(lifecycleClasses, /super\(unsupportedNodeRuntimeMessage\(version, locale\)\)/u);
-  assert.match(cli, /UnsupportedNodeRuntimeError,\n\} from "\.\.\/lib\/lifecycle\/classes\.mjs";/u);
+  assert.match(cli, /super\(unsupportedNodeRuntimeMessage\(version, locale\)\)/u);
   assert.match(cli, /pkg\.engines\?\.node === NODE_ENGINE_RANGE/u);
   assert.match(cli, /NODE_ENGINE_RANGE/u);
   assert.match(cli, /NODE_RUNTIME_REQUIREMENT/u);

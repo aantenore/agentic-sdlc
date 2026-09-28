@@ -3,7 +3,7 @@
 Agentic SDLC separates the reusable method from project-specific knowledge.
 
 ```text
-Codex plugin
+Plugin (Codex or Claude Code)
   -> skill instructions
   -> templates
   -> schemas
@@ -91,6 +91,21 @@ flowchart TB
   Cache -.-> CLI
   Indexes -.-> CLI
 ```
+
+## Code Layout
+
+The CLI is layered so that every rule can be tested without spawning a process.
+
+| Layer | Location | Role |
+|---|---|---|
+| Entry point | `bin/agentic-sdlc.mjs` | Composition root only: `main`, the command registry, and the observatory launcher that needs the script's own path. |
+| Engine | `lib/engine/*.mjs` | Command implementations, storage, git, delivery, workflow and gate code: everything that reads or writes. |
+| Rules | `lib/lifecycle/*.mjs` | Pure validators, normalizers and decision helpers with no I/O anywhere in their reference closure. |
+| Host seam | `lib/runtime/host.mjs` | The only route to the outside world. |
+
+The engine never imports `node:fs`, `node:child_process`, `node:os` or `node:crypto`, and never reads the `process`, `console` or `Date` globals directly: it imports those names from the host seam. Each member forwards to the real implementation unless a test replaces it with `setHost()`, which returns a restore function. A test can therefore run any engine function against a fixed clock, a fixed random source or a recording file system without changing the function; `test/unit/runtime-host.test.mjs` shows the pattern.
+
+Constants and classes shared by the engine live in `lib/engine/definitions.mjs` in the order they are initialized, so no value is read before it exists, whichever module is loaded first. `lib/runtime/paths.mjs` provides `PLUGIN_ROOT`.
 
 ## Core Design Choices
 
