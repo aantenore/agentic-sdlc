@@ -117,7 +117,7 @@ test("catalog options and explicit compatibility options remain accepted by the 
   const compatibility = mustRun(["help", "--strict", "--allow-unapproved-contract-output", "--json"]);
   assert.equal(JSON.parse(compatibility.stdout).schema_version, "agentic-sdlc-help-v1");
   const unknown = run(["help", "--definitely-unknown"]);
-  assert.equal(unknown.status, 1);
+  assert.equal(unknown.status, 2);
   assert.match(unknown.stderr, /Unknown option --definitely-unknown/u);
 });
 

@@ -307,6 +307,11 @@ operator problem.
 | `4` | Environment error: the host cannot run this software as installed. | Repair the installation; `doctor` names the fix. |
 | `70` | Internal error: the software failed in a way the caller cannot correct. | Report it with the correlation ID from the output. |
 
+Usage errors include an unknown option, a missing or repeated option value, a
+malformed boolean or `--locale`, and an argument given to a command that takes
+only options. With `--json` they report the error code `USAGE_ERROR`, while
+refusals on the merits report `USER_ERROR`.
+
 A command killed by a signal keeps the conventional `128 + signal` form, so a
 subprocess interrupted with `SIGINT` exits `130`.
 

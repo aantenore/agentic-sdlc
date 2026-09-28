@@ -1073,7 +1073,7 @@ function buildCliRuntimeHandlerRegistry() {
     completion: bootstrap(({ options, resolution }) => {
       const [shell, ...extra] = resolution.args;
       if (!shell || extra.length > 0 || !SUPPORTED_SHELLS.includes(String(shell).toLowerCase())) {
-        fail(`Completion needs exactly one shell: ${SUPPORTED_SHELLS.join(", ")}.`);
+        failUsage(`Completion needs exactly one shell: ${SUPPORTED_SHELLS.join(", ")}.`);
       }
       console.log(generateCompletion(shell, { json: options.json === true }));
     }),
@@ -1192,12 +1192,7 @@ function buildCliRuntimeHandlerRegistry() {
     "gate.check": call(gateCheck),
     "orchestrate.status": call(showOrchestrationStatus),
     "orchestrate.plan": call(showOrchestrationPlan),
-    "route.decide": project(({ context, options, resolution }) => {
-      if (resolution.args.length > 0) {
-        failUsage(`Unknown command: ${resolution.input.slice(0, 2).join(" ")}`);
-      }
-      decideRoute(context, options);
-    }),
+    "route.decide": call(decideRoute),
     status: call(showStatus),
   });
 }
@@ -1273,6 +1268,13 @@ async function main() {
       rawArgs,
     };
     const handler = resolution ? registry.get(resolution.canonical_action) : null;
+    if (resolution?.command.arguments === "none" && resolution.args.length > 0) {
+      const commandPath = resolution.canonical_path.join(" ");
+      failUsage(
+        `Unexpected argument '${resolution.args[0]}' for '${commandPath}'; it accepts only --options. `
+        + `See 'agentic-sdlc help ${commandPath}'.`,
+      );
+    }
     if (handler?.stage === "bootstrap" && resolution.canonical_action !== "observe") {
       await registry.dispatch(resolution, invocation);
       return;
