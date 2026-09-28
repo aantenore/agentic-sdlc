@@ -541,7 +541,9 @@ delivery's base and head, plus the uncommitted work in the working tree, reads
 them inside the project path-safety boundary, matches them against the
 project's rule set, and writes a `secret-scan:v1` record under
 `.sdlc/security/`. The record binds the working-tree state it read, so an edit
-made after the scan needs a new one.
+made after the scan needs a new one. A committed file the working tree has
+changed since is also read as the head holds it, so an uncommitted edit cannot
+hide a credential the delivery committed.
 
 A finding names the rule, the file, and the line, and keeps at most four
 leading characters of the match. The matched value is never printed, returned,

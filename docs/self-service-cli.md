@@ -226,7 +226,9 @@ is scanned from its working tree, and the record names no head commit. The
 record binds the state of the working tree it read, and the gate accepts it only
 while that state is unchanged. A range named with `--base` or `--head` is
 scanned exactly, without the working tree, so the gate accepts it only while the
-working tree is clean. Files are read through the project path-safety boundary:
+working tree is clean. A committed file in the range that the working tree has
+changed since is also read as the head commit holds it, so an uncommitted edit
+cannot hide a credential the delivery committed. Files are read through the project path-safety boundary:
 nothing outside the project root is opened and no symlink is followed.
 
 Matches are printed and stored redacted, as the rule that matched plus at most
