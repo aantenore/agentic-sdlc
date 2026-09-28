@@ -47,7 +47,7 @@ For generic implementation and release work, follow this order:
 8. **Validate, then enter release** — after validation and the latest passing test evidence, seal the intermediate strict receipt and use it to move the task-bound workflow into `release`.
 9. **Finish and certify at the named destination** — only after entering `release`, create/update and verify the one pull request or complete the local release, close a pull request whose delivery excludes merge as `ready_for_review`, record release evidence, complete the release step, transition the workflow to `operations` and complete the `operations` step, release the completed story claim, and run the distinct lifecycle-complete gate. Push, protected-branch merge, remote deployment, and production remain separate when they were not explicitly included.
 
-For a **new pull request**, the displayed boundary must include the repository, base and new head branch, `pull_request.create`, allowed writes, tests, push, and whether later PR updates are included. For an **existing pull request**, resolve and show the exact PR, repository, base, head, current SHA, and allowed update actions; do not create another PR. For a **local-only result**, exclude Git push, pull-request actions, remote deployment, and production access, and require the exact local target, smoke test, and rollback.
+For a **new pull request**, the displayed boundary must include the repository, base and new head branch, `pull_request.create`, allowed writes, tests, push, and whether later PR updates are included. For an **existing pull request**, resolve and show the exact PR, repository, base, head, current SHA, and allowed update actions, and propose its profile with `--pr-mode existing --pr-number <n> --pr-url <url>`; do not create another PR. For a **local-only result**, exclude Git push, pull-request actions, remote deployment, and production access, and require the exact local target, smoke test, and rollback.
 
 The dedicated assessment journey remains the exception described above: it packages its requirement, contract draft, budget, and any already named delivery choice into checkpoint 2, then applies and starts that unchanged proposal without exposing extra normal decisions.
 
@@ -323,7 +323,32 @@ The dedicated assessment journey remains the exception described above: it packa
      --json
    ```
 
-   For an existing pull request, resolve and display its exact repository, base, head, current SHA, and PR URL. Omit `pull_request.create`, keep only the approved update actions, and reject a profile that points to a different PR or changed material boundary.
+   For an existing pull request, resolve and display its exact repository, base, head, current SHA, and PR URL. Propose with `--pr-mode existing`, the exact `--pr-number` and `--pr-url`, and `--pr-head-sha` when the local head branch cannot supply the reviewed head. Omit `pull_request.create` and keep only the approved update actions. The CLI pins that PR and reviewed head, and refuses an action on a different PR or on a head that does not descend from the reviewed commit:
+
+   ```bash
+   node <plugin-root>/bin/agentic-sdlc.mjs autonomy delivery propose \
+     --root <target-project> \
+     --id AUT-PR-185 \
+     --delivery PR-185 \
+     --kind pull_request \
+     --pr-mode existing \
+     --pr-number 185 \
+     --pr-url https://github.com/owner/repository/pull/185 \
+     --story ST-002 \
+     --contract contract-ST-002-implementation \
+     --requirement REQ-002 \
+     --level checkpointed \
+     --repository owner/repository \
+     --base main \
+     --head feature/ST-002 \
+     --write-path src \
+     --allow-action repository.write \
+     --allow-action test.run \
+     --allow-action git.commit \
+     --allow-action git.push \
+     --allow-action pull_request.update \
+     --json
+   ```
 
    For a local release:
 

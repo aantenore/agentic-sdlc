@@ -273,7 +273,7 @@ Use:
 Continue this existing pull request, verify the requested changes, and update the PR without creating a new one.
 ```
 
-Include the PR URL or exact repository and PR number. Codex resolves and displays the existing repository, base, head, current SHA, requested delta, allowed files, checks, and update actions. It must update that PR and must not create a second one.
+Include the PR URL or exact repository and PR number. Codex resolves and displays the existing repository, base, head, current SHA, requested delta, allowed files, checks, and update actions. It must update that PR and must not create a second one. The delivery choice is recorded with `--pr-mode existing` and the exact PR number and URL, so the CLI refuses an update aimed at a different PR or at a head that does not descend from the reviewed commit.
 
 A changed PR head, base, repository, or material requirement is drift. Codex pauses and shows the new boundary instead of applying an old approval to changed work.
 

@@ -107,6 +107,11 @@ test("core skill documents the required order and discloses autonomy reduction b
   assert.match(orderSection, /reduced to “Autonomy with checkpoints”/);
   assert.match(skill, /--allow-action pull_request\.create/);
   assert.match(skill, /For an existing pull request/);
+  for (const document of [skill, read("commands/continue-pr.md")]) {
+    assert.match(document, /--pr-mode existing/u);
+    assert.match(document, /--pr-number/u);
+    assert.match(document, /--pr-url/u);
+  }
 });
 
 test("local novice guidance verifies rollback before release and requires a terminal lifecycle certificate", () => {
