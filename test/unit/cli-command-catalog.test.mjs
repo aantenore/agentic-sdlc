@@ -369,3 +369,15 @@ test("formal approval commands advertise the approver options their handlers req
     }
   }
 });
+
+test("breakdown and dependency help examples use the formats their parsers accept", async () => {
+  const { parseBreakdownItemRef, parseDependencyEdge } = await import("../../lib/lifecycle/story.mjs");
+  const valueAfter = (example, flag) => [...example.matchAll(new RegExp(`${flag} (\\S+)`, "gu"))].map((match) => match[1]);
+  for (const example of findCommand("breakdown propose").examples) {
+    for (const item of valueAfter(example, "--item")) assert.doesNotThrow(() => parseBreakdownItemRef(item), item);
+  }
+  for (const example of findCommand("dependency propose").examples) {
+    for (const edge of valueAfter(example, "--edge")) assert.doesNotThrow(() => parseDependencyEdge(edge), edge);
+  }
+  assert.equal(listOptions("breakdown propose", { includeGlobal: false }).find((entry) => entry.flag === "--item").value, "type:id");
+});
