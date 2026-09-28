@@ -12,6 +12,8 @@ import {
   buildDeliveryExecutionProfile,
   computeDeliveryExecutionProfileHash,
 } from "../lib/autonomy-policy.mjs";
+import { buildContext } from "../lib/engine/common.mjs";
+import { storyReleaseReadiness } from "../lib/engine/delivery.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const bin = path.join(repoRoot, "bin", "agentic-sdlc.mjs");
@@ -1056,6 +1058,8 @@ test("a pull request delivery without merge ends ready for review only from its 
     "--reason", "The pull request is open for review at its verified head.",
   ];
   mustFail(closeReady, /cannot close as ready_for_review: .*not a passing pull_request\.create or pull_request\.update completion/u);
+  const releaseReadiness = () => storyReleaseReadiness(buildContext({ root: project }), "ST-PR-READY");
+  assert.equal(releaseReadiness().ready_for_review_close_available, false);
 
   const draftState = {
     state: "OPEN",
@@ -1088,8 +1092,11 @@ test("a pull request delivery without merge ends ready for review only from its 
   ], { env: fakeGitHubEnv(project, { ...draftState, isDraft: false, updatedAt }) });
   assert.equal(completion.status, "completed");
   assert.equal(completion.lifecycle_status, "started");
+  assert.equal(releaseReadiness().ready_for_review_close_available, true);
 
   const closed = mustRunJson(closeReady);
+  assert.equal(releaseReadiness().ready_for_review_close_available, false);
+  assert.equal(releaseReadiness().missing.includes("terminal successful delivery"), false);
   assert.equal(closed.terminal_status, "ready_for_review");
   assert.equal(closed.close_receipt.terminal_action_receipt_ref.id, completion.action_receipt.id);
   assert.equal(closed.close_receipt.terminal_action_receipt_ref.hash, completion.action_receipt.receipt_hash);
