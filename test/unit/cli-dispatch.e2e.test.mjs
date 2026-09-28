@@ -119,6 +119,12 @@ test("catalog options and explicit compatibility options remain accepted by the 
   const unknown = run(["help", "--definitely-unknown"]);
   assert.equal(unknown.status, 2);
   assert.match(unknown.stderr, /Unknown option --definitely-unknown/u);
+
+  for (const retired of ["--breakdown", "--budget-ref", "--release-target", "--requirement-title"]) {
+    const refused = run(["status", retired, "value"]);
+    assert.equal(refused.status, 2, retired);
+    assert.match(refused.stderr, new RegExp(`Unknown option ${retired}`, "u"));
+  }
 });
 
 test("config recovery uses catalog mutation intent for conditional report writers", () => {
