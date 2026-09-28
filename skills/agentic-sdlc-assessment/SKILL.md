@@ -7,7 +7,7 @@ description: Contextualize an existing software project and deliver an initial t
 
 ## Operating Contract
 
-Load `../agentic-sdlc/SKILL.md` for shared CLI, KB, contract, trace, and gate rules. Use this skill as the assessment product choreography.
+Load `../agentic-sdlc/SKILL.md` for shared CLI, KB, contract, trace, and gate rules. Use this skill as the assessment product choreography. `<plugin-root>` is exactly two directories above this `SKILL.md`, the same directory the shared skill resolves.
 
 The normal journey has exactly two logical user checkpoints:
 

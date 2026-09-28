@@ -75,7 +75,7 @@ Claude Code loads a skill when the conversation matches its description, so the 
 
 ## Path resolution
 
-Slash commands reference the CLI through `${CLAUDE_PLUGIN_ROOT}`, which Claude Code substitutes with the installed plugin directory. Skill bodies do not rely on that substitution: they resolve the plugin root from the location of `SKILL.md` itself, which works identically under a Claude install, a Codex install, and a plain `git clone`. The CLI also derives its own root from `import.meta.url` and reports it in `doctor --json` as `plugin_root`.
+Slash commands reference the CLI through `${CLAUDE_PLUGIN_ROOT}`, which Claude Code substitutes with the installed plugin directory. Skill bodies do not rely on that substitution: each skill that runs the CLI (`agentic-sdlc`, `agentic-sdlc-assessment`, `change-observatory`) states that the plugin root is exactly two directories above its own `SKILL.md`, which works identically under a Claude install, a Codex install, and a plain `git clone`. The CLI also derives its own root from `import.meta.url` and reports it in `doctor --json` as `plugin_root`.
 
 ## Update
 

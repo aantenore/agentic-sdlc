@@ -120,6 +120,23 @@ test("the published contract is documented where operators look for it", () => {
   }
 });
 
+test("a blocked gate check exits 1 and the documented pipeline example treats it that way", () => {
+  const directory = temporaryProject("gate");
+  try {
+    const blocked = run(["gate", "check", "--root", directory, "--story", "ST-ABSENT", "--json"]);
+    assert.equal(blocked.status, 1, blocked.stderr || blocked.stdout);
+    assert.equal(JSON.parse(blocked.stdout).status, "failed");
+  } finally {
+    fs.rmSync(directory, { force: true, recursive: true });
+  }
+
+  const selfService = fs.readFileSync(path.join(repoRoot, "docs/self-service-cli.md"), "utf8");
+  const example = /```bash\n(node "\$PLUGIN_CLI" gate check[\s\S]*?)```/u.exec(selfService);
+  assert.ok(example, "docs/self-service-cli.md is missing the gate check pipeline example");
+  assert.match(example[1], /^\s*1\) echo "blocked/mu);
+  assert.doesNotMatch(example[1], /^\s*3\) echo "blocked/mu);
+});
+
 function runAsync(args) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [cli, ...args], { encoding: "utf8" });

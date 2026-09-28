@@ -219,6 +219,11 @@ test("the Claude Code packaging stays version-locked to the package and exposes 
   for (const relativePath of ["commands/observe.md", "commands/status.md", "commands/doctor.md"]) {
     assert.match(read(relativePath), /\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/agentic-sdlc\.mjs/u, relativePath);
   }
+
+  // Doctor always inspects the project in the working directory when --root is omitted.
+  const doctorCommand = read("commands/doctor.md");
+  assert.doesNotMatch(doctorCommand, /installation only/iu);
+  assert.match(doctorCommand, /current working directory/u);
 });
 
 test("the release surface ships and requires both host packagings", () => {
@@ -259,5 +264,14 @@ test("the Claude Code installation guide documents the marketplace flow and the 
   assert.match(guide, /install-personal-marketplace-v2\.py/u);
   assert.match(guide, /does not apply/iu);
   assert.match(docsIndex, /\[Claude Code installation\]\(claude-code-install\.md\)/u);
+
+  // The guide says skill bodies locate the plugin root themselves; every skill using <plugin-root> must define it.
+  for (const skillName of fs.readdirSync(path.join(repoRoot, "skills")).sort()) {
+    const relativePath = `skills/${skillName}/SKILL.md`;
+    if (!fs.existsSync(path.join(repoRoot, relativePath))) continue;
+    const skill = read(relativePath);
+    if (!skill.includes("<plugin-root>")) continue;
+    assert.match(skill, /(?:plugin root|<plugin-root>)[^.]*\bexactly two directories above/iu, `${relativePath} does not define <plugin-root>`);
+  }
   assert.match(readme, /\[Claude Code Installation\]\(docs\/claude-code-install\.md\)/u);
 });

@@ -668,7 +668,7 @@ rtk init -g --codex --show
 
 ## Diagnose An Install
 
-Run the built-in doctor from the source checkout. The npm script and direct CLI form execute the same checks; use `--root` to include an initialized target project's KB and output registry:
+Run the built-in doctor from the source checkout. The npm script and direct CLI form execute the same checks; without `--root` it checks the project in the current directory, and `--root` points it at another project's KB and output registry:
 
 ```bash
 npm run doctor
@@ -681,7 +681,7 @@ npm pack --dry-run --json
 
 Doctor checks the Node runtime, version consistency, first assessment prompt, core and assessment skills, assessment agent card, preset, and project records when `.sdlc/` exists. A failed check returns a non-zero exit code.
 
-Exit codes are categorized so a pipeline can tell a rejected request (`1`) from a bad invocation (`2`), a governance denial (`3`), a broken installation (`4`), and an internal failure (`70`). See [Self-service CLI](docs/self-service-cli.md#read-the-exit-code-in-a-pipeline).
+Exit codes are categorized so a pipeline can tell a rejected request (`1`) from a bad invocation (`2`), a write refused by the mutation guard (`3`), a broken installation (`4`), and an internal failure (`70`). See [Self-service CLI](docs/self-service-cli.md#read-the-exit-code-in-a-pipeline).
 
 For maintainer validation when the Codex system validators are available:
 

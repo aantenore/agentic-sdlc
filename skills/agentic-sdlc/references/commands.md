@@ -1,6 +1,6 @@
 # CLI Commands
 
-Run commands with Node from the plugin root:
+Run commands with Node from the plugin root (`<plugin-root>`, two directories above `skills/agentic-sdlc/SKILL.md`):
 
 ```bash
 node bin/agentic-sdlc.mjs <command>

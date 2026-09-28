@@ -278,7 +278,7 @@ npm run doctor -- --root /path/to/target-project --json
 node bin/agentic-sdlc.mjs doctor --root /path/to/target-project --json
 ```
 
-Without `--root`, doctor checks the repository used as the current directory. With a target root, it also validates the project KB and output registry when `.sdlc/` exists. It returns a non-zero exit code when a check fails.
+Without `--root`, doctor checks the repository used as the current directory; `--root` selects another project. In both cases it validates the project's effective configuration, and its KB and output registry when `.sdlc/` exists. It returns a non-zero exit code when a check fails.
 
 For installation and package diagnostics, combine it with:
 
