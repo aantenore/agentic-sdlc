@@ -116,6 +116,30 @@ test("a dead lock that cannot be moved reports no progress so the waiter backs o
   assert.deepEqual(fs.readdirSync(root), ["resource.lock"]);
 });
 
+test("a dead lock without a stable file identity is left for its waiter to time out on", (t) => {
+  const { root, lockPath } = lockFixture(t);
+  writeDeadLock(lockPath, deadPid());
+  const realFs = currentHost().fs;
+  // Some file systems report inode 0. The reclaimer then cannot prove which
+  // file it judged, so it must report no progress instead of letting the
+  // acquire loop retry at once, forever.
+  const withoutIdentity = (stats) =>
+    Object.assign(Object.create(Object.getPrototypeOf(stats)), stats, { ino: typeof stats.ino === "bigint" ? 0n : 0 });
+  const restore = setHost({
+    fs: {
+      ...realFs,
+      fstatSync: (...args) => withoutIdentity(realFs.fstatSync(...args)),
+      lstatSync: (...args) => withoutIdentity(realFs.lstatSync(...args)),
+    },
+  });
+  try {
+    assert.equal(governed(root, () => reclaimStaleInternalLock(lockPath)), false);
+  } finally {
+    restore();
+  }
+  assert.deepEqual(fs.readdirSync(root), ["resource.lock"]);
+});
+
 async function runLockRace(root, lockPath, workers) {
   const logPath = path.join(root, "critical-section.log");
   const startAt = Date.now() + 500;
