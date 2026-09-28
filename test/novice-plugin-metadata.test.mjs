@@ -200,6 +200,11 @@ test("the Claude Code packaging stays version-locked to the package and exposes 
   for (const relativePath of ["commands/observe.md", "commands/status.md", "commands/doctor.md"]) {
     assert.match(read(relativePath), /\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/agentic-sdlc\.mjs/u, relativePath);
   }
+
+  // Doctor always inspects the project in the working directory when --root is omitted.
+  const doctorCommand = read("commands/doctor.md");
+  assert.doesNotMatch(doctorCommand, /installation only/iu);
+  assert.match(doctorCommand, /current working directory/u);
 });
 
 test("the release surface ships and requires both host packagings", () => {

@@ -667,7 +667,7 @@ rtk init -g --codex --show
 
 ## Diagnose An Install
 
-Run the built-in doctor from the source checkout. The npm script and direct CLI form execute the same checks; use `--root` to include an initialized target project's KB and output registry:
+Run the built-in doctor from the source checkout. The npm script and direct CLI form execute the same checks; without `--root` it checks the project in the current directory, and `--root` points it at another project's KB and output registry:
 
 ```bash
 npm run doctor
