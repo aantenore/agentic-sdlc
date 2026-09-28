@@ -538,10 +538,10 @@ test("the exact inline seal and publish validators accept a valid fixture and re
     mkdirSync(releaseRoot);
     mkdirSync(path.join(temporary, "config"));
     mkdirSync(path.join(temporary, "lib", "release"), { recursive: true });
-    copyFileSync(
-      path.join(repoRoot, "lib", "release", "workflow-guard.mjs"),
-      path.join(temporary, "lib", "release", "workflow-guard.mjs"),
-    );
+    mkdirSync(path.join(temporary, "lib", "runtime"), { recursive: true });
+    for (const module of [["release", "workflow-guard.mjs"], ["runtime", "host.mjs"]]) {
+      copyFileSync(path.join(repoRoot, "lib", ...module), path.join(temporary, "lib", ...module));
+    }
     writeFileSync(
       path.join(temporary, "config", "release-artifact-policy.json"),
       readFileSync(path.join(repoRoot, "config", "release-artifact-policy.json")),
