@@ -14,6 +14,7 @@ import {
   validateGitCommitCoverageProof,
   workflowFinalGitCommitGraphSince,
 } from "../../lib/engine/git.mjs";
+import { codeReviewRangeAuthors } from "../../lib/engine/common.mjs";
 import { hashApprovalSubject } from "../../lib/lifecycle/authorization.mjs";
 import { setHost } from "../../lib/runtime/host.mjs";
 
@@ -141,4 +142,17 @@ test("git metadata reports an unknown worktree state when git status fails", (t)
   const { root } = repositoryFixture(t);
   failingGit(t, "status", "EIO");
   assert.equal(buildGitMetadata(root).is_dirty, null);
+});
+
+test("code review refuses to prove reviewer independence from an unreadable author list", (t) => {
+  const { root, baseSha, headSha } = repositoryFixture(t);
+  assert.deepEqual(
+    codeReviewRangeAuthors({ root }, baseSha, headSha).map((author) => author.email),
+    ["fixture@example.invalid"],
+  );
+  failingGit(t, "log");
+  assert.throws(
+    () => codeReviewRangeAuthors({ root }, baseSha, headSha),
+    /reviewer independence cannot be proven/u,
+  );
 });
