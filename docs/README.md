@@ -4,7 +4,7 @@ This page is the documentation map. Start with the goal that matches what you wa
 
 ## Start here
 
-- [Getting started](getting-started.md) — choose a natural-language starter, understand what you will approve, and distinguish a new PR, an existing PR, and a local-only result.
+- [Getting started](getting-started.md) — try it in five minutes, choose a natural-language starter, understand what you will approve, and distinguish a new PR, an existing PR, and a local-only result.
 - [Project overview](../README.md) — what the plugin does, installation, the normal two-checkpoint experience, and maintainer commands.
 - [How it works](how-it-works.md) — the advanced lifecycle from project context and requirement agreement through per-delivery autonomy, execution, verification, and release evidence.
 - [Limits and metering](limits-and-metering.md) — how requirement ceilings and explicit pull-request or local-release choices constrain actions, files, capabilities, time, steps, tokens, calls, cost, and custom metrics.
