@@ -759,11 +759,14 @@ budget credit. See [Token Efficiency](docs/token-efficiency.md).
 .codex-plugin/plugin.json                    Codex plugin metadata and starter prompts
 commands/                                    Claude Code slash commands (one per starter intent)
 assets/                                      Plugin artwork
-bin/agentic-sdlc.mjs                         Cross-platform Node.js CLI
+bin/agentic-sdlc.mjs                         CLI entry point: main, command registry, observatory launcher
 docs/agent-interactions.md                   Two-checkpoint assessment interaction
 docs/portable-install.md                     Install and recovery guide
 schemas/                                     Canonical data contracts
-lib/                                         Pure proposal, authorization, budget, and workflow primitives
+lib/engine/                                  Command implementations and everything with effects
+lib/lifecycle/                               Pure lifecycle rules: validators, normalizers, decisions
+lib/runtime/host.mjs                         The one I/O seam: file system, processes, clock, randomness
+lib/                                         Proposal, authorization, budget, and workflow primitives
 lib/codex-session-metering-adapter.mjs       Native exact-task advisory usage meter
 skills/agentic-sdlc/                         Core project workflow skill
 skills/agentic-sdlc-assessment/              Guided assessment skill
