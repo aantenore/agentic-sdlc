@@ -537,9 +537,11 @@ authentication table.
 Redaction protects what the CLI records. It says nothing about the files a
 delivery changed, so a credential committed into the source is still a
 credential. `secret scan` closes that gap: it resolves the files between the
-delivery's base and head, reads them inside the project path-safety boundary,
-matches them against the project's rule set, and writes a `secret-scan:v1`
-record under `.sdlc/security/`.
+delivery's base and head, plus the uncommitted work in the working tree, reads
+them inside the project path-safety boundary, matches them against the
+project's rule set, and writes a `secret-scan:v1` record under
+`.sdlc/security/`. The record binds the working-tree state it read, so an edit
+made after the scan needs a new one.
 
 A finding names the rule, the file, and the line, and keeps at most four
 leading characters of the match. The matched value is never printed, returned,

@@ -2136,6 +2136,8 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--requirement", fixture.requirementId,
     "--authorization", fixture.storyActionAuthorizationId,
   ], project);
+  // The changed artifact is uncommitted work the last scan did not read.
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
   const artifactRelinkedStatus = mustRunJson([
     "status", "--root", project,
   ], project);
@@ -2440,6 +2442,8 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--summary", "Operations tracking acknowledged; no incidents or feedback yet",
     "--authorization", fixture.storyActionAuthorizationId,
   ], project);
+  // The local release wrote into the working tree, which the certification scan must cover.
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
 
   mustFail([
     "gate", "check",
@@ -2887,6 +2891,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "certified-runtime-link",
   );
   fs.symlinkSync("tracked-runtime.md", certifiedSymlinkPath);
+  mustRun(["secret", "scan", "--root", certifiedSymlinkProject, "--story", fixture.storyId], certifiedSymlinkProject);
   const certifiedSymlinkReport = mustRunJson([
     "gate", "check",
     "--root", certifiedSymlinkProject,
@@ -3508,6 +3513,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   assert.equal(relinkedWithoutResealStatus.final_receipt_exists, true);
   assert.equal(relinkedWithoutResealStatus.final_receipt_valid, false);
 
+  mustRun(["secret", "scan", "--root", resurrectionProject, "--story", fixture.storyId], resurrectionProject);
   const resealedResurrectionReport = mustRunJson([
     "gate", "check",
     "--root", resurrectionProject,
@@ -4118,6 +4124,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   assert.deepEqual(readJson(project, claimPath), claimBeforeDowngradeReplay);
 
   appendTrace(project, fixture.storyId, "test", "passed", testEvidence);
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
   const recoveredFreshnessReport = mustRunJson([
     "gate", "check",
     "--root", project,
@@ -4672,7 +4679,7 @@ test("a credential committed during a governed workflow blocks the validation ga
     "secret", "scan", "--root", project, "--story", fixture.storyId, "--base", "HEAD",
   ], project);
   assert.equal(narrow.secret_scan.outcome, "clean");
-  assert.equal(narrow.secret_scan.file_count, 0);
+  assert.equal(narrow.secret_scan.scanned_paths.includes("src/client.mjs"), false);
   assert.equal(narrow.covers_delivery_base, false);
   mustFail(strictGate, project, /credential match\(es\) in src\/client\.mjs/u);
 
@@ -4696,6 +4703,20 @@ test("a credential committed during a governed workflow blocks the validation ga
   const passed = mustRunJson(["gate", "check", "--root", project, "--strict", "--story", fixture.storyId], project);
   assert.equal(passed.status, "passed");
   assert.ok(passed.checked.includes(`secret scan ${clean.secret_scan.id}`));
+
+  // Uncommitted work is scanned with the committed range, and a scan only
+  // vouches for the working tree it read.
+  writeProjectFile(project, "src/wip.mjs", `export const wip = "${plantedToken}";\n`);
+  mustFail(strictGate, project, /has no secret scan for the current project state/u);
+  const dirty = run(["secret", "scan", "--root", project, "--story", fixture.storyId, "--json"], project);
+  assert.equal(dirty.status, 1, dirty.stderr || dirty.stdout);
+  const dirtyRecord = JSON.parse(dirty.stdout).secret_scan;
+  assert.equal(dirtyRecord.source, "git_range");
+  assert.equal(dirtyRecord.base_sha, taskStartBase);
+  assert.deepEqual(dirtyRecord.findings.map((finding) => finding.path), ["src/wip.mjs"]);
+  mustFail(strictGate, project, /credential match\(es\) in src\/wip\.mjs/u);
+  fs.rmSync(path.join(project, "src", "wip.mjs"));
+  mustRunJson(["gate", "check", "--root", project, "--strict", "--story", fixture.storyId], project);
   mustRun([
     "workflow", "instance", "transition",
     "--root", project,

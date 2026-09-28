@@ -814,6 +814,7 @@ Credential-scan records for the files a delivery changed. A `.json` file whose
   "summary": "Scanned 12 changed file(s) of ST-001 for credentials",
   "base_sha": "4f2a…",
   "head_sha": "9c81…",
+  "workspace_state_hash": "51e0…",
   "source": "git_range",
   "file_count": 12,
   "scanned_paths": ["src/client.js"],
@@ -837,7 +838,10 @@ of it, so the redacted form is the only one written, printed, or returned as
 JSON.
 
 `outcome` is derived, not supplied: the schema admits `clean` only together with
-an empty finding list. Each record is immutable; a new scan produces a new file.
+an empty finding list. `workspace_state_hash` digests the uncommitted files
+outside `.sdlc/` and their content at scan time; the gate accepts the record only
+while the working tree still matches it, and a record without it only while the
+working tree is clean. Each record is immutable; a new scan produces a new file.
 These records are canonical evidence and belong in source control.
 
 Writing a record also appends a `gate` trace event whose evidence names the
