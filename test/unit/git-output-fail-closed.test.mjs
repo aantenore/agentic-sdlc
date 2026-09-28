@@ -7,6 +7,7 @@ import test from "node:test";
 
 import {
   buildGitCommitCoverageProof,
+  buildGitMetadata,
   gitCommitRange,
   gitCommitReceiptCoverageErrors,
   pullRequestCommitLineage,
@@ -125,4 +126,19 @@ test("final lifecycle freshness refuses a commit graph Git could not list", (t) 
     () => workflowFinalGitCommitGraphSince({ root }, baseSha, headSha),
     /could not inspect the post-certification commit graph/u,
   );
+});
+
+test("git metadata never reports an unreadable worktree as clean", (t) => {
+  const { root } = repositoryFixture(t);
+  assert.equal(buildGitMetadata(root).is_dirty, false);
+  fs.writeFileSync(path.join(root, "untracked.txt"), "c\n");
+  assert.equal(buildGitMetadata(root).is_dirty, true);
+  failingGit(t, "status", "ENOBUFS");
+  assert.equal(buildGitMetadata(root).is_dirty, true);
+});
+
+test("git metadata reports an unknown worktree state when git status fails", (t) => {
+  const { root } = repositoryFixture(t);
+  failingGit(t, "status", "EIO");
+  assert.equal(buildGitMetadata(root).is_dirty, null);
 });
