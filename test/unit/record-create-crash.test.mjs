@@ -36,7 +36,7 @@ test("creating an existing record with different content is still refused", (t) 
     writeJsonFile(recordPath, { id: "REQ-EXISTS-001" });
     assert.throws(
       () => writeJsonFile(recordPath, { id: "REQ-EXISTS-001", changed: true }),
-      /File already exists: .*Use --force to overwrite it\./u,
+      /File already exists: .*Use a new immutable record id\./u,
     );
   });
   assert.deepEqual(fs.readdirSync(root), ["REQ-EXISTS-001.json"]);
