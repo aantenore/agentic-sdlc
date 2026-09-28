@@ -17,7 +17,9 @@ test("a process killed while creating a record leaves no partial record behind",
   const recordPath = path.join(root, "requirements", "REQ-CRASH-001.json");
 
   const crashed = spawnSync(process.execPath, [WORKER, root, recordPath], { encoding: "utf8" });
-  assert.equal(crashed.signal, "SIGKILL", crashed.stderr);
+  // Windows reports a killed process as a non-zero exit status, not a signal.
+  if (process.platform === "win32") assert.notEqual(crashed.status, 0, crashed.stderr);
+  else assert.equal(crashed.signal, "SIGKILL", crashed.stderr);
   assert.equal(fs.existsSync(recordPath), false, "the record path must not hold a partial record");
 
   runWithMutationGovernance({ mode: "disabled", root }, () => {
