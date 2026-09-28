@@ -187,7 +187,8 @@ stages:
    and retain the declared rollback procedure. Push, PR creation, deployment,
    and production remain excluded.
 9. **Final lifecycle certification** — only after the release evidence,
-   terminal delivery close, and release of the completed story claim, run:
+   terminal delivery close, the transition to `operations` with its completed
+   `operations` step, and release of the completed story claim, run:
 
    ```bash
    agentic-sdlc gate check --strict --story ST-TRIP-POLICY-001 --lifecycle-complete
@@ -407,7 +408,7 @@ flowchart LR
 For PR-184 choose bounded-autonomous. You may implement, test, commit, push, and update
 that PR on the displayed repository and branches. Do not merge the protected branch,
 deploy remotely, use secrets, or write outside the approved paths. This choice expires
-when PR-184 is merged, closed, or cancelled and does not apply to another PR.
+when PR-184 is merged, left ready for review, closed, or cancelled and does not apply to another PR.
 ```
 
 A local release is a first-class delivery unit. Its profile must name the local root, allowed actions and write paths, smoke tests, their governed working directory, and a required rollback procedure. The smoke directory must be inside an allowed write path; it defaults to the only allowed write path and must be explicit when several are present. Local does not mean unrestricted: machine-global changes, writes outside the workspace, destructive actions, external access, remote deployment, and production access remain explicit exception boundaries.
@@ -667,7 +668,7 @@ rtk init -g --codex --show
 
 ## Diagnose An Install
 
-Run the built-in doctor from the source checkout. The npm script and direct CLI form execute the same checks; use `--root` to include an initialized target project's KB and output registry:
+Run the built-in doctor from the source checkout. The npm script and direct CLI form execute the same checks; without `--root` it checks the project in the current directory, and `--root` points it at another project's KB and output registry:
 
 ```bash
 npm run doctor
@@ -680,7 +681,7 @@ npm pack --dry-run --json
 
 Doctor checks the Node runtime, version consistency, first assessment prompt, core and assessment skills, assessment agent card, preset, and project records when `.sdlc/` exists. A failed check returns a non-zero exit code.
 
-Exit codes are categorized so a pipeline can tell a rejected request (`1`) from a bad invocation (`2`), a governance denial (`3`), a broken installation (`4`), and an internal failure (`70`). See [Self-service CLI](docs/self-service-cli.md#read-the-exit-code-in-a-pipeline).
+Exit codes are categorized so a pipeline can tell a rejected request (`1`) from a bad invocation (`2`), a write refused by the mutation guard (`3`), a broken installation (`4`), and an internal failure (`70`). See [Self-service CLI](docs/self-service-cli.md#read-the-exit-code-in-a-pipeline).
 
 For maintainer validation when the Codex system validators are available:
 

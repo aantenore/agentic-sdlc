@@ -213,16 +213,23 @@ node "$PLUGIN_CLI" secret scan --root /path/to/project \
 | Input | Purpose |
 |---|---|
 | `--story` | The story the delivery belongs to; it must already exist. |
-| `--base`, `--head` | The exact commits to compare. `--base` defaults to the commit the story's task start recorded and `--head` to the current `HEAD`. |
+| `--base`, `--head` | The exact commits to compare. `--base` defaults to the commit the story's task start recorded and `--head` to the current `HEAD`. The gate only accepts a scan whose base is the task-start commit or an ancestor of it, so a later `--base` cannot hide a change the delivery already committed. |
 | `--delivery` | Bind the record to one exact delivery. |
 | `--summary`, `--id` | Optional text and an explicit record ID. |
 | `--requirement` | Link the scan to the requirements the delivery serves. |
 
-The changed files come from the commit range when one is available, from the
-uncommitted workspace when the work is not committed yet, and from the story's
-approved write paths for a local release with neither. Files are read through
-the project path-safety boundary: nothing outside the project root is opened and
-no symlink is followed.
+The changed files come from the commit range when one is available, together
+with every uncommitted and untracked file, from the uncommitted workspace alone
+when there is no base to compare against, and from the story's approved write
+paths for a local release with neither. A repository without its first commit
+is scanned from its working tree, and the record names no head commit. The
+record binds the state of the working tree it read, and the gate accepts it only
+while that state is unchanged. A range named with `--base` or `--head` is
+scanned exactly, without the working tree, so the gate accepts it only while the
+working tree is clean. A committed file in the range that the working tree has
+changed since is also read as the head commit holds it, so an uncommitted edit
+cannot hide a credential the delivery committed. Files are read through the project path-safety boundary:
+nothing outside the project root is opened and no symlink is followed.
 
 Matches are printed and stored redacted, as the rule that matched plus at most
 four leading characters. A scan that finds nothing exits `0`; a scan with
@@ -241,7 +248,10 @@ and credential literals assigned to an `api_key`, `secret`, `token`, or
 
 When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a
 `secret-scan:v1` record whose outcome is `clean` for the project's current head,
-and the validation gate reports an error otherwise. The flag is read as an
+and the validation gate reports an error otherwise. For a story bound to a
+workflow instance, the instance's current phase decides whether the story is in
+validation. The `--lifecycle-complete` gate requires the same clean record for
+the head it certifies, so commits made after validation are scanned too. The flag is read as an
 explicit `true`: a project whose configuration never declared it keeps the gate
 it agreed to, and adopts the check by initializing from the current template or
 migrating through `config migrate`.
@@ -303,9 +313,15 @@ operator problem.
 | `0` | The command completed. | Continue. |
 | `1` | User error: the request was understood and refused on its merits. | Correct the request and retry. |
 | `2` | Usage error: the command or its options could not be resolved. | Fix the invocation; `help` lists the real options. |
-| `3` | Governance denial: an agreed limit or policy refused the action. | A person decides whether to amend the agreement. Do not retry unchanged. |
+| `3` | Governance denial: the mutation guard refused to change a governed record or file that the agreed limits or authorization do not cover. | A person decides whether to amend the agreement. Do not retry unchanged. |
 | `4` | Environment error: the host cannot run this software as installed. | Repair the installation; `doctor` names the fix. |
 | `70` | Internal error: the software failed in a way the caller cannot correct. | Report it with the correlation ID from the output. |
+
+Usage errors include an unknown option, a missing or repeated option value, a
+malformed boolean or `--locale`, and an argument given to a command that takes
+only options. With `--json` they report the error code `USAGE_ERROR`, while
+refusals on the merits report `USER_ERROR`. An unsupported Node.js runtime
+reports `UNSUPPORTED_NODE_RUNTIME` with exit code `4`.
 
 A command killed by a signal keeps the conventional `128 + signal` form, so a
 subprocess interrupted with `SIGINT` exits `130`.
@@ -314,12 +330,20 @@ When a project's privacy configuration withholds error details, the exit code
 withholds them too: those failures report `1` rather than disclosing through
 the exit code the category the message refuses to name.
 
+A check that reaches a negative verdict is a refusal on its merits, not a
+governance denial: a blocked `gate check`, a merge-review refusal, and a
+secret-scan finding all exit `1`. Only a write stopped by the mutation guard
+exits `3`.
+
 ```bash
 node "$PLUGIN_CLI" gate check --root /path/to/project --scope all --json
 case $? in
   0) echo "ready" ;;
-  3) echo "blocked by an agreed limit; escalate to a person" ;;
-  *) echo "fix the invocation or the project, then retry" ;;
+  1) echo "blocked; read the failing checks in the output" ;;
+  2) echo "fix the invocation" ;;
+  3) echo "a governed write was refused; escalate to a person" ;;
+  4) echo "repair the installation; run doctor" ;;
+  *) echo "report it with the correlation ID" ;;
 esac
 ```
 

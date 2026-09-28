@@ -31,10 +31,17 @@
     "scope": {
       "enum": [
         "story",
+        "release-manifest",
         "all"
       ]
     },
     "story_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "release_manifest_id": {
       "type": [
         "string",
         "null"

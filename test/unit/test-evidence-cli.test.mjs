@@ -175,6 +175,14 @@ test("test record refuses a run without output, an unknown story, and a shell st
   const outOfRange = run([...base, "--command", '["npm","test"]', "--exit-code", "300", "--evidence", evidencePath]);
   assert.equal(outOfRange.status, 1);
   assert.match(outOfRange.stderr, /--exit-code must be an integer between 0 and 255/u);
+
+  for (const [flag, value] of [["--exit-code", " "], ["--exit-code", "0x1"], ["--exit-code", "1e0"], ["--passed", " "]]) {
+    const args = [...base, "--command", '["npm","test"]', "--exit-code", "0", "--passed", "1", "--evidence", evidencePath];
+    args[args.indexOf(flag) + 1] = value;
+    const malformed = run(args);
+    assert.equal(malformed.status, 1, `${flag} ${JSON.stringify(value)}`);
+    assert.match(malformed.stderr, new RegExp(`${flag} must be an integer`, "u"));
+  }
 });
 
 test("a project with no test run record passes its validation gate exactly as before", () => {

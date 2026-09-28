@@ -562,13 +562,13 @@ test("trace append help example uses a runtime-valid mandatory and operational f
 test("machine mode returns one stable JSON error envelope", () => {
   const cwd = temporaryDirectory("json-errors");
   // The envelope's error code and the exit code report the same category:
-  // an unresolvable command or preset exits 2, a refused request exits 1.
+  // an unresolvable command, preset, option, or locale exits 2.
   const cases = [
     { args: ["help", "not-a-command", "--json=true"], code: "UNKNOWN_COMMAND", status: 2 },
     { args: ["preset", "show", "not-a-preset", "--json", "true"], code: "CLI_PRESET_ERROR", status: 2 },
-    { args: ["--version", "--locale", "fr", "--json=true"], code: "USER_ERROR", status: 1 },
-    { args: ["--not-a-real-option", "--json=true"], code: "USER_ERROR", status: 1 },
-    { args: ["--not-a-real-option", "--json", "true"], code: "USER_ERROR", status: 1 },
+    { args: ["--version", "--locale", "fr", "--json=true"], code: "USAGE_ERROR", status: 2 },
+    { args: ["--not-a-real-option", "--json=true"], code: "USAGE_ERROR", status: 2 },
+    { args: ["--not-a-real-option", "--json", "true"], code: "USAGE_ERROR", status: 2 },
   ];
   for (const entry of cases) {
     const result = run(entry.args, { cwd });

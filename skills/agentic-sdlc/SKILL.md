@@ -11,6 +11,10 @@ Use this skill to operate a stateless, contract-driven SDLC for a target project
 
 For a request to contextualize an existing project and produce a technical, functional, architecture, or product assessment, load `../agentic-sdlc-assessment/SKILL.md` and follow that dedicated journey. It is the product entry point for assessments and has exactly two normal plain-language checkpoints. The assessment proposal, budget, contract draft, route intent, write-set, and verification plan form one hash-bound execution tranche. Do not expand it into separate capability, template, contract, budget, and start questions.
 
+## Plugin Root
+
+`<plugin-root>` in this skill and its references is the installed plugin directory. Resolve the absolute path of this `SKILL.md`; the plugin root is exactly two directories above it. Run the plugin-local CLI as `node <plugin-root>/bin/agentic-sdlc.mjs`; never rely on a global `agentic-sdlc` command or mutate `PATH`.
+
 ## Core Rule
 
 Never store project contracts or project KB state inside the plugin installation. Treat the plugin as reusable method code only. Treat `<target-project>/.sdlc/` as the project source of truth. Treat `<target-project>/.sdlc/cache/` and `<target-project>/.sdlc/indexes/` as derived local optimization artifacts, never as canonical evidence.
@@ -45,9 +49,9 @@ For generic implementation and release work, follow this order:
 6. **Start the story workflow, then start once** — bind the exact configured phase order to the story before any completed step, then make one logical `task start` decision. Never use an early speculative start as routing or discovery, and never reconstruct the workflow after work has begun.
 7. **Implement, test, and advance phases** — after the governed task start is recorded, claim the story, change only approved paths, run the agreed checks, record evidence, complete each phase, and enter the next phase only after the previous one is complete.
 8. **Validate, then enter release** — after validation and the latest passing test evidence, seal the intermediate strict receipt and use it to move the task-bound workflow into `release`.
-9. **Finish and certify at the named destination** — only after entering `release`, create/update and verify the one pull request or complete the local release, record release evidence, complete the release step, release the completed story claim, and run the distinct lifecycle-complete gate. Push, protected-branch merge, remote deployment, and production remain separate when they were not explicitly included.
+9. **Finish and certify at the named destination** — only after entering `release`, create/update and verify the one pull request or complete the local release, close a pull request whose delivery excludes merge as `ready_for_review`, record release evidence, complete the release step, transition the workflow to `operations` and complete the `operations` step, release the completed story claim, and run the distinct lifecycle-complete gate. Push, protected-branch merge, remote deployment, and production remain separate when they were not explicitly included.
 
-For a **new pull request**, the displayed boundary must include the repository, base and new head branch, `pull_request.create`, allowed writes, tests, push, and whether later PR updates are included. For an **existing pull request**, resolve and show the exact PR, repository, base, head, current SHA, and allowed update actions; do not create another PR. For a **local-only result**, exclude Git push, pull-request actions, remote deployment, and production access, and require the exact local target, smoke test, and rollback.
+For a **new pull request**, the displayed boundary must include the repository, base and new head branch, `pull_request.create`, allowed writes, tests, push, and whether later PR updates are included. For an **existing pull request**, resolve and show the exact PR, repository, base, head, current SHA, and allowed update actions, and propose its profile with `--pr-mode existing --pr-number <n> --pr-url <url>`; do not create another PR. For a **local-only result**, exclude Git push, pull-request actions, remote deployment, and production access, and require the exact local target, smoke test, and rollback.
 
 The dedicated assessment journey remains the exception described above: it packages its requirement, contract draft, budget, and any already named delivery choice into checkpoint 2, then applies and starts that unchanged proposal without exposing extra normal decisions.
 
@@ -323,7 +327,32 @@ The dedicated assessment journey remains the exception described above: it packa
      --json
    ```
 
-   For an existing pull request, resolve and display its exact repository, base, head, current SHA, and PR URL. Omit `pull_request.create`, keep only the approved update actions, and reject a profile that points to a different PR or changed material boundary.
+   For an existing pull request, resolve and display its exact repository, base, head, current SHA, and PR URL. Propose with `--pr-mode existing`, the exact `--pr-number` and `--pr-url`, and `--pr-head-sha` when the local head branch cannot supply the reviewed head. Omit `pull_request.create` and keep only the approved update actions. The CLI pins that PR and reviewed head, and refuses an action on a different PR or on a head that does not descend from the reviewed commit:
+
+   ```bash
+   node <plugin-root>/bin/agentic-sdlc.mjs autonomy delivery propose \
+     --root <target-project> \
+     --id AUT-PR-185 \
+     --delivery PR-185 \
+     --kind pull_request \
+     --pr-mode existing \
+     --pr-number 185 \
+     --pr-url https://github.com/owner/repository/pull/185 \
+     --story ST-002 \
+     --contract contract-ST-002-implementation \
+     --requirement REQ-002 \
+     --level checkpointed \
+     --repository owner/repository \
+     --base main \
+     --head feature/ST-002 \
+     --write-path src \
+     --allow-action repository.write \
+     --allow-action test.run \
+     --allow-action git.commit \
+     --allow-action git.push \
+     --allow-action pull_request.update \
+     --json
+   ```
 
    For a local release:
 
@@ -564,7 +593,15 @@ The dedicated assessment journey remains the exception described above: it packa
      --evidence evidence/PR-184-push.json --json
    ```
 
-   An `authorized` receipt grants only the displayed operation; it does not run it. Push authorization observes the base SHA directly on the selected remote, requires exactly one passing `git.commit` completion for every commit from that SHA to the exact head, and rejects the remote if any configured fetch/push URL identifies another repository. Push/merge authorization records a live remote pre-state, and completion queries the exact Git remote or GitHub PR for the expected post-state after authorization. That observation and the declared evidence are hash-bound, but the observation is not a provider-signed offline attestation; retain durable host/CI/provider evidence and do not call a generic file signed proof. A passing `pull_request.merge` completion or `release.local` completion creates the terminal close receipt automatically; do not manually close either as `merged` or `released`. Other terminal outcomes use `autonomy delivery close` with a formal reason and approval.
+   An `authorized` receipt grants only the displayed operation; it does not run it. Push authorization observes the base SHA directly on the selected remote, requires exactly one passing `git.commit` completion for every commit from that SHA to the exact head, and rejects the remote if any configured fetch/push URL identifies another repository. Push/merge authorization records a live remote pre-state, and completion queries the exact Git remote or GitHub PR for the expected post-state after authorization. That observation and the declared evidence are hash-bound, but the observation is not a provider-signed offline attestation; retain durable host/CI/provider evidence and do not call a generic file signed proof. A passing `pull_request.merge` completion or `release.local` completion creates the terminal close receipt automatically; do not manually close either as `merged` or `released`. A pull request whose delivery excludes merge ends successfully open for review: after its last passing `pull_request.create` or `pull_request.update` completion, with no later commit, push, or PR action, close it as `ready_for_review`. That close binds the verified PR completion under the already approved profile and needs no new approval; it is refused when the profile includes `pull_request.merge`. Other terminal outcomes use `autonomy delivery close` with a formal reason and approval, and cannot certify lifecycle success.
+
+   ```bash
+   node <plugin-root>/bin/agentic-sdlc.mjs autonomy delivery close \
+     --root <target-project> --id AUT-PR-184 \
+     --terminal-status ready_for_review \
+     --reason "The pull request is open for review at its verified head" \
+     --json
+   ```
 
    For local release completion, repeat the exact approved shell-free smoke-test argv and rollback. The smoke working directory is governed by `--smoke-cwd`, must be equal to or inside one allowed write path, defaults to the only allowed write path, and is mandatory when several write paths are allowed. Shells, indirect dispatchers, inline interpreter code, and ambiguous loaders are rejected. An explicit interpreted entrypoint must resolve inside an allowed artifact path; package managers may use only `test` or one reviewed `run <script>` from a real, non-symlinked `package.json` in that exact directory. Before spawning, the CLI durably records an attempt that consumes the v3 authorization and binds the plugin build, sandbox, resolved launcher/runtime, explicit payload paths and pre-smoke artifact manifest. It runs from the exact released-artifact directory in a supported read-only sandbox that denies external network, then binds ordered output hashes and an unchanged post-smoke manifest before automatically closing as `released`. macOS denies loopback; Linux `bwrap` provides namespace-local loopback only, so portable smoke must not use listeners or connections. Exercise an exported API handler in-process or validate the artifact without sockets. The runner can read host-account files and is neither a confidentiality sandbox nor a transitive-code-attestation boundary; use reviewed code that does not load ungoverned host paths. Failed/interrupted attempts need a fresh authorization, current v3 receipts cannot downgrade to legacy, and later gates reject released-byte drift. Successful completion currently requires `/usr/bin/sandbox-exec` on macOS or `/usr/bin/bwrap` on Linux; unsupported hosts and Linux without `bwrap` fail closed and remain unreleased.
 
@@ -668,17 +705,19 @@ The dedicated assessment journey remains the exception described above: it packa
    Replace `discovery-note` with the exact type required by the approved
    contract. Every `--type <type>` passed to `story complete-step` requires the
    same `--allow-artifact-type <type>` on that step's grant; omit it only when
-   the completion passes no `--type`.
+   the completion passes no `--type`. `<host-agent>` names the agent running
+   this skill (`codex` or `claude-code`); when a command omits `--actor` and
+   `--agent`, the CLI detects the host from its environment.
 
    ```bash
-   node <plugin-root>/bin/agentic-sdlc.mjs story claim --root <target-project> --id ST-001 --agent codex --branch feature/ST-001 --thread-id <thread-id> --authorization AUTH-ST-001-CLAIM
+   node <plugin-root>/bin/agentic-sdlc.mjs story claim --root <target-project> --id ST-001 --agent <host-agent> --branch feature/ST-001 --thread-id <thread-id> --authorization AUTH-ST-001-CLAIM
    ```
 
 15. Capture durable autonomy decisions, assumptions, risks, tests, handoffs, sync/push/PR events, dependency revalidation, and release evidence as traces. Include requirement/profile, delivery/profile, requested/effective level, and deterministic reason-code references. Strict gates require `test` and `release` traces to include real evidence paths outside cache/index directories and explicit successful outcomes (`passed` for tests; `ready` or `passed` for release). A local release also requires target-bound smoke-test evidence and its rollback procedure:
 
    ```bash
-   node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type decision --summary "..." --actor codex --actor-type agent
-   node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type implementation --summary "Codex implemented the requested change" --actor codex --actor-type agent --requested-by antonioantenore --requested-by-type human --request-summary "User-requested change"
+   node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type decision --summary "..." --actor <host-agent> --actor-type agent
+   node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type implementation --summary "Implemented the requested change" --actor <host-agent> --actor-type agent --requested-by antonioantenore --requested-by-type human --request-summary "User-requested change"
    node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type implementation --summary "Added the requested launcher" --input-summary "Approved contract" --output-summary "Installed launcher" --rationale-summary "Keep evidence local" --alternative "Hosted dashboard" --explanation "The installed plugin now opens recorded project lineage locally." --explanation-kind codex-generated
    node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type test --outcome passed --summary "Tests passed" --evidence .sdlc/tests/ST-001-test-run.json
    node <plugin-root>/bin/agentic-sdlc.mjs sync record --root <target-project> --story ST-001 --event push --summary "Pushed feature/ST-001"
@@ -706,7 +745,7 @@ The dedicated assessment journey remains the exception described above: it packa
      --story ST-001
    ```
 
-   When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head, so run the scan again after every change to the delivery. Remove and rotate any credential the scan reports; never paste the matched value into a trace, a summary, or a commit message.
+   When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head, and the lifecycle-complete gate requires one for the head it certifies, so run the scan again after every change to the delivery. Remove and rotate any credential the scan reports; never paste the matched value into a trace, a summary, or a commit message.
 
    Before a pull request merges, a reviewer who authored none of its commits records a review of the current head. `review record` reads the head commit from the repository and the reviewer's Git identity from the local Git configuration, and writes a `code-review:v1` record under `.sdlc/reviews/`:
 
@@ -762,7 +801,7 @@ The dedicated assessment journey remains the exception described above: it packa
    node <plugin-root>/bin/agentic-sdlc.mjs gate check --root <target-project> --story ST-001 --strict --out .sdlc/reports/ST-001-gate-report.json
    ```
 
-   This is an intermediate readiness check, not the final delivery certificate. It verifies validation and seals the distinct strict receipt used to move the current story-bound workflow to its configured terminal `release` phase with a unique request ID:
+   This is an intermediate readiness check, not the final delivery certificate. It verifies validation and seals the distinct strict receipt used to move the current story-bound workflow to its configured `release` phase with a unique request ID:
 
    ```bash
    node <plugin-root>/bin/agentic-sdlc.mjs workflow instance transition \
@@ -772,7 +811,7 @@ The dedicated assessment journey remains the exception described above: it packa
      --request-id <unique-release-transition-id>
    ```
 
-   Only after entering `release`, authorize and complete the exact local release or PR delivery, append the passing release trace, and complete the `release` story step. Entry into `release` must precede both the release trace and terminal delivery close. Then transition the workflow to `operations` (no additional guard) and complete the `operations` story step — a plain completion marker, never gated on an incident or feedback record existing. When those results are complete, release the story claim so no active worker can race final certification. Then run the lifecycle-complete gate. It replays the task-bound workflow's immutable instance, event history, checkpoint, audit trace, and alternating phase timeline, and requires every configured phase to have a completed canonical step — configured phase order now ends at `operations`, not `release`. Do not claim that the story or discovery-to-operations lifecycle is complete unless this stronger command passes and seals its separate final receipt:
+   Only after entering `release`, authorize and complete the exact local release or PR delivery (closing a PR without merge as `ready_for_review`), append the passing release trace, and complete the `release` story step. Entry into `release` must precede both the release trace and terminal delivery close. Then transition the workflow to `operations` (no additional guard) and complete the `operations` story step — a plain completion marker, never gated on an incident or feedback record existing. When those results are complete, release the story claim so no active worker can race final certification. Then run the lifecycle-complete gate. It replays the task-bound workflow's immutable instance, event history, checkpoint, audit trace, and alternating phase timeline, and requires every configured phase to have a completed canonical step — configured phase order now ends at `operations`, not `release`. Do not claim that the story or discovery-to-operations lifecycle is complete unless this stronger command passes and seals its separate final receipt:
 
    ```bash
    node <plugin-root>/bin/agentic-sdlc.mjs gate check \
@@ -886,5 +925,5 @@ Before claiming the SDLC is complete or a story is ready to merge:
 - verify completed story lanes have step records under `.sdlc/stories/<story-id>/steps/` when work is handed off;
 - verify activity reports, manifests, and trace compactions cite canonical source paths and do not use cache/index as evidence;
 - verify approvals include `approval_source` and do not treat implementation permission as artifact approval;
-- start the exact story-bound workflow before task start, complete each phase before entering the next, use ordinary strict `gate check` after validation, enter `release` before release evidence or terminal delivery, release the completed story claim before final certification, and require `gate check --strict --story <story-id> --lifecycle-complete` before claiming the SDLC complete;
+- start the exact story-bound workflow before task start, complete each phase before entering the next, use ordinary strict `gate check` after validation, enter `release` before release evidence or terminal delivery, transition to `operations` and complete its step after the release step, release the completed story claim before final certification, and require `gate check --strict --story <story-id> --lifecycle-complete` before claiming the SDLC complete;
 - report any errors or warnings instead of hiding them.

@@ -44,7 +44,15 @@ if (mode === "fail-baseline-report-write" || mode === "fail-baseline-trace-write
     ? "baseline-report-write"
     : "baseline-trace-write";
   const originalOpenSync = fs.openSync.bind(fs);
+  const originalLinkSync = fs.linkSync.bind(fs);
   let triggered = false;
+  const injectFailure = () => {
+    triggered = true;
+    markTriggered(marker);
+    const error = new Error(`Injected test-only failure before ${marker}.`);
+    error.code = "EIO";
+    throw error;
+  };
   fs.openSync = (filePath, flags, ...rest) => {
     if (
       !triggered
@@ -52,13 +60,20 @@ if (mode === "fail-baseline-report-write" || mode === "fail-baseline-trace-write
       && canonicalPotentialPath(filePath) === targetPath
       && mutatingOpen(flags)
     ) {
-      triggered = true;
-      markTriggered(marker);
-      const error = new Error(`Injected test-only failure before ${marker}.`);
-      error.code = "EIO";
-      throw error;
+      injectFailure();
     }
     return originalOpenSync(filePath, flags, ...rest);
+  };
+  // New records are published by linking a complete temporary file into place.
+  fs.linkSync = (sourcePath, destinationPath, ...rest) => {
+    if (
+      !triggered
+      && typeof destinationPath === "string"
+      && canonicalPotentialPath(destinationPath) === targetPath
+    ) {
+      injectFailure();
+    }
+    return originalLinkSync(sourcePath, destinationPath, ...rest);
   };
 }
 

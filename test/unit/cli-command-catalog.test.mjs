@@ -329,3 +329,70 @@ test("nearest command suggestions favor the same hierarchy", () => {
   );
   assert.throws(() => suggestCommand("status", { limit: 0 }), /between 1 and 10/u);
 });
+
+test("every group carries its own description instead of a placeholder", () => {
+  for (const group of COMMAND_CATALOG.children.filter((entry) => entry.kind === "group")) {
+    assert.notEqual(group.description.en, "Related commands.", group.path_text);
+    assert.notEqual(group.description.it, "Comandi correlati.", group.path_text);
+  }
+  const subgroups = [];
+  const collect = (node) => {
+    for (const child of node.children || []) {
+      if (child.kind === "group" && node.kind === "group") subgroups.push([node, child]);
+      collect(child);
+    }
+  };
+  collect(COMMAND_CATALOG);
+  assert.ok(subgroups.some(([, child]) => child.path_text === "autonomy requirement"));
+  for (const [parent, child] of subgroups) {
+    assert.notEqual(child.description.en, parent.description.en, child.path_text);
+    assert.notEqual(child.description.it, parent.description.it, child.path_text);
+  }
+  assert.doesNotMatch(findCommand("autonomy requirement").description.en, /delivery/u);
+});
+
+test("phase and step help lists every shipped default phase, including operations", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const template = JSON.parse(await readFile(new URL("../../templates/sdlc-config.json", import.meta.url), "utf8"));
+  for (const [command, flag] of [["incident record", "--phase"], ["story complete-step", "--step"]]) {
+    const entry = listOptions(command, { includeGlobal: false }).find((option) => option.flag === flag);
+    assert.ok(entry, `${command} ${flag}`);
+    for (const phase of template.phase_order) {
+      assert.match(entry.description.en, new RegExp(`\\b${phase}\\b`, "u"), `${command} ${flag} en: ${phase}`);
+      assert.match(entry.description.it, new RegExp(`\\b${phase}\\b`, "u"), `${command} ${flag} it: ${phase}`);
+    }
+  }
+});
+
+test("formal approval commands advertise the approver options their handlers require", () => {
+  for (const command of ["breakdown approve", "dependency approve", "autonomy delivery revoke", "autonomy delivery close"]) {
+    const flags = new Map(listOptions(command, { includeGlobal: false }).map((entry) => [entry.flag, entry]));
+    // Closing as ready_for_review is bound to verified PR evidence under the
+    // already approved profile, so only the other terminal states need an approver.
+    if (command === "autonomy delivery close") {
+      assert.match(flags.get("--actor-type")?.required_when?.en ?? "", /ready_for_review/u, `${command} --actor-type`);
+    } else {
+      assert.equal(flags.get("--actor-type")?.required, true, `${command} --actor-type`);
+    }
+    assert.ok(flags.get("--approval-source")?.required_when, `${command} --approval-source`);
+    assert.ok(flags.get("--approval-evidence"), `${command} --approval-evidence`);
+    const node = findCommand(command);
+    assert.match(node.usage, /--actor-type/u, command);
+    for (const example of node.examples || []) {
+      if (/--terminal-status ready_for_review/u.test(example)) continue;
+      assert.match(example, /--actor-type human --approval-source explicit-user/u, `${command}: ${example}`);
+    }
+  }
+});
+
+test("breakdown and dependency help examples use the formats their parsers accept", async () => {
+  const { parseBreakdownItemRef, parseDependencyEdge } = await import("../../lib/lifecycle/story.mjs");
+  const valueAfter = (example, flag) => [...example.matchAll(new RegExp(`${flag} (\\S+)`, "gu"))].map((match) => match[1]);
+  for (const example of findCommand("breakdown propose").examples) {
+    for (const item of valueAfter(example, "--item")) assert.doesNotThrow(() => parseBreakdownItemRef(item), item);
+  }
+  for (const example of findCommand("dependency propose").examples) {
+    for (const edge of valueAfter(example, "--edge")) assert.doesNotThrow(() => parseDependencyEdge(edge), edge);
+  }
+  assert.equal(listOptions("breakdown propose", { includeGlobal: false }).find((entry) => entry.flag === "--item").value, "type:id");
+});

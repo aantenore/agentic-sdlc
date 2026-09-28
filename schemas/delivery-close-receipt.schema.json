@@ -41,7 +41,7 @@
         { "$ref": "#/$defs/path_hashed_id_ref" }
       ]
     },
-    "terminal_status": { "enum": ["merged", "closed", "released", "rolled_back", "cancelled", "superseded", "revoked"] },
+    "terminal_status": { "enum": ["merged", "ready_for_review", "closed", "released", "rolled_back", "cancelled", "superseded", "revoked"] },
     "reason": { "type": "string", "minLength": 1 },
     "approval": { "type": "object" },
     "closed_by": { "$ref": "common.schema.json#/$defs/actor" },
@@ -53,7 +53,7 @@
   "allOf": [
     {
       "if": {
-        "properties": { "terminal_status": { "enum": ["merged", "released"] } },
+        "properties": { "terminal_status": { "enum": ["merged", "ready_for_review", "released"] } },
         "required": ["terminal_status"]
       },
       "then": {

@@ -19,6 +19,7 @@ import {
   normalizeGitEvent,
   normalizeGitRepositoryIdentity,
   normalizeSmokeTestCommand,
+  pullRequestReadyForReviewCompletion,
   validateDeliveryCheckpointPolicySource,
   validateDeliveryCompletionRequest,
   validateLocalSmokePackageManagerForm,
@@ -421,4 +422,53 @@ test("validateResolvedLocalSmokeExecutable rejects a resolved indirect dispatche
 
 test("validateResolvedLocalSmokeExecutable accepts a direct reviewed executable", () => {
   assert.doesNotThrow(() => validateResolvedLocalSmokeExecutable({ realpath: "/usr/local/bin/node" }));
+});
+
+function readyForReviewProfile(overrides = {}) {
+  return {
+    delivery_kind: "pull_request",
+    pull_request_target: {
+      merge_allowed: false,
+      allowed_actions: ["git.push", "pull_request.update"],
+      ...overrides,
+    },
+  };
+}
+
+function prReceipt(id, action, status, authorizedAt, outcome = status === "completed" ? "passed" : null) {
+  return { id, action, status, outcome, authorized_at: authorizedAt };
+}
+
+test("pullRequestReadyForReviewCompletion binds only the latest passing PR completion", () => {
+  const completion = prReceipt("ACT-2", "pull_request.update", "completed", "2026-01-01T00:00:02.000Z");
+  const actions = [
+    prReceipt("ACT-0", "git.push", "completed", "2026-01-01T00:00:00.000Z"),
+    prReceipt("ACT-1", "pull_request.update", "authorized", "2026-01-01T00:00:01.000Z"),
+    completion,
+    prReceipt("ACT-3", "test.run", "authorized", "2026-01-01T00:00:03.000Z"),
+  ];
+  const result = pullRequestReadyForReviewCompletion(readyForReviewProfile(), actions);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.completion, completion);
+});
+
+test("pullRequestReadyForReviewCompletion refuses later pushes, failures, missing PR evidence, and merge profiles", () => {
+  const passed = prReceipt("ACT-1", "pull_request.create", "completed", "2026-01-01T00:00:01.000Z");
+  const cases = [
+    [readyForReviewProfile(), []],
+    [readyForReviewProfile(), [passed, prReceipt("ACT-2", "git.push", "authorized", "2026-01-01T00:00:02.000Z")]],
+    [readyForReviewProfile(), [passed, prReceipt("ACT-2", "pull_request.update", "completed", "2026-01-01T00:00:02.000Z", "failed")]],
+  ];
+  for (const [profile, actions] of cases) {
+    const result = pullRequestReadyForReviewCompletion(profile, actions);
+    assert.equal(result.completion, null);
+    assert.match(result.errors.join("; "), /not a passing pull_request\.create or pull_request\.update completion/u);
+  }
+  const mergeProfile = pullRequestReadyForReviewCompletion(
+    readyForReviewProfile({ merge_allowed: true, allowed_actions: ["pull_request.merge"] }),
+    [passed],
+  );
+  assert.match(mergeProfile.errors.join("; "), /includes pull_request\.merge/u);
+  const localRelease = pullRequestReadyForReviewCompletion({ delivery_kind: "local_release" }, [passed]);
+  assert.match(localRelease.errors.join("; "), /only a pull_request delivery/u);
 });

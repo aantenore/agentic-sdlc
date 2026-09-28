@@ -55,6 +55,22 @@ function createProject(name) {
  * in bin/agentic-sdlc.mjs, which only requires coverage for limits that declare `hard`).
  */
 function mintReleaseManifest(project, id) {
+  prepareReleaseCandidate(project, id);
+  const completed = JSON.parse(mustRun(completeProposalArgs(project, id)).stdout);
+  assert.equal(completed.status, "completed");
+  assert.equal(completed.release_manifest.status, "released");
+  return completed.release_manifest.id;
+}
+
+function completeProposalArgs(project, id) {
+  return [
+    "assessment", "proposal", "complete", "--root", project, "--id", id,
+    "--actor-type", "agent", "--trust-custom-rtk-command", "--json",
+  ];
+}
+
+/** Drives an assessment proposal up to, but not including, completion. */
+function prepareReleaseCandidate(project, id) {
   const storyId = `ST-${id}`;
   const requirementId = `REQ-${id}`;
   const baselineId = `BASELINE-${id}`;
@@ -123,14 +139,26 @@ function mintReleaseManifest(project, id) {
     "--template", prepared.proposal.deliverable.template_id, "--mode", "new",
     "--requirement", requirementId, "--authorization", approved.authorization.id, "--json",
   ]);
+}
 
-  const completed = JSON.parse(mustRun([
-    "assessment", "proposal", "complete", "--root", project, "--id", id,
-    "--actor-type", "agent", "--trust-custom-rtk-command", "--json",
-  ]).stdout);
-  assert.equal(completed.status, "completed");
-  assert.equal(completed.release_manifest.status, "released");
-  return completed.release_manifest.id;
+/**
+ * A PATH directory whose `git` fails `git status --porcelain` (the worktree
+ * cleanliness probe) and forwards every other invocation to the real Git.
+ */
+function gitWithFailingStatus() {
+  const realGit = spawnSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).stdout.trim();
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "sdlc-git-shim-"));
+  const shim = path.join(directory, "git");
+  fs.writeFileSync(shim, [
+    "#!/bin/sh",
+    "for arg in \"$@\"; do",
+    "  if [ \"$arg\" = \"--porcelain\" ]; then exit 128; fi",
+    "done",
+    `exec ${JSON.stringify(realGit)} "$@"`,
+    "",
+  ].join("\n"));
+  fs.chmodSync(shim, 0o755);
+  return { directory, env: { ...process.env, PATH: `${directory}${path.delimiter}${process.env.PATH}` } };
 }
 
 test("a story in the operations phase records incidents and feedback against a real release manifest", () => {
@@ -169,10 +197,12 @@ test("a story in the operations phase records incidents and feedback against a r
     "--severity", "sev2", "--summary", "Checkout latency spike",
     "--impact", "5% of checkouts timed out for 20 minutes",
     "--incident-action", "Rolled back the checkout service",
+    "--detected-at", "2026-01-05T09:30:00Z",
     "--resolved-at", new Date().toISOString(),
     "--json",
   ]).stdout);
   assert.equal(incident.status, "recorded");
+  assert.equal(incident.incident.detected_at, "2026-01-05T09:30:00Z");
   assert.equal(incident.incident.kind, "incident");
   assert.equal(incident.incident.schema_version, "incident:v1");
   assert.equal(incident.incident.story_id, storyId);
@@ -180,6 +210,20 @@ test("a story in the operations phase records incidents and feedback against a r
   assert.equal(incident.incident.severity, "sev2");
   assert.equal(incident.incident.actions.length, 1);
   assert.ok(fs.existsSync(path.join(project, incident.incident_path)));
+
+  const incidentFiles = () => fs.readdirSync(path.join(project, ".sdlc", "operations")).filter((name) => name.includes("-incident-"));
+  const incidentCount = incidentFiles().length;
+  const incidentBase = [
+    "incident", "record", "--root", project, "--story", storyId, "--release-manifest", releaseManifestId,
+    "--severity", "sev4", "--summary", "Refused timing", "--impact", "None; refused before write",
+  ];
+  mustFail([...incidentBase, "--resolved-at", "2026-01-05T10:00:00Z"], /earlier than the default detection time.*--detected-at/);
+  mustFail(
+    [...incidentBase, "--detected-at", "2026-01-05T10:00:00Z", "--resolved-at", "2026-01-05T09:00:00Z"],
+    /--resolved-at 2026-01-05T09:00:00Z is earlier than --detected-at 2026-01-05T10:00:00Z/,
+  );
+  mustFail([...incidentBase, "--detected-at", "2026-01-05"], /Invalid --detected-at '2026-01-05'\. Use an RFC 3339 date-time/);
+  assert.equal(incidentFiles().length, incidentCount, "refused incident records must not be written");
 
   const feedback = JSON.parse(mustRun([
     "feedback", "record", "--root", project, "--story", storyId,
@@ -235,4 +279,47 @@ test("a story in the operations phase records incidents and feedback against a r
   assert.equal(incidentOnDisk.record_hash, incident.incident.record_hash);
   const feedbackOnDisk = readJson(path.join(operationsRoot, `${feedback.feedback.id}.json`));
   assert.equal(feedbackOnDisk.record_hash, feedback.feedback.record_hash);
+});
+
+test("a release manifest is not written when Git cannot report whether the worktree is clean", {
+  skip: process.platform === "win32" ? "uses a POSIX shell Git shim" : false,
+}, (t) => {
+  const project = createProject("unknown-dirty");
+  const gitEnv = {
+    ...process.env,
+    GIT_AUTHOR_NAME: "Fixture Author",
+    GIT_AUTHOR_EMAIL: "fixture@example.invalid",
+    GIT_COMMITTER_NAME: "Fixture Author",
+    GIT_COMMITTER_EMAIL: "fixture@example.invalid",
+  };
+  for (const args of [
+    ["init", "-q"],
+    ["add", "-A"],
+    ["-c", "commit.gpgsign=false", "commit", "-q", "-m", "fixture"],
+  ]) {
+    const result = spawnSync("git", ["-C", project, ...args], { encoding: "utf8", env: gitEnv });
+    assert.equal(result.status, 0, result.stderr);
+  }
+  const id = "ASSESS-UNKNOWN-DIRTY";
+  prepareReleaseCandidate(project, id);
+  const shim = gitWithFailingStatus();
+  t.after(() => fs.rmSync(shim.directory, { recursive: true, force: true }));
+
+  const refused = mustFail(
+    completeProposalArgs(project, id),
+    /could not report whether the worktree is clean/,
+    { env: shim.env },
+  );
+  assert.equal(refused.status, 1);
+  const manifestRoot = path.join(project, ".sdlc", "releases", "manifests");
+  assert.deepEqual(
+    fs.existsSync(manifestRoot) ? fs.readdirSync(manifestRoot).filter((name) => name.endsWith(".json")) : [],
+    [],
+    "no release manifest may be written from an unknown worktree state",
+  );
+
+  const completed = JSON.parse(mustRun(completeProposalArgs(project, id)).stdout);
+  assert.equal(completed.status, "completed");
+  assert.equal(completed.release_manifest.source_revision.type, "git");
+  assert.equal(completed.release_manifest.source_revision.dirty, true);
 });

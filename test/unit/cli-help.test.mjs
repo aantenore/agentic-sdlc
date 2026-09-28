@@ -14,7 +14,8 @@ test("root help explains practical behavior before technical details", () => {
   assert.match(primary, /What you need to decide:/u);
   assert.match(primary, /What remains protected:/u);
   assert.match(primary, /Next step:/u);
-  assert.match(primary, /Talk naturally to Codex about the outcome you want\./u);
+  assert.match(primary, /Talk naturally to your coding agent about the outcome you want\./u);
+  assert.doesNotMatch(primary, /Codex/u);
   assert.match(primary, /This CLI is for structured recovery and automation/u);
   assert.match(primary, /requirement -> story -> work brief\/output -> autonomy -> story workflow start -> one task start -> story claim -> complete each phase and advance -> validation gate -> enter release -> delivery\/release evidence -> final lifecycle gate/u);
   assert.doesNotMatch(primary, FORBIDDEN_PRIMARY_JARGON);
@@ -24,7 +25,8 @@ test("root help explains practical behavior before technical details", () => {
 
   const italian = renderHelp([], { locale: "it" });
   const [italianPrimary] = italian.split("Dettagli tecnici (facoltativi):");
-  assert.match(italianPrimary, /Parla naturalmente con Codex del risultato che vuoi ottenere\./u);
+  assert.match(italianPrimary, /Parla naturalmente con il tuo agente di sviluppo del risultato che vuoi ottenere\./u);
+  assert.doesNotMatch(italianPrimary, /Codex/u);
   assert.match(italianPrimary, /Questa CLI serve per recupero strutturato e automazione/u);
   assert.match(italianPrimary, /requisito -> story -> accordo di lavoro\/output -> autonomia -> avvio workflow della story -> un solo avvio attività -> assegnazione della story -> completa e avanza ogni fase -> gate di validazione -> ingresso in release -> consegna\/prove di release -> gate lifecycle finale/u);
 });

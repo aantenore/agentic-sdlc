@@ -88,11 +88,30 @@ test("core skill documents the required order and discloses autonomy reduction b
     previous = current;
   }
 
+  const finishStage = orderSection.slice(orderSection.indexOf("**Finish and certify at the named destination**"));
+  const operationsStep = finishStage.indexOf("complete the `operations` step");
+  assert.ok(
+    operationsStep >= 0 && operationsStep < finishStage.indexOf("lifecycle-complete"),
+    "the final stage must complete the operations step before lifecycle-complete certification",
+  );
+  const gettingStarted = read("docs/getting-started.md");
+  const finishJourney = gettingStarted.slice(gettingStarted.indexOf("**Finish and certify at the named destination**"));
+  assert.ok(
+    finishJourney.indexOf("`operations` step") >= 0
+      && finishJourney.indexOf("`operations` step") < finishJourney.indexOf("lifecycle-complete"),
+    "getting-started must complete the operations step before lifecycle-complete certification",
+  );
+
   assert.match(orderSection, /Do not call `task start`/);
   assert.match(orderSection, /Before presenting the choices/);
   assert.match(orderSection, /reduced to “Autonomy with checkpoints”/);
   assert.match(skill, /--allow-action pull_request\.create/);
   assert.match(skill, /For an existing pull request/);
+  for (const document of [skill, read("commands/continue-pr.md")]) {
+    assert.match(document, /--pr-mode existing/u);
+    assert.match(document, /--pr-number/u);
+    assert.match(document, /--pr-url/u);
+  }
 });
 
 test("local novice guidance verifies rollback before release and requires a terminal lifecycle certificate", () => {
@@ -108,7 +127,7 @@ test("local novice guidance verifies rollback before release and requires a term
   assert.match(skill, /intermediate readiness check, not the final delivery certificate/u);
   assert.match(skill, /--lifecycle-complete/u);
   assert.match(skill, /requires every configured phase to have a completed canonical step/u);
-  assert.match(skill, /current story-bound workflow to its configured terminal `release` phase/u);
+  assert.match(skill, /current story-bound workflow to its configured `release` phase/u);
   assert.doesNotMatch(
     skill.slice(releaseAuthorization, releaseAuthorization + 500),
     /--host-receipt-file/u,
@@ -200,6 +219,11 @@ test("the Claude Code packaging stays version-locked to the package and exposes 
   for (const relativePath of ["commands/observe.md", "commands/status.md", "commands/doctor.md"]) {
     assert.match(read(relativePath), /\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/agentic-sdlc\.mjs/u, relativePath);
   }
+
+  // Doctor always inspects the project in the working directory when --root is omitted.
+  const doctorCommand = read("commands/doctor.md");
+  assert.doesNotMatch(doctorCommand, /installation only/iu);
+  assert.match(doctorCommand, /current working directory/u);
 });
 
 test("the release surface ships and requires both host packagings", () => {
@@ -240,5 +264,14 @@ test("the Claude Code installation guide documents the marketplace flow and the 
   assert.match(guide, /install-personal-marketplace-v2\.py/u);
   assert.match(guide, /does not apply/iu);
   assert.match(docsIndex, /\[Claude Code installation\]\(claude-code-install\.md\)/u);
+
+  // The guide says skill bodies locate the plugin root themselves; every skill using <plugin-root> must define it.
+  for (const skillName of fs.readdirSync(path.join(repoRoot, "skills")).sort()) {
+    const relativePath = `skills/${skillName}/SKILL.md`;
+    if (!fs.existsSync(path.join(repoRoot, relativePath))) continue;
+    const skill = read(relativePath);
+    if (!skill.includes("<plugin-root>")) continue;
+    assert.match(skill, /(?:plugin root|<plugin-root>)[^.]*\bexactly two directories above/iu, `${relativePath} does not define <plugin-root>`);
+  }
   assert.match(readme, /\[Claude Code Installation\]\(docs\/claude-code-install\.md\)/u);
 });

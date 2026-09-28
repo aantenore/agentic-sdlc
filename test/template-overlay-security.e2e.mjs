@@ -35,7 +35,7 @@ function copyConfig(templateDir) {
 
 function run(args) {
   const env = { ...process.env };
-  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID"]) {
+  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID", "CLAUDECODE", "AGENTIC_SDLC_AGENT_HOST"]) {
     delete env[key];
   }
   return spawnSync(process.execPath, [bin, ...args], {
@@ -49,7 +49,7 @@ function run(args) {
 
 function runWithTemplateFsHarness(args, harnessEnv) {
   const env = { ...process.env, ...harnessEnv };
-  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID"]) {
+  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID", "CLAUDECODE", "AGENTIC_SDLC_AGENT_HOST"]) {
     delete env[key];
   }
   return spawnSync(process.execPath, ["--require", racePreload, bin, ...args], {

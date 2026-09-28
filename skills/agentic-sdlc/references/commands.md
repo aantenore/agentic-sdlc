@@ -1,6 +1,6 @@
 # CLI Commands
 
-Run commands with Node from the plugin root:
+Run commands with Node from the plugin root (`<plugin-root>`, two directories above `skills/agentic-sdlc/SKILL.md`):
 
 ```bash
 node bin/agentic-sdlc.mjs <command>
@@ -409,7 +409,7 @@ node bin/agentic-sdlc.mjs autonomy delivery action \
   --json
 ```
 
-Local completion runs the approved smoke argv without a shell from the exact governed `--smoke-cwd`. Shells, indirect dispatchers, inline interpreter code, and ambiguous loaders are rejected. Explicit interpreted entrypoints must resolve inside an allowed artifact path; package managers may only use `test` or one reviewed `run <script>` from the real package in that directory. Before spawning, a durable write-ahead attempt consumes the v3 authorization and binds the plugin build, sandbox, resolved launcher/runtime, explicit payload paths and pre-smoke artifact manifest. The supported read-only sandbox denies external network; macOS denies loopback and Linux `bwrap` exposes namespace-local loopback only. Portable smoke must not use listeners or connections; API artifacts should expose a handler that the smoke script invokes in-process. The runner can read host-account files and provides neither confidentiality nor transitive-code attestation, so reviewed artifact code must not load ungoverned host paths. Completion records ordered output hashes and an unchanged post-smoke manifest; failed or interrupted attempts require fresh authorization, current v3 receipts cannot downgrade to legacy, and later gates reject artifact drift. The directory must be equal to or inside one allowed write path; it defaults to the only write path and is required when several are allowed. Historical profiles without the field derive it only from one unambiguous write path and otherwise fail closed. Successful completion currently requires `/usr/bin/sandbox-exec` on macOS or `/usr/bin/bwrap` on Linux; unsupported hosts and Linux without `bwrap` fail closed before a `released` receipt is written. Passing `release.local` and `pull_request.merge` completions automatically close the lifecycle as `released` or `merged`; do not also call manual close for those statuses. Use `autonomy delivery close` for formally approved `closed`, `cancelled`, `rolled_back`, `superseded`, or other allowed non-success terminal outcomes.
+Local completion runs the approved smoke argv without a shell from the exact governed `--smoke-cwd`. Shells, indirect dispatchers, inline interpreter code, and ambiguous loaders are rejected. Explicit interpreted entrypoints must resolve inside an allowed artifact path; package managers may only use `test` or one reviewed `run <script>` from the real package in that directory. Before spawning, a durable write-ahead attempt consumes the v3 authorization and binds the plugin build, sandbox, resolved launcher/runtime, explicit payload paths and pre-smoke artifact manifest. The supported read-only sandbox denies external network; macOS denies loopback and Linux `bwrap` exposes namespace-local loopback only. Portable smoke must not use listeners or connections; API artifacts should expose a handler that the smoke script invokes in-process. The runner can read host-account files and provides neither confidentiality nor transitive-code attestation, so reviewed artifact code must not load ungoverned host paths. Completion records ordered output hashes and an unchanged post-smoke manifest; failed or interrupted attempts require fresh authorization, current v3 receipts cannot downgrade to legacy, and later gates reject artifact drift. The directory must be equal to or inside one allowed write path; it defaults to the only write path and is required when several are allowed. Historical profiles without the field derive it only from one unambiguous write path and otherwise fail closed. Successful completion currently requires `/usr/bin/sandbox-exec` on macOS or `/usr/bin/bwrap` on Linux; unsupported hosts and Linux without `bwrap` fail closed before a `released` receipt is written. Passing `release.local` and `pull_request.merge` completions automatically close the lifecycle as `released` or `merged`; do not also call manual close for those statuses. A pull request whose profile excludes merge closes with `autonomy delivery close --terminal-status ready_for_review`, which binds its latest passing `pull_request.create` or `pull_request.update` completion, is refused after any later commit, push, or PR action, and needs no new approval. Use `autonomy delivery close` for formally approved `closed`, `cancelled`, `rolled_back`, `superseded`, or other allowed non-success terminal outcomes.
 
 The CLI revalidates local Git identity, branches, SHA transitions, paths, action receipts, and evidence hashes. Push authorization observes the base SHA directly on the selected remote, requires one passing completed `git.commit` receipt for every commit from that SHA to the exact head, and rejects remotes with any fetch/push URL outside the approved repository. Push/merge authorization records a live remote pre-state, and completion queries the exact Git remote or GitHub PR for the expected later post-state. This observation is not a provider-signed offline attestation; retain durable host/CI/provider evidence and do not claim signed proof when no attestation adapter is configured.
 
@@ -512,13 +512,17 @@ node bin/agentic-sdlc.mjs contract create \
 
 ## Create And Claim Story
 
+`<host-agent>` is the agent running the plugin (`codex` or `claude-code`).
+Without `--actor` or `--agent`, the CLI detects the host from its environment;
+set `AGENTIC_SDLC_AGENT_HOST` to choose one explicitly.
+
 ```bash
 node bin/agentic-sdlc.mjs story create --root <project> --id ST-001 --title "Implement a business workflow" --requirement REQ-001 --acceptance "<observable story-level success criterion>"
 node bin/agentic-sdlc.mjs task start --root <project> --story ST-001 --intent-json '<normalized implement_story intent>' --confirm-start --actor-type human
-node bin/agentic-sdlc.mjs story claim --root <project> --id ST-001 --agent codex --branch feature/ST-001 --thread-id <codex-thread-id>
+node bin/agentic-sdlc.mjs story claim --root <project> --id ST-001 --agent <host-agent> --branch feature/ST-001 --thread-id <host-thread-id>
 node bin/agentic-sdlc.mjs story complete-step --root <project> --id ST-001 --step functional-analysis --type functional-analysis --summary "Functional review complete"
 node bin/agentic-sdlc.mjs story prepare-handoff --root <project> --id ST-001 --to-agent implementation-agent --release-claim --summary "Ready for implementation"
-node bin/agentic-sdlc.mjs story release --root <project> --id ST-001 --agent codex --reason "Work handed off"
+node bin/agentic-sdlc.mjs story release --root <project> --id ST-001 --agent <host-agent> --reason "Work handed off"
 ```
 
 For a `supervised` delivery whose exact profile checkpoints both
@@ -551,7 +555,7 @@ node bin/agentic-sdlc.mjs authorization grant \
 node bin/agentic-sdlc.mjs story claim \
   --root <project> \
   --id ST-001 \
-  --agent codex \
+  --agent <host-agent> \
   --branch feature/ST-001 \
   --authorization AUTH-ST-001-CLAIM
 
@@ -841,9 +845,9 @@ node bin/agentic-sdlc.mjs secret scan --root <project> --story ST-001
 node bin/agentic-sdlc.mjs secret scan --root <project> --story ST-001 --base main --head HEAD --json
 ```
 
-`--base` defaults to the commit the story's task start recorded and `--head` to the current `HEAD`. A story whose work is not committed yet is scanned from the uncommitted workspace, and a local release with neither falls back to the story's approved write paths.
+`--base` defaults to the commit the story's task start recorded and `--head` to the current `HEAD`. The gate accepts only a scan whose base is that task-start commit or an ancestor of it; a narrower range is stored but reported as not covering the delivery. Uncommitted and untracked files are scanned with the default range, and the record binds that working-tree state, so the gate accepts it only until the working tree changes; a range named with `--base` or `--head` skips the working tree and counts only while it is clean. A committed range file the working tree has changed is also read as the head holds it, so an uncommitted edit cannot hide a committed credential. A story with no base, including one in a repository without its first commit, is scanned from the uncommitted workspace, and a local release with neither falls back to the story's approved write paths.
 
-Findings are reported as the rule, the file, the line, and at most four leading characters of the match; the matched value is never printed or stored. A clean scan exits `0` and a scan with findings exits `1`. When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head. Rules come from `gate_policy.secret_scan.rules` merged over the shipped defaults by `id`, and `gate_policy.secret_scan.exclude_paths` lists path globs to leave out.
+Findings are reported as the rule, the file, the line, and at most four leading characters of the match; the matched value is never printed or stored. A clean scan exits `0` and a scan with findings exits `1`. When `gate_policy.secret_scan.enabled` is `true`, a story in validation (the bound workflow instance's current phase, or `story.json` for a story without one) needs a record whose outcome is `clean` for the current head, and `gate check --strict --lifecycle-complete` requires the same for the head it certifies. Rules come from `gate_policy.secret_scan.rules` merged over the shipped defaults by `id`, and `gate_policy.secret_scan.exclude_paths` lists path globs to leave out.
 
 ## Record Incidents And Feedback
 
@@ -858,6 +862,7 @@ node bin/agentic-sdlc.mjs incident record \
   --summary "Checkout latency spike" \
   --impact "5% of checkouts timed out for 20 minutes" \
   --incident-action "Rolled back the checkout service" \
+  --detected-at 2026-09-16T10:00:00Z \
   --resolved-at 2026-09-16T10:20:00Z
 
 node bin/agentic-sdlc.mjs feedback record \
@@ -886,8 +891,8 @@ The reviewed head commit and the base commit are read from the repository (the d
 ## Append Trace
 
 ```bash
-node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type test --outcome passed --summary "Unit tests passed" --evidence .sdlc/tests/ST-001-test-run.json --actor codex --actor-type agent
-node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type implementation --summary "Codex implemented a requested change" --actor codex --actor-type agent --requested-by antonioantenore --requested-by-type human --authorized-by antonioantenore --authorized-by-type human --request-summary "Implement the requested feature"
+node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type test --outcome passed --summary "Unit tests passed" --evidence .sdlc/tests/ST-001-test-run.json --actor <host-agent> --actor-type agent
+node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type implementation --summary "Implemented a requested change" --actor <host-agent> --actor-type agent --requested-by antonioantenore --requested-by-type human --authorized-by antonioantenore --authorized-by-type human --request-summary "Implement the requested feature"
 node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type implementation --summary "Added a local launcher" --input-summary "Approved contract" --output-summary "Installed observe command" --rationale-summary "Keep evidence local" --alternative "Hosted dashboard" --explanation "The plugin can now display recorded delivery lineage locally." --explanation-kind codex-generated
 ```
 

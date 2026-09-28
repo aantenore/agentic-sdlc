@@ -7,7 +7,7 @@ Agentic SDLC 0.16.0 ships two host packagings from one source tree:
 | Codex | `.codex-plugin/plugin.json` | skills + agent cards (`skills/*/agents/openai.yaml`) | `scripts/install-personal-marketplace-v2.py` |
 | Claude Code | `.claude-plugin/plugin.json` | skills + slash commands (`commands/*.md`) | `/plugin marketplace add` |
 
-Both read the same `skills/`, the same JSON schemas, the same templates, and the same Node.js CLI under `bin/`. There is no host-specific fork of the lifecycle logic: the CLI owns every gate, receipt, and record, and the host only supplies the conversation.
+Both read the same `skills/`, the same JSON schemas, the same templates, and the same Node.js CLI under `bin/`. There is no host-specific fork of the lifecycle logic: the CLI owns every gate, receipt, and record, and the host only supplies the conversation. When a command names no `--actor` or `--agent`, the CLI attributes the record to the host it detects from the environment (`claude-code` when `CLAUDECODE` is set, `codex` otherwise); set `AGENTIC_SDLC_AGENT_HOST` to `codex` or `claude-code` to choose explicitly.
 
 ## Prerequisite
 
@@ -75,7 +75,7 @@ Claude Code loads a skill when the conversation matches its description, so the 
 
 ## Path resolution
 
-Slash commands reference the CLI through `${CLAUDE_PLUGIN_ROOT}`, which Claude Code substitutes with the installed plugin directory. Skill bodies do not rely on that substitution: they resolve the plugin root from the location of `SKILL.md` itself, which works identically under a Claude install, a Codex install, and a plain `git clone`. The CLI also derives its own root from `import.meta.url` and reports it in `doctor --json` as `plugin_root`.
+Slash commands reference the CLI through `${CLAUDE_PLUGIN_ROOT}`, which Claude Code substitutes with the installed plugin directory. Skill bodies do not rely on that substitution: each skill that runs the CLI (`agentic-sdlc`, `agentic-sdlc-assessment`, `change-observatory`) states that the plugin root is exactly two directories above its own `SKILL.md`, which works identically under a Claude install, a Codex install, and a plain `git clone`. The CLI also derives its own root from `import.meta.url` and reports it in `doctor --json` as `plugin_root`.
 
 ## Update
 

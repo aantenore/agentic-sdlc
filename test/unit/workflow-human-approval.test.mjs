@@ -22,7 +22,7 @@ function temporaryProject(label) {
 
 function run(args, cwd) {
   const env = { ...process.env };
-  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID"]) delete env[key];
+  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID", "CLAUDECODE", "AGENTIC_SDLC_AGENT_HOST"]) delete env[key];
   return spawnSync(process.execPath, [CLI, ...args], {
     cwd,
     encoding: "utf8",
