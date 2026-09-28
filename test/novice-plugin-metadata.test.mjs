@@ -88,6 +88,20 @@ test("core skill documents the required order and discloses autonomy reduction b
     previous = current;
   }
 
+  const finishStage = orderSection.slice(orderSection.indexOf("**Finish and certify at the named destination**"));
+  const operationsStep = finishStage.indexOf("complete the `operations` step");
+  assert.ok(
+    operationsStep >= 0 && operationsStep < finishStage.indexOf("lifecycle-complete"),
+    "the final stage must complete the operations step before lifecycle-complete certification",
+  );
+  const gettingStarted = read("docs/getting-started.md");
+  const finishJourney = gettingStarted.slice(gettingStarted.indexOf("**Finish and certify at the named destination**"));
+  assert.ok(
+    finishJourney.indexOf("`operations` step") >= 0
+      && finishJourney.indexOf("`operations` step") < finishJourney.indexOf("lifecycle-complete"),
+    "getting-started must complete the operations step before lifecycle-complete certification",
+  );
+
   assert.match(orderSection, /Do not call `task start`/);
   assert.match(orderSection, /Before presenting the choices/);
   assert.match(orderSection, /reduced to “Autonomy with checkpoints”/);
@@ -108,7 +122,7 @@ test("local novice guidance verifies rollback before release and requires a term
   assert.match(skill, /intermediate readiness check, not the final delivery certificate/u);
   assert.match(skill, /--lifecycle-complete/u);
   assert.match(skill, /requires every configured phase to have a completed canonical step/u);
-  assert.match(skill, /current story-bound workflow to its configured terminal `release` phase/u);
+  assert.match(skill, /current story-bound workflow to its configured `release` phase/u);
   assert.doesNotMatch(
     skill.slice(releaseAuthorization, releaseAuthorization + 500),
     /--host-receipt-file/u,

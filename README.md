@@ -187,7 +187,8 @@ stages:
    and retain the declared rollback procedure. Push, PR creation, deployment,
    and production remain excluded.
 9. **Final lifecycle certification** — only after the release evidence,
-   terminal delivery close, and release of the completed story claim, run:
+   terminal delivery close, the transition to `operations` with its completed
+   `operations` step, and release of the completed story claim, run:
 
    ```bash
    agentic-sdlc gate check --strict --story ST-TRIP-POLICY-001 --lifecycle-complete

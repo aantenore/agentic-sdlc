@@ -124,7 +124,8 @@ For implementation work, Codex follows one visible order:
    Only after entering `release`, Codex creates or updates the one approved PR
    and, when merge is not included, closes that delivery as `ready_for_review`,
    or completes the local-only release, release trace, release step, and smoke
-   test. It releases the completed story claim, then runs the distinct
+   test. It then moves the workflow to `operations` and completes the
+   `operations` step, releases the completed story claim, and runs the distinct
    lifecycle-complete gate. Merge, remote
    deployment, and production remain separate unless explicitly included and
    approved.

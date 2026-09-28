@@ -45,7 +45,7 @@ For generic implementation and release work, follow this order:
 6. **Start the story workflow, then start once** — bind the exact configured phase order to the story before any completed step, then make one logical `task start` decision. Never use an early speculative start as routing or discovery, and never reconstruct the workflow after work has begun.
 7. **Implement, test, and advance phases** — after the governed task start is recorded, claim the story, change only approved paths, run the agreed checks, record evidence, complete each phase, and enter the next phase only after the previous one is complete.
 8. **Validate, then enter release** — after validation and the latest passing test evidence, seal the intermediate strict receipt and use it to move the task-bound workflow into `release`.
-9. **Finish and certify at the named destination** — only after entering `release`, create/update and verify the one pull request or complete the local release, close a pull request whose delivery excludes merge as `ready_for_review`, record release evidence, complete the release step, release the completed story claim, and run the distinct lifecycle-complete gate. Push, protected-branch merge, remote deployment, and production remain separate when they were not explicitly included.
+9. **Finish and certify at the named destination** — only after entering `release`, create/update and verify the one pull request or complete the local release, close a pull request whose delivery excludes merge as `ready_for_review`, record release evidence, complete the release step, transition the workflow to `operations` and complete the `operations` step, release the completed story claim, and run the distinct lifecycle-complete gate. Push, protected-branch merge, remote deployment, and production remain separate when they were not explicitly included.
 
 For a **new pull request**, the displayed boundary must include the repository, base and new head branch, `pull_request.create`, allowed writes, tests, push, and whether later PR updates are included. For an **existing pull request**, resolve and show the exact PR, repository, base, head, current SHA, and allowed update actions; do not create another PR. For a **local-only result**, exclude Git push, pull-request actions, remote deployment, and production access, and require the exact local target, smoke test, and rollback.
 
@@ -770,7 +770,7 @@ The dedicated assessment journey remains the exception described above: it packa
    node <plugin-root>/bin/agentic-sdlc.mjs gate check --root <target-project> --story ST-001 --strict --out .sdlc/reports/ST-001-gate-report.json
    ```
 
-   This is an intermediate readiness check, not the final delivery certificate. It verifies validation and seals the distinct strict receipt used to move the current story-bound workflow to its configured terminal `release` phase with a unique request ID:
+   This is an intermediate readiness check, not the final delivery certificate. It verifies validation and seals the distinct strict receipt used to move the current story-bound workflow to its configured `release` phase with a unique request ID:
 
    ```bash
    node <plugin-root>/bin/agentic-sdlc.mjs workflow instance transition \
@@ -894,5 +894,5 @@ Before claiming the SDLC is complete or a story is ready to merge:
 - verify completed story lanes have step records under `.sdlc/stories/<story-id>/steps/` when work is handed off;
 - verify activity reports, manifests, and trace compactions cite canonical source paths and do not use cache/index as evidence;
 - verify approvals include `approval_source` and do not treat implementation permission as artifact approval;
-- start the exact story-bound workflow before task start, complete each phase before entering the next, use ordinary strict `gate check` after validation, enter `release` before release evidence or terminal delivery, release the completed story claim before final certification, and require `gate check --strict --story <story-id> --lifecycle-complete` before claiming the SDLC complete;
+- start the exact story-bound workflow before task start, complete each phase before entering the next, use ordinary strict `gate check` after validation, enter `release` before release evidence or terminal delivery, transition to `operations` and complete its step after the release step, release the completed story claim before final certification, and require `gate check --strict --story <story-id> --lifecycle-complete` before claiming the SDLC complete;
 - report any errors or warnings instead of hiding them.
