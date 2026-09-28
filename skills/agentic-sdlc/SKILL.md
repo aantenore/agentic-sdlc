@@ -11,6 +11,10 @@ Use this skill to operate a stateless, contract-driven SDLC for a target project
 
 For a request to contextualize an existing project and produce a technical, functional, architecture, or product assessment, load `../agentic-sdlc-assessment/SKILL.md` and follow that dedicated journey. It is the product entry point for assessments and has exactly two normal plain-language checkpoints. The assessment proposal, budget, contract draft, route intent, write-set, and verification plan form one hash-bound execution tranche. Do not expand it into separate capability, template, contract, budget, and start questions.
 
+## Plugin Root
+
+`<plugin-root>` in this skill and its references is the installed plugin directory. Resolve the absolute path of this `SKILL.md`; the plugin root is exactly two directories above it. Run the plugin-local CLI as `node <plugin-root>/bin/agentic-sdlc.mjs`; never rely on a global `agentic-sdlc` command or mutate `PATH`.
+
 ## Core Rule
 
 Never store project contracts or project KB state inside the plugin installation. Treat the plugin as reusable method code only. Treat `<target-project>/.sdlc/` as the project source of truth. Treat `<target-project>/.sdlc/cache/` and `<target-project>/.sdlc/indexes/` as derived local optimization artifacts, never as canonical evidence.
