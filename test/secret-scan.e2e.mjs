@@ -90,7 +90,8 @@ test("a planted credential blocks the delivery and is never shown or stored in t
       [["src/client.js", 1, "github_token", "ghp_…"]],
     );
 
-    // The validation gate refuses the story while the finding stands.
+    // The validation gate refuses the story while the finding stands. This story
+    // has no workflow instance, so its story.json phase is the one the gate reads.
     const story = readJson(storyPath(project));
     writeJson(storyPath(project), { ...story, phase: "validation", status: "validation" });
     assert.ok(

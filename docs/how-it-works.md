@@ -554,7 +554,10 @@ a scan take longer than the text it reads.
 
 `gate_policy.secret_scan.enabled` turns the check into a gate: a story in
 validation then needs a record whose outcome is `clean` for the current head,
-and an older record proves nothing about the content being validated now. The
+and an older record proves nothing about the content being validated now. A
+story bound to a workflow instance is in validation when the instance is, since
+transitions never rewrite `story.json`. The `--lifecycle-complete` gate checks
+the scan again, so a commit made after validation needs its own clean scan. The
 flag is read as an explicit `true`. A project that never declared it keeps the
 gate it agreed to, because a plugin update that silently starts blocking
 deliveries would break the promise that project policy changes only through a

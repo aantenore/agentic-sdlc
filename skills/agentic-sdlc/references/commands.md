@@ -843,7 +843,7 @@ node bin/agentic-sdlc.mjs secret scan --root <project> --story ST-001 --base mai
 
 `--base` defaults to the commit the story's task start recorded and `--head` to the current `HEAD`. A story whose work is not committed yet is scanned from the uncommitted workspace, and a local release with neither falls back to the story's approved write paths.
 
-Findings are reported as the rule, the file, the line, and at most four leading characters of the match; the matched value is never printed or stored. A clean scan exits `0` and a scan with findings exits `1`. When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head. Rules come from `gate_policy.secret_scan.rules` merged over the shipped defaults by `id`, and `gate_policy.secret_scan.exclude_paths` lists path globs to leave out.
+Findings are reported as the rule, the file, the line, and at most four leading characters of the match; the matched value is never printed or stored. A clean scan exits `0` and a scan with findings exits `1`. When `gate_policy.secret_scan.enabled` is `true`, a story in validation (the bound workflow instance's current phase, or `story.json` for a story without one) needs a record whose outcome is `clean` for the current head, and `gate check --strict --lifecycle-complete` requires the same for the head it certifies. Rules come from `gate_policy.secret_scan.rules` merged over the shipped defaults by `id`, and `gate_policy.secret_scan.exclude_paths` lists path globs to leave out.
 
 ## Record Incidents And Feedback
 

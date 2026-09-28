@@ -706,7 +706,7 @@ The dedicated assessment journey remains the exception described above: it packa
      --story ST-001
    ```
 
-   When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head, so run the scan again after every change to the delivery. Remove and rotate any credential the scan reports; never paste the matched value into a trace, a summary, or a commit message.
+   When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head, and the lifecycle-complete gate requires one for the head it certifies, so run the scan again after every change to the delivery. Remove and rotate any credential the scan reports; never paste the matched value into a trace, a summary, or a commit message.
 
    Before a pull request merges, a reviewer who authored none of its commits records a review of the current head. `review record` reads the head commit from the repository and the reviewer's Git identity from the local Git configuration, and writes a `code-review:v1` record under `.sdlc/reviews/`:
 

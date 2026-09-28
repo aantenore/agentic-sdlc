@@ -241,7 +241,10 @@ and credential literals assigned to an `api_key`, `secret`, `token`, or
 
 When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a
 `secret-scan:v1` record whose outcome is `clean` for the project's current head,
-and the validation gate reports an error otherwise. The flag is read as an
+and the validation gate reports an error otherwise. For a story bound to a
+workflow instance, the instance's current phase decides whether the story is in
+validation. The `--lifecycle-complete` gate requires the same clean record for
+the head it certifies, so commits made after validation are scanned too. The flag is read as an
 explicit `true`: a project whose configuration never declared it keeps the gate
 it agreed to, and adopts the check by initializing from the current template or
 migrating through `config migrate`.
