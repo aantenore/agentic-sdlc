@@ -117,8 +117,14 @@ test("catalog options and explicit compatibility options remain accepted by the 
   const compatibility = mustRun(["help", "--strict", "--allow-unapproved-contract-output", "--json"]);
   assert.equal(JSON.parse(compatibility.stdout).schema_version, "agentic-sdlc-help-v1");
   const unknown = run(["help", "--definitely-unknown"]);
-  assert.equal(unknown.status, 1);
+  assert.equal(unknown.status, 2);
   assert.match(unknown.stderr, /Unknown option --definitely-unknown/u);
+
+  for (const retired of ["--breakdown", "--budget-ref", "--release-target", "--requirement-title"]) {
+    const refused = run(["status", retired, "value"]);
+    assert.equal(refused.status, 2, retired);
+    assert.match(refused.stderr, new RegExp(`Unknown option ${retired}`, "u"));
+  }
 });
 
 test("config recovery uses catalog mutation intent for conditional report writers", () => {

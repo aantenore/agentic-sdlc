@@ -42,6 +42,27 @@ test("an unresolvable command or option exits 2", () => {
   const unknownChild = run(["requirement", "definitely-not-a-subcommand"]);
   assert.equal(unknownChild.status, 2, unknownChild.stderr);
 
+  for (const args of [
+    ["status", "--bogus"],
+    ["status", "--root"],
+    ["status", "--json", "--json"],
+    ["status", "--json=maybe"],
+    ["status", "--locale", "fr"],
+    ["status", "stray-argument"],
+    ["gate", "check", "ST-NAMED-AS-POSITIONAL"],
+    ["completion"],
+    ["preset", "show"],
+    ["preset", "export"],
+    ["preset", "definitely-not-a-subcommand"],
+  ]) {
+    const usage = run([...args, "--json"]);
+    assert.equal(usage.status, 2, `${args.join(" ")}\n${usage.stderr}`);
+    if (!args.some((arg) => arg.startsWith("--json"))) {
+      assert.equal(JSON.parse(usage.stderr).error.code, "USAGE_ERROR", args.join(" "));
+    }
+  }
+  assert.equal(JSON.parse(run(["definitely-not-a-command", "--json"]).stderr).error.code, "USAGE_ERROR");
+
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "sdlc-exit-preset-"));
   const preset = path.join(directory, "unsafe.json");
   fs.writeFileSync(preset, `${JSON.stringify({ authorization: "AUTH-NOT-ALLOWED" })}\n`, "utf8");
@@ -66,11 +87,23 @@ test("a request refused on its merits exits 1", () => {
 test("a failure whose details are withheld does not disclose its category", () => {
   // The redacted path deliberately refuses to say what went wrong. The exit
   // code must not say it either, so it collapses to the broadest category.
+  const directory = temporaryProject("withheld");
+  try {
+    // An unreadable privacy configuration is what withholds details; an
+    // absent --root is reported plainly because there is nothing to protect.
+    fs.writeFileSync(path.join(directory, ".sdlc", "config.json"), "{ \"observability\": ", "utf8");
+    const withheld = run(["definitely-not-a-command", "--root", directory]);
+    assert.equal(withheld.status, 1, withheld.stderr || withheld.stdout);
+    assert.match(withheld.stderr, /withheld/u);
+  } finally {
+    fs.rmSync(directory, { force: true, recursive: true });
+  }
+
   const absent = path.join(os.tmpdir(), "sdlc-exit-absent-project-xyz");
   fs.rmSync(absent, { force: true, recursive: true });
-  const withheld = run(["status", "--root", absent]);
-  assert.equal(withheld.status, 1, withheld.stderr || withheld.stdout);
-  assert.match(withheld.stderr, /withheld/u);
+  const missingRoot = run(["status", "--root", absent]);
+  assert.equal(missingRoot.status, 1, missingRoot.stderr || missingRoot.stdout);
+  assert.match(missingRoot.stderr, /Project root does not exist/u);
 });
 
 test("the published contract is documented where operators look for it", () => {

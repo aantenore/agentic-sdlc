@@ -557,7 +557,7 @@ function humanApproval(summary) {
 
 function runCli(args) {
   const environment = { ...process.env };
-  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID"]) {
+  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID", "CLAUDECODE", "AGENTIC_SDLC_AGENT_HOST"]) {
     delete environment[key];
   }
   return spawnSync(process.execPath, [CLI, ...args], {

@@ -701,17 +701,19 @@ The dedicated assessment journey remains the exception described above: it packa
    Replace `discovery-note` with the exact type required by the approved
    contract. Every `--type <type>` passed to `story complete-step` requires the
    same `--allow-artifact-type <type>` on that step's grant; omit it only when
-   the completion passes no `--type`.
+   the completion passes no `--type`. `<host-agent>` names the agent running
+   this skill (`codex` or `claude-code`); when a command omits `--actor` and
+   `--agent`, the CLI detects the host from its environment.
 
    ```bash
-   node <plugin-root>/bin/agentic-sdlc.mjs story claim --root <target-project> --id ST-001 --agent codex --branch feature/ST-001 --thread-id <thread-id> --authorization AUTH-ST-001-CLAIM
+   node <plugin-root>/bin/agentic-sdlc.mjs story claim --root <target-project> --id ST-001 --agent <host-agent> --branch feature/ST-001 --thread-id <thread-id> --authorization AUTH-ST-001-CLAIM
    ```
 
 15. Capture durable autonomy decisions, assumptions, risks, tests, handoffs, sync/push/PR events, dependency revalidation, and release evidence as traces. Include requirement/profile, delivery/profile, requested/effective level, and deterministic reason-code references. Strict gates require `test` and `release` traces to include real evidence paths outside cache/index directories and explicit successful outcomes (`passed` for tests; `ready` or `passed` for release). A local release also requires target-bound smoke-test evidence and its rollback procedure:
 
    ```bash
-   node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type decision --summary "..." --actor codex --actor-type agent
-   node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type implementation --summary "Codex implemented the requested change" --actor codex --actor-type agent --requested-by antonioantenore --requested-by-type human --request-summary "User-requested change"
+   node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type decision --summary "..." --actor <host-agent> --actor-type agent
+   node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type implementation --summary "Implemented the requested change" --actor <host-agent> --actor-type agent --requested-by antonioantenore --requested-by-type human --request-summary "User-requested change"
    node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type implementation --summary "Added the requested launcher" --input-summary "Approved contract" --output-summary "Installed launcher" --rationale-summary "Keep evidence local" --alternative "Hosted dashboard" --explanation "The installed plugin now opens recorded project lineage locally." --explanation-kind codex-generated
    node <plugin-root>/bin/agentic-sdlc.mjs trace append --root <target-project> --story ST-001 --type test --outcome passed --summary "Tests passed" --evidence .sdlc/tests/ST-001-test-run.json
    node <plugin-root>/bin/agentic-sdlc.mjs sync record --root <target-project> --story ST-001 --event push --summary "Pushed feature/ST-001"

@@ -155,7 +155,7 @@ test("unsupported runtime fails before CLI dispatch and benchmark argument parsi
     assert.equal(cli.status, 4);
     assert.equal(cli.stdout, "");
     const cliError = JSON.parse(cli.stderr);
-    assert.equal(cliError.error.code, "USER_ERROR");
+    assert.equal(cliError.error.code, "UNSUPPORTED_NODE_RUNTIME");
     assert.equal(
       cliError.error.message,
       `Serve ${NODE_RUNTIME_REQUIREMENT}; rilevato Node.js ${UNSUPPORTED_NODE_VERSION}. Aggiorna Node.js prima di usare Agentic SDLC.`,
