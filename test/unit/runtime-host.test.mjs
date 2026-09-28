@@ -4,7 +4,7 @@ import realFs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { currentHost, Date as HostDate, fs, process as hostProcess, setHost } from "../../lib/runtime/host.mjs";
+import { currentHost, Date as HostDate, fs, fsPromises, process as hostProcess, setHost } from "../../lib/runtime/host.mjs";
 import { PLUGIN_ROOT } from "../../lib/runtime/paths.mjs";
 import { now, uniqueRecordSuffix } from "../../lib/engine/common.mjs";
 import { hashFile, readProjectJson } from "../../lib/engine/storage.mjs";
@@ -99,4 +99,82 @@ test("setHost restores the previous host even when overrides are nested", () => 
   assert.equal(HostDate.now(), 1);
   outer();
   assert.ok(HostDate.now() > 1_000_000_000_000);
+});
+
+test("a method kept aside before setHost still follows the host in effect", async () => {
+  const { readFileSync } = fs;
+  const { readFile } = fsPromises;
+  const fakeFs = { ...realFs, readFileSync: () => "fake sync" };
+  const fakePromises = { ...realFs.promises, readFile: async () => "fake async" };
+  await withHost({ fs: fakeFs, fsPromises: fakePromises }, async () => {
+    assert.equal(readFileSync("anything"), "fake sync");
+    assert.equal(await readFile("anything"), "fake async");
+  });
+  const packageJson = path.join(PLUGIN_ROOT, "package.json");
+  assert.equal(readFileSync(packageJson, "utf8"), realFs.readFileSync(packageJson, "utf8"));
+});
+
+// Blank comments and string/template text, keeping ${} expressions, so a word
+// that only appears in prose or a literal does not count as a use.
+function codeOnly(source) {
+  let out = "";
+  const stack = [];
+  for (let i = 0; i < source.length;) {
+    const c = source[i];
+    if (stack.at(-1) === "`") {
+      if (c === "\\") { i += 2; continue; }
+      if (c === "`") { stack.pop(); i += 1; continue; }
+      if (source.startsWith("${", i)) { stack.push("{"); i += 2; continue; }
+      i += 1;
+      continue;
+    }
+    if (source.startsWith("//", i)) { const end = source.indexOf("\n", i); i = end < 0 ? source.length : end; continue; }
+    if (source.startsWith("/*", i)) { const end = source.indexOf("*/", i + 2); i = end < 0 ? source.length : end + 2; continue; }
+    if (c === "'" || c === "\"") {
+      let j = i + 1;
+      while (j < source.length && source[j] !== c) j += source[j] === "\\" ? 2 : 1;
+      out += " ";
+      i = j + 1;
+      continue;
+    }
+    if (c === "`") { stack.push("`"); i += 1; continue; }
+    if (c === "{" && stack.length > 0) stack.push("{");
+    if (c === "}" && stack.at(-1) === "{") stack.pop();
+    out += c;
+    i += 1;
+  }
+  return out;
+}
+
+function sourceModules() {
+  const files = [path.join(PLUGIN_ROOT, "bin", "agentic-sdlc.mjs")];
+  const visit = (dir) => {
+    for (const entry of realFs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) visit(full);
+      else if (entry.name.endsWith(".mjs")) files.push(full);
+    }
+  };
+  visit(path.join(PLUGIN_ROOT, "lib"));
+  const host = path.join(PLUGIN_ROOT, "lib", "runtime", "host.mjs");
+  return files.filter((file) => file !== host).sort();
+}
+
+test("every module reaches files, processes, the OS, randomness, and the clock through the host", () => {
+  const offenders = [];
+  for (const file of sourceModules()) {
+    const source = realFs.readFileSync(file, "utf8");
+    const relative = path.relative(PLUGIN_ROOT, file);
+    const direct = source.match(/from\s+"node:(?:fs|fs\/promises|child_process|os|crypto)"/gu);
+    if (direct) offenders.push(`${relative}: imports ${direct.join(", ")} directly`);
+    const hostImport = source.match(/import\s*\{([^}]*)\}\s*from\s*"[^"]*runtime\/host\.mjs"/u);
+    const imported = new Set((hostImport?.[1] ?? "").split(",").map((name) => name.trim().split(/\s+as\s+/u)[0]).filter(Boolean));
+    const code = codeOnly(source);
+    for (const name of ["Date", "console", "process"]) {
+      if (new RegExp(`(?<![.\\w$])${name}(?![\\w$])`, "u").test(code) && !imported.has(name)) {
+        offenders.push(`${relative}: uses the global ${name} instead of the host`);
+      }
+    }
+  }
+  assert.deepEqual(offenders, []);
 });
