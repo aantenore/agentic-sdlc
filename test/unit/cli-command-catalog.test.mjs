@@ -367,12 +367,19 @@ test("phase and step help lists every shipped default phase, including operation
 test("formal approval commands advertise the approver options their handlers require", () => {
   for (const command of ["breakdown approve", "dependency approve", "autonomy delivery revoke", "autonomy delivery close"]) {
     const flags = new Map(listOptions(command, { includeGlobal: false }).map((entry) => [entry.flag, entry]));
-    assert.equal(flags.get("--actor-type")?.required, true, `${command} --actor-type`);
+    // Closing as ready_for_review is bound to verified PR evidence under the
+    // already approved profile, so only the other terminal states need an approver.
+    if (command === "autonomy delivery close") {
+      assert.match(flags.get("--actor-type")?.required_when?.en ?? "", /ready_for_review/u, `${command} --actor-type`);
+    } else {
+      assert.equal(flags.get("--actor-type")?.required, true, `${command} --actor-type`);
+    }
     assert.ok(flags.get("--approval-source")?.required_when, `${command} --approval-source`);
     assert.ok(flags.get("--approval-evidence"), `${command} --approval-evidence`);
     const node = findCommand(command);
     assert.match(node.usage, /--actor-type/u, command);
     for (const example of node.examples || []) {
+      if (/--terminal-status ready_for_review/u.test(example)) continue;
       assert.match(example, /--actor-type human --approval-source explicit-user/u, `${command}: ${example}`);
     }
   }
