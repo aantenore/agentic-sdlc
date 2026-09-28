@@ -1,12 +1,68 @@
 # Getting Started
 
-Agentic SDLC lets you ask Codex for an outcome in normal language while a deterministic CLI checks that the agreed requirement, files, tools, delivery target, limits, and evidence remain consistent.
+Agentic SDLC lets you ask Codex or Claude Code for an outcome in normal language while a deterministic CLI checks that the agreed requirement, files, tools, delivery target, limits, and evidence remain consistent.
 
-You do not need to create record IDs, write JSON, choose CLI commands, or understand hashes before asking for work. Codex handles the conversation; the CLI handles deterministic validation and state changes.
+You do not need to create record IDs, write JSON, choose CLI commands, or understand hashes before asking for work. The agent host handles the conversation; the CLI handles deterministic validation and state changes.
+
+## Try It In Five Minutes
+
+Prerequisites: Node.js **18.20.3–18.x, 20.12.0–20.x, or 21.6.0+** and Git.
+
+**1. Install the plugin.**
+
+In Claude Code:
+
+```bash
+/plugin marketplace add aantenore/agentic-sdlc
+/plugin install agentic-sdlc@aantenore
+/agentic-sdlc:doctor
+```
+
+In Codex, follow the installer steps in the [README Quick Start](../README.md#codex).
+`doctor` should report a usable runtime; see
+[Claude Code Installation](claude-code-install.md) if it does not.
+
+**2. Create a disposable project.** Nothing touches a real repository while you
+experiment:
+
+```bash
+mkdir sdlc-trial && cd sdlc-trial && git init
+```
+
+Open that folder in a new Claude Code session or Codex task.
+
+**3. Initialize the lifecycle.** Ask:
+
+```text
+Initialize Agentic SDLC in this project with the default workflow.
+```
+
+The project gains a `.sdlc/` directory holding the configured phases and every
+record created from now on. `/agentic-sdlc:status` (or asking
+`What is the next safe step?`) shows where the project stands.
+
+**4. Run one small result end to end.** Use the local-only starter, so nothing is
+pushed, published, or deployed:
+
+```text
+Build and verify this result only on my local machine. Do not push, open a pull request, deploy, or use production.
+Implement a configurable trip-policy module that rejects trips above a cost limit, with tests.
+```
+
+The agent proposes a requirement and an implementation agreement and waits for
+your approval of each before writing code. The full journey, stage by stage,
+is in [Walk Through One Complete First Project](#walk-through-one-complete-first-project).
+
+In Claude Code the same starters are available as slash commands:
+`/agentic-sdlc:assess`, `/agentic-sdlc:deliver`, `/agentic-sdlc:continue-pr`,
+`/agentic-sdlc:local`, `/agentic-sdlc:observe`, and `/agentic-sdlc:status`.
+
+To remove the trial, delete the `sdlc-trial` directory: every record the trial
+created lives in its `.sdlc/` directory.
 
 ## Choose A Starting Request
 
-Open the target project in a new Codex task and use the request that matches your intended result.
+Open the target project in a new Codex task or Claude Code session and use the request that matches your intended result.
 
 | I want to... | Ask Codex... |
 | --- | --- |
