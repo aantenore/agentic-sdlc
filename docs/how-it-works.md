@@ -537,9 +537,13 @@ authentication table.
 Redaction protects what the CLI records. It says nothing about the files a
 delivery changed, so a credential committed into the source is still a
 credential. `secret scan` closes that gap: it resolves the files between the
-delivery's base and head, reads them inside the project path-safety boundary,
-matches them against the project's rule set, and writes a `secret-scan:v1`
-record under `.sdlc/security/`.
+delivery's base and head, plus the uncommitted work in the working tree, reads
+them inside the project path-safety boundary, matches them against the
+project's rule set, and writes a `secret-scan:v1` record under
+`.sdlc/security/`. The record binds the working-tree state it read, so an edit
+made after the scan needs a new one. A committed file the working tree has
+changed since is also read as the head holds it, so an uncommitted edit cannot
+hide a credential the delivery committed.
 
 A finding names the rule, the file, and the line, and keeps at most four
 leading characters of the match. The matched value is never printed, returned,
@@ -554,7 +558,12 @@ a scan take longer than the text it reads.
 
 `gate_policy.secret_scan.enabled` turns the check into a gate: a story in
 validation then needs a record whose outcome is `clean` for the current head,
-and an older record proves nothing about the content being validated now. The
+and an older record proves nothing about the content being validated now.
+Only a record whose range starts at the task-start commit, or earlier, counts,
+so a later scan over a narrower range cannot replace a finding. A
+story bound to a workflow instance is in validation when the instance is, since
+transitions never rewrite `story.json`. The `--lifecycle-complete` gate checks
+the scan again, so a commit made after validation needs its own clean scan. The
 flag is read as an explicit `true`. A project that never declared it keeps the
 gate it agreed to, because a plugin update that silently starts blocking
 deliveries would break the promise that project policy changes only through a

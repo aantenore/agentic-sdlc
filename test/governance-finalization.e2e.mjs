@@ -1875,6 +1875,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--evidence", testEvidence,
     "--authorization", fixture.storyActionAuthorizationId,
   ], project);
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
 
   const strictReport = mustRunJson([
     "gate", "check",
@@ -2135,6 +2136,8 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--requirement", fixture.requirementId,
     "--authorization", fixture.storyActionAuthorizationId,
   ], project);
+  // The changed artifact is uncommitted work the last scan did not read.
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
   const artifactRelinkedStatus = mustRunJson([
     "status", "--root", project,
   ], project);
@@ -2439,6 +2442,8 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--summary", "Operations tracking acknowledged; no incidents or feedback yet",
     "--authorization", fixture.storyActionAuthorizationId,
   ], project);
+  // The local release wrote into the working tree, which the certification scan must cover.
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
 
   mustFail([
     "gate", "check",
@@ -2886,6 +2891,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "certified-runtime-link",
   );
   fs.symlinkSync("tracked-runtime.md", certifiedSymlinkPath);
+  mustRun(["secret", "scan", "--root", certifiedSymlinkProject, "--story", fixture.storyId], certifiedSymlinkProject);
   const certifiedSymlinkReport = mustRunJson([
     "gate", "check",
     "--root", certifiedSymlinkProject,
@@ -3274,6 +3280,8 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "utf8",
   );
   assert.equal(finalReceiptIsValid(legacyFreshnessProject), false);
+  // Resealing certifies the committed head, which the earlier scan never saw.
+  mustRun(["secret", "scan", "--root", legacyFreshnessProject, "--story", fixture.storyId], legacyFreshnessProject);
   const resealedFreshness = mustRunJson([
     "gate", "check",
     "--root", legacyFreshnessProject,
@@ -3505,6 +3513,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   assert.equal(relinkedWithoutResealStatus.final_receipt_exists, true);
   assert.equal(relinkedWithoutResealStatus.final_receipt_valid, false);
 
+  mustRun(["secret", "scan", "--root", resurrectionProject, "--story", fixture.storyId], resurrectionProject);
   const resealedResurrectionReport = mustRunJson([
     "gate", "check",
     "--root", resurrectionProject,
@@ -4115,6 +4124,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   assert.deepEqual(readJson(project, claimPath), claimBeforeDowngradeReplay);
 
   appendTrace(project, fixture.storyId, "test", "passed", testEvidence);
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
   const recoveredFreshnessReport = mustRunJson([
     "gate", "check",
     "--root", project,
@@ -4572,4 +4582,158 @@ test("the latest failed test or release trace overrides an older passing attempt
     "--summary", "Release uses the newest passing attempt",
     "--evidence", releaseEvidence,
   ], project);
+});
+
+test("a credential committed during a governed workflow blocks the validation gate and the release transition", () => {
+  const project = temporaryProject("secret-scan-workflow");
+  const workflowInstanceId = "delivery-secret-scan";
+  // Assembled at runtime so the repository itself never holds a token-shaped literal.
+  const plantedToken = ["gh", "p_", "A1b2C3d4E5f6G7h8I9j0KlMnOpQrStUvWxYz".slice(0, 36)].join("");
+  const fixture = createGovernedDeliveryStory(project, {
+    suffix: "SECRET-GATE",
+    allowedWritePaths: ["docs", "src"],
+    storyActionUses: 8,
+    beforeTaskStart: ({ storyId }) => {
+      mustRun([
+        "workflow", "instance", "start",
+        "--root", project,
+        "--id", workflowInstanceId,
+        "--definition", "software-project",
+        "--definition-version", "3",
+        "--story", storyId,
+        "--actor", "workflow-e2e-ci",
+        "--actor-type", "ci",
+      ], project);
+    },
+  });
+  const taskStartBase = readJson(
+    project,
+    `.sdlc/stories/${fixture.storyId}/task-start.json`,
+  ).audit.git.head_sha;
+
+  writeProjectFile(project, "src/client.mjs", `export const auth = "${plantedToken}";\n`);
+  mustGit(project, ["add", "src/client.mjs"]);
+  mustGit(project, ["commit", "-m", "feat: add the booking client"]);
+  const artifact = writeProjectFile(
+    project,
+    "docs/implementation-summary.md",
+    "# Implementation summary\n\nThe booking client is implemented.\n",
+  );
+  mustRun([
+    "output", "link",
+    "--root", project,
+    "--story", fixture.storyId,
+    "--type", "implementation-summary",
+    "--artifact", artifact,
+    "--template", "implementation-summary-v1",
+    "--mode", "new",
+    "--requirement", fixture.requirementId,
+    "--authorization", fixture.storyActionAuthorizationId,
+  ], project);
+  const phases = ["discovery", "analysis", "design", "implementation", "validation"];
+  for (const [index, step] of phases.slice(0, -1).entries()) {
+    mustRun([
+      "story", "complete-step",
+      "--root", project,
+      "--id", fixture.storyId,
+      "--step", step,
+      "--summary", `${step} completed against the approved boundary`,
+      ...(step === "implementation" ? ["--type", "implementation-summary"] : []),
+      "--authorization", fixture.storyActionAuthorizationId,
+    ], project);
+    mustRun([
+      "workflow", "instance", "transition",
+      "--root", project,
+      "--id", workflowInstanceId,
+      "--to", phases[index + 1],
+      "--request-id", `secret-gate-${index + 1}`,
+      "--actor", "workflow-e2e-ci",
+      "--actor-type", "ci",
+    ], project);
+  }
+  const testEvidence = writeProjectFile(project, ".sdlc/tests/ST-SECRET-GATE-test.json", "{\"passed\":true}\n");
+  appendTrace(project, fixture.storyId, "test", "passed", testEvidence);
+  mustRun([
+    "story", "complete-step",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--step", "validation",
+    "--summary", "Validation completed with a passing test",
+    "--evidence", testEvidence,
+    "--authorization", fixture.storyActionAuthorizationId,
+  ], project);
+  // story.json keeps the phase it was created with; the workflow instance is
+  // the only record of where the story is now.
+  assert.equal(readJson(project, `.sdlc/stories/${fixture.storyId}/story.json`).phase, "implementation");
+
+  const strictGate = ["gate", "check", "--root", project, "--strict", "--story", fixture.storyId, "--json"];
+  mustFail(strictGate, project, /in validation but has no secret scan for the current project state/u);
+
+  const found = run(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
+  assert.equal(found.status, 1, found.stderr || found.stdout);
+  assert.ok(!found.stdout.includes(plantedToken));
+  mustFail(strictGate, project, /secret scan .* found 1 credential match\(es\) in src\/client\.mjs/u);
+
+  // A narrower range that excludes the committed credential cannot replace the finding.
+  const narrow = mustRunJson([
+    "secret", "scan", "--root", project, "--story", fixture.storyId, "--base", "HEAD",
+  ], project);
+  assert.equal(narrow.secret_scan.outcome, "clean");
+  assert.equal(narrow.secret_scan.scanned_paths.includes("src/client.mjs"), false);
+  assert.equal(narrow.covers_delivery_base, false);
+  mustFail(strictGate, project, /credential match\(es\) in src\/client\.mjs/u);
+
+  mustFail([
+    "workflow", "instance", "transition",
+    "--root", project,
+    "--id", workflowInstanceId,
+    "--to", "release",
+    "--request-id", "secret-gate-release-blocked",
+    "--actor", "workflow-e2e-ci",
+    "--actor-type", "ci",
+  ], project, /cannot use the intermediate strict gate/u);
+
+  writeProjectFile(project, "src/client.mjs", "export const auth = process.env.BOOKING_TOKEN;\n");
+  mustGit(project, ["add", "src/client.mjs"]);
+  mustGit(project, ["commit", "-m", "fix: read the booking credential from the environment"]);
+  const clean = mustRunJson(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
+  assert.equal(clean.secret_scan.outcome, "clean");
+  assert.equal(clean.secret_scan.base_sha, taskStartBase);
+  assert.ok(clean.secret_scan.scanned_paths.includes("src/client.mjs"));
+  const passed = mustRunJson(["gate", "check", "--root", project, "--strict", "--story", fixture.storyId], project);
+  assert.equal(passed.status, "passed");
+  assert.ok(passed.checked.includes(`secret scan ${clean.secret_scan.id}`));
+
+  // Uncommitted work is scanned with the committed range, and a scan only
+  // vouches for the working tree it read.
+  writeProjectFile(project, "src/wip.mjs", `export const wip = "${plantedToken}";\n`);
+  mustFail(strictGate, project, /has no secret scan for the current project state/u);
+  const dirty = run(["secret", "scan", "--root", project, "--story", fixture.storyId, "--json"], project);
+  assert.equal(dirty.status, 1, dirty.stderr || dirty.stdout);
+  const dirtyRecord = JSON.parse(dirty.stdout).secret_scan;
+  assert.equal(dirtyRecord.source, "git_range");
+  assert.equal(dirtyRecord.base_sha, taskStartBase);
+  assert.deepEqual(dirtyRecord.findings.map((finding) => finding.path), ["src/wip.mjs"]);
+  mustFail(strictGate, project, /credential match\(es\) in src\/wip\.mjs/u);
+  fs.rmSync(path.join(project, "src", "wip.mjs"));
+  mustRunJson(["gate", "check", "--root", project, "--strict", "--story", fixture.storyId], project);
+  mustRun([
+    "workflow", "instance", "transition",
+    "--root", project,
+    "--id", workflowInstanceId,
+    "--to", "release",
+    "--request-id", "secret-gate-release",
+    "--actor", "workflow-e2e-ci",
+    "--actor-type", "ci",
+  ], project);
+
+  // A credential committed after validation is caught by the lifecycle-complete gate.
+  writeProjectFile(project, "src/late.mjs", `export const late = "${plantedToken}";\n`);
+  mustGit(project, ["add", "src/late.mjs"]);
+  mustGit(project, ["commit", "-m", "feat: add a late change"]);
+  const lifecycle = mustFail([
+    "gate", "check", "--root", project, "--strict", "--story", fixture.storyId,
+    "--lifecycle-complete", "--json",
+  ], project, /no secret scan for the current project state/u);
+  assert.ok(!lifecycle.stdout.includes(plantedToken));
 });
