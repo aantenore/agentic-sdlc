@@ -45,7 +45,7 @@ function cloneTemporaryProject(source, label) {
 
 function run(args, project, options = {}) {
   const env = { ...process.env };
-  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID"]) {
+  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID", "CLAUDECODE", "AGENTIC_SDLC_AGENT_HOST"]) {
     delete env[key];
   }
   Object.assign(env, options.env || {});
@@ -60,7 +60,7 @@ function run(args, project, options = {}) {
 
 function runConcurrently(args, project, envOverrides = {}) {
   const env = { ...process.env, ...envOverrides };
-  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID"]) {
+  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID", "CLAUDECODE", "AGENTIC_SDLC_AGENT_HOST"]) {
     delete env[key];
   }
   return new Promise((resolve, reject) => {

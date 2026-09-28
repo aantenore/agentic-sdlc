@@ -512,13 +512,17 @@ node bin/agentic-sdlc.mjs contract create \
 
 ## Create And Claim Story
 
+`<host-agent>` is the agent running the plugin (`codex` or `claude-code`).
+Without `--actor` or `--agent`, the CLI detects the host from its environment;
+set `AGENTIC_SDLC_AGENT_HOST` to choose one explicitly.
+
 ```bash
 node bin/agentic-sdlc.mjs story create --root <project> --id ST-001 --title "Implement a business workflow" --requirement REQ-001 --acceptance "<observable story-level success criterion>"
 node bin/agentic-sdlc.mjs task start --root <project> --story ST-001 --intent-json '<normalized implement_story intent>' --confirm-start --actor-type human
-node bin/agentic-sdlc.mjs story claim --root <project> --id ST-001 --agent codex --branch feature/ST-001 --thread-id <codex-thread-id>
+node bin/agentic-sdlc.mjs story claim --root <project> --id ST-001 --agent <host-agent> --branch feature/ST-001 --thread-id <host-thread-id>
 node bin/agentic-sdlc.mjs story complete-step --root <project> --id ST-001 --step functional-analysis --type functional-analysis --summary "Functional review complete"
 node bin/agentic-sdlc.mjs story prepare-handoff --root <project> --id ST-001 --to-agent implementation-agent --release-claim --summary "Ready for implementation"
-node bin/agentic-sdlc.mjs story release --root <project> --id ST-001 --agent codex --reason "Work handed off"
+node bin/agentic-sdlc.mjs story release --root <project> --id ST-001 --agent <host-agent> --reason "Work handed off"
 ```
 
 For a `supervised` delivery whose exact profile checkpoints both
@@ -551,7 +555,7 @@ node bin/agentic-sdlc.mjs authorization grant \
 node bin/agentic-sdlc.mjs story claim \
   --root <project> \
   --id ST-001 \
-  --agent codex \
+  --agent <host-agent> \
   --branch feature/ST-001 \
   --authorization AUTH-ST-001-CLAIM
 
@@ -887,8 +891,8 @@ The reviewed head commit and the base commit are read from the repository (the d
 ## Append Trace
 
 ```bash
-node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type test --outcome passed --summary "Unit tests passed" --evidence .sdlc/tests/ST-001-test-run.json --actor codex --actor-type agent
-node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type implementation --summary "Codex implemented a requested change" --actor codex --actor-type agent --requested-by antonioantenore --requested-by-type human --authorized-by antonioantenore --authorized-by-type human --request-summary "Implement the requested feature"
+node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type test --outcome passed --summary "Unit tests passed" --evidence .sdlc/tests/ST-001-test-run.json --actor <host-agent> --actor-type agent
+node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type implementation --summary "Implemented a requested change" --actor <host-agent> --actor-type agent --requested-by antonioantenore --requested-by-type human --authorized-by antonioantenore --authorized-by-type human --request-summary "Implement the requested feature"
 node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type implementation --summary "Added a local launcher" --input-summary "Approved contract" --output-summary "Installed observe command" --rationale-summary "Keep evidence local" --alternative "Hosted dashboard" --explanation "The plugin can now display recorded delivery lineage locally." --explanation-kind codex-generated
 ```
 

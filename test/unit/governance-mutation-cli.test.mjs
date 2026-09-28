@@ -36,7 +36,7 @@ function projectFixture(t, label) {
 
 function run(project, args) {
   const env = { ...process.env };
-  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID"]) delete env[key];
+  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID", "CLAUDECODE", "AGENTIC_SDLC_AGENT_HOST"]) delete env[key];
   const deterministicIdentityArgs = process.platform === "win32"
     ? ["--require", DETERMINISTIC_USER_INFO]
     : [];

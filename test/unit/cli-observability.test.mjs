@@ -33,6 +33,8 @@ function runCli(args, options = {}) {
     "GITHUB_ACTOR",
     "CODEX_AGENT_NAME",
     "CODEX_USER_ID",
+    "CLAUDECODE",
+    "AGENTIC_SDLC_AGENT_HOST",
     "NODE_OPTIONS",
   ]) {
     delete env[key];
@@ -55,6 +57,8 @@ function runCliAsync(args, options = {}) {
     "GITHUB_ACTOR",
     "CODEX_AGENT_NAME",
     "CODEX_USER_ID",
+    "CLAUDECODE",
+    "AGENTIC_SDLC_AGENT_HOST",
     "NODE_OPTIONS",
   ]) {
     delete env[key];

@@ -36,7 +36,7 @@ after(() => {
 
 function run(args, options = {}) {
   const env = { ...process.env };
-  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID"]) {
+  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID", "CLAUDECODE", "AGENTIC_SDLC_AGENT_HOST"]) {
     delete env[key];
   }
   Object.assign(env, options.env || {});
@@ -51,7 +51,7 @@ function run(args, options = {}) {
 
 function runAsync(args, options = {}) {
   const env = { ...process.env };
-  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID"]) {
+  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID", "CLAUDECODE", "AGENTIC_SDLC_AGENT_HOST"]) {
     delete env[key];
   }
   Object.assign(env, options.env || {});

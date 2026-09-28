@@ -7,7 +7,7 @@ Agentic SDLC 0.16.0 ships two host packagings from one source tree:
 | Codex | `.codex-plugin/plugin.json` | skills + agent cards (`skills/*/agents/openai.yaml`) | `scripts/install-personal-marketplace-v2.py` |
 | Claude Code | `.claude-plugin/plugin.json` | skills + slash commands (`commands/*.md`) | `/plugin marketplace add` |
 
-Both read the same `skills/`, the same JSON schemas, the same templates, and the same Node.js CLI under `bin/`. There is no host-specific fork of the lifecycle logic: the CLI owns every gate, receipt, and record, and the host only supplies the conversation.
+Both read the same `skills/`, the same JSON schemas, the same templates, and the same Node.js CLI under `bin/`. There is no host-specific fork of the lifecycle logic: the CLI owns every gate, receipt, and record, and the host only supplies the conversation. When a command names no `--actor` or `--agent`, the CLI attributes the record to the host it detects from the environment (`claude-code` when `CLAUDECODE` is set, `codex` otherwise); set `AGENTIC_SDLC_AGENT_HOST` to `codex` or `claude-code` to choose explicitly.
 
 ## Prerequisite
 
