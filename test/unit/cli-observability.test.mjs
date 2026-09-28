@@ -1056,3 +1056,28 @@ test("large evidence uses a validated manifest without reading the referenced ar
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
+
+test("an unusable --root reports the real cause instead of a privacy-configuration error", () => {
+  const project = initializedProject("root-diagnosis");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "agentic-sdlc-observability-root-"));
+  tempProjects.add(parent);
+  const link = path.join(parent, "linked-project");
+  fs.symlinkSync(project, link, "dir");
+  const file = path.join(parent, "not-a-folder.txt");
+  fs.writeFileSync(file, "x\n");
+  const missing = path.join(parent, "missing", "project");
+
+  for (const [root, message] of [
+    [missing, /^Project root does not exist: .*Create the folder or correct --root\.$/u],
+    [file, /^Project root is not a directory: .*Pass the project folder as --root\.$/u],
+    [link, /^Refusing to follow symlink inside the project boundary: /u],
+  ]) {
+    for (const command of ["status", "doctor", "init"]) {
+      const failure = mustFail([command, "--root", root, "--json"]);
+      assert.equal(failure.status, 1, `${command} ${root}\n${failure.stderr}`);
+      const payload = JSON.parse(failure.stderr);
+      assert.equal(payload.error.code, "USER_ERROR", `${command} ${root}`);
+      assert.match(payload.error.message, message, `${command} ${root}`);
+    }
+  }
+});

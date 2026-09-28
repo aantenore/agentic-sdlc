@@ -66,11 +66,23 @@ test("a request refused on its merits exits 1", () => {
 test("a failure whose details are withheld does not disclose its category", () => {
   // The redacted path deliberately refuses to say what went wrong. The exit
   // code must not say it either, so it collapses to the broadest category.
+  const directory = temporaryProject("withheld");
+  try {
+    // An unreadable privacy configuration is what withholds details; an
+    // absent --root is reported plainly because there is nothing to protect.
+    fs.writeFileSync(path.join(directory, ".sdlc", "config.json"), "{ \"observability\": ", "utf8");
+    const withheld = run(["definitely-not-a-command", "--root", directory]);
+    assert.equal(withheld.status, 1, withheld.stderr || withheld.stdout);
+    assert.match(withheld.stderr, /withheld/u);
+  } finally {
+    fs.rmSync(directory, { force: true, recursive: true });
+  }
+
   const absent = path.join(os.tmpdir(), "sdlc-exit-absent-project-xyz");
   fs.rmSync(absent, { force: true, recursive: true });
-  const withheld = run(["status", "--root", absent]);
-  assert.equal(withheld.status, 1, withheld.stderr || withheld.stdout);
-  assert.match(withheld.stderr, /withheld/u);
+  const missingRoot = run(["status", "--root", absent]);
+  assert.equal(missingRoot.status, 1, missingRoot.stderr || missingRoot.stdout);
+  assert.match(missingRoot.stderr, /Project root does not exist/u);
 });
 
 test("the published contract is documented where operators look for it", () => {

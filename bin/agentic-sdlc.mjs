@@ -933,6 +933,7 @@ import {
 } from "../lib/engine/capability.mjs";
 import {
   applyCliPresetOptions,
+  assertProjectRootDirectory,
   buildCliErrorPayload,
   buildContext,
   clearCache,
@@ -1283,6 +1284,7 @@ async function main() {
     }
 
     const resolvedRoot = path.resolve(String(parsed.options.root || process.cwd()));
+    assertProjectRootDirectory(resolvedRoot);
     const isIdentityRecovery = resolution?.canonical_action === "migration.identity"
       && parsed.options.recover === true;
     const identityMigrationLockPath = path.join(resolvedRoot, ".sdlc-identity-migration.lock");
