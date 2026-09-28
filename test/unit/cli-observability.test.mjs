@@ -1066,7 +1066,7 @@ test("an unusable --root reports the real cause instead of a privacy-configurati
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "agentic-sdlc-observability-root-"));
   tempProjects.add(parent);
   const link = path.join(parent, "linked-project");
-  fs.symlinkSync(project, link, "dir");
+  fs.symlinkSync(project, link, process.platform === "win32" ? "junction" : "dir");
   const file = path.join(parent, "not-a-folder.txt");
   fs.writeFileSync(file, "x\n");
   const missing = path.join(parent, "missing", "project");
