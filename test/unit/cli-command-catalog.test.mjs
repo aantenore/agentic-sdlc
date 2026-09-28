@@ -335,10 +335,18 @@ test("every group carries its own description instead of a placeholder", () => {
     assert.notEqual(group.description.en, "Related commands.", group.path_text);
     assert.notEqual(group.description.it, "Comandi correlati.", group.path_text);
   }
-  for (const subgroup of ["autonomy requirement", "workflow definition", "workflow instance", "workflow overlay"]) {
-    const node = findCommand(subgroup);
-    assert.equal(node.kind, "group", subgroup);
-    assert.notEqual(node.description.en, findCommand(node.path[0]).description.en, subgroup);
+  const subgroups = [];
+  const collect = (node) => {
+    for (const child of node.children || []) {
+      if (child.kind === "group" && node.kind === "group") subgroups.push([node, child]);
+      collect(child);
+    }
+  };
+  collect(COMMAND_CATALOG);
+  assert.ok(subgroups.some(([, child]) => child.path_text === "autonomy requirement"));
+  for (const [parent, child] of subgroups) {
+    assert.notEqual(child.description.en, parent.description.en, child.path_text);
+    assert.notEqual(child.description.it, parent.description.it, child.path_text);
   }
   assert.doesNotMatch(findCommand("autonomy requirement").description.en, /delivery/u);
 });
