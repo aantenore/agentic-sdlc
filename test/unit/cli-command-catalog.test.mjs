@@ -329,3 +329,16 @@ test("nearest command suggestions favor the same hierarchy", () => {
   );
   assert.throws(() => suggestCommand("status", { limit: 0 }), /between 1 and 10/u);
 });
+
+test("every group carries its own description instead of a placeholder", () => {
+  for (const group of COMMAND_CATALOG.children.filter((entry) => entry.kind === "group")) {
+    assert.notEqual(group.description.en, "Related commands.", group.path_text);
+    assert.notEqual(group.description.it, "Comandi correlati.", group.path_text);
+  }
+  for (const subgroup of ["autonomy requirement", "workflow definition", "workflow instance", "workflow overlay"]) {
+    const node = findCommand(subgroup);
+    assert.equal(node.kind, "group", subgroup);
+    assert.notEqual(node.description.en, findCommand(node.path[0]).description.en, subgroup);
+  }
+  assert.doesNotMatch(findCommand("autonomy requirement").description.en, /delivery/u);
+});
