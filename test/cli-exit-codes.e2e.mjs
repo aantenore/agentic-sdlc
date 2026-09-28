@@ -92,6 +92,7 @@ test("a blocked gate check exits 1 and the documented pipeline example treats it
   try {
     const blocked = run(["gate", "check", "--root", directory, "--story", "ST-ABSENT", "--json"]);
     assert.equal(blocked.status, 1, blocked.stderr || blocked.stdout);
+    assert.equal(JSON.parse(blocked.stdout).status, "failed");
   } finally {
     fs.rmSync(directory, { force: true, recursive: true });
   }
@@ -100,7 +101,7 @@ test("a blocked gate check exits 1 and the documented pipeline example treats it
   const example = /```bash\n(node "\$PLUGIN_CLI" gate check[\s\S]*?)```/u.exec(selfService);
   assert.ok(example, "docs/self-service-cli.md is missing the gate check pipeline example");
   assert.match(example[1], /^\s*1\) echo "blocked/mu);
-  assert.doesNotMatch(example[1], /^\s*3\)/mu);
+  assert.doesNotMatch(example[1], /^\s*3\) echo "blocked/mu);
 });
 
 function runAsync(args) {

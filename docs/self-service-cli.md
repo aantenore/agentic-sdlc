@@ -325,6 +325,7 @@ case $? in
   0) echo "ready" ;;
   1) echo "blocked; read the failing checks in the output" ;;
   2) echo "fix the invocation" ;;
+  3) echo "a governed write was refused; escalate to a person" ;;
   4) echo "repair the installation; run doctor" ;;
   *) echo "report it with the correlation ID" ;;
 esac
