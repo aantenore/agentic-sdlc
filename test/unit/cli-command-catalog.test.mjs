@@ -342,3 +342,16 @@ test("every group carries its own description instead of a placeholder", () => {
   }
   assert.doesNotMatch(findCommand("autonomy requirement").description.en, /delivery/u);
 });
+
+test("phase and step help lists every shipped default phase, including operations", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const template = JSON.parse(await readFile(new URL("../../templates/sdlc-config.json", import.meta.url), "utf8"));
+  for (const [command, flag] of [["incident record", "--phase"], ["story complete-step", "--step"]]) {
+    const entry = listOptions(command, { includeGlobal: false }).find((option) => option.flag === flag);
+    assert.ok(entry, `${command} ${flag}`);
+    for (const phase of template.phase_order) {
+      assert.match(entry.description.en, new RegExp(`\\b${phase}\\b`, "u"), `${command} ${flag} en: ${phase}`);
+      assert.match(entry.description.it, new RegExp(`\\b${phase}\\b`, "u"), `${command} ${flag} it: ${phase}`);
+    }
+  }
+});
