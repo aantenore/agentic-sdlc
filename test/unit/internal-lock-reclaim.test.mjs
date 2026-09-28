@@ -91,6 +91,31 @@ test("a waiter acting on an old verdict leaves the live lock that replaced the d
   assert.deepEqual(fs.readdirSync(root), ["resource.lock"]);
 });
 
+test("a dead lock that cannot be moved reports no progress so the waiter backs off", (t) => {
+  const { root, lockPath } = lockFixture(t);
+  writeDeadLock(lockPath, deadPid());
+  const realFs = currentHost().fs;
+  const restore = setHost({
+    fs: {
+      ...realFs,
+      renameSync(source, target) {
+        if (source === lockPath) {
+          const denied = new Error("simulated sharing violation");
+          denied.code = "EPERM";
+          throw denied;
+        }
+        return realFs.renameSync(source, target);
+      },
+    },
+  });
+  try {
+    assert.equal(governed(root, () => reclaimStaleInternalLock(lockPath)), false);
+  } finally {
+    restore();
+  }
+  assert.deepEqual(fs.readdirSync(root), ["resource.lock"]);
+});
+
 async function runLockRace(root, lockPath, workers) {
   const logPath = path.join(root, "critical-section.log");
   const startAt = Date.now() + 500;
