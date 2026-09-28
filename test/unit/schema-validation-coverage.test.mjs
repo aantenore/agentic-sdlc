@@ -72,6 +72,22 @@ function reachableSchemas(names, corpus) {
   return reachable;
 }
 
+
+// The CLI's implementation spans the entry point and the modules it was split
+// into; source assertions read all of it, so moving code between them does
+// not change what they check.
+function readCliImplementation(root) {
+  const files = [path.join(root, "bin/agentic-sdlc.mjs")];
+  for (const directory of ["lib/engine", "lib/lifecycle", "lib/cli"]) {
+    const absolute = path.join(root, directory);
+    if (!fs.existsSync(absolute)) continue;
+    for (const name of fs.readdirSync(absolute).sort()) {
+      if (name.endsWith(".mjs")) files.push(path.join(absolute, name));
+    }
+  }
+  return files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
+}
+
 test("every published schema is either reachable from code or listed as a known validation gap", () => {
   const names = schemaNames();
   const reachable = reachableSchemas(names, readSourceCorpus());
@@ -98,7 +114,7 @@ test("the known-gap list names only schemas that exist", () => {
 });
 
 test("the story claim and handoff contracts are validated on write", () => {
-  const cli = fs.readFileSync(path.join(repoRoot, "bin/agentic-sdlc.mjs"), "utf8");
+  const cli = readCliImplementation(repoRoot);
   assert.match(cli, /assertRecordSchema\(claim, "claim\.schema\.json"/u);
   assert.match(cli, /assertRecordSchema\(handoff, "handoff\.schema\.json"/u);
 });
