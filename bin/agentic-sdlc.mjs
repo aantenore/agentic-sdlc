@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 
-import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
-import childProcess from "node:child_process";
-import os from "node:os";
 import zlib from "node:zlib";
+// File system, child processes, OS, randomness, process, console and clock
+// come from the host seam, so every code path can run against test doubles.
+import {
+  childProcess,
+  console,
+  crypto,
+  Date,
+  fs,
+  os,
+  process,
+} from "../lib/runtime/host.mjs";
+import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
 import { fileURLToPath } from "node:url";
 import {
   formatSchemaErrors,
@@ -897,7 +905,6 @@ import {
   workflowVersionFromFileName,
 } from "../lib/lifecycle/workflow.mjs";
 
-const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGE_METADATA = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, "package.json"), "utf8"));
 const VERSION = String(PACKAGE_METADATA.version);
 const DEFAULT_TEMPLATE_DIR = path.join(PLUGIN_ROOT, "templates");
