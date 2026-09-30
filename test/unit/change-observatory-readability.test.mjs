@@ -115,19 +115,35 @@ function recordedLane(items) {
   return { status: "recorded", provenance: "recorded", items };
 }
 
-test("dossier cards share one status-neutral explanation per view in English and Italian", (t) => {
+test("dossier cards explain each kind of recorded state once per view in English and Italian", (t) => {
   useBrowserDocument(t);
   const model = modelWithDossier({
     asked: recordedLane([linkedItem("REQ-001", "requirement", "Plan trips")]),
     decided: recordedLane([
       linkedItem("DEC-001", "decision", "Use local providers"),
       linkedItem("DEC-002", "decision", "Pending choice", "proposed"),
+      linkedItem("DEC-003", "decision", "Second pending choice", "proposed"),
+      {
+        ...linkedItem("AUT-DEL-001", "delivery-execution-profile", "Delivery agreement", "active"),
+      },
     ]),
     contract: recordedLane([linkedItem("CONTRACT-001", "contract", "Delivery contract")]),
-    done: recordedLane([linkedItem("CHANGE-001", "implementation", "Build planner", "completed")]),
+    done: recordedLane([
+      linkedItem("CHANGE-001", "implementation", "Build planner", "completed"),
+      { ...linkedItem("TRACE-001", "trace", "Untracked status"), status: undefined },
+      { ...linkedItem("TRACE-002", "trace", "Another untracked status"), status: undefined },
+    ]),
     verified: recordedLane([linkedItem("TEST-001", "test", "Planner tests", "passed")]),
     release: recordedLane([linkedItem("REL-001", "release", "Local release", "released")]),
   });
+  const proposalOutcome = {
+    en: "This project item is a proposal and has not been accepted yet.",
+    it: "Questa voce del progetto è una proposta e non è ancora stata accettata.",
+  };
+  const missingStatusOutcome = {
+    en: "A recorded answer is available, but this item does not declare a current status.",
+    it: "È disponibile una risposta registrata, ma questa voce non dichiara uno stato corrente.",
+  };
 
   for (const locale of ["en", "it"]) {
     setLocale(locale);
@@ -137,17 +153,36 @@ test("dossier cards share one status-neutral explanation per view in English and
     const shared = container.querySelectorAll(".human-guidance-shared");
     assert.equal(shared.length, 1, `${locale}/one shared explanation`);
     assert.equal(shared[0].tagName, "details", `${locale}/shared explanation is collapsible`);
+    assert.deepEqual(
+      shared[0].querySelectorAll(".human-guidance-kind").map((kind) => kind.dataset.guidance),
+      ["recorded", "proposed", "status_missing"],
+      locale,
+    );
+    for (const kind of shared[0].querySelectorAll(".human-guidance-kind")) {
+      assert.equal(kind.querySelectorAll("dt").length, 5, `${locale}/${kind.dataset.guidance}/five fields`);
+    }
     assert.equal(occurrences(container.textContent, SHARED_SENTENCE[locale]), 1, locale);
 
     const cards = container.querySelectorAll(".dossier-item");
-    assert.equal(cards.length, 7, locale);
-    const cardsWithGuidance = cards.filter((card) => card.querySelector(".human-guidance"));
-    assert.equal(cardsWithGuidance.length, 1, `${locale}/only the proposal keeps its own warning`);
-    assert.match(
-      cardsWithGuidance[0].textContent,
-      locale === "it" ? /è una proposta/u : /is a proposal/u,
-      locale,
+    assert.equal(cards.length, 11, locale);
+    const fullGuidance = cards.filter((card) => card.querySelector(".human-guidance"));
+    assert.equal(fullGuidance.length, 1, `${locale}/only the delivery agreement keeps full guidance`);
+    assert.match(fullGuidance[0].textContent, /Delivery agreement|consegna|delivery/iu, locale);
+
+    const notices = cards
+      .map((card) => card.querySelector(".human-guidance-notice"))
+      .filter(Boolean);
+    assert.deepEqual(
+      notices.map((notice) => notice.dataset.guidance).sort(),
+      ["proposed", "proposed", "status_missing", "status_missing"],
+      `${locale}/cautionary states keep a visible notice on the card`,
     );
+    for (const notice of notices) {
+      const expected = notice.dataset.guidance === "proposed" ? proposalOutcome : missingStatusOutcome;
+      assert.equal(notice.textContent, expected[locale], locale);
+    }
+    // Each full explanation appears once (shared block) plus the one-line notices.
+    assert.equal(occurrences(container.textContent, proposalOutcome[locale]), 3, locale);
     for (const card of cards) {
       assert.ok(card.querySelector(".dossier-item-title").textContent, `${locale}/title stays visible`);
       assert.ok(card.querySelector(".dossier-item-summary").textContent, `${locale}/summary stays visible`);
@@ -155,18 +190,18 @@ test("dossier cards share one status-neutral explanation per view in English and
   }
 });
 
-test("dossier without status-neutral items renders no shared explanation", (t) => {
+test("dossier with only delivery-control records renders no shared explanation", (t) => {
   useBrowserDocument(t);
   setLocale("en");
   const model = modelWithDossier({
-    asked: recordedLane([linkedItem("REQ-001", "requirement", "Plan trips", "proposed")]),
+    decided: recordedLane([linkedItem("AUT-DEL-001", "delivery-execution-profile", "Agreement", "proposed")]),
   });
   const container = globalThis.document.createElement("main");
   renderPrimary(container, model, { view: "timeline", selectedId: null, filters: {} });
   assert.equal(container.querySelectorAll(".human-guidance-shared").length, 0);
   const cards = container.querySelectorAll(".dossier-item");
   assert.equal(cards.length, 1);
-  assert.ok(cards[0].querySelector(".human-guidance"), "the proposal keeps its own guidance");
+  assert.ok(cards[0].querySelector(".human-guidance"), "the agreement keeps its own guidance");
 });
 
 test("summary answers share one explanation while the inspector keeps the full guidance", (t) => {

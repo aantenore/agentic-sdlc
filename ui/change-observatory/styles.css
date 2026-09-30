@@ -444,9 +444,38 @@ svg {
   color: var(--ink-secondary);
 }
 
-.human-guidance-shared > .human-guidance {
-  margin: 10px 13px 13px;
+.human-guidance-kind {
+  margin: 12px 13px 13px;
+}
+
+.human-guidance-kind > h3 {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.human-guidance-kind > .human-guidance {
+  margin: 0;
   border-left-width: 1px;
+}
+
+.human-guidance-notice {
+  margin: 10px 14px 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-selected);
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.summary-answer > .human-guidance-notice {
+  display: block;
+  margin: 12px 0 0;
+  overflow: visible;
+  color: var(--ink);
+  -webkit-line-clamp: unset;
 }
 
 .summary-shared-guidance {

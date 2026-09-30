@@ -117,12 +117,13 @@ In italiano: ogni decisione viene prima spiegata come risultato, impatto,
 decisione richiesta, protezioni ancora attive e prossimo passo. Livelli, codici
 e identificativi interni restano nei **Dettagli tecnici** facoltativi.
 
-Ordinary recorded items share the same status-neutral explanation, so summary
-cards and dossier cards show it once per view behind a **How to read these
-records** expander instead of repeating it on every card; the inspector still
-shows the full explanation for the selected item. Proposals, items without a
-recorded status, inactive records, and delivery-control records always keep
-their own explanation on the card.
+Ordinary project records share the same explanation for each kind of recorded
+state, so summary and dossier cards explain each kind once per view behind a
+**How to read these records** expander instead of repeating it on every card.
+A proposal, an item without a recorded status, or an inactive record still shows
+its one-line warning on the card itself; delivery-control records keep their
+full explanation, and the inspector always shows the full explanation for the
+selected item.
 
 Automation can suppress browser opening and consume the first NDJSON event:
 

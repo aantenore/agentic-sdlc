@@ -21,9 +21,10 @@ import {
   localizePlaceholder,
   localizeUiText,
   localizedErrorGuidance,
+  RECORD_GUIDANCE_BUCKETS,
+  recordGuidanceBucket,
   sharedRecordGuidance,
   t,
-  usesSharedRecordGuidance,
 } from "./i18n.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -1096,30 +1097,49 @@ function humanGuidanceBlock(item) {
   return humanGuidanceSection(humanGuidanceForItem(item));
 }
 
+const RECORD_GUIDANCE_LABELS = Object.freeze({
+  recorded: "Recorded items",
+  proposed: "Proposals",
+  status_missing: "Items without a recorded status",
+  inactive: "Items no longer in effect",
+});
+
 function sharedGuidanceTracker() {
-  return { used: false };
+  return { buckets: new Set() };
 }
 
-// Cards in a list defer status-neutral guidance to one shared explanation per
-// view; item-specific warnings are always rendered on the card itself.
+// Cards in a list explain each kind of recorded state once per view. A card
+// keeps a one-line notice whenever its state needs caution, and autonomy
+// records keep their delivery-specific guidance in full.
 function cardGuidanceBlock(item, sharedGuidance) {
-  if (sharedGuidance && usesSharedRecordGuidance(item)) {
-    sharedGuidance.used = true;
-    return null;
-  }
-  return humanGuidanceBlock(item);
+  const bucket = sharedGuidance ? recordGuidanceBucket(item) : null;
+  if (!bucket) return humanGuidanceBlock(item);
+  sharedGuidance.buckets.add(bucket);
+  if (bucket === "recorded") return null;
+  return node("p", {
+    className: "human-guidance-notice",
+    text: humanGuidanceForItem(item).outcome,
+    dataset: { guidance: bucket },
+  });
 }
 
 function sharedGuidanceSection(sharedGuidance, className) {
-  if (!sharedGuidance?.used) return null;
+  const buckets = RECORD_GUIDANCE_BUCKETS.filter((bucket) => sharedGuidance?.buckets.has(bucket));
+  if (!buckets.length) return null;
   return node("details", { className: `human-guidance-shared ${className}` }, [
     node("summary", { text: "How to read these records", i18n: true }),
     node("p", {
       className: "human-guidance-scope",
-      text: "Applies to every record in this view that has no explanation of its own.",
+      text: "Each card shows only what is specific to it; the full explanation for each kind of recorded state is here.",
       i18n: true,
     }),
-    humanGuidanceSection(sharedRecordGuidance()),
+    ...buckets.map((bucket) => node("div", {
+      className: "human-guidance-kind",
+      dataset: { guidance: bucket },
+    }, [
+      node("h3", { text: RECORD_GUIDANCE_LABELS[bucket], i18n: true }),
+      humanGuidanceSection(sharedRecordGuidance(bucket)),
+    ])),
   ]);
 }
 

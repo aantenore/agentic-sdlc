@@ -215,7 +215,11 @@ const ITALIAN = Object.freeze({
   Deterministic: "Deterministica",
   "Human authored": "Scritta da una persona",
   "How to read these records": "Come leggere queste voci",
-  "Applies to every record in this view that has no explanation of its own.": "Vale per ogni voce di questa vista che non ha una spiegazione propria.",
+  "Each card shows only what is specific to it; the full explanation for each kind of recorded state is here.": "Ogni scheda mostra solo ciò che la riguarda; qui trovi la spiegazione completa per ogni tipo di stato registrato.",
+  "Recorded items": "Voci registrate",
+  Proposals: "Proposte",
+  "Items without a recorded status": "Voci senza stato registrato",
+  "Items no longer in effect": "Voci non più in vigore",
   "Recorded answer": "Risposta registrata",
   "Recorded request": "Richiesta registrata",
   "Recorded change": "Modifica registrata",
@@ -833,17 +837,31 @@ function genericRecordGuidance(status, isItalian) {
   };
 }
 
-// Status-neutral guidance is identical for every recorded item, so list
-// views show it once per view instead of repeating it on each card. Guidance
-// that warns about a proposal, a missing status, an inactive record, or an
-// autonomy boundary stays attached to its item.
-export function usesSharedRecordGuidance(item) {
-  if (!item || AUTONOMY_TYPES.has(item.type)) return false;
-  return genericGuidanceBucket(normalizedStatus(item)) === "recorded";
+// Guidance for ordinary records depends only on the kind of recorded state,
+// so list views explain each kind once per view. Autonomy records carry
+// guidance specific to their delivery and return null here.
+export const RECORD_GUIDANCE_BUCKETS = Object.freeze([
+  "recorded",
+  "proposed",
+  "status_missing",
+  "inactive",
+]);
+
+const BUCKET_REPRESENTATIVE_STATUS = Object.freeze({
+  recorded: "recorded",
+  proposed: "proposed",
+  status_missing: "missing",
+  inactive: "revoked",
+});
+
+export function recordGuidanceBucket(item) {
+  if (!item || AUTONOMY_TYPES.has(item.type)) return null;
+  return genericGuidanceBucket(normalizedStatus(item));
 }
 
-export function sharedRecordGuidance() {
-  return Object.freeze(genericRecordGuidance("recorded", activeLocale === "it"));
+export function sharedRecordGuidance(bucket = "recorded") {
+  const status = BUCKET_REPRESENTATIVE_STATUS[bucket] ?? "recorded";
+  return Object.freeze(genericRecordGuidance(status, activeLocale === "it"));
 }
 
 export function humanGuidanceForItem(item) {
