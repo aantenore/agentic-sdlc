@@ -9,7 +9,11 @@ import {
   renderProjectControls,
   renderSummary,
 } from "./components.js";
-import { rawTargetFor, recordSelectionKey } from "./model.js";
+import {
+  preferredDossierIteration,
+  rawTargetFor,
+  recordSelectionKey,
+} from "./model.js";
 import {
   LatestRequestCoordinator,
   portfolioModeFromLocation,
@@ -164,12 +168,7 @@ function preferredIterationId(model, previousId = null) {
   if (previousId && model.iterations.some((iteration) => iteration.id === previousId)) {
     return previousId;
   }
-  return model.iterations.find((iteration) =>
-    iteration.currentPhase && iteration.dossier?.status === "partial")?.id
-    || model.iterations.find((iteration) => iteration.currentPhase && iteration.dossier)?.id
-    || model.iterations.find((iteration) => iteration.dossier)?.id
-    || model.iterations[0]?.id
-    || null;
+  return preferredDossierIteration(model.iterations)?.id ?? null;
 }
 
 function preferredSelection(model, portfolioProjectId = null) {

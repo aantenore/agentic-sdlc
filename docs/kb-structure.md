@@ -204,6 +204,7 @@ Example:
   "project_name": "My Product",
   "schema_version": "0.1.0",
   "sdlc_version": "0.1.0",
+  "locale": "en",
   "knowledge_base": {
     "storage": "git",
     "canonical_path": ".sdlc",
@@ -216,6 +217,9 @@ Example:
   }
 }
 ```
+
+`locale` is optional and recorded only when `init` receives `--locale`. It is a
+presentation preference: `observe` uses it when `--locale` is omitted.
 
 ## `baseline/`
 

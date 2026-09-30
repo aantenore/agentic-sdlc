@@ -1218,7 +1218,8 @@ async function runObserveFromCli({ options, rawArgs }) {
       port: options.port,
       openBrowser: options["no-open"] !== true,
       json: options.json === true,
-      locale: humanGuidanceLocale(options),
+      // Without --locale the observatory follows the locale recorded for the project.
+      locale: options.locale === undefined ? undefined : humanGuidanceLocale(options),
     }, {
       parentIpcExpected: Object.hasOwn(process.env, OBSERVATORY_WORKER_MARKER)
         && process.env[OBSERVATORY_WORKER_MARKER] === "1",
