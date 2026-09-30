@@ -215,6 +215,9 @@ const ITALIAN = Object.freeze({
   Deterministic: "Deterministica",
   "Human authored": "Scritta da una persona",
   "How to read these records": "Come leggere queste voci",
+  "Open the dedicated view for the complete history.": "Apri la vista dedicata per la cronologia completa.",
+  "Open Changes for the complete history.": "Apri Modifiche per la cronologia completa.",
+  "Open Verification for the complete history.": "Apri Verifica per la cronologia completa.",
   "Each card shows only what is specific to it; the full explanation for each kind of recorded state is here.": "Ogni scheda mostra solo ciò che la riguarda; qui trovi la spiegazione completa per ogni tipo di stato registrato.",
   "Recorded items": "Voci registrate",
   Proposals: "Proposte",
@@ -346,8 +349,8 @@ function translatePattern(value) {
   if (match) return `${match[1]} prove`;
   match = value.match(/^(\d+) linked (record|records)$/u);
   if (match) return `${match[1]} ${match[1] === "1" ? "prova collegata" : "prove collegate"}`;
-  match = value.match(/^Showing (\d+) of (\d+)\.(.*)$/u);
-  if (match) return `Visualizzati ${match[1]} di ${match[2]}.${match[3]}`;
+  match = value.match(/^Showing (\d+) of (\d+)\.(?: (.+))?$/u);
+  if (match) return `Visualizzati ${match[1]} di ${match[2]}.${match[3] ? ` ${t(match[3])}` : ""}`;
   match = value.match(/^Inspect IntentABI event (.+)$/u);
   if (match) return `Esamina l’evento IntentABI ${match[1]}`;
   match = value.match(/^Inspect (.+)$/u);

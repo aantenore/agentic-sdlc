@@ -248,6 +248,19 @@ test("every browser-model placeholder has an Italian translation", (t) => {
   for (const placeholder of MODEL_PLACEHOLDERS) assert.equal(localizePlaceholder(placeholder), placeholder);
 });
 
+test("truncated-list notices are fully translated in Italian", (t) => {
+  t.after(() => setLocale("en"));
+  setLocale("it");
+  for (const [english, italian] of [
+    ["Showing 6 of 8. Open the dedicated view for the complete history.", "Visualizzati 6 di 8. Apri la vista dedicata per la cronologia completa."],
+    ["Showing 6 of 8. Open Changes for the complete history.", "Visualizzati 6 di 8. Apri Modifiche per la cronologia completa."],
+    ["Showing 6 of 27. Open Verification for the complete history.", "Visualizzati 6 di 27. Apri Verifica per la cronologia completa."],
+    ["Showing 2 of 3.", "Visualizzati 2 di 3."],
+  ]) {
+    assert.equal(translate(english), italian);
+  }
+});
+
 test("missing summaries and generated labels follow the Italian locale", (t) => {
   useBrowserDocument(t);
   const [item] = normalizeViewModel({
