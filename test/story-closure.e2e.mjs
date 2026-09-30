@@ -259,6 +259,32 @@ test("abandoned breakdown stories keep status blocked until they are superseded"
     "--id", "ST-003",
     "--agent", "codex",
   ], /terminal status 'superseded' and cannot be claimed/u);
+  // A story named only by the structured request is refused as well.
+  mustFail([
+    "task", "start",
+    "--root", project,
+    "--intent-json", JSON.stringify({
+      requested_action: "implement_story",
+      confidence: 0.99,
+      referenced_entities: [{ type: "story", id: "ST-003" }],
+      provided_artifacts: [],
+      missing_context: [],
+      proposed_phase: "implementation",
+      artifact_type: null,
+      skip_phases: [],
+    }),
+    "--confirm-start",
+  ], /ST-003 was superseded by ST-MVP and cannot receive new work, so task start is refused/u);
+  mustFail([
+    "output", "link",
+    "--root", project,
+    "--story", "ST-003",
+    "--type", "technical-analysis",
+    "--artifact", "docs/late.md",
+    "--template", "technical-analysis-default",
+    "--mode", "new",
+  ], /so output link is refused/u);
+  assert.equal(fs.existsSync(storyPath(project, "ST-003", "task-start.json")), false);
   assert.deepEqual(fs.readFileSync(storyPath(project, "ST-003")), storyBytesBeforeWork);
   assert.equal(fs.existsSync(path.join(project, ".sdlc", "contracts", "contract-ST-003-implementation.json")), false);
 });
@@ -417,4 +443,11 @@ test("a tampered closure or a story changed after closure fails closed", () => {
   assert.equal(story.orchestration_state, "blocked");
   assert.equal(story.lifecycle_source, "invalid_story_closure");
   assert.equal(orchestration.stories.find((item) => item.id === "ST-002").orchestration_state, "closed");
+
+  // Work records written next to a closure contradict it and fail closed.
+  writeJson(storyPath(project, "ST-005", "claim.json"), { story_id: "ST-005", status: "active" });
+  orchestration = mustRunJson(["orchestrate", "status", "--root", project]);
+  story = orchestration.stories.find((item) => item.id === "ST-005");
+  assert.equal(story.orchestration_state, "blocked");
+  assert.equal(story.lifecycle_source, "invalid_story_closure");
 });
