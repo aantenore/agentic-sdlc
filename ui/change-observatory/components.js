@@ -6,6 +6,7 @@ import {
   formatTimestamp,
   groupChangesByIntent,
   narrativeFor,
+  preferredDossierIteration,
   rawHrefForPath,
   rawTargetFor,
   readable,
@@ -17,8 +18,12 @@ import {
   displayTextForItem,
   humanGuidanceForItem,
   isAutonomyRecord,
+  localizePlaceholder,
   localizeUiText,
   localizedErrorGuidance,
+  RECORD_GUIDANCE_BUCKETS,
+  recordGuidanceBucket,
+  sharedRecordGuidance,
   t,
 } from "./i18n.js";
 
@@ -118,7 +123,7 @@ function selectControl(label, name, values, selectedValue) {
   select.append(node("option", { text: `${label}: All`, i18n: true, attrs: { value: "" } }));
   for (const value of values) {
     const option = node("option", {
-      text: sentenceCase(value.label ?? value),
+      text: name === "phase" ? sentenceCase(value.label ?? value) : String(value.label ?? value),
       i18n: name === "phase",
       attrs: { value: value.value ?? value },
     });
@@ -132,7 +137,7 @@ export function renderProjectControls(model) {
   const projectSelect = document.querySelector("#project-select");
   const snapshotSelect = document.querySelector("#snapshot-select");
   projectSelect.replaceChildren(
-    node("option", { text: model.project.name, attrs: { value: model.project.id } }),
+    node("option", { text: localizePlaceholder(model.project.name), attrs: { value: model.project.id } }),
   );
   snapshotSelect.replaceChildren(
     node("option", {
@@ -142,7 +147,7 @@ export function renderProjectControls(model) {
   );
 }
 
-function renderSummaryAnswer(question, items, portfolioProjectId = null) {
+function renderSummaryAnswer(question, items, portfolioProjectId = null, sharedGuidance = null) {
   const item = firstSummaryItem(items);
   const article = node("article", { className: "summary-answer" }, [
     node("h2", { text: question, i18n: true }),
@@ -160,11 +165,11 @@ function renderSummaryAnswer(question, items, portfolioProjectId = null) {
     );
     return article;
   }
-  article.append(
+  article.append(...[
     recordedAnswerForItem(item),
-    humanGuidanceBlock(item),
+    cardGuidanceBlock(item, sharedGuidance),
     technicalDetailsForItem(item, [], portfolioProjectId),
-  );
+  ].filter(Boolean));
   return article;
 }
 
@@ -185,11 +190,13 @@ function recordedAnswerForItem(item) {
 }
 
 export function renderSummary(container, model, { portfolioProjectId = null } = {}) {
-  container.replaceChildren(
-    renderSummaryAnswer("What was asked?", model.summary.asked, portfolioProjectId),
-    renderSummaryAnswer("What changed?", model.summary.changed, portfolioProjectId),
-    renderSummaryAnswer("Why was it decided?", model.summary.decided, portfolioProjectId),
-  );
+  const sharedGuidance = sharedGuidanceTracker();
+  container.replaceChildren(...[
+    renderSummaryAnswer("What was asked?", model.summary.asked, portfolioProjectId, sharedGuidance),
+    renderSummaryAnswer("What changed?", model.summary.changed, portfolioProjectId, sharedGuidance),
+    renderSummaryAnswer("Why was it decided?", model.summary.decided, portfolioProjectId, sharedGuidance),
+    sharedGuidanceSection(sharedGuidance, "summary-shared-guidance"),
+  ].filter(Boolean));
 }
 
 export function renderDiagnostics(container, diagnostics) {
@@ -278,8 +285,8 @@ export function phaseSelectionItem(iteration, phaseState, portfolioProjectId = n
   return {
     id: phaseSelectionId(iteration.id, phaseState.phase),
     type: "phase-state",
-    title: `${iteration.title} · ${sentenceCase(phaseState.phase)}`,
-    summary: `${sentenceCase(phaseState.phase)} is ${sentenceCase(phaseState.status).toLowerCase()} for ${iteration.title}.`,
+    title: `${localizePlaceholder(iteration.title)} · ${t(sentenceCase(phaseState.phase))}`,
+    summary: t(`${sentenceCase(phaseState.phase)} is ${sentenceCase(phaseState.status).toLowerCase()} for ${localizePlaceholder(iteration.title)}.`),
     status: phaseState.status,
     phase: phaseState.phase,
     timestamp: iteration.timestamp,
@@ -310,7 +317,7 @@ export function phaseSelectionItem(iteration, phaseState, portfolioProjectId = n
 function lineagePanel(model, state) {
   const iterationValues = model.iterations.map((iteration) => ({
     value: iteration.id,
-    label: iteration.title,
+    label: localizePlaceholder(iteration.title),
   }));
   const actions = [
     selectControl("Iteration", "iteration", iterationValues, state.filters.iteration),
@@ -358,7 +365,7 @@ function lineagePanel(model, state) {
           },
           dataset: { action: "select-iteration", iterationId: iteration.id },
         }, [
-          node("strong", { text: iteration.title }),
+          node("strong", { text: localizePlaceholder(iteration.title) }),
           node("span", { text: iteration.timestamp ? formatTimestamp(iteration.timestamp) : iteration.id }),
         ]),
       ]),
@@ -382,7 +389,7 @@ function lineagePanel(model, state) {
               attrs: {
                 type: "button",
                 "aria-pressed": String(state.selectedId === selectionId || associatedSelection),
-                "aria-label": `${iteration.title}, ${t(sentenceCase(phase.phase))}: ${t(sentenceCase(phase.status))}, ${t(sentenceCase(phase.provenance))}`,
+                "aria-label": `${localizePlaceholder(iteration.title)}, ${t(sentenceCase(phase.phase))}: ${t(sentenceCase(phase.status))}, ${t(sentenceCase(phase.provenance))}`,
               },
               dataset: {
                 action: "select-phase",
@@ -473,14 +480,14 @@ function dossierNarrative(item, laneKey) {
         text: narrative.generatedExplanation
           ? `Generated explanation · ${sentenceCase(narrative.explanationLabel || "source recorded")}`
           : "Generated explanation",
-        i18n: !narrative.generatedExplanation,
+        i18n: true,
       }),
       node("p", { text: narrative.generatedExplanation || t("Not recorded.") }),
     ]),
   ]);
 }
 
-function dossierItem(item, sourceLane, laneKey, state, iterationId) {
+function dossierItem(item, sourceLane, laneKey, state, iterationId, sharedGuidance = null) {
   const selectionId = recordSelectionKey(item);
   const display = displayTextForItem(item);
   const itemKind = sourceLane === "release" || item.type === "release"
@@ -506,7 +513,7 @@ function dossierItem(item, sourceLane, laneKey, state, iterationId) {
       node("span", { className: "dossier-item-title", text: display.title }),
       node("span", { className: "dossier-item-summary", text: display.summary }),
     ]),
-    humanGuidanceBlock(item),
+    cardGuidanceBlock(item, sharedGuidance),
     technicalDetailsForItem(
       item,
       isAutonomyRecord(item) ? [] : [dossierNarrative(item, laneKey)],
@@ -537,7 +544,7 @@ function dossierMissingLane(laneState) {
   ]);
 }
 
-function dossierLane(dossier, definition, state, iterationId, index) {
+function dossierLane(dossier, definition, state, iterationId, index, sharedGuidance = null) {
   const items = dossierLaneItems(dossier, definition.key);
   const laneState = dossierLaneState(dossier, definition.key, items);
   return node("section", {
@@ -554,12 +561,13 @@ function dossierLane(dossier, definition, state, iterationId, index) {
       provenanceBadge(items.length ? laneState.provenance : "missing"),
     ]),
     node("div", { className: "dossier-lane-body" }, items.length
-      ? items.map(({ item, sourceLane }) => dossierItem(item, sourceLane, definition.key, state, iterationId))
+      ? items.map(({ item, sourceLane }) =>
+        dossierItem(item, sourceLane, definition.key, state, iterationId, sharedGuidance))
       : [dossierMissingLane(laneState)]),
   ]);
 }
 
-function unlinkedLineageDisclosure(items, state) {
+function unlinkedLineageDisclosure(items, state, sharedGuidance = null) {
   if (!items.length) return null;
   return node("details", { className: "unlinked-lineage" }, [
     node("summary", {}, [
@@ -571,7 +579,7 @@ function unlinkedLineageDisclosure(items, state) {
       i18n: true,
     }),
     node("div", { className: "unlinked-lineage-list" }, items.map((item) =>
-      dossierItem(item, "unlinked", "unlinked", state, null),
+      dossierItem(item, "unlinked", "unlinked", state, null, sharedGuidance),
     )),
   ]);
 }
@@ -579,19 +587,14 @@ function unlinkedLineageDisclosure(items, state) {
 function selectedDossierIteration(model, state) {
   const requested = state.selectedIterationId || state.filters.iteration;
   return model.iterations.find((iteration) => iteration.id === requested)
-    || model.iterations.find((iteration) =>
-      iteration.currentPhase && iteration.dossier?.status === "partial")
-    || model.iterations.find((iteration) => iteration.currentPhase && iteration.dossier)
-    || model.iterations.find((iteration) => iteration.dossier)
-    || model.iterations[0]
-    || null;
+    || preferredDossierIteration(model.iterations);
 }
 
 function dossierPanel(model, state) {
   const selectedIteration = selectedDossierIteration(model, state);
   const iterationValues = model.iterations.map((iteration) => ({
     value: iteration.id,
-    label: iteration.title,
+    label: localizePlaceholder(iteration.title),
   }));
   const actions = iterationValues.length
     ? [selectControl(
@@ -624,8 +627,8 @@ function dossierPanel(model, state) {
   const dossierMeta = node("header", { className: "dossier-meta", attrs: { "aria-live": "polite" } }, [
     node("div", {}, [
       node("span", { className: "dossier-label", text: "Selected iteration", i18n: true }),
-      node("h3", { text: selectedIteration.title }),
-      node("p", { text: dossier?.summary || selectedIteration.summary }),
+      node("h3", { text: localizePlaceholder(selectedIteration.title) }),
+      node("p", { text: localizePlaceholder(dossier?.summary || selectedIteration.summary) }),
     ]),
     node("div", { className: "dossier-meta-actions" }, [
       statusText(dossier?.status ?? "missing"),
@@ -657,7 +660,7 @@ function dossierPanel(model, state) {
       icon("alert"),
       node("div", { className: "diagnostic-copy" }, [
         node("strong", { text: "Unsupported dossier schema: ", i18n: true }),
-        document.createTextNode(dossier.schemaVersion || "not recorded"),
+        document.createTextNode(dossier.schemaVersion || t("Not recorded")),
       ]),
     ]));
     const unlinked = unlinkedLineageDisclosure(model.unlinkedLineage, state);
@@ -665,18 +668,22 @@ function dossierPanel(model, state) {
     return panel;
   }
 
-  panel.append(
-    node("div", {
-      className: "dossier-flow-scroll",
-      attrs: { tabindex: "0", "aria-label": t(`Five-lane dossier for ${selectedIteration.title}`) },
-    }, [
-      node("div", { className: "dossier-flow" }, DOSSIER_LANES.map((definition, index) =>
-        dossierLane(dossier, definition, state, selectedIteration.id, index),
-      )),
-    ]),
-  );
-
-  const unlinked = unlinkedLineageDisclosure(model.unlinkedLineage, state);
+  const sharedGuidance = sharedGuidanceTracker();
+  const flow = node("div", {
+    className: "dossier-flow-scroll",
+    attrs: {
+      tabindex: "0",
+      "aria-label": t(`Five-lane dossier for ${localizePlaceholder(selectedIteration.title)}`),
+    },
+  }, [
+    node("div", { className: "dossier-flow" }, DOSSIER_LANES.map((definition, index) =>
+      dossierLane(dossier, definition, state, selectedIteration.id, index, sharedGuidance),
+    )),
+  ]);
+  const unlinked = unlinkedLineageDisclosure(model.unlinkedLineage, state, sharedGuidance);
+  const shared = sharedGuidanceSection(sharedGuidance, "dossier-shared-guidance");
+  if (shared) panel.append(shared);
+  panel.append(flow);
   if (unlinked) panel.append(unlinked);
 
   if (dossier.diagnostics.length) {
@@ -759,7 +766,7 @@ function changesPanel(model, state, options = {}) {
   for (const group of groups) {
     list.append(
       node("div", { className: "group-heading" }, [
-        node("span", { text: sentenceCase(group.intent) }),
+        node("span", { text: localizePlaceholder(sentenceCase(group.intent)) }),
         node("span", { className: "group-count", text: String(group.items.length) }),
       ]),
     );
@@ -877,13 +884,13 @@ function intentEvidenceCard(item, state) {
   return node("article", { className: "intent-evidence-card" }, [
     node("header", { className: "intent-evidence-card-header" }, [
       node("div", {}, [
-        node("span", { className: "intent-evidence-kicker", text: "IntentABI · Codex shadow" }),
+        node("span", { className: "intent-evidence-kicker", text: "IntentABI · Codex shadow", i18n: true }),
         node("button", {
           className: "intent-evidence-select",
           text: item.id,
           attrs: {
             type: "button",
-            "aria-label": `Inspect IntentABI event ${item.id}`,
+            "aria-label": t(`Inspect IntentABI event ${item.id}`),
             "aria-pressed": String(state.selectedId === selectionId),
           },
           dataset: { action: "select-record", selectId: selectionId },
@@ -1090,17 +1097,63 @@ function humanGuidanceBlock(item) {
   return humanGuidanceSection(humanGuidanceForItem(item));
 }
 
+const RECORD_GUIDANCE_LABELS = Object.freeze({
+  recorded: "Recorded items",
+  proposed: "Proposals",
+  status_missing: "Items without a recorded status",
+  inactive: "Items no longer in effect",
+});
+
+function sharedGuidanceTracker() {
+  return { buckets: new Set() };
+}
+
+// Cards in a list explain each kind of recorded state once per view. A card
+// keeps a one-line notice whenever its state needs caution, and autonomy
+// records keep their delivery-specific guidance in full.
+function cardGuidanceBlock(item, sharedGuidance) {
+  const bucket = sharedGuidance ? recordGuidanceBucket(item) : null;
+  if (!bucket) return humanGuidanceBlock(item);
+  sharedGuidance.buckets.add(bucket);
+  if (bucket === "recorded") return null;
+  return node("p", {
+    className: "human-guidance-notice",
+    text: humanGuidanceForItem(item).outcome,
+    dataset: { guidance: bucket },
+  });
+}
+
+function sharedGuidanceSection(sharedGuidance, className) {
+  const buckets = RECORD_GUIDANCE_BUCKETS.filter((bucket) => sharedGuidance?.buckets.has(bucket));
+  if (!buckets.length) return null;
+  return node("details", { className: `human-guidance-shared ${className}` }, [
+    node("summary", { text: "How to read these records", i18n: true }),
+    node("p", {
+      className: "human-guidance-scope",
+      text: "Each card shows only what is specific to it; the full explanation for each kind of recorded state is here.",
+      i18n: true,
+    }),
+    ...buckets.map((bucket) => node("div", {
+      className: "human-guidance-kind",
+      dataset: { guidance: bucket },
+    }, [
+      node("h3", { text: RECORD_GUIDANCE_LABELS[bucket], i18n: true }),
+      humanGuidanceSection(sharedRecordGuidance(bucket)),
+    ])),
+  ]);
+}
+
 function technicalDetailsForItem(item, sections = [], portfolioProjectId = null) {
   const source = sourceButtonFor(item, "Open raw source", portfolioProjectId);
   return node("details", { className: "technical-details" }, [
     node("summary", { text: "Technical details (optional)", i18n: true }),
     node("dl", { className: "technical-details-grid" }, [
       guidanceField("Type", item.type),
-      guidanceField("ID", item.id),
+      guidanceField("ID", localizePlaceholder(item.id)),
       guidanceField("Status", item.status),
-      guidanceField("Recorded title", item.title),
-      guidanceField("Recorded summary", item.summary),
-      guidanceField("Evidence", sentenceCase(item.provenance)),
+      guidanceField("Recorded title", localizePlaceholder(item.title)),
+      guidanceField("Recorded summary", localizePlaceholder(item.summary)),
+      guidanceField("Evidence", sentenceCase(item.provenance), { i18nText: true }),
     ]),
     source,
     ...sections,
@@ -1180,7 +1233,10 @@ export function renderInspector(container, item, { portfolioProjectId = null } =
     ]),
     humanGuidanceBlock(item),
     technicalDetailsForItem(item, [
-      inspectorTextSection("Request / record", `${item.title}\n${item.summary}`),
+      inspectorTextSection(
+        "Request / record",
+        `${localizePlaceholder(item.title)}\n${localizePlaceholder(item.summary)}`,
+      ),
       inspectorTextSection("Decision rationale", rationale, narrative.rationale ? null : "missing"),
       inspectorEntriesSection("Inputs", narrative.inputs),
       inspectorEntriesSection("Outputs", narrative.outputs),

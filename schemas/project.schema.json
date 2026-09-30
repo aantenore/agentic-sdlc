@@ -23,6 +23,13 @@
     "sdlc_version": {
       "type": "string"
     },
+    "locale": {
+      "description": "Preferred language for human-readable output, recorded when the project is initialized with --locale.",
+      "enum": [
+        "en",
+        "it"
+      ]
+    },
     "bootstrap_manifest": {
       "type": "object",
       "required": [

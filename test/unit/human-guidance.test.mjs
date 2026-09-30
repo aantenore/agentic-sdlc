@@ -201,6 +201,33 @@ test("describes an Italian local-release proposal with its real boundary before 
   });
   assert.deepEqual(guidance.details.review_moments, ["release.local"]);
   assert.equal(guidance.details.expires_at, "2099-12-31T23:59:00.000Z");
+  assert.doesNotMatch(guidance.impact, /Attenzione:/u);
+});
+
+test("warns in the primary proposal text when a local destination is visible to Git", () => {
+  const input = {
+    status: "proposed",
+    delivery_kind: "local_release",
+    project_name: "Operazioni di viaggio",
+    target_root: "/opt/travel-operations",
+    smoke_cwd: "/opt/travel-operations/.local-release/app",
+    allowed_write_paths: ["/opt/travel-operations/.local-release/app"],
+    destinations_visible_to_git: [".local-release/app"],
+    requested_level: "checkpointed",
+    effective_level: "checkpointed",
+    authority_mode: "audit_only",
+  };
+  const italian = deliveryAutonomyProposalGuidance(input, { locale: "it" });
+  assertHumanGuidancePlainLanguage(italian, { locale: "it" });
+  assert.match(
+    italian.impact,
+    /Attenzione: “\.local-release\/app” si trova nel repository e Git non la ignora/u,
+  );
+  assert.match(italian.impact, /Aggiungi la cartella a \.gitignore oppure scegli una destinazione fuori dal repository/u);
+  const english = deliveryAutonomyProposalGuidance(input, { locale: "en" });
+  assertHumanGuidancePlainLanguage(english, { locale: "en" });
+  assert.match(english.impact, /Warning: “\.local-release\/app” is inside the repository and not ignored by Git/u);
+  assert.match(english.impact, /files the app writes there later make that check fail/u);
 });
 
 test("explains a host-verified approval while keeping merge a separate unexecuted action", () => {

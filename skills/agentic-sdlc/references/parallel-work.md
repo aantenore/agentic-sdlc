@@ -18,6 +18,7 @@ Agentic SDLC supports parallel work through story-scoped ownership and append-on
 - Durable outputs should be resolved and linked through the shared output-contract registry before they are treated as canonical.
 - Approved dependency graph entries should be checked before claiming a story; hard blockers stop work lanes, soft dependencies provide context.
 - If upstream artifacts change, downstream stories need a `dependency.revalidate` trace before they are no longer stale.
+- Stories closed with `story supersede` or `story cancel` show as `closed`; they are never offered as lanes and no longer block their dependents. A dependency on a superseded story waits for its replacement instead.
 - Output registry writes are serialized locally; still merge `.sdlc/output-contracts/registry.json` carefully across Git branches.
 - Cache and indexes can be rebuilt locally by each chat, but derived files must not become handoff evidence.
 - Teams should merge `.sdlc/` artifacts with the code changes they explain.

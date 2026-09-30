@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "story-closure.schema.json",
+  "title": "Agentic SDLC Story Closure",
+  "description": "Immutable, approved record that closes one never-started story as superseded by another story or as cancelled. The story record itself is never rewritten.",
+  "type": "object",
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "event",
+    "status",
+    "story_id",
+    "replacement_id",
+    "subject",
+    "approval",
+    "created_at",
+    "audit"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "kind": { "const": "story_closure" },
+    "schema_version": { "const": "story-closure:v1" },
+    "event": { "enum": ["superseded", "cancelled"] },
+    "status": { "enum": ["superseded", "cancelled"] },
+    "story_id": { "type": "string", "minLength": 1 },
+    "replacement_id": { "type": ["string", "null"] },
+    "subject": {
+      "type": "object",
+      "required": ["event", "stories", "replacement", "breakdown", "reason"],
+      "properties": {
+        "event": { "enum": ["superseded", "cancelled"] },
+        "stories": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/ref" }
+        },
+        "replacement": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/ref" }
+          ]
+        },
+        "breakdown": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/ref" }
+          ]
+        },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "approval": { "type": "object", "additionalProperties": true },
+    "created_at": { "type": "string", "format": "date-time" },
+    "audit": { "$ref": "common.schema.json#/$defs/audit" }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "required": ["id", "path", "content_hash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "content_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

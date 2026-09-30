@@ -19,6 +19,7 @@ Launch the plugin-local, read-only visual lineage application for the selected p
 
 4. Keep the process attached to a managed terminal session. Report the ready URL exactly as emitted. The URL fragment carries the per-run token; do not extract, repeat, or persist the token separately.
 5. If browser opening is unavailable or the user wants automation, add `--no-open --json`, wait for the `observatory.ready` line, and present its `url`.
+6. Omit `--locale` unless the user asks for a language: the observatory follows the locale recorded for the project.
 
 ## Boundaries
 

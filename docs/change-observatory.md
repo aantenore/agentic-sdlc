@@ -18,9 +18,11 @@ An npm, Git, or tarball installation that exposes the package bin can launch it 
 agentic-sdlc observe --root /path/to/project --locale en
 ```
 
-Use `--locale it` for Italian. The language choice is carried to the browser in
-the local URL; it does not weaken the per-run token or the loopback-only
-boundary.
+Use `--locale it` for Italian. Without `--locale`, the observatory follows the
+`locale` recorded in `.sdlc/project.json` when the project was initialized with
+`init --locale <en|it>`, and falls back to English otherwise. The language
+choice is carried to the browser in the local URL; it does not weaken the
+per-run token or the loopback-only boundary.
 
 ## Open An Explicit Project Portfolio
 
@@ -114,6 +116,14 @@ names, identifiers, and stored reason codes appear only after the optional
 In italiano: ogni decisione viene prima spiegata come risultato, impatto,
 decisione richiesta, protezioni ancora attive e prossimo passo. Livelli, codici
 e identificativi interni restano nei **Dettagli tecnici** facoltativi.
+
+Ordinary project records share the same explanation for each kind of recorded
+state, so summary and dossier cards explain each kind once per view behind a
+**How to read these records** expander instead of repeating it on every card.
+A proposal, an item without a recorded status, or an inactive record still shows
+its one-line warning on the card itself; delivery-control records keep their
+full explanation, and the inspector always shows the full explanation for the
+selected item.
 
 Automation can suppress browser opening and consume the first NDJSON event:
 
@@ -228,6 +238,11 @@ computes the dossier once; the server serializes it only in the top-level
 `dossiers` collection, and the browser associates it to an iteration only when
 their exact story IDs match. The browser then validates and renders that bounded
 projection and does not attempt a second semantic join.
+
+When no iteration is selected, the dossier opens on the most relevant story:
+the most recent story with lineage in progress, otherwise the most recently
+delivered one (release phase complete or a delivered status). Stories recorded
+as superseded, cancelled, or abandoned are chosen only when nothing else exists.
 
 An autonomy record belongs to a story dossier only through its explicit story,
 contract, requirement-profile, or delivery-profile reference. The Observatory

@@ -146,12 +146,18 @@ Requirement paths above are Git-relative project scope. They are deliberately
 different from local-release `--target-root`, `--write-path`, and `--smoke-cwd`
 values, which use explicit absolute filesystem paths inside the approved target
 as shown later in this reference.
+When the local-release target root is inside the Git worktree, as in the
+examples below, the requirement paths must also include its project-relative
+path (`.local-release`) and `.gitignore`, and `.gitignore` should ignore it;
+otherwise `gate check --strict --lifecycle-complete` fails on the released
+files. A target root outside the worktree needs neither, but it is a write
+outside the workspace and needs the user's explicit agreement.
 
 `requirement create` is a compatibility alias for proposal creation, not direct approval. A material revision changes the requirement hash and invalidates downstream delivery profiles bound to the old revision. Legacy `requirement:v1` records remain readable with a conservative `supervised` ceiling.
 
 ## Select Autonomy For Every Delivery
 
-Every pull request and every local release needs a new delivery profile ID and an explicit choice among `supervised`, `checkpointed`, and `bounded-autonomous`. Never reuse a profile or approval from another delivery. One profile binds exactly one story and that story's one approved contract. When several stories must ship together, first create an agreed aggregation story/contract; do not use the profile as an unrelated multi-story container.
+Every pull request and every local release needs a new delivery profile ID and an explicit choice among `supervised`, `checkpointed`, and `bounded-autonomous`. Never reuse a profile or approval from another delivery. One profile binds exactly one story and that story's one approved contract. When several stories must ship together, first create an agreed aggregation story/contract; do not use the profile as an unrelated multi-story container. Decide this at breakdown time: when the user wants one pull request or one local release for several parts, propose one delivery story with tasks (`work item create --type task --story <story-id>`) rather than approving several stories that will never be delivered separately.
 
 Create the story, reserve a new profile ID, and create the final contract with that ID. Obtain normal contract approval before proposing the profile. The contract stores only the planned `delivery_execution_profile_id`; the later profile binds the approved requirement-profile, story, and contract hashes.
 
@@ -237,6 +243,16 @@ confirmed again. Let the external builder create only the exact approved root,
 write-path children, and artifact while executing the resulting authorization,
 then complete that same action with immutable evidence. The CLI never creates
 release directories.
+
+Keep an in-repository destination ignored by Git (for example
+`/.local-release/` in `.gitignore` or `.git/info/exclude`) or place it outside
+the repository. The proposal reports in-repository destinations that Git can
+see in `review.destinations_visible_to_git` and prints a warning. Their files
+pass the strict write-scope check only after the delivery is released and only
+while the destination matches the smoke-tested artifact manifest; extra,
+missing, or modified files (including runtime data written after release) fail
+the gate, and files the repository tracked there before the story started stay
+subject to the requirement write paths.
 
 ```bash
 node bin/agentic-sdlc.mjs autonomy delivery action \
@@ -644,6 +660,35 @@ node bin/agentic-sdlc.mjs story deps --root <project> --id ST-002
 ```
 
 Breakdowns and dependencies are proposed first, then approved by a human/CI actor or by delegated automation when the user explicitly gave a matching approval level. Hard dependency scopes block orchestration and strict gates; soft dependencies remain visible as warnings. When upstream artifacts change, record a `dependency.revalidate` trace on downstream stories after review.
+
+When planned stories are abandoned before any work starts, close them instead
+of leaving them as blocked work. `story supersede` names the story that now
+delivers the work; `story cancel` records that the work will not be delivered.
+Both take one `--id` or every story of an approved breakdown with
+`--from-breakdown`, and both need a formal approval:
+
+```bash
+node bin/agentic-sdlc.mjs story supersede --root <project> --from-breakdown BD-REQ-001 --by ST-MVP \
+  --reason "One delivery story replaced the planned split" \
+  --actor-type human --approval-source explicit-user --summary "Replace the planned stories with ST-MVP"
+node bin/agentic-sdlc.mjs story cancel --root <project> --id ST-004 \
+  --reason "Out of scope for this release" \
+  --actor-type human --approval-source explicit-user --summary "Drop ST-004"
+```
+
+Each closed story gets an immutable `.sdlc/stories/<story-id>/closure.json`
+bound to the approved subject (story contents, replacement, breakdown, reason)
+and a `story.supersede` or `story.cancel` project trace; `story.json` is never
+rewritten. Stories with a claim, task start, completed step, workflow run,
+lifecycle receipt, delivery profile, linked output, or work trace are refused.
+After closure, contract creation, workflow start, task start, delivery
+proposals, output links, claims, and story traces for that story are refused.
+Closed stories are reported as `closed` by orchestration and as `closed_work`
+by `status`; dependency edges from them stop applying, and a dependency on a
+superseded story is evaluated against its replacement. Cancelling a story that
+active stories still depend on is refused: close the dependents first or
+supersede it instead. A tampered closure, or a story edited after closure,
+blocks that story until it is repaired.
 
 ## Capability Discovery
 

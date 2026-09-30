@@ -1026,6 +1026,7 @@ import {
   approveContract,
   approveDependencyGraph,
   approveRequirement,
+  cancelStories,
   claimStory,
   closeHandoff,
   compactTraces,
@@ -1046,6 +1047,7 @@ import {
   showRequirements,
   showStoryDependencies,
   supersedeRequirement,
+  supersedeStories,
 } from "../lib/engine/story.mjs";
 import {
   approveWorkflowOverlayCommand,
@@ -1140,6 +1142,8 @@ function buildCliRuntimeHandlerRegistry() {
     "story.handoff.close": call(closeHandoff),
     "story.handoff": call(createStoryHandoff),
     "story.deps": call(showStoryDependencies),
+    "story.supersede": call(supersedeStories),
+    "story.cancel": call(cancelStories),
     "work.item.create": call(createWorkItem),
     "breakdown.policy.show": call(showBreakdownPolicy),
     "breakdown.policy.set": call(setBreakdownPolicy),
@@ -1214,7 +1218,8 @@ async function runObserveFromCli({ options, rawArgs }) {
       port: options.port,
       openBrowser: options["no-open"] !== true,
       json: options.json === true,
-      locale: humanGuidanceLocale(options),
+      // Without --locale the observatory follows the locale recorded for the project.
+      locale: options.locale === undefined ? undefined : humanGuidanceLocale(options),
     }, {
       parentIpcExpected: Object.hasOwn(process.env, OBSERVATORY_WORKER_MARKER)
         && process.env[OBSERVATORY_WORKER_MARKER] === "1",
