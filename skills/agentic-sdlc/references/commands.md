@@ -150,7 +150,8 @@ When the local-release target root is inside the Git worktree, as in the
 examples below, the requirement paths must also include its project-relative
 path (`.local-release`) and `.gitignore`, and `.gitignore` should ignore it;
 otherwise `gate check --strict --lifecycle-complete` fails on the released
-files. A target root outside the worktree needs neither.
+files. A target root outside the worktree needs neither, but it is a write
+outside the workspace and needs the user's explicit agreement.
 
 `requirement create` is a compatibility alias for proposal creation, not direct approval. A material revision changes the requirement hash and invalidates downstream delivery profiles bound to the old revision. Legacy `requirement:v1` records remain readable with a conservative `supervised` ceiling.
 

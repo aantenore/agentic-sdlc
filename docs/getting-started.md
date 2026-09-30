@@ -166,11 +166,12 @@ for example `/absolute/project/.local-release` and
 
 The two boundaries still meet at the final lifecycle-complete gate, which
 fails on any changed file, or untracked file not ignored by Git, outside the
-requirement paths. Prefer a release destination outside the Git worktree, such
-as a sibling folder. If the destination must stay inside the repository, add
-its project-relative path (for example `.local-release`) and `.gitignore` to
-the requirement paths, and ignore the destination in `.gitignore` so released
-copies are never committed.
+requirement paths. For a release destination inside the repository, add its
+project-relative path (for example `.local-release`) and `.gitignore` to the
+requirement paths, and ignore the destination in `.gitignore` so released
+copies are never committed. A destination outside the Git worktree, such as a
+sibling folder, stays out of the project scope, but it is a write outside the
+workspace and needs your explicit agreement.
 
 ## Walk Through One Complete First Project
 
@@ -312,7 +313,7 @@ Before starting, Codex shows:
 The local-only journey does not commit your code. Changed files stay
 uncommitted in your working tree, and you decide when to commit them. After
 the lifecycle-complete gate passes, Codex offers the exact command, built from
-the approved requirement paths plus `.sdlc`, for example:
+the approved requirement paths that exist plus `.sdlc`, for example:
 
 ```bash
 git -C /absolute/project add -- src test docs evidence .gitignore .sdlc

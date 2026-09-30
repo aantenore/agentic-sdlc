@@ -298,7 +298,8 @@ test("delivery guidance agrees the delivery shape, write scope, and local commit
   assert.match(orderSection, /add its project-relative path \(`\.local-release`\) to the requirement `--write-path` list/u);
 
   assert.match(orderSection, /does not commit their code/u);
-  assert.match(orderSection, /git -C <target-project> add -- [^`]*\.sdlc && git -C <target-project> commit -m/u);
+  assert.match(orderSection, /`git -C <target-project> add -- [^`]*\.sdlc` followed by `git -C <target-project> commit -m/u);
+  assert.match(orderSection, /do not hide them through `\.git\/info\/exclude`/u);
 
   const localCommand = read("commands/local.md");
   assert.match(localCommand, /does not commit code/u);
