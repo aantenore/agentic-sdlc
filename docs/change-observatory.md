@@ -18,9 +18,11 @@ An npm, Git, or tarball installation that exposes the package bin can launch it 
 agentic-sdlc observe --root /path/to/project --locale en
 ```
 
-Use `--locale it` for Italian. The language choice is carried to the browser in
-the local URL; it does not weaken the per-run token or the loopback-only
-boundary.
+Use `--locale it` for Italian. Without `--locale`, the observatory follows the
+`locale` recorded in `.sdlc/project.json` when the project was initialized with
+`init --locale <en|it>`, and falls back to English otherwise. The language
+choice is carried to the browser in the local URL; it does not weaken the
+per-run token or the loopback-only boundary.
 
 ## Open An Explicit Project Portfolio
 

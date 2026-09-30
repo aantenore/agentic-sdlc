@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -9,7 +10,9 @@ import {
   bundledObservatoryAssetRoot,
   openBrowserBestEffort,
   parseObserveOptions,
+  readConfiguredProjectLocale,
   registerShutdownHandlers,
+  resolveObserveOptions,
   runObserveCommand,
   writeObserveEvent,
 } from "../../lib/change-observatory/cli.mjs";
@@ -605,3 +608,84 @@ async function successfulServer() {
     async close() {},
   };
 }
+
+const CLI_PATH = new URL("../../bin/agentic-sdlc.mjs", import.meta.url);
+
+async function projectWithRecord(t, record) {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "observatory-locale-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await fs.mkdir(path.join(root, ".sdlc"));
+  if (record !== undefined) {
+    await fs.writeFile(
+      path.join(root, ".sdlc", "project.json"),
+      typeof record === "string" ? record : JSON.stringify(record),
+    );
+  }
+  return root;
+}
+
+test("observe defaults the locale to the one recorded for the project", async (t) => {
+  const italian = await projectWithRecord(t, { project_id: "trial", locale: "it" });
+  assert.equal(await readConfiguredProjectLocale(italian), "it");
+  assert.equal((await resolveObserveOptions({ projectRoot: italian })).locale, "it");
+  assert.equal(
+    (await resolveObserveOptions({ projectRoot: italian, locale: "en" })).locale,
+    "en",
+    "an explicit --locale always wins",
+  );
+
+  for (const record of [undefined, { project_id: "legacy" }, { locale: "fr" }, { locale: 7 }, "{not json"]) {
+    const root = await projectWithRecord(t, record);
+    assert.equal(await readConfiguredProjectLocale(root), null, JSON.stringify(record));
+    assert.equal((await resolveObserveOptions({ projectRoot: root })).locale, "en");
+  }
+  assert.equal(await readConfiguredProjectLocale(path.join(italian, "missing")), null);
+
+  const linked = await projectWithRecord(t);
+  await fs.symlink(path.join(italian, ".sdlc", "project.json"), path.join(linked, ".sdlc", "project.json"));
+  assert.equal(readConfiguredProjectLocale(linked), null, "a symlinked project record is ignored");
+
+  const output = createMemoryStream();
+  let receivedOptions = null;
+  const running = await runObserveCommand({ projectRoot: italian, openBrowser: false, json: true }, {
+    registerSignals: false,
+    stdout: output,
+    async serverFactory(options) {
+      receivedOptions = options;
+      return {
+        url: "http://127.0.0.1:43127/",
+        accessUrl: `http://127.0.0.1:43127/?locale=${options.locale}#access_token=${"a".repeat(43)}`,
+        healthUrl: "http://127.0.0.1:43127/api/v1/health",
+        modelUrl: "http://127.0.0.1:43127/api/v1/observatory",
+        address: { host: "127.0.0.1", port: 43127 },
+        async close() {},
+      };
+    },
+  });
+  assert.equal(receivedOptions.locale, "it");
+  const event = JSON.parse(output.value.trim().split("\n")[0]);
+  assert.equal(event.locale, "it");
+  assert.match(event.url, /[?&]locale=it(?:&|#)/u);
+  await running.close();
+});
+
+test("init records an explicit locale for later presentation defaults", async (t) => {
+  for (const [args, expected] of [[["--locale", "it"], "it"], [[], undefined]]) {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "observatory-init-locale-"));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const result = spawnSync(process.execPath, [
+      CLI_PATH.pathname ? decodeURIComponent(CLI_PATH.pathname) : String(CLI_PATH),
+      "init",
+      "--root",
+      root,
+      "--project-name",
+      "Locale Fixture",
+      "--json",
+      ...args,
+    ], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    const project = JSON.parse(await fs.readFile(path.join(root, ".sdlc", "project.json"), "utf8"));
+    assert.equal(project.locale, expected, JSON.stringify(args));
+    assert.equal(await readConfiguredProjectLocale(root), expected ?? null);
+  }
+});
