@@ -425,7 +425,10 @@ The dedicated assessment journey remains the exception described above: it packa
    after the delivery is released and only while the destination still matches
    the smoke-tested artifact manifest. Runtime data written there later, any
    edited file, or a file the repository already tracked there before the
-   story started fails the lifecycle-complete gate.
+   story started fails the lifecycle-complete gate. When the released app
+   stores data at runtime, point that data directory outside the destination
+   in the app's configuration, and tell the user that running the app from the
+   destination before certification will otherwise invalidate it.
 
    ```bash
    node <plugin-root>/bin/agentic-sdlc.mjs autonomy delivery action \
