@@ -649,6 +649,77 @@ export function normalizeViewModel(payload) {
   };
 }
 
+const SUPERSEDED_ITERATION_STATUSES = new Set([
+  "superseded",
+  "cancelled",
+  "canceled",
+  "abandoned",
+  "withdrawn",
+  "obsolete",
+  "rejected",
+]);
+const DELIVERED_ITERATION_STATUSES = new Set([
+  "released",
+  "delivered",
+  "certified",
+  "done",
+  "complete",
+  "completed",
+  "closed",
+  "merged",
+]);
+
+function iterationStatusKey(iteration) {
+  return readable(iteration?.status, "").toLowerCase().replace(/[-\s]+/gu, "_");
+}
+
+function iterationTime(iteration) {
+  const time = Date.parse(iteration?.timestamp ?? "");
+  return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
+}
+
+function mostRecentIteration(iterations) {
+  let selected = null;
+  for (const iteration of iterations) {
+    if (!selected || iterationTime(iteration) >= iterationTime(selected)) selected = iteration;
+  }
+  return selected;
+}
+
+export function iterationRelevance(iteration) {
+  if (SUPERSEDED_ITERATION_STATUSES.has(iterationStatusKey(iteration))) return "superseded";
+  const phases = arrayOrEmpty(iteration?.phases);
+  const releasePhase = phases.find((phase) => phase.phase === "release");
+  if (
+    DELIVERED_ITERATION_STATUSES.has(iterationStatusKey(iteration))
+    || releasePhase?.status === "complete"
+  ) {
+    return "delivered";
+  }
+  if (phases.some((phase) => phase.status !== "missing")) return "active";
+  return "idle";
+}
+
+// The default dossier follows recorded evidence rather than list order:
+// work with lineage in progress first, then the most recent delivery.
+// Superseded iterations are only chosen when nothing else exists.
+export function preferredDossierIteration(iterations) {
+  const candidates = arrayOrEmpty(iterations);
+  const byRelevance = (relevance) =>
+    candidates.filter((iteration) => iterationRelevance(iteration) === relevance);
+  const current = candidates.filter((iteration) =>
+    iterationRelevance(iteration) !== "superseded");
+  return mostRecentIteration(byRelevance("active"))
+    || mostRecentIteration(byRelevance("delivered"))
+    || current.find((iteration) =>
+      iteration.currentPhase && iteration.dossier?.status === "partial")
+    || current.find((iteration) => iteration.currentPhase && iteration.dossier)
+    || current.find((iteration) => iteration.dossier)
+    || current[0]
+    || candidates[0]
+    || null;
+}
+
 export function filterIterations(iterations, filters = {}) {
   return arrayOrEmpty(iterations).filter((iteration) => {
     const iterationMatch = !filters.iteration || iteration.id === filters.iteration;

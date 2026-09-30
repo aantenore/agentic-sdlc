@@ -15,9 +15,11 @@ import {
   filterIterations,
   groupChangesByIntent,
   isCanonicalEvidencePath,
+  iterationRelevance,
   narrativeFor,
   normalizeDossier,
   normalizeViewModel,
+  preferredDossierIteration,
   rawHrefForPath,
   rawTargetFor,
   recordSelectionKey,
@@ -721,6 +723,87 @@ test("filters lineage by iteration and evidence-bearing phase", () => {
   assert.equal(filterIterations(iterations, { phase: "implementation" }).length, 1);
   assert.equal(filterIterations(iterations, { phase: "release" }).length, 0);
   assert.equal(filterIterations(iterations, { iteration: "missing" }).length, 0);
+});
+
+function storyIteration(id, { status = "ready", timestamp, phases = {} } = {}) {
+  return {
+    id,
+    type: "iteration",
+    title: `Story ${id}`,
+    summary: `${id} summary.`,
+    status,
+    provenance: "recorded",
+    currentPhase: "design",
+    timestamp,
+    sourceRefs: [{ path: `.sdlc/stories/${id}/story.json` }],
+    phases: PHASES.map((phase) => ({
+      phase,
+      status: phases[phase] ?? "missing",
+      provenance: phases[phase] ? "recorded" : "missing",
+      sourceRefs: [],
+    })),
+  };
+}
+
+const ALL_PHASES_COMPLETE = Object.fromEntries(PHASES.map((phase) => [phase, "complete"]));
+
+test("default dossier prefers the delivered story over earlier never-started stories", () => {
+  const iterations = normalizeViewModel(viewModel({
+    iterations: [
+      ...["ST-001", "ST-002", "ST-003"].map((id, index) =>
+        storyIteration(id, { timestamp: `2026-09-30T10:0${index}:00.000Z` })),
+      storyIteration("ST-MVP", {
+        timestamp: "2026-09-30T10:12:00.000Z",
+        phases: ALL_PHASES_COMPLETE,
+      }),
+    ],
+  })).iterations;
+  assert.equal(iterationRelevance(iterations[0]), "idle");
+  assert.equal(iterationRelevance(iterations[3]), "delivered");
+  assert.equal(preferredDossierIteration(iterations).id, "ST-MVP");
+});
+
+test("default dossier prefers active work, then the most recent delivery, and skips superseded stories", () => {
+  const iterations = normalizeViewModel(viewModel({
+    iterations: [
+      storyIteration("ST-OLD", {
+        timestamp: "2026-09-01T00:00:00.000Z",
+        phases: ALL_PHASES_COMPLETE,
+      }),
+      storyIteration("ST-ACTIVE", {
+        timestamp: "2026-09-02T00:00:00.000Z",
+        phases: { discovery: "complete", implementation: "inProgress" },
+      }),
+      storyIteration("ST-NEW", {
+        status: "released",
+        timestamp: "2026-09-03T00:00:00.000Z",
+      }),
+      storyIteration("ST-SUPERSEDED", {
+        status: "superseded",
+        timestamp: "2026-09-04T00:00:00.000Z",
+        phases: { discovery: "complete", design: "inProgress" },
+      }),
+    ],
+  })).iterations;
+  assert.equal(iterationRelevance(iterations[3]), "superseded");
+  assert.equal(preferredDossierIteration(iterations).id, "ST-ACTIVE");
+  assert.equal(preferredDossierIteration(iterations.filter((it) => it.id !== "ST-ACTIVE")).id, "ST-NEW");
+  assert.equal(
+    preferredDossierIteration(iterations.filter((it) => it.id === "ST-SUPERSEDED")).id,
+    "ST-SUPERSEDED",
+    "a superseded story is still shown when it is the only recorded iteration",
+  );
+  assert.equal(
+    preferredDossierIteration([
+      storyIteration("ST-A"),
+      { ...storyIteration("ST-B"), status: "cancelled" },
+      storyIteration("ST-C"),
+    ].map((iteration) => normalizeViewModel(viewModel({ iterations: [iteration] })).iterations[0])).id,
+    "ST-A",
+    "without evidence the first current story keeps the previous default",
+  );
+  assert.equal(preferredDossierIteration([]), null);
+  assert.equal(preferredDossierIteration(undefined), null);
 });
 
 test("raw evidence links stay within canonical .sdlc sources", () => {

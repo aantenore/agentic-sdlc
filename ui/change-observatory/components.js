@@ -6,6 +6,7 @@ import {
   formatTimestamp,
   groupChangesByIntent,
   narrativeFor,
+  preferredDossierIteration,
   rawHrefForPath,
   rawTargetFor,
   readable,
@@ -579,12 +580,7 @@ function unlinkedLineageDisclosure(items, state) {
 function selectedDossierIteration(model, state) {
   const requested = state.selectedIterationId || state.filters.iteration;
   return model.iterations.find((iteration) => iteration.id === requested)
-    || model.iterations.find((iteration) =>
-      iteration.currentPhase && iteration.dossier?.status === "partial")
-    || model.iterations.find((iteration) => iteration.currentPhase && iteration.dossier)
-    || model.iterations.find((iteration) => iteration.dossier)
-    || model.iterations[0]
-    || null;
+    || preferredDossierIteration(model.iterations);
 }
 
 function dossierPanel(model, state) {
