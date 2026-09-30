@@ -57,6 +57,7 @@ test("a closure record belongs to exactly one story of its approved subject", ()
   assert.equal(record.kind, "story_closure");
   assert.equal(record.schema_version, STORY_CLOSURE_SCHEMA);
   assert.equal(record.event, "cancelled");
+  assert.equal(record.status, "cancelled");
   assert.equal(record.replacement_id, null);
   assert.throws(() => buildStoryClosure({
     id: "CLOSE-ST-002-1",

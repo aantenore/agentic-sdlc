@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { buildProjectPortfolioSummary } from "../lib/change-observatory/portfolio-project-summary.mjs";
 import { validateAgainstSchema } from "../lib/json-schema-validator.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -145,8 +146,10 @@ function supersedePlannedStories(project) {
   ]);
 }
 
-test("abandoned breakdown stories keep status blocked until they are superseded", () => {
+test("abandoned breakdown stories keep status blocked until they are superseded", async () => {
   const project = createTrialProject("closure-trial");
+  const portfolioBefore = await buildProjectPortfolioSummary(project);
+  assert.equal(portfolioBefore.aggregates.activeWorkflows.count, 6);
   const before = mustRunJson(["status", "--root", project]);
   assert.equal(before.summary.blocked_work, 4);
   assert.equal(before.summary.completed_work, 0);
@@ -167,6 +170,7 @@ test("abandoned breakdown stories keep status blocked until they are superseded"
     const closure = readJson(storyPath(project, storyId, "closure.json"));
     assert.deepEqual(validateAgainstSchema(closure, "story-closure.schema.json", { schemaDir }).errors, []);
     assert.equal(closure.event, "superseded");
+    assert.equal(closure.status, "superseded");
     assert.equal(closure.story_id, storyId);
     assert.equal(closure.replacement_id, "ST-MVP");
     assert.equal(closure.subject.breakdown.id, "BD-REQ-001");
@@ -188,6 +192,9 @@ test("abandoned breakdown stories keep status blocked until they are superseded"
   const human = mustRun(["status", "--root", project]).stdout;
   assert.doesNotMatch(human, /cannot proceed/iu);
   assert.match(human, /closed_work: 5/u);
+
+  const portfolioAfter = await buildProjectPortfolioSummary(project);
+  assert.equal(portfolioAfter.aggregates.activeWorkflows.count, 1);
 
   const orchestration = mustRunJson(["orchestrate", "status", "--root", project]);
   assert.equal(orchestration.summary.closed, 5);

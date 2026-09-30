@@ -9,6 +9,7 @@
     "kind",
     "schema_version",
     "event",
+    "status",
     "story_id",
     "replacement_id",
     "subject",
@@ -21,6 +22,7 @@
     "kind": { "const": "story_closure" },
     "schema_version": { "const": "story-closure:v1" },
     "event": { "enum": ["superseded", "cancelled"] },
+    "status": { "enum": ["superseded", "cancelled"] },
     "story_id": { "type": "string", "minLength": 1 },
     "replacement_id": { "type": ["string", "null"] },
     "subject": {
