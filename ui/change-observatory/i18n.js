@@ -192,6 +192,8 @@ const ITALIAN = Object.freeze({
   "Next action": "Prossimo passo",
   "Technical details": "Dettagli tecnici",
   "Technical details (optional)": "Dettagli tecnici (facoltativi)",
+  "How to read these records": "Come leggere queste voci",
+  "Applies to every record in this view that has no explanation of its own.": "Vale per ogni voce di questa vista che non ha una spiegazione propria.",
   "Recorded answer": "Risposta registrata",
   "Recorded request": "Richiesta registrata",
   "Recorded change": "Modifica registrata",
@@ -718,13 +720,21 @@ function deliveryGuidance(status, isItalian) {
   };
 }
 
-function genericRecordGuidance(status, isItalian) {
-  const proposed = ["proposed", "draft", "pending", "approval_required"].includes(status);
-  const statusMissing = status === "missing" || status === "";
-  const inactive = [
+function genericGuidanceBucket(status) {
+  if (["proposed", "draft", "pending", "approval_required"].includes(status)) return "proposed";
+  if (status === "missing" || status === "") return "status_missing";
+  if ([
     "revoked", "closed", "cancelled", "superseded", "expired", "failed", "blocked", "denied",
     "rejected", "rolled_back", "malformed",
-  ].includes(status);
+  ].includes(status)) return "inactive";
+  return "recorded";
+}
+
+function genericRecordGuidance(status, isItalian) {
+  const bucket = genericGuidanceBucket(status);
+  const proposed = bucket === "proposed";
+  const statusMissing = bucket === "status_missing";
+  const inactive = bucket === "inactive";
   if (proposed) {
     return isItalian ? {
       outcome: "Questa voce del progetto è una proposta e non è ancora stata accettata.",
@@ -783,6 +793,19 @@ function genericRecordGuidance(status, isItalian) {
     protection: "This view is read-only, does not invent missing facts, and does not change the project.",
     nextAction: "Review the evidence and continue only through the required approvals.",
   };
+}
+
+// Status-neutral guidance is identical for every recorded item, so list
+// views show it once per view instead of repeating it on each card. Guidance
+// that warns about a proposal, a missing status, an inactive record, or an
+// autonomy boundary stays attached to its item.
+export function usesSharedRecordGuidance(item) {
+  if (!item || AUTONOMY_TYPES.has(item.type)) return false;
+  return genericGuidanceBucket(normalizedStatus(item)) === "recorded";
+}
+
+export function sharedRecordGuidance() {
+  return Object.freeze(genericRecordGuidance("recorded", activeLocale === "it"));
 }
 
 export function humanGuidanceForItem(item) {

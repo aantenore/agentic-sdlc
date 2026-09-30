@@ -420,6 +420,40 @@ svg {
   margin: 10px 13px 13px;
 }
 
+.human-guidance-shared {
+  margin: 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--surface-selected);
+}
+
+.human-guidance-shared > summary {
+  padding: 11px 13px;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.human-guidance-shared[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.human-guidance-shared > .human-guidance-scope {
+  margin: 10px 13px 0;
+  color: var(--ink-secondary);
+}
+
+.human-guidance-shared > .human-guidance {
+  margin: 10px 13px 13px;
+  border-left-width: 1px;
+}
+
+.summary-shared-guidance {
+  grid-column: 1 / -1;
+  margin: 0 28px 18px;
+}
+
 .diagnostics-human-summary {
   display: grid;
   gap: 8px;
@@ -2231,6 +2265,10 @@ svg {
   .summary-answer {
     min-height: auto;
     padding: 15px 16px;
+  }
+
+  .summary-shared-guidance {
+    margin: 0 16px 15px;
   }
 
   .summary-answer + .summary-answer::before {

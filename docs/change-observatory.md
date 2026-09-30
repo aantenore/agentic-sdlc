@@ -115,6 +115,13 @@ In italiano: ogni decisione viene prima spiegata come risultato, impatto,
 decisione richiesta, protezioni ancora attive e prossimo passo. Livelli, codici
 e identificativi interni restano nei **Dettagli tecnici** facoltativi.
 
+Ordinary recorded items share the same status-neutral explanation, so summary
+cards and dossier cards show it once per view behind a **How to read these
+records** expander instead of repeating it on every card; the inspector still
+shows the full explanation for the selected item. Proposals, items without a
+recorded status, inactive records, and delivery-control records always keep
+their own explanation on the card.
+
 Automation can suppress browser opening and consume the first NDJSON event:
 
 ```bash
@@ -228,6 +235,11 @@ computes the dossier once; the server serializes it only in the top-level
 `dossiers` collection, and the browser associates it to an iteration only when
 their exact story IDs match. The browser then validates and renders that bounded
 projection and does not attempt a second semantic join.
+
+When no iteration is selected, the dossier opens on the most relevant story:
+the most recent story with lineage in progress, otherwise the most recently
+delivered one (release phase complete or a delivered status). Stories recorded
+as superseded, cancelled, or abandoned are chosen only when nothing else exists.
 
 An autonomy record belongs to a story dossier only through its explicit story,
 contract, requirement-profile, or delivery-profile reference. The Observatory

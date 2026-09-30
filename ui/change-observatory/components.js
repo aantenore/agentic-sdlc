@@ -20,7 +20,9 @@ import {
   isAutonomyRecord,
   localizeUiText,
   localizedErrorGuidance,
+  sharedRecordGuidance,
   t,
+  usesSharedRecordGuidance,
 } from "./i18n.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -143,7 +145,7 @@ export function renderProjectControls(model) {
   );
 }
 
-function renderSummaryAnswer(question, items, portfolioProjectId = null) {
+function renderSummaryAnswer(question, items, portfolioProjectId = null, sharedGuidance = null) {
   const item = firstSummaryItem(items);
   const article = node("article", { className: "summary-answer" }, [
     node("h2", { text: question, i18n: true }),
@@ -163,7 +165,7 @@ function renderSummaryAnswer(question, items, portfolioProjectId = null) {
   }
   article.append(
     recordedAnswerForItem(item),
-    humanGuidanceBlock(item),
+    cardGuidanceBlock(item, sharedGuidance),
     technicalDetailsForItem(item, [], portfolioProjectId),
   );
   return article;
@@ -186,10 +188,12 @@ function recordedAnswerForItem(item) {
 }
 
 export function renderSummary(container, model, { portfolioProjectId = null } = {}) {
+  const sharedGuidance = sharedGuidanceTracker();
   container.replaceChildren(
-    renderSummaryAnswer("What was asked?", model.summary.asked, portfolioProjectId),
-    renderSummaryAnswer("What changed?", model.summary.changed, portfolioProjectId),
-    renderSummaryAnswer("Why was it decided?", model.summary.decided, portfolioProjectId),
+    renderSummaryAnswer("What was asked?", model.summary.asked, portfolioProjectId, sharedGuidance),
+    renderSummaryAnswer("What changed?", model.summary.changed, portfolioProjectId, sharedGuidance),
+    renderSummaryAnswer("Why was it decided?", model.summary.decided, portfolioProjectId, sharedGuidance),
+    sharedGuidanceSection(sharedGuidance, "summary-shared-guidance"),
   );
 }
 
@@ -481,7 +485,7 @@ function dossierNarrative(item, laneKey) {
   ]);
 }
 
-function dossierItem(item, sourceLane, laneKey, state, iterationId) {
+function dossierItem(item, sourceLane, laneKey, state, iterationId, sharedGuidance = null) {
   const selectionId = recordSelectionKey(item);
   const display = displayTextForItem(item);
   const itemKind = sourceLane === "release" || item.type === "release"
@@ -507,7 +511,7 @@ function dossierItem(item, sourceLane, laneKey, state, iterationId) {
       node("span", { className: "dossier-item-title", text: display.title }),
       node("span", { className: "dossier-item-summary", text: display.summary }),
     ]),
-    humanGuidanceBlock(item),
+    cardGuidanceBlock(item, sharedGuidance),
     technicalDetailsForItem(
       item,
       isAutonomyRecord(item) ? [] : [dossierNarrative(item, laneKey)],
@@ -538,7 +542,7 @@ function dossierMissingLane(laneState) {
   ]);
 }
 
-function dossierLane(dossier, definition, state, iterationId, index) {
+function dossierLane(dossier, definition, state, iterationId, index, sharedGuidance = null) {
   const items = dossierLaneItems(dossier, definition.key);
   const laneState = dossierLaneState(dossier, definition.key, items);
   return node("section", {
@@ -555,12 +559,13 @@ function dossierLane(dossier, definition, state, iterationId, index) {
       provenanceBadge(items.length ? laneState.provenance : "missing"),
     ]),
     node("div", { className: "dossier-lane-body" }, items.length
-      ? items.map(({ item, sourceLane }) => dossierItem(item, sourceLane, definition.key, state, iterationId))
+      ? items.map(({ item, sourceLane }) =>
+        dossierItem(item, sourceLane, definition.key, state, iterationId, sharedGuidance))
       : [dossierMissingLane(laneState)]),
   ]);
 }
 
-function unlinkedLineageDisclosure(items, state) {
+function unlinkedLineageDisclosure(items, state, sharedGuidance = null) {
   if (!items.length) return null;
   return node("details", { className: "unlinked-lineage" }, [
     node("summary", {}, [
@@ -572,7 +577,7 @@ function unlinkedLineageDisclosure(items, state) {
       i18n: true,
     }),
     node("div", { className: "unlinked-lineage-list" }, items.map((item) =>
-      dossierItem(item, "unlinked", "unlinked", state, null),
+      dossierItem(item, "unlinked", "unlinked", state, null, sharedGuidance),
     )),
   ]);
 }
@@ -661,18 +666,19 @@ function dossierPanel(model, state) {
     return panel;
   }
 
-  panel.append(
-    node("div", {
-      className: "dossier-flow-scroll",
-      attrs: { tabindex: "0", "aria-label": t(`Five-lane dossier for ${selectedIteration.title}`) },
-    }, [
-      node("div", { className: "dossier-flow" }, DOSSIER_LANES.map((definition, index) =>
-        dossierLane(dossier, definition, state, selectedIteration.id, index),
-      )),
-    ]),
-  );
-
-  const unlinked = unlinkedLineageDisclosure(model.unlinkedLineage, state);
+  const sharedGuidance = sharedGuidanceTracker();
+  const flow = node("div", {
+    className: "dossier-flow-scroll",
+    attrs: { tabindex: "0", "aria-label": t(`Five-lane dossier for ${selectedIteration.title}`) },
+  }, [
+    node("div", { className: "dossier-flow" }, DOSSIER_LANES.map((definition, index) =>
+      dossierLane(dossier, definition, state, selectedIteration.id, index, sharedGuidance),
+    )),
+  ]);
+  const unlinked = unlinkedLineageDisclosure(model.unlinkedLineage, state, sharedGuidance);
+  const shared = sharedGuidanceSection(sharedGuidance, "dossier-shared-guidance");
+  if (shared) panel.append(shared);
+  panel.append(flow);
   if (unlinked) panel.append(unlinked);
 
   if (dossier.diagnostics.length) {
@@ -1084,6 +1090,33 @@ function humanGuidanceSection(guidance) {
 
 function humanGuidanceBlock(item) {
   return humanGuidanceSection(humanGuidanceForItem(item));
+}
+
+function sharedGuidanceTracker() {
+  return { used: false };
+}
+
+// Cards in a list defer status-neutral guidance to one shared explanation per
+// view; item-specific warnings are always rendered on the card itself.
+function cardGuidanceBlock(item, sharedGuidance) {
+  if (sharedGuidance && usesSharedRecordGuidance(item)) {
+    sharedGuidance.used = true;
+    return null;
+  }
+  return humanGuidanceBlock(item);
+}
+
+function sharedGuidanceSection(sharedGuidance, className) {
+  if (!sharedGuidance?.used) return null;
+  return node("details", { className: `human-guidance-shared ${className}` }, [
+    node("summary", { text: "How to read these records", i18n: true }),
+    node("p", {
+      className: "human-guidance-scope",
+      text: "Applies to every record in this view that has no explanation of its own.",
+      i18n: true,
+    }),
+    humanGuidanceSection(sharedRecordGuidance()),
+  ]);
 }
 
 function technicalDetailsForItem(item, sections = [], portfolioProjectId = null) {
