@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   bundledObservatoryAssetRoot,
@@ -16,6 +17,7 @@ import {
   runObserveCommand,
   writeObserveEvent,
 } from "../../lib/change-observatory/cli.mjs";
+import { requireSymlinkSupport } from "../helpers/symlink-support.mjs";
 
 const TECHNICAL_ONLY = /\b(?:bounded-autonomous|checkpoint(?:ed|_required)|audit_only|host_verified|profile|receipt|ceiling|schema|hash|reason[ _-]?code|AUT-[A-Z0-9-]+)\b/iu;
 
@@ -609,7 +611,7 @@ async function successfulServer() {
   };
 }
 
-const CLI_PATH = new URL("../../bin/agentic-sdlc.mjs", import.meta.url);
+const CLI_PATH = fileURLToPath(new URL("../../bin/agentic-sdlc.mjs", import.meta.url));
 
 async function projectWithRecord(t, record) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "observatory-locale-"));
@@ -641,10 +643,6 @@ test("observe defaults the locale to the one recorded for the project", async (t
   }
   assert.equal(await readConfiguredProjectLocale(path.join(italian, "missing")), null);
 
-  const linked = await projectWithRecord(t);
-  await fs.symlink(path.join(italian, ".sdlc", "project.json"), path.join(linked, ".sdlc", "project.json"));
-  assert.equal(readConfiguredProjectLocale(linked), null, "a symlinked project record is ignored");
-
   const output = createMemoryStream();
   let receivedOptions = null;
   const running = await runObserveCommand({ projectRoot: italian, openBrowser: false, json: true }, {
@@ -669,12 +667,21 @@ test("observe defaults the locale to the one recorded for the project", async (t
   await running.close();
 });
 
+test("observe ignores a symlinked project record when choosing the locale", async (t) => {
+  if (!requireSymlinkSupport(t, "file")) return;
+  const italian = await projectWithRecord(t, { project_id: "trial", locale: "it" });
+  const linked = await projectWithRecord(t);
+  await fs.symlink(path.join(italian, ".sdlc", "project.json"), path.join(linked, ".sdlc", "project.json"), "file");
+  assert.equal(readConfiguredProjectLocale(linked), null, "a symlinked project record is ignored");
+  assert.equal(resolveObserveOptions({ projectRoot: linked }).locale, "en");
+});
+
 test("init records an explicit locale for later presentation defaults", async (t) => {
   for (const [args, expected] of [[["--locale", "it"], "it"], [[], undefined]]) {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "observatory-init-locale-"));
     t.after(() => fs.rm(root, { recursive: true, force: true }));
     const result = spawnSync(process.execPath, [
-      CLI_PATH.pathname ? decodeURIComponent(CLI_PATH.pathname) : String(CLI_PATH),
+      CLI_PATH,
       "init",
       "--root",
       root,
