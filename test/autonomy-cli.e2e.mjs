@@ -4690,6 +4690,88 @@ test("native executable flags are not misclassified as interpreter loaders", {
   assert.equal(completed.lifecycle_status, "terminal");
 });
 
+test("an in-repository released local destination leaves the write scope only while it matches its release manifest", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox",
+  timeout: 240_000,
+}, () => {
+  const suffix = "IN-REPO-SCOPE";
+  const storyId = `ST-MACOS-SMOKE-${suffix}`;
+  const fixture = prepareMacOsLocalSmokeRelease({
+    suffix,
+    smokeSource: "process.stdout.write('in-repo-release-ok\\n');\n",
+    deferSmokeMaterialization: true,
+  });
+  const smokePath = `local-release/app/${path.basename(fixture.smokeFile)}`;
+  const bundlePath = "local-release/app/bundle.mjs";
+  const bundleFile = path.join(fixture.project, bundlePath);
+  // The released artifact is built after task start, so it is a new change
+  // outside the requirement write scope (src).
+  fs.writeFileSync(fixture.smokeFile, fixture.smokeSource, "utf8");
+  fs.writeFileSync(bundleFile, "export const released = true;\n", "utf8");
+  const strictGate = () => {
+    const result = run([
+      "gate", "check",
+      "--root", fixture.project,
+      "--scope", "story",
+      "--story", storyId,
+      "--strict",
+      "--json",
+    ]);
+    return JSON.parse(result.stdout);
+  };
+  const scopeErrors = (report) => report.errors.filter((error) =>
+    error.includes("outside the approved requirement write paths"));
+
+  const beforeRelease = scopeErrors(strictGate());
+  assert.equal(beforeRelease.length, 1);
+  assert.match(beforeRelease[0], new RegExp(bundlePath.replace(/[.]/gu, "\\.")));
+  assert.match(beforeRelease[0], /not exempt: the delivery is not closed as released/u);
+
+  const completed = mustRunJson(fixture.completionArgs, { timeout: 90_000 });
+  assert.equal(completed.action_receipt.outcome, "passed");
+  assert.equal(completed.lifecycle_status, "terminal");
+
+  const released = strictGate();
+  assert.deepEqual(scopeErrors(released), []);
+  assert.ok(released.checked.includes(
+    `story ${storyId} released local destination local-release/app matches its smoke-tested artifact manifest`,
+  ));
+
+  // An extra file under the released destination is not part of the artifact.
+  const extraPath = "local-release/app/runtime-data.json";
+  fs.writeFileSync(path.join(fixture.project, extraPath), "{\"written\":\"after release\"}\n", "utf8");
+  const withExtra = scopeErrors(strictGate());
+  assert.equal(withExtra.length, 1);
+  for (const changedPath of [extraPath, bundlePath, smokePath]) {
+    assert.ok(withExtra[0].includes(changedPath), withExtra[0]);
+  }
+  assert.match(withExtra[0], /differ from the smoke-tested release artifact manifest/u);
+  fs.rmSync(path.join(fixture.project, extraPath));
+  assert.deepEqual(scopeErrors(strictGate()), []);
+
+  // A modified released file fails the same way.
+  fs.writeFileSync(bundleFile, "export const released = false;\n", "utf8");
+  const modified = scopeErrors(strictGate());
+  assert.equal(modified.length, 1);
+  assert.ok(modified[0].includes(bundlePath), modified[0]);
+  fs.writeFileSync(bundleFile, "export const released = true;\n", "utf8");
+  assert.deepEqual(scopeErrors(strictGate()), []);
+
+  // Committing the exact released files keeps them covered.
+  mustGit(fixture.project, ["add", "local-release/app"]);
+  mustGit(fixture.project, ["commit", "-m", "test: commit the released artifact"]);
+  assert.deepEqual(scopeErrors(strictGate()), []);
+
+  // Files outside the destination are never covered by the release.
+  fs.writeFileSync(path.join(fixture.project, "local-release/notes.md"), "# Outside the artifact\n", "utf8");
+  const sibling = scopeErrors(strictGate());
+  assert.equal(sibling.length, 1);
+  assert.ok(sibling[0].includes("local-release/notes.md"), sibling[0]);
+  assert.equal(sibling[0].includes(bundlePath), false, sibling[0]);
+});
+
 test("interpreter options with separate values preserve the governed entrypoint", {
   skip: hostSupportsLocalSmokeSandbox()
     ? false
