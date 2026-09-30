@@ -4707,6 +4707,7 @@ test("an in-repository released local destination leaves the write scope only wh
     deferSmokeMaterialization: true,
   });
   assert.deepEqual(fixture.proposal.review.destinations_visible_to_git, ["local-release/app"]);
+  assert.match(fixture.proposal.human_guidance.impact, /“local-release\/app” is inside the repository and not ignored by Git/u);
   const smokePath = `local-release/app/${path.basename(fixture.smokeFile)}`;
   const bundlePath = "local-release/app/bundle.mjs";
   const bundleFile = path.join(fixture.project, bundlePath);
