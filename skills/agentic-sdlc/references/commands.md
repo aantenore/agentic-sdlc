@@ -238,6 +238,15 @@ write-path children, and artifact while executing the resulting authorization,
 then complete that same action with immutable evidence. The CLI never creates
 release directories.
 
+Keep an in-repository destination ignored by Git (for example
+`/.local-release/` in `.gitignore` or `.git/info/exclude`) or place it outside
+the repository. The proposal reports in-repository destinations that Git can
+see in `review.destinations_visible_to_git` and prints a warning. Their files
+pass the strict write-scope check only after the delivery is released and only
+while the destination matches the smoke-tested artifact manifest; extra,
+missing, or modified files (including runtime data written after release) fail
+the gate.
+
 ```bash
 node bin/agentic-sdlc.mjs autonomy delivery action \
   --root <project> --id AUT-LOCAL-REL-009 \

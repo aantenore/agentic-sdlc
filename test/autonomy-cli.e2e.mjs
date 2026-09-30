@@ -13,7 +13,10 @@ import {
   computeDeliveryExecutionProfileHash,
 } from "../lib/autonomy-policy.mjs";
 import { buildContext } from "../lib/engine/common.mjs";
-import { storyReleaseReadiness } from "../lib/engine/delivery.mjs";
+import {
+  localReleaseDestinationsVisibleToGit,
+  storyReleaseReadiness,
+} from "../lib/engine/delivery.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const bin = path.join(repoRoot, "bin", "agentic-sdlc.mjs");
@@ -4703,6 +4706,7 @@ test("an in-repository released local destination leaves the write scope only wh
     smokeSource: "process.stdout.write('in-repo-release-ok\\n');\n",
     deferSmokeMaterialization: true,
   });
+  assert.deepEqual(fixture.proposal.review.destinations_visible_to_git, ["local-release/app"]);
   const smokePath = `local-release/app/${path.basename(fixture.smokeFile)}`;
   const bundlePath = "local-release/app/bundle.mjs";
   const bundleFile = path.join(fixture.project, bundlePath);
@@ -4770,6 +4774,21 @@ test("an in-repository released local destination leaves the write scope only wh
   assert.equal(sibling.length, 1);
   assert.ok(sibling[0].includes("local-release/notes.md"), sibling[0]);
   assert.equal(sibling[0].includes(bundlePath), false, sibling[0]);
+
+  // An ignored or external destination is not visible to Git; tracked files
+  // stay visible even when the directory is ignored afterwards.
+  fs.appendFileSync(path.join(fixture.project, ".git", "info", "exclude"), "/local-release/\n", "utf8");
+  assert.deepEqual(
+    localReleaseDestinationsVisibleToGit(
+      buildContext({ root: fixture.project }),
+      [
+        fixture.releaseOutput,
+        path.join(fixture.project, "local-release", "next"),
+        path.join(fixture.project, "..", "outside-release"),
+      ],
+    ),
+    ["local-release/app"],
+  );
 });
 
 test("interpreter options with separate values preserve the governed entrypoint", {

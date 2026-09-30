@@ -391,6 +391,15 @@ The dedicated assessment journey remains the exception described above: it packa
    children, and the artifact. Then complete `build.local` with immutable
    evidence. The CLI deliberately creates no release directory itself.
 
+   A destination inside the repository must be ignored by Git (for example
+   `/.local-release/` in `.gitignore` or `.git/info/exclude`), or placed
+   outside the repository. The proposal lists any in-repository destination
+   Git can see under `review.destinations_visible_to_git` with a warning. Its
+   files count as story changes: the strict write-scope check accepts them only
+   after the delivery is released and only while the destination still matches
+   the smoke-tested artifact manifest. Runtime data written there later, or any
+   edited file, fails the lifecycle-complete gate.
+
    ```bash
    node <plugin-root>/bin/agentic-sdlc.mjs autonomy delivery action \
      --root <target-project> --id AUT-LOCAL-REL-009 \
