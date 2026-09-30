@@ -264,6 +264,30 @@ test("a dependency on a superseded story follows its replacement", () => {
   const deps = mustRunJson(["story", "deps", "--root", project, "--id", "ST-NEXT"]);
   assert.equal(deps.blockers.length, 1);
   assert.match(deps.blockers[0], /ST-NEXT depends on ST-002 \(superseded by ST-MVP\)/u);
+
+  mustRun([
+    "story", "cancel",
+    "--root", project,
+    "--id", "ST-MVP",
+    "--reason", "The release was dropped",
+    ...humanApproval("Drop the release story"),
+  ]);
+  const afterCancel = mustRunJson(["story", "deps", "--root", project, "--id", "ST-NEXT"]);
+  assert.match(afterCancel.blockers[0], /ST-NEXT depends on ST-002, which was closed without a replacement/u);
+
+  mustRun([
+    "story", "cancel",
+    "--root", project,
+    "--id", "ST-NEXT",
+    "--reason", "Nothing left to build on",
+    ...humanApproval("Drop the follow-up"),
+  ]);
+  const status = mustRunJson(["status", "--root", project]);
+  assert.equal(status.summary.available_work, 0);
+  assert.equal(status.summary.blocked_work, 0);
+  assert.equal(status.summary.closed_work, 7);
+  assert.equal(status.next_action.kind, "none");
+  assert.equal(status.next_action.reason, "no_operational_work");
 });
 
 test("closing refuses started work, unsafe replacements, and dependents left behind", () => {
