@@ -50,6 +50,14 @@ The human view gives one recommended next action. The JSON view preserves the
 existing project and count fields, adds `schema_version: cli-status:v1`, and
 includes the same summary and next action in a stable machine-readable shape.
 
+The summary counts `available_work`, `active_work`, `blocked_work`,
+`stale_claims`, `completed_work` (stories with a valid final lifecycle
+certification), and `closed_work` (never-started stories closed with
+`story supersede` or `story cancel`). Closed stories are never counted as
+available or blocked work. A certified story whose files changed after its
+final check is not counted as completed: `status` points to the
+lifecycle-complete gate that re-verifies it.
+
 ## Choose presentation without changing authority
 
 Built-in presets change only language and presentation:

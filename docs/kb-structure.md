@@ -673,6 +673,17 @@ Example:
 }
 ```
 
+`closure.json` exists only for a story closed before any work started, through
+`story supersede` or `story cancel`. It is written once and never rewritten,
+and `story.json` stays untouched. The record carries the approved subject —
+`event` (`superseded` or `cancelled`), content-hash references to every story
+closed by the same decision, the replacement story, the source breakdown when
+one was used, and the reason — plus the formal approval that binds that
+subject (schema `story-closure.schema.json`). A valid closure makes the story
+terminal with the effective status `superseded` or `cancelled`; if the closure
+or the story it references changes afterwards, the story is reported as
+blocked until it is repaired.
+
 ## `orchestration/`
 
 Parent-chat orchestration snapshots and plans. These records are useful when one Codex chat coordinates multiple worker chats.

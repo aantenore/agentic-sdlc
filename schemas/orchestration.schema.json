@@ -36,7 +36,9 @@
               "available",
               "claimed",
               "blocked",
-              "stale"
+              "stale",
+              "terminal",
+              "closed"
             ]
           },
           "blockers": {
@@ -44,6 +46,19 @@
             "items": {
               "type": "string"
             }
+          },
+          "closure": {
+            "type": "object",
+            "description": "Present only for superseded or cancelled stories.",
+            "required": ["id", "event", "replacement_id", "path"],
+            "properties": {
+              "id": { "type": "string" },
+              "event": { "enum": ["superseded", "cancelled"] },
+              "replacement_id": { "type": ["string", "null"] },
+              "breakdown_id": { "type": ["string", "null"] },
+              "path": { "type": "string" }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": true
