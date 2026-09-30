@@ -146,12 +146,17 @@ Requirement paths above are Git-relative project scope. They are deliberately
 different from local-release `--target-root`, `--write-path`, and `--smoke-cwd`
 values, which use explicit absolute filesystem paths inside the approved target
 as shown later in this reference.
+When the local-release target root is inside the Git worktree, as in the
+examples below, the requirement paths must also include its project-relative
+path (`.local-release`) and `.gitignore`, and `.gitignore` should ignore it;
+otherwise `gate check --strict --lifecycle-complete` fails on the released
+files. A target root outside the worktree needs neither.
 
 `requirement create` is a compatibility alias for proposal creation, not direct approval. A material revision changes the requirement hash and invalidates downstream delivery profiles bound to the old revision. Legacy `requirement:v1` records remain readable with a conservative `supervised` ceiling.
 
 ## Select Autonomy For Every Delivery
 
-Every pull request and every local release needs a new delivery profile ID and an explicit choice among `supervised`, `checkpointed`, and `bounded-autonomous`. Never reuse a profile or approval from another delivery. One profile binds exactly one story and that story's one approved contract. When several stories must ship together, first create an agreed aggregation story/contract; do not use the profile as an unrelated multi-story container.
+Every pull request and every local release needs a new delivery profile ID and an explicit choice among `supervised`, `checkpointed`, and `bounded-autonomous`. Never reuse a profile or approval from another delivery. One profile binds exactly one story and that story's one approved contract. When several stories must ship together, first create an agreed aggregation story/contract; do not use the profile as an unrelated multi-story container. Decide this at breakdown time: when the user wants one pull request or one local release for several parts, propose one delivery story with tasks (`work item create --type task --story <story-id>`) rather than approving several stories that will never be delivered separately.
 
 Create the story, reserve a new profile ID, and create the final contract with that ID. Obtain normal contract approval before proposing the profile. The contract stores only the planned `delivery_execution_profile_id`; the later profile binds the approved requirement-profile, story, and contract hashes.
 

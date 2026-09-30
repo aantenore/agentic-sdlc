@@ -42,8 +42,8 @@ Keep these boundaries distinct:
 For generic implementation and release work, follow this order:
 
 1. **Preview and normalize the request** — identify the intended outcome, target project, delivery destination, evidence boundary, and missing information. This is read-only planning. Do not call `task start`.
-2. **Agree the requirement** — show the outcome, success criteria, non-goals, constraints, integrations, and maximum working independence in ordinary language; obtain the required approval.
-3. **Decompose only when needed** — propose stories and dependencies for work that cannot safely remain one bounded story; obtain approval before treating the breakdown as canonical.
+2. **Agree the requirement** — show the outcome, success criteria, non-goals, constraints, integrations, and maximum working independence in ordinary language; obtain the required approval. List every project path the work may change, including `.gitignore` when it may be added or updated and an in-repository local-release destination (see “Choose where the result goes”).
+3. **Decompose only when needed** — say up front that every story is delivered on its own: each story gets its own pull request or local release and its own autonomy choice. Before proposing stories, ask whether the user wants one result or several. When the user wants ONE pull request or ONE local release for several parts, propose one delivery story whose parts are tasks inside it; propose several stories only when each part should ship separately. Obtain approval before treating the breakdown as canonical, and agree this shape before approval, not after: an approved story that is never started stays in the plan (see “Approved stories that will not be delivered”).
 4. **Agree the output and work brief** — resolve the real output, tools, files, tests, contract, branches or local target, verification, and protected actions. Create and approve the contextualized contract only after this content is complete.
 5. **Choose autonomy for this delivery** — for every pull request or local release, ask again; never carry the choice over from earlier work. Before presenting the choices, explain whether option 3 can actually be effective; when this installation cannot digitally verify the approver, say that option 3 will be reduced to “Autonomy with checkpoints”.
 6. **Start the story workflow, then start once** — bind the exact configured phase order to the story before any completed step, then make one logical `task start` decision. Never use an early speculative start as routing or discovery, and never reconstruct the workflow after work has begun.
@@ -51,7 +51,19 @@ For generic implementation and release work, follow this order:
 8. **Validate, then enter release** — after validation and the latest passing test evidence, seal the intermediate strict receipt and use it to move the task-bound workflow into `release`.
 9. **Finish and certify at the named destination** — only after entering `release`, create/update and verify the one pull request or complete the local release, close a pull request whose delivery excludes merge as `ready_for_review`, record release evidence, complete the release step, transition the workflow to `operations` and complete the `operations` step, release the completed story claim, and run the distinct lifecycle-complete gate. Push, protected-branch merge, remote deployment, and production remain separate when they were not explicitly included.
 
-For a **new pull request**, the displayed boundary must include the repository, base and new head branch, `pull_request.create`, allowed writes, tests, push, and whether later PR updates are included. For an **existing pull request**, resolve and show the exact PR, repository, base, head, current SHA, and allowed update actions, and propose its profile with `--pr-mode existing --pr-number <n> --pr-url <url>`; do not create another PR. For a **local-only result**, exclude Git push, pull-request actions, remote deployment, and production access, and require the exact local target, smoke test, and rollback.
+For a **new pull request**, the displayed boundary must include the repository, base and new head branch, `pull_request.create`, allowed writes, tests, push, and whether later PR updates are included. For an **existing pull request**, resolve and show the exact PR, repository, base, head, current SHA, and allowed update actions, and propose its profile with `--pr-mode existing --pr-number <n> --pr-url <url>`; do not create another PR. For a **local-only result**, exclude Git push, pull-request actions, remote deployment, and production access, and require the exact local target, smoke test, and rollback. Tell the user at the start that the local-only journey does not commit their code: changed files stay uncommitted in the working tree and the user decides when to commit. After lifecycle-complete passes, offer the exact command, built from the approved requirement paths plus `.sdlc` (the governed evidence), for example `git -C <target-project> add -- src test docs evidence .gitignore .sdlc && git -C <target-project> commit -m "<summary of the delivered result>"`. Never include an in-repository release destination in that command.
+
+### Choose where the result goes
+
+The lifecycle-complete gate compares every changed Git path since task start with the approved requirement `--write-path` list. Any changed file, or untracked file not ignored by Git, outside that list fails the final certification, even after a successful release. Decide these paths while agreeing the requirement, not at the end:
+
+- Include `.gitignore` in the requirement paths whenever the work may add or change it.
+- Prefer a local-release `--target-root` outside the Git worktree, for example a sibling folder such as `/absolute/project-releases/app`; files there are not project changes.
+- When the destination must stay inside the repository (for example `/absolute/project/.local-release`), add its project-relative path (`.local-release`) to the requirement `--write-path` list, add it to `.gitignore` so released copies are never committed, and include `.gitignore` too. Do not hide the destination through `.git/info/exclude` after the gate has failed; revise the requirement instead.
+
+### Approved stories that will not be delivered
+
+There is currently no command that retires an approved story that was never started. It remains in the approved breakdown, and `status` may keep reporting it as open or blocked work after another story has been delivered and certified. Avoid this by agreeing the delivery shape before approving the breakdown. If it already happened, tell the user plainly that those entries belong to the earlier plan, that they do not change the certified delivery, and which story actually carries the result.
 
 The dedicated assessment journey remains the exception described above: it packages its requirement, contract draft, budget, and any already named delivery choice into checkpoint 2, then applies and starts that unchanged proposal without exposing extra normal decisions.
 
@@ -152,9 +164,20 @@ The dedicated assessment journey remains the exception described above: it packa
    Do not confuse this requirement scope with a local-release filesystem
    boundary. Requirement paths are stored relative to the Git project;
    delivery `--target-root`, delivery `--write-path`, and `--smoke-cwd` use
-   explicit absolute local paths inside the approved release target.
+   explicit absolute local paths inside the approved release target. The two
+   still interact at the final gate: a release destination inside the
+   repository must also appear in the requirement scope (see “Choose where the
+   result goes”).
 
-   After approval, when the requirement needs decomposition, propose a work breakdown and dependency graph, then ask the user to approve or correct it before treating it as canonical:
+   After approval, when the requirement needs decomposition, propose a work breakdown and dependency graph, then ask the user to approve or correct it before treating it as canonical. Each story is a separate delivery with its own profile and autonomy choice. When the user wants one pull request or one local release for several parts, propose one delivery story with tasks instead of several stories:
+
+   ```bash
+   node <plugin-root>/bin/agentic-sdlc.mjs work item create --root <target-project> --type task --id T-001 --title "First part" --story ST-001 --requirement REQ-001
+   node <plugin-root>/bin/agentic-sdlc.mjs work item create --root <target-project> --type task --id T-002 --title "Second part" --story ST-001 --requirement REQ-001
+   node <plugin-root>/bin/agentic-sdlc.mjs breakdown propose --root <target-project> --id BD-REQ-001 --requirement REQ-001 --item story:ST-001 --item task:T-001 --item task:T-002
+   ```
+
+   Only when parts should ship separately, propose several stories and their dependencies:
 
    ```bash
    node <plugin-root>/bin/agentic-sdlc.mjs breakdown propose --root <target-project> --id BD-REQ-001 --requirement REQ-001 --item story:ST-001

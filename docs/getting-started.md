@@ -92,10 +92,17 @@ For implementation work, Codex follows one visible order:
    Codex restates the outcome, project, destination, evidence boundary, and missing facts. This is read-only planning. The task has not started.
 
 2. **Agree the requirement**
-   You review the desired outcome, observable success criteria, non-goals, constraints, integrations, and the most independence this requirement may permit.
+   You review the desired outcome, observable success criteria, non-goals, constraints, integrations, the project paths that may change, and the most independence this requirement may permit.
 
 3. **Decompose only when needed**
    A small bounded change can remain one story. Larger work receives a proposed breakdown and dependencies before they become part of the plan.
+   Every story is delivered on its own, with its own pull request or local
+   release and its own autonomy choice. If you want one result for several
+   parts, Codex proposes one delivery story whose parts are tasks inside it;
+   several stories fit only when each part should ship separately. Agree this
+   shape before approving the breakdown: there is currently no command that
+   retires an approved story that was never started, so it stays in the plan
+   and `status` may keep reporting it as open or blocked work.
 
 4. **Agree the output and work brief**
    Codex shows the concrete files, tools, tests, branches or local target, verification, protected actions, and rollback where relevant. “Work brief” is the plain-language view of the formal contract.
@@ -142,6 +149,7 @@ sorted, deduplicated, and Git-relative, for example `src`, `test`, `docs`, and
 `evidence`. The project root, paths outside the project, and `.git` repository
 metadata are never valid. Govern Git commits, pushes, and merges through their
 explicit delivery actions instead of granting file-write scope over `.git`.
+Include `.gitignore` whenever the work may add or change it.
 
 An empty path list is useful only for governance work that changes no product
 or named output. If product work reaches task start with an empty requirement
@@ -155,6 +163,14 @@ Requirement paths describe project-relative material scope. A local release
 shows an explicit absolute target and absolute allowed paths inside that target,
 for example `/absolute/project/.local-release` and
 `/absolute/project/.local-release/app`.
+
+The two boundaries still meet at the final lifecycle-complete gate, which
+fails on any changed file, or untracked file not ignored by Git, outside the
+requirement paths. Prefer a release destination outside the Git worktree, such
+as a sibling folder. If the destination must stay inside the repository, add
+its project-relative path (for example `.local-release`) and `.gitignore` to
+the requirement paths, and ignore the destination in `.gitignore` so released
+copies are never committed.
 
 ## Walk Through One Complete First Project
 
@@ -292,6 +308,18 @@ Before starting, Codex shows:
 - a shell-free smoke test;
 - how to restore the previous local result;
 - the explicit exclusion of Git push, PR create/update, remote deployment, production, secrets, destructive work, and machine-global changes.
+
+The local-only journey does not commit your code. Changed files stay
+uncommitted in your working tree, and you decide when to commit them. After
+the lifecycle-complete gate passes, Codex offers the exact command, built from
+the approved requirement paths plus `.sdlc`, for example:
+
+```bash
+git -C /absolute/project add -- src test docs evidence .gitignore .sdlc
+git -C /absolute/project commit -m "Add the verified local result"
+```
+
+An in-repository release destination is never part of that command.
 
 “Local” describes the destination and data boundary; it does not mean unrestricted. A missing tool installation, write outside the workspace, or machine-global change remains a separate decision.
 
