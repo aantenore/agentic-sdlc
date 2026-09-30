@@ -245,7 +245,8 @@ see in `review.destinations_visible_to_git` and prints a warning. Their files
 pass the strict write-scope check only after the delivery is released and only
 while the destination matches the smoke-tested artifact manifest; extra,
 missing, or modified files (including runtime data written after release) fail
-the gate.
+the gate, and files the repository tracked there before the story started stay
+subject to the requirement write paths.
 
 ```bash
 node bin/agentic-sdlc.mjs autonomy delivery action \

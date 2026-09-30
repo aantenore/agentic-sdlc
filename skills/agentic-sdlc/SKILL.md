@@ -397,8 +397,9 @@ The dedicated assessment journey remains the exception described above: it packa
    Git can see under `review.destinations_visible_to_git` with a warning. Its
    files count as story changes: the strict write-scope check accepts them only
    after the delivery is released and only while the destination still matches
-   the smoke-tested artifact manifest. Runtime data written there later, or any
-   edited file, fails the lifecycle-complete gate.
+   the smoke-tested artifact manifest. Runtime data written there later, any
+   edited file, or a file the repository already tracked there before the
+   story started fails the lifecycle-complete gate.
 
    ```bash
    node <plugin-root>/bin/agentic-sdlc.mjs autonomy delivery action \

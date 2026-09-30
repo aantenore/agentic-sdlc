@@ -245,6 +245,7 @@ function prepareMacOsLocalSmokeRelease({
   commandOptions = {},
   authorizeRelease = true,
   deferSmokeMaterialization = false,
+  trackedReleaseFile = null,
 }) {
   const storyId = `ST-MACOS-SMOKE-${suffix}`;
   const contractId = `CONTRACT-MACOS-SMOKE-${suffix}`;
@@ -268,6 +269,11 @@ function prepareMacOsLocalSmokeRelease({
   const rollback = `Remove the ${suffix.toLowerCase()} local smoke fixture.`;
 
   fs.mkdirSync(releaseOutput, { recursive: true });
+  if (trackedReleaseFile) {
+    fs.writeFileSync(path.join(releaseOutput, trackedReleaseFile.name), trackedReleaseFile.content, "utf8");
+    mustGit(project, ["add", path.join("local-release", "app", trackedReleaseFile.name)]);
+    mustGit(project, ["commit", "-m", "test: track a file under the release destination"]);
+  }
   if (!deferSmokeMaterialization) {
     fs.writeFileSync(smokeFile, smokeSource, "utf8");
     if (smokeCommandArgv) fs.chmodSync(smokeFile, 0o755);
@@ -4790,6 +4796,48 @@ test("an in-repository released local destination leaves the write scope only wh
     ),
     ["local-release/app"],
   );
+});
+
+test("a released local destination does not cover files the repository tracked before the story started", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox",
+  timeout: 240_000,
+}, () => {
+  const suffix = "IN-REPO-TRACKED";
+  const storyId = `ST-MACOS-SMOKE-${suffix}`;
+  const trackedPath = "local-release/app/tracked-before-story.md";
+  const fixture = prepareMacOsLocalSmokeRelease({
+    suffix,
+    smokeSource: "process.stdout.write('in-repo-tracked-ok\\n');\n",
+    trackedReleaseFile: { name: "tracked-before-story.md", content: "# Tracked before the story\n" },
+  });
+  // The story edits a file that was already project content under the
+  // destination; the release then captures it in its artifact manifest.
+  fs.writeFileSync(path.join(fixture.project, trackedPath), "# Edited by the story\n", "utf8");
+  const completed = mustRunJson(fixture.completionArgs, { timeout: 90_000 });
+  assert.equal(completed.action_receipt.outcome, "passed");
+
+  const report = JSON.parse(run([
+    "gate", "check",
+    "--root", fixture.project,
+    "--scope", "story",
+    "--story", storyId,
+    "--strict",
+    "--json",
+  ]).stdout);
+  assert.ok(report.checked.includes(
+    `story ${storyId} released local destination local-release/app matches its smoke-tested artifact manifest`,
+  ));
+  const scopeErrors = report.errors.filter((error) =>
+    error.includes("outside the approved requirement write paths"));
+  assert.equal(scopeErrors.length, 1);
+  assert.match(
+    scopeErrors[0],
+    /write paths: local-release\/app\/tracked-before-story\.md \(detected after task preflight\)/u,
+  );
+  assert.match(scopeErrors[0], /files tracked before the story started are not release output/u);
+  assert.equal(scopeErrors[0].includes(path.basename(fixture.smokeFile)), false, scopeErrors[0]);
 });
 
 test("interpreter options with separate values preserve the governed entrypoint", {
