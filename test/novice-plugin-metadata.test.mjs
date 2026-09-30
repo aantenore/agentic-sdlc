@@ -275,3 +275,66 @@ test("the Claude Code installation guide documents the marketplace flow and the 
   }
   assert.match(readme, /\[Claude Code Installation\]\(docs\/claude-code-install\.md\)/u);
 });
+
+test("delivery guidance agrees the delivery shape, write scope, and local commit ownership up front", () => {
+  const skill = read("skills/agentic-sdlc/SKILL.md");
+  const orderSection = skill.slice(skill.indexOf("### Required Delivery Order"), skill.indexOf("## Workflow"));
+  const decomposeStage = orderSection.slice(
+    orderSection.indexOf("**Decompose only when needed**"),
+    orderSection.indexOf("**Agree the output and work brief**"),
+  );
+  assert.match(decomposeStage, /own pull request or local release and its own autonomy choice/u);
+  assert.match(decomposeStage, /ONE pull request or ONE local release for several parts, propose one delivery story whose parts are tasks/u);
+  assert.match(decomposeStage, /before approval, not after/u);
+  assert.match(skill, /--item story:ST-001 --item task:T-001/u);
+
+  const agreeStage = orderSection.slice(
+    orderSection.indexOf("**Agree the requirement**"),
+    orderSection.indexOf("**Decompose only when needed**"),
+  );
+  assert.match(agreeStage, /`\.gitignore`/u);
+  assert.match(orderSection, /### Choose where the result goes/u);
+  assert.match(orderSection, /outside the Git worktree/u);
+  assert.match(orderSection, /add its project-relative path \(`\.local-release`\) to the requirement `--write-path` list/u);
+
+  assert.match(orderSection, /does not commit their code/u);
+  assert.match(orderSection, /`git -C <target-project> add -- [^`]*\.sdlc` followed by `git -C <target-project> commit -m/u);
+  assert.match(orderSection, /do not hide them through `\.git\/info\/exclude`/u);
+
+  const localCommand = read("commands/local.md");
+  assert.match(localCommand, /does not commit code/u);
+  assert.match(localCommand, /git -C <project> add --/u);
+  assert.match(localCommand, /one delivery story with tasks/u);
+  assert.match(localCommand, /`\.gitignore`/u);
+  assert.match(read("commands/deliver.md"), /one delivery story with tasks at breakdown time/u);
+
+  const gettingStarted = read("docs/getting-started.md");
+  assert.match(gettingStarted, /own pull request or local\s+release and its own autonomy choice/u);
+  assert.match(gettingStarted, /local-only journey does not commit your code/u);
+  assert.match(gettingStarted, /git -C \/absolute\/project commit -m/u);
+  assert.match(gettingStarted, /Include `\.gitignore` whenever the work may add or change it/u);
+  const howItWorks = read("docs/how-it-works.md");
+  assert.match(howItWorks, /one delivery story whose parts are tasks/u);
+  assert.match(howItWorks, /does not commit the project's source/u);
+  assert.doesNotMatch(howItWorks, /aggregation requirement/u);
+});
+
+test("guidance names a story retirement command only when the CLI catalog provides one", () => {
+  const catalog = read("lib/cli/command-catalog.mjs");
+  const guidanceFiles = [
+    "skills/agentic-sdlc/SKILL.md",
+    "skills/agentic-sdlc/references/commands.md",
+    "commands/local.md",
+    "commands/deliver.md",
+    "docs/getting-started.md",
+    "docs/how-it-works.md",
+  ];
+  for (const verb of ["supersede", "cancel", "retire", "abandon", "withdraw"]) {
+    const command = `story ${verb}`;
+    if (catalog.includes(`C("${command}"`)) continue;
+    for (const relativePath of guidanceFiles) {
+      assert.doesNotMatch(read(relativePath), new RegExp(`\\b${command}\\b`, "u"), `${relativePath} names missing command: ${command}`);
+    }
+  }
+  assert.match(read("skills/agentic-sdlc/SKILL.md"), /### Approved stories that will not be delivered/u);
+});

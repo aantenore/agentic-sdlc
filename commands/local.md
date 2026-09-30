@@ -14,5 +14,8 @@ Rules for this command:
 - The plugin root is `${CLAUDE_PLUGIN_ROOT}`. The deterministic CLI is `${CLAUDE_PLUGIN_ROOT}/bin/agentic-sdlc.mjs`; run it with `node` and pass `--root` for the target project.
 - The delivery kind is `local_release`. The approved profile must record the target root, smoke tests, the governed smoke working directory, rollback, write paths, and allowed actions.
 - Never request `git.push`, `pull_request.create`, `pull_request.update`, or `pull_request.merge` under this command.
+- Say at the start that this journey does not commit code: changed files stay uncommitted and the user decides when to commit. After lifecycle-complete passes, offer the exact `git -C <project> add -- <approved requirement paths that exist> .sdlc` and `git -C <project> commit -m "<summary>"` commands without running them, and never include an in-repository release destination.
+- When the result has several parts but one local release, propose one delivery story with tasks, not several stories: each story needs its own delivery and autonomy choice.
+- For a release destination inside the repository, add its project-relative path and `.gitignore` to the requirement write paths and ignore the destination in `.gitignore`; otherwise the final lifecycle-complete gate fails on the released files. A destination outside the Git worktree avoids this but is a write outside the workspace, so it needs the user's explicit agreement. Never hide released files through `.git/info/exclude` to pass the gate.
 - Treat any request to publish or deploy as a separate decision that this command does not cover. Say so instead of widening the profile.
 - If `$ARGUMENTS` is empty, ask what the local result should be before touching any record.
