@@ -665,6 +665,8 @@ bound to the approved subject (story contents, replacement, breakdown, reason)
 and a `story.supersede` or `story.cancel` project trace; `story.json` is never
 rewritten. Stories with a claim, task start, completed step, workflow run,
 lifecycle receipt, delivery profile, linked output, or work trace are refused.
+After closure, contract creation, workflow start, task start, delivery
+proposals, output links, claims, and story traces for that story are refused.
 Closed stories are reported as `closed` by orchestration and as `closed_work`
 by `status`; dependency edges from them stop applying, and a dependency on a
 superseded story is evaluated against its replacement. Cancelling a story that

@@ -223,6 +223,37 @@ test("abandoned breakdown stories keep status blocked until they are superseded"
     "--reason", "Again",
     ...humanApproval("Repeat"),
   ], /ST-001 is already superseded/u);
+
+  const storyBytesBeforeWork = fs.readFileSync(storyPath(project, "ST-003"));
+  mustFail([
+    "contract", "create",
+    "--root", project,
+    "--story", "ST-003",
+    "--phase", "implementation",
+  ], /ST-003 was superseded by ST-MVP and cannot receive new work, so contract create is refused/u);
+  mustFail([
+    "workflow", "instance", "start",
+    "--root", project,
+    "--id", "DELIVERY-ST-003",
+    "--definition", "software-project",
+    "--definition-version", "3",
+    "--story", "ST-003",
+  ], /so workflow instance start is refused\. Continue the work on ST-MVP/u);
+  mustFail([
+    "trace", "append",
+    "--root", project,
+    "--story", "ST-003",
+    "--type", "implementation",
+    "--summary", "Late work",
+  ], /so trace append is refused/u);
+  mustFail([
+    "story", "claim",
+    "--root", project,
+    "--id", "ST-003",
+    "--agent", "codex",
+  ], /terminal status 'superseded' and cannot be claimed/u);
+  assert.deepEqual(fs.readFileSync(storyPath(project, "ST-003")), storyBytesBeforeWork);
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "contracts", "contract-ST-003-implementation.json")), false);
 });
 
 test("a dependency on a superseded story follows its replacement", () => {
