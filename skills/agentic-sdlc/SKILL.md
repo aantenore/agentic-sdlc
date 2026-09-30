@@ -161,6 +161,8 @@ The dedicated assessment journey remains the exception described above: it packa
    node <plugin-root>/bin/agentic-sdlc.mjs dependency propose --root <target-project> --id DEP-REQ-001 --edge ST-002:ST-001:requires_artifact:validation:artifact_linked
    ```
 
+   If the user later replaces or drops planned stories that were never started, record that decision instead of leaving them as blocked work: `story supersede --from-breakdown BD-REQ-001 --by <delivering-story>` (or `--id <story-id>`) or `story cancel --id <story-id>`, each with `--reason` and a formal approval from the user. Story records are not rewritten; started stories are refused. See `references/commands.md`.
+
 6. Before creating a contract, gather project-specific context from `.sdlc/`, user-provided files, repository files, or direct user answers. If critical context, output format, acceptance criteria, delivery target, autonomy choice, or a phase-guiding decision is missing, ask concise questions and stop instead of inventing details or creating a vague contract. Use `--allow-incomplete-contract` only for explicit clarification, migration, or recovery drafts, never to start phase work.
 7. Before technical analysis or a contract that depends on project-specific tooling, profile the project/story and propose capability recommendations. Do not keyword-match the user's language. Use repo files, `.sdlc/`, user files, or canonical JSON normalized by Codex:
 

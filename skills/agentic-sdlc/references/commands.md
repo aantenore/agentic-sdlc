@@ -645,6 +645,33 @@ node bin/agentic-sdlc.mjs story deps --root <project> --id ST-002
 
 Breakdowns and dependencies are proposed first, then approved by a human/CI actor or by delegated automation when the user explicitly gave a matching approval level. Hard dependency scopes block orchestration and strict gates; soft dependencies remain visible as warnings. When upstream artifacts change, record a `dependency.revalidate` trace on downstream stories after review.
 
+When planned stories are abandoned before any work starts, close them instead
+of leaving them as blocked work. `story supersede` names the story that now
+delivers the work; `story cancel` records that the work will not be delivered.
+Both take one `--id` or every story of an approved breakdown with
+`--from-breakdown`, and both need a formal approval:
+
+```bash
+node bin/agentic-sdlc.mjs story supersede --root <project> --from-breakdown BD-REQ-001 --by ST-MVP \
+  --reason "One delivery story replaced the planned split" \
+  --actor-type human --approval-source explicit-user --summary "Replace the planned stories with ST-MVP"
+node bin/agentic-sdlc.mjs story cancel --root <project> --id ST-004 \
+  --reason "Out of scope for this release" \
+  --actor-type human --approval-source explicit-user --summary "Drop ST-004"
+```
+
+Each closed story gets an immutable `.sdlc/stories/<story-id>/closure.json`
+bound to the approved subject (story contents, replacement, breakdown, reason)
+and a `story.supersede` or `story.cancel` project trace; `story.json` is never
+rewritten. Stories with a claim, task start, completed step, workflow run,
+lifecycle receipt, delivery profile, linked output, or work trace are refused.
+Closed stories are reported as `closed` by orchestration and as `closed_work`
+by `status`; dependency edges from them stop applying, and a dependency on a
+superseded story is evaluated against its replacement. Cancelling a story that
+active stories still depend on is refused: close the dependents first or
+supersede it instead. A tampered closure, or a story edited after closure,
+blocks that story until it is repaired.
+
 ## Capability Discovery
 
 ```bash
