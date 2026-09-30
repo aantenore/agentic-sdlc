@@ -19,7 +19,10 @@ import {
   VIEW_MODEL_SCHEMA,
   normalizeViewModel,
 } from "../../ui/change-observatory/model.js";
-import { createChangeObservatoryBrowser } from "../helpers/change-observatory-browser-dom.mjs";
+import {
+  BrowserNode,
+  createChangeObservatoryBrowser,
+} from "../helpers/change-observatory-browser-dom.mjs";
 
 const SHARED_SENTENCE = {
   en: "This project item is available as recorded project information.",
@@ -28,8 +31,18 @@ const SHARED_SENTENCE = {
 
 function useBrowserDocument(t) {
   const previousDocument = globalThis.document;
+  const originalAppend = BrowserNode.prototype.append;
   globalThis.document = createChangeObservatoryBrowser("http://127.0.0.1/").document;
+  // A real DOM renders a null child as the text "null"; fail instead.
+  BrowserNode.prototype.append = function strictAppend(...children) {
+    assert.ok(
+      children.every((child) => child !== null && child !== undefined),
+      "components must not append null or undefined children",
+    );
+    return originalAppend.apply(this, children);
+  };
   t.after(() => {
+    BrowserNode.prototype.append = originalAppend;
     globalThis.document = previousDocument;
     setLocale("en");
   });

@@ -164,11 +164,11 @@ function renderSummaryAnswer(question, items, portfolioProjectId = null, sharedG
     );
     return article;
   }
-  article.append(
+  article.append(...[
     recordedAnswerForItem(item),
     cardGuidanceBlock(item, sharedGuidance),
     technicalDetailsForItem(item, [], portfolioProjectId),
-  );
+  ].filter(Boolean));
   return article;
 }
 
@@ -190,12 +190,12 @@ function recordedAnswerForItem(item) {
 
 export function renderSummary(container, model, { portfolioProjectId = null } = {}) {
   const sharedGuidance = sharedGuidanceTracker();
-  container.replaceChildren(
+  container.replaceChildren(...[
     renderSummaryAnswer("What was asked?", model.summary.asked, portfolioProjectId, sharedGuidance),
     renderSummaryAnswer("What changed?", model.summary.changed, portfolioProjectId, sharedGuidance),
     renderSummaryAnswer("Why was it decided?", model.summary.decided, portfolioProjectId, sharedGuidance),
     sharedGuidanceSection(sharedGuidance, "summary-shared-guidance"),
-  );
+  ].filter(Boolean));
 }
 
 export function renderDiagnostics(container, diagnostics) {
