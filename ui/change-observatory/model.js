@@ -18,6 +18,20 @@ export const PHASES = Object.freeze([
   "release",
 ]);
 
+// Fallback text the browser model substitutes for absent fields. It is UI
+// copy, not recorded evidence, so the presentation layer localizes it.
+export const MODEL_PLACEHOLDERS = Object.freeze([
+  "Not recorded",
+  "Unidentified record",
+  "Untitled record",
+  "No recorded summary.",
+  "Unknown project",
+  "Intent not recorded",
+  "Time not recorded",
+  "The evidence API reported an unspecified diagnostic.",
+]);
+export const ITERATION_PLACEHOLDER_PATTERN = /^Iteration (\d+)$/u;
+
 const PROVENANCE = new Set(["recorded", "inferred", "missing", "malformed"]);
 const PHASE_STATES = new Set(["complete", "inProgress", "blocked", "missing"]);
 const INTENTABI_OUTCOME_REASONS = new Map([

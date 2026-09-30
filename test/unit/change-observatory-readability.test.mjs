@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { setLocale } from "../../ui/change-observatory/i18n.js";
+import {
+  displayTextForItem,
+  localizePlaceholder,
+  setLocale,
+  t as translate,
+} from "../../ui/change-observatory/i18n.js";
 import {
   renderInspector,
   renderPrimary,
@@ -9,6 +14,7 @@ import {
 } from "../../ui/change-observatory/components.js";
 import {
   DOSSIER_SCHEMA,
+  MODEL_PLACEHOLDERS,
   PHASES,
   VIEW_MODEL_SCHEMA,
   normalizeViewModel,
@@ -179,4 +185,59 @@ test("summary answers share one explanation while the inspector keeps the full g
     assert.equal(inspector.querySelectorAll(".human-guidance-shared").length, 0, locale);
     assert.match(guidance[0].textContent, new RegExp(SHARED_SENTENCE[locale], "u"), locale);
   }
+});
+
+test("every browser-model placeholder has an Italian translation", (t) => {
+  t.after(() => setLocale("en"));
+  setLocale("it");
+  for (const placeholder of MODEL_PLACEHOLDERS) {
+    assert.notEqual(translate(placeholder), placeholder, placeholder);
+    assert.equal(localizePlaceholder(placeholder), translate(placeholder), placeholder);
+  }
+  assert.equal(localizePlaceholder("Iteration 3"), "Iterazione 3");
+  assert.equal(localizePlaceholder("Design"), "Design", "recorded values are never translated");
+  setLocale("en");
+  for (const placeholder of MODEL_PLACEHOLDERS) assert.equal(localizePlaceholder(placeholder), placeholder);
+});
+
+test("missing summaries and generated labels follow the Italian locale", (t) => {
+  useBrowserDocument(t);
+  const [item] = normalizeViewModel({
+    schemaVersion: VIEW_MODEL_SCHEMA,
+    summary: { asked: [{ id: "REQ-EMPTY", type: "requirement", title: "Empty request", status: "approved" }] },
+  }).summary.asked;
+  assert.equal(item.summary, "No recorded summary.");
+
+  setLocale("en");
+  assert.equal(displayTextForItem(item).summary, "No recorded summary.");
+  setLocale("it");
+  assert.equal(displayTextForItem(item).summary, "Nessun riepilogo registrato.");
+
+  const summary = globalThis.document.createElement("section");
+  renderSummary(summary, { summary: { asked: [item], changed: [], decided: [] } });
+  assert.doesNotMatch(summary.textContent, /No recorded summary/u);
+  assert.match(summary.textContent, /Nessun riepilogo registrato\./u);
+
+  const model = modelWithDossier({
+    decided: recordedLane([{
+      ...linkedItem("DEC-001", "decision", "Use local providers"),
+      narrative: {
+        rationaleSummary: "Keep providers local.",
+        generatedExplanation: "Local providers avoid tenant access.",
+        explanationSource: "codex-generated",
+        provenance: "recorded",
+      },
+    }]),
+  });
+  model.iterations[0].title = "TravelOps MVP";
+  model.iterations[0].summary = "No recorded summary.";
+  model.semanticObservations = [];
+  const timeline = globalThis.document.createElement("main");
+  renderPrimary(timeline, model, { view: "timeline", selectedId: null, filters: {} });
+  const meta = timeline.querySelector(".dossier-meta");
+  assert.match(meta.textContent, /TravelOps MVP/u, "recorded titles keep their spelling");
+  assert.match(meta.textContent, /Nessun riepilogo registrato\./u);
+  assert.doesNotMatch(timeline.textContent, /No recorded summary|Generated explanation|Source recorded/u);
+  const options = timeline.querySelectorAll("option").map((option) => option.textContent);
+  assert.ok(options.includes("TravelOps MVP"), "iteration options are not re-cased");
 });

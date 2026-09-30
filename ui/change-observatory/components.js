@@ -18,6 +18,7 @@ import {
   displayTextForItem,
   humanGuidanceForItem,
   isAutonomyRecord,
+  localizePlaceholder,
   localizeUiText,
   localizedErrorGuidance,
   sharedRecordGuidance,
@@ -121,7 +122,7 @@ function selectControl(label, name, values, selectedValue) {
   select.append(node("option", { text: `${label}: All`, i18n: true, attrs: { value: "" } }));
   for (const value of values) {
     const option = node("option", {
-      text: sentenceCase(value.label ?? value),
+      text: name === "phase" ? sentenceCase(value.label ?? value) : String(value.label ?? value),
       i18n: name === "phase",
       attrs: { value: value.value ?? value },
     });
@@ -135,7 +136,7 @@ export function renderProjectControls(model) {
   const projectSelect = document.querySelector("#project-select");
   const snapshotSelect = document.querySelector("#snapshot-select");
   projectSelect.replaceChildren(
-    node("option", { text: model.project.name, attrs: { value: model.project.id } }),
+    node("option", { text: localizePlaceholder(model.project.name), attrs: { value: model.project.id } }),
   );
   snapshotSelect.replaceChildren(
     node("option", {
@@ -283,8 +284,8 @@ export function phaseSelectionItem(iteration, phaseState, portfolioProjectId = n
   return {
     id: phaseSelectionId(iteration.id, phaseState.phase),
     type: "phase-state",
-    title: `${iteration.title} · ${sentenceCase(phaseState.phase)}`,
-    summary: `${sentenceCase(phaseState.phase)} is ${sentenceCase(phaseState.status).toLowerCase()} for ${iteration.title}.`,
+    title: `${localizePlaceholder(iteration.title)} · ${t(sentenceCase(phaseState.phase))}`,
+    summary: t(`${sentenceCase(phaseState.phase)} is ${sentenceCase(phaseState.status).toLowerCase()} for ${localizePlaceholder(iteration.title)}.`),
     status: phaseState.status,
     phase: phaseState.phase,
     timestamp: iteration.timestamp,
@@ -315,7 +316,7 @@ export function phaseSelectionItem(iteration, phaseState, portfolioProjectId = n
 function lineagePanel(model, state) {
   const iterationValues = model.iterations.map((iteration) => ({
     value: iteration.id,
-    label: iteration.title,
+    label: localizePlaceholder(iteration.title),
   }));
   const actions = [
     selectControl("Iteration", "iteration", iterationValues, state.filters.iteration),
@@ -363,7 +364,7 @@ function lineagePanel(model, state) {
           },
           dataset: { action: "select-iteration", iterationId: iteration.id },
         }, [
-          node("strong", { text: iteration.title }),
+          node("strong", { text: localizePlaceholder(iteration.title) }),
           node("span", { text: iteration.timestamp ? formatTimestamp(iteration.timestamp) : iteration.id }),
         ]),
       ]),
@@ -387,7 +388,7 @@ function lineagePanel(model, state) {
               attrs: {
                 type: "button",
                 "aria-pressed": String(state.selectedId === selectionId || associatedSelection),
-                "aria-label": `${iteration.title}, ${t(sentenceCase(phase.phase))}: ${t(sentenceCase(phase.status))}, ${t(sentenceCase(phase.provenance))}`,
+                "aria-label": `${localizePlaceholder(iteration.title)}, ${t(sentenceCase(phase.phase))}: ${t(sentenceCase(phase.status))}, ${t(sentenceCase(phase.provenance))}`,
               },
               dataset: {
                 action: "select-phase",
@@ -478,7 +479,7 @@ function dossierNarrative(item, laneKey) {
         text: narrative.generatedExplanation
           ? `Generated explanation · ${sentenceCase(narrative.explanationLabel || "source recorded")}`
           : "Generated explanation",
-        i18n: !narrative.generatedExplanation,
+        i18n: true,
       }),
       node("p", { text: narrative.generatedExplanation || t("Not recorded.") }),
     ]),
@@ -592,7 +593,7 @@ function dossierPanel(model, state) {
   const selectedIteration = selectedDossierIteration(model, state);
   const iterationValues = model.iterations.map((iteration) => ({
     value: iteration.id,
-    label: iteration.title,
+    label: localizePlaceholder(iteration.title),
   }));
   const actions = iterationValues.length
     ? [selectControl(
@@ -625,8 +626,8 @@ function dossierPanel(model, state) {
   const dossierMeta = node("header", { className: "dossier-meta", attrs: { "aria-live": "polite" } }, [
     node("div", {}, [
       node("span", { className: "dossier-label", text: "Selected iteration", i18n: true }),
-      node("h3", { text: selectedIteration.title }),
-      node("p", { text: dossier?.summary || selectedIteration.summary }),
+      node("h3", { text: localizePlaceholder(selectedIteration.title) }),
+      node("p", { text: localizePlaceholder(dossier?.summary || selectedIteration.summary) }),
     ]),
     node("div", { className: "dossier-meta-actions" }, [
       statusText(dossier?.status ?? "missing"),
@@ -658,7 +659,7 @@ function dossierPanel(model, state) {
       icon("alert"),
       node("div", { className: "diagnostic-copy" }, [
         node("strong", { text: "Unsupported dossier schema: ", i18n: true }),
-        document.createTextNode(dossier.schemaVersion || "not recorded"),
+        document.createTextNode(dossier.schemaVersion || t("Not recorded")),
       ]),
     ]));
     const unlinked = unlinkedLineageDisclosure(model.unlinkedLineage, state);
@@ -669,7 +670,10 @@ function dossierPanel(model, state) {
   const sharedGuidance = sharedGuidanceTracker();
   const flow = node("div", {
     className: "dossier-flow-scroll",
-    attrs: { tabindex: "0", "aria-label": t(`Five-lane dossier for ${selectedIteration.title}`) },
+    attrs: {
+      tabindex: "0",
+      "aria-label": t(`Five-lane dossier for ${localizePlaceholder(selectedIteration.title)}`),
+    },
   }, [
     node("div", { className: "dossier-flow" }, DOSSIER_LANES.map((definition, index) =>
       dossierLane(dossier, definition, state, selectedIteration.id, index, sharedGuidance),
@@ -761,7 +765,7 @@ function changesPanel(model, state, options = {}) {
   for (const group of groups) {
     list.append(
       node("div", { className: "group-heading" }, [
-        node("span", { text: sentenceCase(group.intent) }),
+        node("span", { text: localizePlaceholder(sentenceCase(group.intent)) }),
         node("span", { className: "group-count", text: String(group.items.length) }),
       ]),
     );
@@ -879,13 +883,13 @@ function intentEvidenceCard(item, state) {
   return node("article", { className: "intent-evidence-card" }, [
     node("header", { className: "intent-evidence-card-header" }, [
       node("div", {}, [
-        node("span", { className: "intent-evidence-kicker", text: "IntentABI · Codex shadow" }),
+        node("span", { className: "intent-evidence-kicker", text: "IntentABI · Codex shadow", i18n: true }),
         node("button", {
           className: "intent-evidence-select",
           text: item.id,
           attrs: {
             type: "button",
-            "aria-label": `Inspect IntentABI event ${item.id}`,
+            "aria-label": t(`Inspect IntentABI event ${item.id}`),
             "aria-pressed": String(state.selectedId === selectionId),
           },
           dataset: { action: "select-record", selectId: selectionId },
@@ -1125,11 +1129,11 @@ function technicalDetailsForItem(item, sections = [], portfolioProjectId = null)
     node("summary", { text: "Technical details (optional)", i18n: true }),
     node("dl", { className: "technical-details-grid" }, [
       guidanceField("Type", item.type),
-      guidanceField("ID", item.id),
+      guidanceField("ID", localizePlaceholder(item.id)),
       guidanceField("Status", item.status),
-      guidanceField("Recorded title", item.title),
-      guidanceField("Recorded summary", item.summary),
-      guidanceField("Evidence", sentenceCase(item.provenance)),
+      guidanceField("Recorded title", localizePlaceholder(item.title)),
+      guidanceField("Recorded summary", localizePlaceholder(item.summary)),
+      guidanceField("Evidence", sentenceCase(item.provenance), { i18nText: true }),
     ]),
     source,
     ...sections,
@@ -1209,7 +1213,10 @@ export function renderInspector(container, item, { portfolioProjectId = null } =
     ]),
     humanGuidanceBlock(item),
     technicalDetailsForItem(item, [
-      inspectorTextSection("Request / record", `${item.title}\n${item.summary}`),
+      inspectorTextSection(
+        "Request / record",
+        `${localizePlaceholder(item.title)}\n${localizePlaceholder(item.summary)}`,
+      ),
       inspectorTextSection("Decision rationale", rationale, narrative.rationale ? null : "missing"),
       inspectorEntriesSection("Inputs", narrative.inputs),
       inspectorEntriesSection("Outputs", narrative.outputs),
