@@ -13,7 +13,10 @@ import {
   computeDeliveryExecutionProfileHash,
 } from "../lib/autonomy-policy.mjs";
 import { buildContext } from "../lib/engine/common.mjs";
-import { storyReleaseReadiness } from "../lib/engine/delivery.mjs";
+import {
+  localReleaseDestinationsVisibleToGit,
+  storyReleaseReadiness,
+} from "../lib/engine/delivery.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const bin = path.join(repoRoot, "bin", "agentic-sdlc.mjs");
@@ -242,6 +245,7 @@ function prepareMacOsLocalSmokeRelease({
   commandOptions = {},
   authorizeRelease = true,
   deferSmokeMaterialization = false,
+  trackedReleaseFile = null,
 }) {
   const storyId = `ST-MACOS-SMOKE-${suffix}`;
   const contractId = `CONTRACT-MACOS-SMOKE-${suffix}`;
@@ -265,6 +269,11 @@ function prepareMacOsLocalSmokeRelease({
   const rollback = `Remove the ${suffix.toLowerCase()} local smoke fixture.`;
 
   fs.mkdirSync(releaseOutput, { recursive: true });
+  if (trackedReleaseFile) {
+    fs.writeFileSync(path.join(releaseOutput, trackedReleaseFile.name), trackedReleaseFile.content, "utf8");
+    mustGit(project, ["add", path.join("local-release", "app", trackedReleaseFile.name)]);
+    mustGit(project, ["commit", "-m", "test: track a file under the release destination"]);
+  }
   if (!deferSmokeMaterialization) {
     fs.writeFileSync(smokeFile, smokeSource, "utf8");
     if (smokeCommandArgv) fs.chmodSync(smokeFile, 0o755);
@@ -4688,6 +4697,147 @@ test("native executable flags are not misclassified as interpreter loaders", {
   const completed = mustRunJson(fixture.completionArgs, { timeout: 90_000 });
   assert.equal(completed.action_receipt.outcome, "passed");
   assert.equal(completed.lifecycle_status, "terminal");
+});
+
+test("an in-repository released local destination leaves the write scope only while it matches its release manifest", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox",
+  timeout: 240_000,
+}, () => {
+  const suffix = "IN-REPO-SCOPE";
+  const storyId = `ST-MACOS-SMOKE-${suffix}`;
+  const fixture = prepareMacOsLocalSmokeRelease({
+    suffix,
+    smokeSource: "process.stdout.write('in-repo-release-ok\\n');\n",
+    deferSmokeMaterialization: true,
+  });
+  assert.deepEqual(fixture.proposal.review.destinations_visible_to_git, ["local-release/app"]);
+  assert.match(fixture.proposal.human_guidance.impact, /“local-release\/app” is inside the repository and not ignored by Git/u);
+  const smokePath = `local-release/app/${path.basename(fixture.smokeFile)}`;
+  const bundlePath = "local-release/app/bundle.mjs";
+  const bundleFile = path.join(fixture.project, bundlePath);
+  // The released artifact is built after task start, so it is a new change
+  // outside the requirement write scope (src).
+  fs.writeFileSync(fixture.smokeFile, fixture.smokeSource, "utf8");
+  fs.writeFileSync(bundleFile, "export const released = true;\n", "utf8");
+  const strictGate = () => {
+    const result = run([
+      "gate", "check",
+      "--root", fixture.project,
+      "--scope", "story",
+      "--story", storyId,
+      "--strict",
+      "--json",
+    ]);
+    return JSON.parse(result.stdout);
+  };
+  const scopeErrors = (report) => report.errors.filter((error) =>
+    error.includes("outside the approved requirement write paths"));
+
+  const beforeRelease = scopeErrors(strictGate());
+  assert.equal(beforeRelease.length, 1);
+  assert.match(beforeRelease[0], new RegExp(bundlePath.replace(/[.]/gu, "\\.")));
+  assert.match(beforeRelease[0], /not exempt: the delivery is not closed as released/u);
+
+  const completed = mustRunJson(fixture.completionArgs, { timeout: 90_000 });
+  assert.equal(completed.action_receipt.outcome, "passed");
+  assert.equal(completed.lifecycle_status, "terminal");
+
+  const released = strictGate();
+  assert.deepEqual(scopeErrors(released), []);
+  assert.ok(released.checked.includes(
+    `story ${storyId} released local destination local-release/app matches its smoke-tested artifact manifest`,
+  ));
+
+  // An extra file under the released destination is not part of the artifact.
+  const extraPath = "local-release/app/runtime-data.json";
+  fs.writeFileSync(path.join(fixture.project, extraPath), "{\"written\":\"after release\"}\n", "utf8");
+  const withExtra = scopeErrors(strictGate());
+  assert.equal(withExtra.length, 1);
+  for (const changedPath of [extraPath, bundlePath, smokePath]) {
+    assert.ok(withExtra[0].includes(changedPath), withExtra[0]);
+  }
+  assert.match(withExtra[0], /differ from the smoke-tested release artifact manifest/u);
+  fs.rmSync(path.join(fixture.project, extraPath));
+  assert.deepEqual(scopeErrors(strictGate()), []);
+
+  // A modified released file fails the same way.
+  fs.writeFileSync(bundleFile, "export const released = false;\n", "utf8");
+  const modified = scopeErrors(strictGate());
+  assert.equal(modified.length, 1);
+  assert.ok(modified[0].includes(bundlePath), modified[0]);
+  fs.writeFileSync(bundleFile, "export const released = true;\n", "utf8");
+  assert.deepEqual(scopeErrors(strictGate()), []);
+
+  // Committing the exact released files keeps them covered.
+  mustGit(fixture.project, ["add", "local-release/app"]);
+  mustGit(fixture.project, ["commit", "-m", "test: commit the released artifact"]);
+  assert.deepEqual(scopeErrors(strictGate()), []);
+
+  // Files outside the destination are never covered by the release.
+  fs.writeFileSync(path.join(fixture.project, "local-release/notes.md"), "# Outside the artifact\n", "utf8");
+  const sibling = scopeErrors(strictGate());
+  assert.equal(sibling.length, 1);
+  assert.ok(sibling[0].includes("local-release/notes.md"), sibling[0]);
+  assert.equal(sibling[0].includes(bundlePath), false, sibling[0]);
+
+  // An ignored or external destination is not visible to Git; tracked files
+  // stay visible even when the directory is ignored afterwards.
+  fs.appendFileSync(path.join(fixture.project, ".git", "info", "exclude"), "/local-release/\n", "utf8");
+  assert.deepEqual(
+    localReleaseDestinationsVisibleToGit(
+      buildContext({ root: fixture.project }),
+      [
+        fixture.releaseOutput,
+        path.join(fixture.project, "local-release", "next"),
+        path.join(fixture.project, "..", "outside-release"),
+      ],
+    ),
+    ["local-release/app"],
+  );
+});
+
+test("a released local destination does not cover files the repository tracked before the story started", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox",
+  timeout: 240_000,
+}, () => {
+  const suffix = "IN-REPO-TRACKED";
+  const storyId = `ST-MACOS-SMOKE-${suffix}`;
+  const trackedPath = "local-release/app/tracked-before-story.md";
+  const fixture = prepareMacOsLocalSmokeRelease({
+    suffix,
+    smokeSource: "process.stdout.write('in-repo-tracked-ok\\n');\n",
+    trackedReleaseFile: { name: "tracked-before-story.md", content: "# Tracked before the story\n" },
+  });
+  // The story edits a file that was already project content under the
+  // destination; the release then captures it in its artifact manifest.
+  fs.writeFileSync(path.join(fixture.project, trackedPath), "# Edited by the story\n", "utf8");
+  const completed = mustRunJson(fixture.completionArgs, { timeout: 90_000 });
+  assert.equal(completed.action_receipt.outcome, "passed");
+
+  const report = JSON.parse(run([
+    "gate", "check",
+    "--root", fixture.project,
+    "--scope", "story",
+    "--story", storyId,
+    "--strict",
+    "--json",
+  ]).stdout);
+  assert.ok(report.checked.includes(
+    `story ${storyId} released local destination local-release/app matches its smoke-tested artifact manifest`,
+  ));
+  const scopeErrors = report.errors.filter((error) =>
+    error.includes("outside the approved requirement write paths"));
+  assert.equal(scopeErrors.length, 1);
+  assert.match(
+    scopeErrors[0],
+    /write paths: local-release\/app\/tracked-before-story\.md \(detected after task preflight\)/u,
+  );
+  assert.match(scopeErrors[0], /files tracked before the story started are not release output/u);
+  assert.equal(scopeErrors[0].includes(path.basename(fixture.smokeFile)), false, scopeErrors[0]);
 });
 
 test("interpreter options with separate values preserve the governed entrypoint", {
