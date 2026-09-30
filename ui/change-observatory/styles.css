@@ -1198,6 +1198,12 @@ svg {
   line-height: 1.35;
 }
 
+.dossier-item > .human-guidance-notice {
+  margin: 8px 10px 0;
+  padding: 6px 8px;
+  font-size: 10px;
+}
+
 .dossier-item-summary {
   margin-top: 4px;
   color: var(--ink-secondary);
