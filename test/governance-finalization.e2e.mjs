@@ -769,7 +769,7 @@ test("a canonical story workflow cannot leave the current phase before its story
   const fixture = createGovernedDeliveryStory(project, {
     suffix: "WORKFLOW-PHASE-COMPLETION",
     allowedWritePaths: ["docs"],
-    storyActionUses: 3,
+    storyActionUses: 5,
     beforeTaskStart: ({ storyId }) => {
       mustRun([
         "workflow", "instance", "start",
@@ -948,6 +948,64 @@ test("a canonical story workflow cannot leave the current phase before its story
   ], project);
   assert.equal(aliasTransition.current_state, "design");
   assert.equal(aliasTransition.event.sequence, 2);
+
+  const skippedPhase = mustFail([
+    "workflow", "instance", "transition",
+    "--root", project,
+    "--id", workflowInstanceId,
+    "--to", "validation",
+    "--request-id", "phase-completion-skip-implementation",
+    "--actor", "workflow-e2e-ci",
+    "--actor-type", "ci",
+  ], project, /Invalid workflow transition: design -> validation/u);
+  assert.match(
+    `${skippedPhase.stdout}\n${skippedPhase.stderr}`,
+    /From 'design' the workflow can move only to 'implementation'.*workflow instance transition --id delivery-phase-completion --to implementation/su,
+  );
+
+  for (const step of ["design", "implementation"]) {
+    mustRun([
+      "story", "complete-step",
+      "--root", project,
+      "--id", fixture.storyId,
+      "--step", step,
+      "--summary", `The ${step} phase is complete.`,
+      "--authorization", fixture.storyActionAuthorizationId,
+    ], project);
+    if (step === "design") {
+      mustRun([
+        "workflow", "instance", "transition",
+        "--root", project,
+        "--id", workflowInstanceId,
+        "--to", "implementation",
+        "--request-id", "phase-completion-implementation",
+        "--actor", "workflow-e2e-ci",
+        "--actor-type", "ci",
+      ], project);
+    }
+  }
+  const missingOutput = mustFail([
+    "workflow", "instance", "transition",
+    "--root", project,
+    "--id", workflowInstanceId,
+    "--to", "validation",
+    "--request-id", "phase-completion-validation-missing-output",
+    "--actor", "workflow-e2e-ci",
+    "--actor-type", "ci",
+  ], project, /guards denied the transition from 'implementation' to 'validation'/u);
+  const missingOutputText = `${missingOutput.stdout}\n${missingOutput.stderr}`;
+  assert.match(
+    missingOutputText,
+    /required-output-linked: required output implementation-summary is not linked: no output link record exists for story ST-WORKFLOW-PHASE-COMPLETION with type implementation-summary, template implementation-summary-v1, and mode new/u,
+  );
+  assert.match(
+    missingOutputText,
+    /declares it without a phase, so it is due before leaving 'implementation'/u,
+  );
+  assert.match(
+    missingOutputText,
+    /output link --story ST-WORKFLOW-PHASE-COMPLETION --type implementation-summary --artifact "<path-to-implementation-summary>" --template implementation-summary-v1 --mode new/u,
+  );
 });
 
 test("pre-task workflow binding tamper remains fail-closed across status, scheduling, claims, and task start", () => {
