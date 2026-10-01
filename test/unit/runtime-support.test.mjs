@@ -92,16 +92,25 @@ test("package, documentation, and CI/release matrices use the safe runtime floor
     );
   }
 
+  // CI declares the full supported-runtime matrix for scheduled and manual
+  // runs; the release gate requires every supported Node line on Linux from the
+  // push run on main.
+  const ciSource = fs.readFileSync(path.join(PROJECT_ROOT, ".github/workflows/ci.yml"), "utf8");
+  assert.match(ciSource, /"node":\["18\.20\.3","20\.12\.0","21\.6\.0",24\]/u);
+  const gateSource = fs.readFileSync(path.join(PROJECT_ROOT, "lib/release/ci-gate.mjs"), "utf8");
+  for (const node of ["18.20.3", "20.12.0", "21.6.0", "24"]) {
+    assert.match(
+      gateSource,
+      new RegExp(`platform: "ubuntu-latest", node: "${escapeRegExp(node)}"`, "u"),
+      node,
+    );
+  }
   for (const relativePath of [
     ".github/workflows/ci.yml",
     ".github/workflows/release.yml",
+    "lib/release/ci-gate.mjs",
   ]) {
     const source = fs.readFileSync(path.join(PROJECT_ROOT, relativePath), "utf8");
-    assert.match(
-      source,
-      /node: \["18\.20\.3", "20\.12\.0", "21\.6\.0", 24\]/u,
-      relativePath,
-    );
     assert.doesNotMatch(source, /18\.18(?:\.0)?/u, relativePath);
   }
 });
