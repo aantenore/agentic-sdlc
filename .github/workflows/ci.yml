@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,9 +16,7 @@ jobs:
     timeout-minutes: 35
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node: ["18.20.3", "20.12.0", "21.6.0", 24]
+      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"os":["ubuntu-latest","macos-latest","windows-latest"],"node":[24],"include":[{"os":"ubuntu-latest","node":"18.20.3"}]}' || '{"os":["ubuntu-latest","macos-latest","windows-latest"],"node":["18.20.3","20.12.0","21.6.0",24]}') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -36,7 +37,7 @@ jobs:
       - run: npm test
         env:
           PYTHON: ${{ steps.python.outputs.python-path }}
-          AGENTIC_SDLC_TEST_CONCURRENCY: ${{ matrix.os == 'macos-latest' && matrix.node == '18.20.3' && '1' || '2' }}
+          AGENTIC_SDLC_TEST_CONCURRENCY: ${{ matrix.os == 'macos-latest' && matrix.node == '18.20.3' && '1' || matrix.os == 'ubuntu-latest' && '4' || '2' }}
       - name: Enforce enterprise performance on the required reference runtime
         if: matrix.os == 'ubuntu-latest' && matrix.node == 24
         run: npm run benchmark:enterprise

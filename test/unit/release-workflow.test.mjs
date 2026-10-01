@@ -16,6 +16,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { CI_GATE_POLICY, requiredCiJobNames } from "../../lib/release/ci-gate.mjs";
+
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ciWorkflowPath = path.join(repoRoot, ".github", "workflows", "ci.yml");
@@ -66,6 +68,66 @@ function actionReferences(source) {
 }
 
 
+const FULL_PLATFORMS = ["ubuntu-latest", "macos-latest", "windows-latest"];
+const FULL_NODES = ["18.20.3", "20.12.0", "21.6.0", "24"];
+const REQUIRED_PULL_REQUEST_CHECKS = [
+  "test (ubuntu-latest, 24)",
+  "test (macos-latest, 24)",
+  "test (windows-latest, 24)",
+];
+const CONCURRENCY_EXPRESSION = /AGENTIC_SDLC_TEST_CONCURRENCY: \$\{\{ matrix\.os == '([^']+)' && matrix\.node == '([^']+)' && '([^']+)' \|\| matrix\.os == '([^']+)' && '([^']+)' \|\| '([^']+)' \}\}/gu;
+const MATRIX_EXPRESSION = /^      matrix: \$\{\{ fromJSON\(github\.event_name == 'pull_request' && '(\{[^']*\})' \|\| '(\{[^']*\})'\) \}\}$/mu;
+
+
+// Mirrors GitHub's matrix expansion for the subset used here: the cross product
+// of the listed axes plus `include` entries that extend it with new combinations.
+function expandMatrix(definition) {
+  const cells = definition.os.flatMap((osName) => (
+    definition.node.map((nodeVersion) => ({ os: osName, node: String(nodeVersion) }))
+  ));
+  for (const extra of definition.include ?? []) {
+    const cell = { os: extra.os, node: String(extra.node) };
+    if (!cells.some((known) => known.os === cell.os && known.node === cell.node)) cells.push(cell);
+  }
+  return cells;
+}
+
+
+function ciMatrices(source) {
+  const match = MATRIX_EXPRESSION.exec(source);
+  assert.notEqual(match, null, "CI matrix must be selected with fromJSON on github.event_name");
+  return {
+    pullRequest: expandMatrix(JSON.parse(match[1])),
+    full: expandMatrix(JSON.parse(match[2])),
+  };
+}
+
+
+function cellNames(cells) {
+  return cells.map(({ os: osName, node }) => `test (${osName}, ${node})`).sort();
+}
+
+
+function ciConcurrencyPolicy(source) {
+  const policies = [...source.matchAll(CONCURRENCY_EXPRESSION)].map((match) => match.slice(1));
+  if (policies.length !== 1) return null;
+  const [serializedOs, serializedNode, serializedValue, widerOs, widerValue, defaultValue] = policies[0];
+  return {
+    serializedOs,
+    serializedNode,
+    serializedValue,
+    widerOs,
+    widerValue,
+    defaultValue,
+    forCell: ({ os: osName, node }) => (
+      osName === serializedOs && node === serializedNode
+        ? serializedValue
+        : osName === widerOs ? widerValue : defaultValue
+    ),
+  };
+}
+
+
 function ciContractErrors(source) {
   const errors = [];
   const jobs = jobBlocks(source);
@@ -76,18 +138,31 @@ function ciContractErrors(source) {
     errors.push("CI job timeout");
   }
   if (/continue-on-error:/u.test(correctness)) errors.push("CI fail-open policy");
-  if (!/os: \[ubuntu-latest, macos-latest, windows-latest\]/u.test(correctness)
-    || !/node: \["18\.20\.3", "20\.12\.0", "21\.6\.0", 24\]/u.test(correctness)) {
-    errors.push("CI correctness matrix");
+  if (!/^on:\n  push:\n    branches: \[main\]\n  pull_request:\n  schedule:\n    - cron: "[0-9*/, -]+ [0-9*/, -]+ \* \* \*"\n  workflow_dispatch:\n/mu.test(source)) {
+    errors.push("CI triggers");
   }
-  const concurrencyPolicies = [...correctness.matchAll(
-    /AGENTIC_SDLC_TEST_CONCURRENCY: \$\{\{ matrix\.os == '([^']+)' && matrix\.node == '([^']+)' && '([^']+)' \|\| '([^']+)' \}\}/gu,
-  )];
-  if (concurrencyPolicies.length !== 1
-    || concurrencyPolicies[0][1] !== "macos-latest"
-    || concurrencyPolicies[0][2] !== "18.20.3"
-    || concurrencyPolicies[0][3] !== "1"
-    || concurrencyPolicies[0][4] !== "2") {
+  try {
+    const { pullRequest, full } = ciMatrices(correctness);
+    if (cellNames(pullRequest).join("|") !== [...REQUIRED_PULL_REQUEST_CHECKS, "test (ubuntu-latest, 18.20.3)"].sort().join("|")) {
+      errors.push("CI pull request matrix");
+    }
+    if (cellNames(full).join("|") !== cellNames(FULL_PLATFORMS.flatMap((osName) => (
+      FULL_NODES.map((node) => ({ os: osName, node }))
+    ))).join("|")) {
+      errors.push("CI full matrix");
+    }
+  } catch {
+    errors.push("CI matrix selection");
+  }
+  if (/^\s+(?:os|node):/mu.test(correctness)) errors.push("CI static matrix axes");
+  const concurrency = ciConcurrencyPolicy(correctness);
+  if (concurrency === null
+    || concurrency.serializedOs !== "macos-latest"
+    || concurrency.serializedNode !== "18.20.3"
+    || concurrency.serializedValue !== "1"
+    || concurrency.widerOs !== "ubuntu-latest"
+    || concurrency.widerValue !== "4"
+    || concurrency.defaultValue !== "2") {
     errors.push("CI test concurrency policy");
   }
   if ((correctness.match(/^\s+if:/gmu) ?? []).length !== 1
@@ -138,11 +213,19 @@ function releaseContractErrors(source) {
   if (/continue-on-error:/u.test(source)) errors.push("release fail-open policy");
   if (/workflow_dispatch|pull_request|schedule:/u.test(source)) errors.push("tag-only trigger");
   if (!/^    tags:\n      - "v\*"$/mu.test(source)) errors.push("release tag trigger");
-  if (!/timeout-minutes: 35/u.test(verify)
+  if (!/timeout-minutes: 75/u.test(verify)
     || !/timeout-minutes: 15/u.test(packageJob)
     || !/timeout-minutes: 15/u.test(publish)) errors.push("job timeouts");
   if (!/needs: verify/u.test(packageJob) || !/needs: package/u.test(publish)) errors.push("job dependencies");
-  if (!/contents: read/u.test(verify) || /contents: write/u.test(verify)) errors.push("verify permissions");
+  if (!/^    permissions:\n      actions: read\n      contents: read\n/mu.test(verify)
+    || /contents: write|id-token|attestations/u.test(verify)) errors.push("verify permissions");
+  if (!/^    runs-on: ubuntu-latest$/mu.test(verify)
+    || /strategy:|matrix[.:]|npm test|npm run benchmark:enterprise|npm pack /u.test(verify)) {
+    errors.push("release gate is a single job that does not re-run the matrix");
+  }
+  if ((verify.match(/^        run: node scripts\/verify-ci-gate\.mjs$/gmu) ?? []).length !== 1
+    || !/GITHUB_TOKEN: \$\{\{ github\.token \}\}/u.test(verify)
+    || /continue-on-error:|\|\| true|if:/u.test(verify)) errors.push("exact-SHA full-matrix CI gate");
   if (!/attestations: write/u.test(packageJob)
     || !/contents: write/u.test(packageJob)
     || !/id-token: write/u.test(packageJob)) errors.push("package permissions");
@@ -151,7 +234,7 @@ function releaseContractErrors(source) {
     || /id-token: write/u.test(publish)) errors.push("publish permissions");
 
   const actions = [...source.matchAll(/^\s+-?\s*uses:\s*([^\s]+)$/gmu)].map((match) => match[1]);
-  if (actions.length !== 11) errors.push("action count");
+  if (actions.length !== 10) errors.push("action count");
   for (const action of actions) {
     const separator = action.lastIndexOf("@");
     const name = action.slice(0, separator);
@@ -164,28 +247,21 @@ function releaseContractErrors(source) {
     if (!actions.some((action) => action.startsWith(`${name}@`))) errors.push(`missing action: ${name}`);
   }
 
-  if (!/node: \["18\.20\.3", "20\.12\.0", "21\.6\.0", 24\]/u.test(verify)) errors.push("node policy matrix");
-  if (!/os: \[ubuntu-latest, macos-latest, windows-latest\]/u.test(verify)) errors.push("platform matrix");
-  if ((verify.match(/npm run benchmark:enterprise/gu) ?? []).length !== 1
-    || !/- name: Enforce enterprise performance on the reference runtime\n\s+if: matrix\.os == 'ubuntu-latest' && matrix\.node == 24\n\s+run: npm run benchmark:enterprise/u.test(verify)) {
-    errors.push("release reference performance gate");
-  }
   const pythonAction = `actions/setup-python@${ACTION_PINS.get("actions/setup-python")}`;
-  if (actions.filter((action) => action === pythonAction).length !== 2
-    || (source.match(/python-version: "3\.13\.14"/gu) ?? []).length !== 2
-    || (source.match(/update-environment: false/gu) ?? []).length !== 2
-    || (verify.match(/PYTHON: \$\{\{ steps\.python\.outputs\.python-path \}\}/gu) ?? []).length !== 2
+  if (actions.filter((action) => action === pythonAction).length !== 1
+    || (source.match(/python-version: "3\.13\.14"/gu) ?? []).length !== 1
+    || (source.match(/update-environment: false/gu) ?? []).length !== 1
+    || /PYTHON/u.test(verify)
     || (packageJob.match(/PYTHON: \$\{\{ steps\.python\.outputs\.python-path \}\}/gu) ?? []).length !== 1
-    || (source.match(/--python "\$PYTHON"/gu) ?? []).length !== 2) {
+    || (source.match(/--python "\$PYTHON"/gu) ?? []).length !== 1) {
     errors.push("explicit Python provisioning");
   }
-  if ((verify.match(
-    /node --test test\/unit\/test-suite-runner\.test\.mjs/gu,
-  ) ?? []).length !== 1) {
-    errors.push("release test-runner bootstrap canary");
+  if (!/scripts\/verify-release-package\.mjs/u.test(packageJob)
+    || /scripts\/verify-release-package\.mjs/u.test(verify)
+    || (packageJob.match(/^        run: npm run check$/gmu) ?? []).length !== 1
+    || packageJob.indexOf("run: npm run check") > packageJob.indexOf("npm pack ")) {
+    errors.push("package job source check and policy verifier");
   }
-  if (!/scripts\/verify-release-package\.mjs/u.test(verify)
-    || !/scripts\/verify-release-package\.mjs/u.test(packageJob)) errors.push("policy verifier");
   if (!/npm install[\s\S]*"file:\$ARCHIVE_PATH"/u.test(packageJob)) {
     errors.push("SBOM local archive spec");
   }
@@ -193,8 +269,7 @@ function releaseContractErrors(source) {
     || !/verification\.value\?\.smoke\?\.installer_v2_zero_write !== true/u.test(packageJob)) {
     errors.push("installer v2 seal gate");
   }
-  if ((verify.match(/npm pack /gu) ?? []).length !== 1
-    || (packageJob.match(/npm pack /gu) ?? []).length !== 1
+  if ((packageJob.match(/npm pack /gu) ?? []).length !== 1
     || /npm pack /u.test(publish)) errors.push("single-build handoff");
   if (!/pack_report="\$RUNNER_TEMP\/npm-pack\.json"/u.test(packageJob)
     || !/test ! -e "\$pack_report"/u.test(packageJob)
@@ -329,61 +404,172 @@ test("CI pins actions and separates the compatibility matrix from the performanc
 });
 
 
-test("CI and release serialize only macOS Node 18.20.3 while the other matrix cells use two workers", () => {
-  const policies = [...ciWorkflow.matchAll(
-    /AGENTIC_SDLC_TEST_CONCURRENCY: \$\{\{ matrix\.os == '([^']+)' && matrix\.node == '([^']+)' && '([^']+)' \|\| '([^']+)' \}\}/gu,
-  )];
-  assert.equal(policies.length, 1);
-  const [, serializedOs, serializedNode, serializedValue, defaultValue] = policies[0];
+test("CI runs the reduced matrix on pull requests and the full matrix on push, schedule, and dispatch", () => {
+  const { pullRequest, full } = ciMatrices(ciWorkflow);
   assert.deepEqual(
-    [serializedOs, serializedNode, serializedValue, defaultValue],
-    ["macos-latest", "18.20.3", "1", "2"],
+    cellNames(pullRequest),
+    [...REQUIRED_PULL_REQUEST_CHECKS, "test (ubuntu-latest, 18.20.3)"].sort(),
   );
-
-  const cells = [
-    "ubuntu-latest",
-    "macos-latest",
-    "windows-latest",
-  ].flatMap((osName) => [
-    "18.20.3",
-    "20.12.0",
-    "21.6.0",
-    "24",
-  ].map((nodeVersion) => ({
-    osName,
-    nodeVersion,
-    concurrency: osName === serializedOs && nodeVersion === serializedNode
-      ? serializedValue
-      : defaultValue,
-  })));
-  assert.equal(cells.length, 12);
+  assert.equal(full.length, 12);
   assert.deepEqual(
-    cells.filter(({ concurrency }) => concurrency === "1"),
-    [{
-      osName: "macos-latest",
-      nodeVersion: "18.20.3",
-      concurrency: "1",
-    }],
+    cellNames(full),
+    cellNames(FULL_PLATFORMS.flatMap((osName) => FULL_NODES.map((node) => ({ os: osName, node })))),
   );
-  assert.equal(cells.filter(({ concurrency }) => concurrency === "2").length, 11);
-  // The release verifies the same matrix on the same runners, so it must apply
-  // the same serialization or its slowest cell times out where CI passes.
-  const releasePolicies = [...workflow.matchAll(
-    /AGENTIC_SDLC_TEST_CONCURRENCY: \$\{\{ matrix\.os == '([^']+)' && matrix\.node == '([^']+)' && '([^']+)' \|\| '([^']+)' \}\}/gu,
-  )].map((match) => match.slice(1));
-  assert.deepEqual(releasePolicies, [[serializedOs, serializedNode, serializedValue, defaultValue]]);
+  // Only pull requests take the reduced branch; every other trigger gets the full matrix.
+  assert.match(ciWorkflow, /fromJSON\(github\.event_name == 'pull_request' && '/u);
+  assert.match(
+    ciWorkflow,
+    /^on:\n  push:\n    branches: \[main\]\n  pull_request:\n  schedule:\n    - cron: "[^"\n]+"\n  workflow_dispatch:\n/mu,
+  );
+  // The required status checks keep the default "test (<os>, <node>)" job name.
+  assert.doesNotMatch(jobBlocks(ciWorkflow).get("test"), /^    name:/mu);
 });
 
 
-test("CI and release workflows fail closed without the independent runner canary", () => {
+test("the release gate requires exactly the cells that the full CI matrix produces", () => {
+  const { full } = ciMatrices(ciWorkflow);
+  assert.deepEqual([...requiredCiJobNames()].sort(), cellNames(full));
+  assert.equal(requiredCiJobNames().length, 12);
+  assert.deepEqual(CI_GATE_POLICY.platforms, FULL_PLATFORMS);
+  assert.deepEqual(CI_GATE_POLICY.nodeVersions, FULL_NODES);
+  assert.equal(CI_GATE_POLICY.workflowFile, "ci.yml");
+  assert.equal(CI_GATE_POLICY.event, "push");
+  assert.equal(CI_GATE_POLICY.branch, "main");
+  for (const name of REQUIRED_PULL_REQUEST_CHECKS) {
+    assert.ok(requiredCiJobNames().includes(name), `${name} must also be required by the release gate`);
+  }
+  const pushTrigger = /^on:\n  push:\n    branches: \[main\]\n/mu;
+  assert.match(ciWorkflow, pushTrigger);
+});
+
+
+test("CI serializes only macOS Node 18.20.3, gives Linux four workers, and keeps two elsewhere", () => {
+  const policy = ciConcurrencyPolicy(ciWorkflow);
+  assert.notEqual(policy, null);
+  assert.deepEqual(
+    [
+      policy.serializedOs,
+      policy.serializedNode,
+      policy.serializedValue,
+      policy.widerOs,
+      policy.widerValue,
+      policy.defaultValue,
+    ],
+    ["macos-latest", "18.20.3", "1", "ubuntu-latest", "4", "2"],
+  );
+  const { full, pullRequest } = ciMatrices(ciWorkflow);
+  const perCell = (cells) => cells.map((cell) => [`${cell.os}/${cell.node}`, policy.forCell(cell)]);
+  assert.deepEqual(
+    perCell(full).filter(([, value]) => value === "1"),
+    [["macos-latest/18.20.3", "1"]],
+  );
+  assert.deepEqual(
+    perCell(full).filter(([, value]) => value === "4").map(([name]) => name).sort(),
+    FULL_NODES.map((node) => `ubuntu-latest/${node}`).sort(),
+  );
+  assert.equal(perCell(full).filter(([, value]) => value === "2").length, 7);
+  assert.deepEqual(
+    perCell(pullRequest),
+    [
+      ["ubuntu-latest/24", "4"],
+      ["macos-latest/24", "2"],
+      ["windows-latest/24", "2"],
+      ["ubuntu-latest/18.20.3", "4"],
+    ],
+  );
+  // The release no longer runs tests, so it must not carry its own concurrency policy.
+  assert.equal(/AGENTIC_SDLC_TEST_CONCURRENCY/u.test(workflow), false);
+});
+
+
+test("CI guards reject a weakened matrix, trigger, or concurrency policy", () => {
+  const reduced = '{"os":["ubuntu-latest","macos-latest","windows-latest"],"node":[24],"include":[{"os":"ubuntu-latest","node":"18.20.3"}]}';
+  const fixtures = [
+    {
+      name: "pull request matrix without the Node 18 cell",
+      source: ciWorkflow.replace(',"include":[{"os":"ubuntu-latest","node":"18.20.3"}]', ""),
+      expected: "CI pull request matrix",
+    },
+    {
+      name: "pull request matrix missing a required platform",
+      source: ciWorkflow.replace(reduced, reduced.replace('"windows-latest"', '"windows-2022"')),
+      expected: "CI pull request matrix",
+    },
+    {
+      name: "full matrix dropping a Node line",
+      source: ciWorkflow.replace('"node":["18.20.3","20.12.0","21.6.0",24]', '"node":["18.20.3","20.12.0",24]'),
+      expected: "CI full matrix",
+    },
+    {
+      name: "full matrix reduced for every event",
+      source: ciWorkflow.replace("github.event_name == 'pull_request'", "github.event_name != 'never'"),
+      expected: "CI matrix selection",
+    },
+    {
+      name: "missing schedule trigger",
+      source: ciWorkflow.replace(/  schedule:\n    - cron: "[^"]+"\n/u, ""),
+      expected: "CI triggers",
+    },
+    {
+      name: "missing manual trigger",
+      source: ciWorkflow.replace("  workflow_dispatch:\n", ""),
+      expected: "CI triggers",
+    },
+    {
+      name: "Linux worker count not raised",
+      source: ciWorkflow.replace("&& '4' ||", "&& '2' ||"),
+      expected: "CI test concurrency policy",
+    },
+    {
+      name: "macOS Node 18 no longer serialized",
+      source: ciWorkflow.replace("&& '1' ||", "&& '2' ||"),
+      expected: "CI test concurrency policy",
+    },
+  ];
+  for (const fixture of fixtures) {
+    assert.ok(
+      ciContractErrors(fixture.source).includes(fixture.expected),
+      `${fixture.name} must be rejected as ${fixture.expected}`,
+    );
+  }
+});
+
+
+test("CI fails closed without the independent runner canary and the release without its CI gate", () => {
   const command = "node --test test/unit/test-suite-runner.test.mjs";
   assert.ok(
     ciContractErrors(ciWorkflow.replace(command, "true"))
       .includes("CI test-runner bootstrap canary"),
   );
+  for (const source of [
+    workflow.replace("run: node scripts/verify-ci-gate.mjs", "run: true"),
+    workflow.replace("        run: node scripts/verify-ci-gate.mjs", "        continue-on-error: true\n        run: node scripts/verify-ci-gate.mjs"),
+    workflow.replace("          GITHUB_TOKEN: ${{ github.token }}\n", ""),
+  ]) {
+    assert.ok(releaseContractErrors(source).includes("exact-SHA full-matrix CI gate"));
+  }
   assert.ok(
-    releaseContractErrors(workflow.replace(command, "true"))
-      .includes("release test-runner bootstrap canary"),
+    releaseContractErrors(workflow.replace("      actions: read\n", ""))
+      .includes("verify permissions"),
+  );
+});
+
+
+test("the release gate is one Linux job instead of a re-run of the test matrix", () => {
+  const verify = jobBlocks(workflow).get("verify");
+  assert.doesNotMatch(verify, /strategy:|matrix[.:]|npm test|benchmark:enterprise|npm pack |setup-python/u);
+  assert.match(verify, /runs-on: ubuntu-latest/u);
+  assert.match(verify, /actions: read\n\s+contents: read/u);
+  assert.match(verify, /run: node scripts\/verify-ci-gate\.mjs/u);
+  assert.match(jobBlocks(workflow).get("package"), /needs: verify/u);
+  assert.match(workflow, /^concurrency:\n  group: release-.*\n  cancel-in-progress: false$/mu);
+  // The packed artifact is still smoke-verified exactly once, in the package job.
+  assert.equal((workflow.match(/node scripts\/verify-release-package\.mjs|scripts\/verify-release-package\.mjs/gu) ?? []).length, 1);
+  assert.equal((workflow.match(/^\s+run: npm run check$/gmu) ?? []).length, 1);
+  // The benchmark that used to run in the release matrix is part of the required CI cell.
+  assert.match(
+    jobBlocks(ciWorkflow).get("test"),
+    /if: matrix\.os == 'ubuntu-latest' && matrix\.node == 24\n\s+run: npm run benchmark:enterprise/u,
   );
 });
 
@@ -440,20 +626,37 @@ test("release workflow guards detect unsafe maintenance regressions", () => {
       expected: "concurrency cancellation",
     },
     {
-      name: "performance gate moved away from the reference runtime",
-      source: workflow.replace(
-        "if: matrix.os == 'ubuntu-latest' && matrix.node == 24",
-        "if: matrix.os == 'windows-latest' && matrix.node == '18.20.3'",
-      ),
-      expected: "release reference performance gate",
+      name: "release gate turned back into a matrix",
+      source: workflow.replace("    runs-on: ubuntu-latest\n    steps:\n      - name: Check out the tagged source", "    strategy:\n      matrix:\n        os: [ubuntu-latest]\n    runs-on: ubuntu-latest\n    steps:\n      - name: Check out the tagged source"),
+      expected: "release gate is a single job",
     },
     {
-      name: "fail-open performance gate",
+      name: "fail-open release gate",
       source: workflow.replace(
-        "        run: npm run benchmark:enterprise\n",
-        "        run: npm run benchmark:enterprise\n        continue-on-error: true\n",
+        "        run: node scripts/verify-ci-gate.mjs\n",
+        "        run: node scripts/verify-ci-gate.mjs\n        continue-on-error: true\n",
       ),
       expected: "release fail-open policy",
+    },
+    {
+      name: "release gate without Actions read permission",
+      source: workflow.replace("      actions: read\n", ""),
+      expected: "verify permissions",
+    },
+    {
+      name: "release gate with write permission",
+      source: workflow.replace("      actions: read\n      contents: read\n", "      actions: read\n      contents: write\n"),
+      expected: "verify permissions",
+    },
+    {
+      name: "package job without the source check",
+      source: workflow.replace("      - name: Check source syntax\n        run: npm run check\n", ""),
+      expected: "package job source check",
+    },
+    {
+      name: "package job not waiting for the gate",
+      source: workflow.replace("    needs: verify\n", ""),
+      expected: "job dependencies",
     },
     {
       name: "package without draft",

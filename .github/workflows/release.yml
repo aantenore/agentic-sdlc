@@ -17,65 +17,26 @@ defaults:
 
 jobs:
   verify:
-    name: Verify (${{ matrix.os }}, Node ${{ matrix.node }})
+    name: Verify the full CI matrix passed on this exact commit
     permissions:
+      actions: read
       contents: read
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        node: ["18.20.3", "20.12.0", "21.6.0", 24]
-    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    runs-on: ubuntu-latest
     steps:
       - name: Check out the tagged source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
-      - name: Use Node.js ${{ matrix.node }}
+      - name: Use Node.js 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24
           package-manager-cache: false
-      - name: Use the exact Python interpreter for installer verification
-        id: python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: "3.13.14"
-          update-environment: false
-      - name: Check source and run the complete test suite
+      - name: Require a successful full-matrix CI run for the tagged commit
         env:
-          PYTHON: ${{ steps.python.outputs.python-path }}
-          AGENTIC_SDLC_TEST_CONCURRENCY: ${{ matrix.os == 'macos-latest' && matrix.node == '18.20.3' && '1' || '2' }}
-        run: |
-          set -euo pipefail
-          npm run check
-          node --test test/unit/test-suite-runner.test.mjs
-          npm test
-      - name: Enforce enterprise performance on the reference runtime
-        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
-        run: npm run benchmark:enterprise
-      - name: Pack and verify the policy-controlled artifact
-        env:
-          PYTHON: ${{ steps.python.outputs.python-path }}
-          RELEASE_POLICY: config/release-artifact-policy.json
-        run: |
-          set -euo pipefail
-          verify_dir="$RUNNER_TEMP/release-verify-${{ matrix.os }}-${{ matrix.node }}"
-          mkdir "$verify_dir"
-          npm pack --json --ignore-scripts --pack-destination "$verify_dir" > "$verify_dir/npm-pack.json"
-          archive_name="$(node --input-type=module -e '
-            import fs from "node:fs";
-            const report = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-            if (!Array.isArray(report) || report.length !== 1 || !/^[A-Za-z0-9][A-Za-z0-9._+-]*\.tgz$/u.test(report[0]?.filename ?? "")) process.exit(1);
-            process.stdout.write(report[0].filename);
-          ' "$verify_dir/npm-pack.json")"
-          node scripts/verify-release-package.mjs \
-            --artifact "$verify_dir/$archive_name" \
-            --tag "$GITHUB_REF_NAME" \
-            --policy "$RELEASE_POLICY" \
-            --python "$PYTHON" \
-            --json
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/verify-ci-gate.mjs
 
   package:
     needs: verify
@@ -109,6 +70,8 @@ jobs:
         with:
           python-version: "3.13.14"
           update-environment: false
+      - name: Check source syntax
+        run: npm run check
       - name: Derive the strict release identity
         id: release_identity
         run: |
