@@ -2401,6 +2401,13 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   fs.mkdirSync(path.join(project, "docs", "local-release", "app"), {
     recursive: true,
   });
+  // The release proof ships inside the built artifact, so it is written
+  // before build.local records the destination content.
+  const localReleaseEvidence = writeProjectFile(
+    project,
+    "docs/local-release/app/release-proof.txt",
+    "governed local release completed\n",
+  );
   const localBuildEvidence = writeProjectFile(
     project,
     "docs/local-build-proof.json",
@@ -2439,11 +2446,6 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--evidence", rollbackEvidence,
   ], project);
 
-  const localReleaseEvidence = writeProjectFile(
-    project,
-    "docs/local-release/app/release-proof.txt",
-    "governed local release completed\n",
-  );
   mustRun([
     "autonomy", "delivery", "action",
     "--root", project,
