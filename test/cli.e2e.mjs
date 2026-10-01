@@ -12676,7 +12676,8 @@ test("schemas and JSON templates parse with portable local references", () => {
   assert.equal(configTemplate.context_optimization_policy.mode, "automatic");
   assert.equal(configTemplate.context_optimization_policy.fallback, "native");
   const ciWorkflow = fs.readFileSync(path.join(repoRoot, ".github", "workflows", "ci.yml"), "utf8");
-  assert.match(ciWorkflow, /"os":\["ubuntu-latest","macos-latest","windows-latest"\],"node":\["18\.20\.3","20\.12\.0","21\.6\.0",24\]/);
+  assert.match(ciWorkflow, /"os":\["ubuntu-latest","macos-latest"\],"node":\["18\.20\.3","20\.12\.0","21\.6\.0",24\]/);
+  assert.match(ciWorkflow, /"node":\["18\.20\.3","20\.12\.0","21\.6\.0",24\],"shard":\["1\/3","2\/3","3\/3"\]/);
   const releaseWorkflow = fs.readFileSync(path.join(repoRoot, ".github", "workflows", "release.yml"), "utf8");
   assert.match(releaseWorkflow, /run: node scripts\/verify-ci-gate\.mjs/);
   assert.doesNotMatch(releaseWorkflow, /matrix:/);

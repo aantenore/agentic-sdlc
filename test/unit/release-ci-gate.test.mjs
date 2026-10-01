@@ -36,6 +36,15 @@ function run(overrides = {}) {
 }
 
 
+function ranSteps(name, conclusion = "success") {
+  const platform = /^test \((.+?), /u.exec(name)[1];
+  return [
+    { name: "Set up job", conclusion: "success" },
+    { name: CI_GATE_POLICY.executedStep(platform), conclusion },
+  ];
+}
+
+
 function jobs(overrides = {}, attempt = 1) {
   return requiredCiJobNames().map((name, index) => ({
     id: 100 + index,
@@ -43,6 +52,7 @@ function jobs(overrides = {}, attempt = 1) {
     run_attempt: attempt,
     status: "completed",
     conclusion: "success",
+    steps: ranSteps(name),
     ...(overrides[name] ?? {}),
   }));
 }
@@ -53,11 +63,62 @@ function evaluate(runs, jobsByRun = new Map([[1, jobs()]])) {
 }
 
 
-test("the gate requires the twelve full-matrix cells", () => {
-  assert.equal(requiredCiJobNames().length, 12);
+test("the gate requires the six push-matrix cells", () => {
+  assert.deepEqual(requiredCiJobNames(), [
+    "test (ubuntu-latest, 18.20.3)",
+    "test (ubuntu-latest, 20.12.0)",
+    "test (ubuntu-latest, 21.6.0)",
+    "test (ubuntu-latest, 24)",
+    "test (macos-latest, 24)",
+    "test (windows-latest, 24)",
+  ]);
   assert.deepEqual(unmetCells(jobs()), []);
-  assert.ok(requiredCiJobNames().includes("test (macos-latest, 18.20.3)"));
-  assert.ok(requiredCiJobNames().includes("test (windows-latest, 24)"));
+});
+
+
+test("the suite-ran marker is the test step on Unix and the shard confirmation on Windows", () => {
+  assert.equal(CI_GATE_POLICY.executedStep("ubuntu-latest"), "Run the test suite");
+  assert.equal(CI_GATE_POLICY.executedStep("macos-latest"), "Run the test suite");
+  assert.equal(CI_GATE_POLICY.executedStep("windows-latest"), "Confirm every shard ran the test suite");
+});
+
+
+test("a green run whose suite was skipped (documentation-only change) cannot release", () => {
+  for (const name of requiredCiJobNames()) {
+    for (const steps of [
+      ranSteps(name, "skipped"),
+      ranSteps(name, "failure"),
+      [{ name: "Set up job", conclusion: "success" }],
+      [],
+      undefined,
+    ]) {
+      const verdict = evaluate([run()], new Map([[1, jobs({ [name]: { steps } })]]));
+      assert.equal(verdict.state, "failed", `${name} ${JSON.stringify(steps)}`);
+      assert.match(verdict.reason, /test suite did not run/u);
+    }
+  }
+  const allSkipped = jobs().map((job) => ({ ...job, steps: ranSteps(job.name, "skipped") }));
+  assert.equal(evaluate([run()], new Map([[1, allSkipped]])).state, "failed");
+  // The wrong marker (the Windows one on a Linux job) does not count either.
+  const crossed = jobs({
+    "test (ubuntu-latest, 24)": { steps: [{ name: "Confirm every shard ran the test suite", conclusion: "success" }] },
+  });
+  assert.equal(evaluate([run()], new Map([[1, crossed]])).state, "failed");
+});
+
+
+test("cells that only the scheduled full matrix produces are not required", () => {
+  const names = requiredCiJobNames();
+  for (const extra of [
+    "test (macos-latest, 18.20.3)",
+    "test (windows-latest, 18.20.3)",
+    "test (windows-latest, 21.6.0)",
+    "test (macos-latest, 20.12.0)",
+  ]) {
+    assert.equal(names.includes(extra), false, extra);
+  }
+  // The shard jobs themselves are not gated; the per-Node aggregator job is.
+  assert.equal(names.some((name) => name.startsWith("test shard")), false);
 });
 
 
@@ -99,10 +160,10 @@ test("an unfinished run is pending", () => {
 
 
 test("a successful run missing a cell or holding a non-success cell fails", () => {
-  const withoutCell = jobs().filter((job) => job.name !== "test (windows-latest, 21.6.0)");
+  const withoutCell = jobs().filter((job) => job.name !== "test (windows-latest, 24)");
   const missing = evaluate([run()], new Map([[1, withoutCell]]));
   assert.equal(missing.state, "failed");
-  assert.match(missing.reason, /windows-latest, 21\.6\.0/u);
+  assert.match(missing.reason, /windows-latest, 24/u);
 
   for (const conclusion of ["failure", "cancelled", "skipped", null]) {
     const verdict = evaluate([run()], new Map([[1, jobs({
@@ -116,6 +177,7 @@ test("a successful run missing a cell or holding a non-success cell fails", () =
   assert.equal(unfinished.state, "failed");
 
   const reducedPullRequestMatrix = jobs().filter((job) => /, 24\)$|ubuntu-latest, 18\.20\.3/u.test(job.name));
+  assert.ok(reducedPullRequestMatrix.length < requiredCiJobNames().length);
   assert.equal(
     evaluate([run()], new Map([[1, reducedPullRequestMatrix]])).state,
     "failed",
@@ -125,7 +187,7 @@ test("a successful run missing a cell or holding a non-success cell fails", () =
 
 
 test("only the latest attempt of a cell decides", () => {
-  const name = "test (macos-latest, 18.20.3)";
+  const name = "test (ubuntu-latest, 21.6.0)";
   const recovered = [
     ...jobs({ [name]: { conclusion: "failure" } }, 1),
     { ...jobs()[0], name, id: 999, run_attempt: 2 },
