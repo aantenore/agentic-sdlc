@@ -12714,7 +12714,8 @@ test("npm package installs as a complete reusable plugin", async (t) => {
       cwd,
       encoding: "utf8",
       shell: process.platform === "win32" && !process.env.npm_execpath,
-      timeout: 60_000,
+      // Offline installs on Windows runners with older npm need the release verifier's budget.
+      timeout: 180_000,
     });
   };
   const packageRoot = tmpProject("npm-package-install");
