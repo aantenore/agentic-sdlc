@@ -3025,6 +3025,53 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   assert.equal(committedCertificationStatus.status, "terminal");
   assert.equal(committedCertificationStatus.final_receipt_valid, true);
 
+  // The documented hand-off: the user commits the certified story on its
+  // branch together with an unrelated ignore rule, switches back to main, and
+  // fast-forwards. Git rewrites every tracked file with the checkout umask, so
+  // only content and the executable bit can stay bound to the final receipt.
+  const branchMergeProject = cloneTemporaryProject(
+    project,
+    "final-receipt-branch-merge",
+  );
+  fs.appendFileSync(
+    path.join(branchMergeProject, ".git", "info", "exclude"),
+    "/docs/local-release/\n",
+    "utf8",
+  );
+  fs.appendFileSync(
+    path.join(branchMergeProject, ".gitignore"),
+    "coverage/\n",
+    "utf8",
+  );
+  const restrictedGovernedRecord = path.join(
+    branchMergeProject,
+    ".sdlc",
+    "traces",
+    `${fixture.storyId}.jsonl`,
+  );
+  fs.chmodSync(restrictedGovernedRecord, 0o600);
+  assert.equal(finalReceiptIsValid(branchMergeProject), true);
+  mustGit(branchMergeProject, ["add", "-A"]);
+  mustGit(
+    branchMergeProject,
+    ["commit", "-m", "test: persist certified story with an unrelated ignore rule"],
+  );
+  mustGit(branchMergeProject, ["checkout", "-q", "main"]);
+  mustGit(branchMergeProject, ["merge", "-q", "--ff-only", fixture.branch]);
+  assert.equal(fs.statSync(restrictedGovernedRecord).mode & 0o777, 0o644 & ~process.umask());
+  assert.equal(finalReceiptIsValid(branchMergeProject), true);
+  const mergedProjectStatus = mustRunJson([
+    "status", "--root", branchMergeProject,
+  ], branchMergeProject);
+  assert.notEqual(mergedProjectStatus.next_action?.reason, "final_lifecycle_receipt_invalid");
+  assert.equal(mergedProjectStatus.summary.blocked_work, 0);
+  fs.appendFileSync(
+    path.join(branchMergeProject, "docs", "tracked-runtime.md"),
+    "\nChanged after the merged certification.\n",
+    "utf8",
+  );
+  assert.equal(finalReceiptIsValid(branchMergeProject), false);
+
   const divergentModeProject = cloneTemporaryProject(
     committedCertificationProject,
     "final-receipt-divergent-mode",

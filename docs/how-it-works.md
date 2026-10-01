@@ -68,8 +68,13 @@ committed only along descendant history; a transient different value, history
 replacement or graft, inherited alternate Git index, hidden index flag, or
 shallow history invalidates it. Ignored and non-ignored untracked paths inside
 the approved write scope are both inventoried, so changing ignore rules cannot
-hide a later in-scope mutation. Preserve the old receipt in repository history
-if the audit trail matters.
+hide a later in-scope mutation. Committing the certified story on a branch and
+then switching branches or fast-forwarding keeps the receipt valid: Git
+rewrites governed records with the checkout umask, so only their content,
+presence, type, and executable bit stay bound, and commits that touch only
+paths outside the story's approved write scope are ignored. Changing a
+certified file afterwards still invalidates the receipt. Preserve the old
+receipt in repository history if the audit trail matters.
 
 The normal user experiences this chain as an explained sequence of decisions
 and results. Codex prepares the structured inputs and runs the CLI; record IDs,
