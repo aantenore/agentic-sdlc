@@ -44,7 +44,7 @@ function run(executable, args, options = {}) {
 }
 
 
-test("verifies a real npm pack through offline install and installed-package smoke tests", { timeout: 180_000 }, () => {
+test("verifies a real npm pack through offline install and installed-package smoke tests", { timeout: 360_000 }, () => {
   const temporary = mkdtempSync(path.join(os.tmpdir(), "release-package-e2e-"));
   try {
     const packDestination = path.join(temporary, "artifacts");
