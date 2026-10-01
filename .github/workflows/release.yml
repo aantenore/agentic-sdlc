@@ -46,6 +46,7 @@ jobs:
       - name: Check source and run the complete test suite
         env:
           PYTHON: ${{ steps.python.outputs.python-path }}
+          AGENTIC_SDLC_TEST_CONCURRENCY: ${{ matrix.os == 'macos-latest' && matrix.node == '18.20.3' && '1' || '2' }}
         run: |
           set -euo pipefail
           npm run check

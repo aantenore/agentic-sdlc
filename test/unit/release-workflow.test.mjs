@@ -329,7 +329,7 @@ test("CI pins actions and separates the compatibility matrix from the performanc
 });
 
 
-test("CI serializes only macOS Node 18.20.3 while the other matrix cells use two workers", () => {
+test("CI and release serialize only macOS Node 18.20.3 while the other matrix cells use two workers", () => {
   const policies = [...ciWorkflow.matchAll(
     /AGENTIC_SDLC_TEST_CONCURRENCY: \$\{\{ matrix\.os == '([^']+)' && matrix\.node == '([^']+)' && '([^']+)' \|\| '([^']+)' \}\}/gu,
   )];
@@ -366,7 +366,12 @@ test("CI serializes only macOS Node 18.20.3 while the other matrix cells use two
     }],
   );
   assert.equal(cells.filter(({ concurrency }) => concurrency === "2").length, 11);
-  assert.doesNotMatch(workflow, /AGENTIC_SDLC_TEST_CONCURRENCY/u);
+  // The release verifies the same matrix on the same runners, so it must apply
+  // the same serialization or its slowest cell times out where CI passes.
+  const releasePolicies = [...workflow.matchAll(
+    /AGENTIC_SDLC_TEST_CONCURRENCY: \$\{\{ matrix\.os == '([^']+)' && matrix\.node == '([^']+)' && '([^']+)' \|\| '([^']+)' \}\}/gu,
+  )].map((match) => match.slice(1));
+  assert.deepEqual(releasePolicies, [[serializedOs, serializedNode, serializedValue, defaultValue]]);
 });
 
 
