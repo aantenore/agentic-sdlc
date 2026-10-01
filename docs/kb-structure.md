@@ -677,8 +677,12 @@ Example:
 }
 ```
 
-`closure.json` exists only for a story closed before any work started, through
-`story supersede` or `story cancel`. It is written once and never rewritten,
+`closure.json` exists for a story closed through `story supersede` or
+`story cancel`: either before any work started, or after it started once every
+delivery bound to it ended without delivered work. In the second case the
+subject also carries `started_work`: the task-start hash, each delivery's
+terminal status and close-receipt hash, and the work assignment the closure
+released. It is written once and never rewritten,
 and `story.json` stays untouched. The record carries the approved subject —
 `event` (`superseded` or `cancelled`), content-hash references to every story
 closed by the same decision, the replacement story, the source breakdown when

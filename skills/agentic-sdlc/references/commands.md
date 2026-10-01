@@ -712,8 +712,15 @@ node bin/agentic-sdlc.mjs story cancel --root <project> --id ST-004 \
 Each closed story gets an immutable `.sdlc/stories/<story-id>/closure.json`
 bound to the approved subject (story contents, replacement, breakdown, reason)
 and a `story.supersede` or `story.cancel` project trace; `story.json` is never
-rewritten. Stories with a claim, task start, completed step, workflow run,
-lifecycle receipt, delivery profile, linked output, or work trace are refused.
+rewritten. A story that already started (claim, task start, completed step,
+workflow run, delivery profile, linked output, or work trace) can be closed
+only on its own with `--id`, and only when every delivery bound to it is
+terminal as `cancelled`, `rolled_back`, `closed`, `revoked`, or `superseded`;
+an active or still-available delivery, a released, merged, or
+ready-for-review delivery, or a lifecycle-certified story is refused. Its
+closure also binds the task start, every terminal close receipt, and the
+work assignment, which the closure releases, and it is traced on the story
+itself. Reopening any of them later reports the story as blocked.
 After closure, contract creation, workflow start, task start, delivery
 proposals, output links, claims, and story traces for that story are refused.
 Closed stories are reported as `closed` by orchestration and as `closed_work`

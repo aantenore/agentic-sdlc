@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "story-closure.schema.json",
   "title": "Agentic SDLC Story Closure",
-  "description": "Immutable, approved record that closes one never-started story as superseded by another story or as cancelled. The story record itself is never rewritten.",
+  "description": "Immutable, approved record that closes a story as superseded by another story or as cancelled. A never-started story closes directly; a started story closes only when every bound delivery ended without delivered work, and the closure binds that evidence. The story record itself is never rewritten.",
   "type": "object",
   "required": [
     "id",
@@ -47,7 +47,8 @@
             { "$ref": "#/$defs/ref" }
           ]
         },
-        "reason": { "type": "string", "minLength": 1 }
+        "reason": { "type": "string", "minLength": 1 },
+        "started_work": { "$ref": "#/$defs/started_work" }
       },
       "additionalProperties": false
     },
@@ -56,6 +57,59 @@
     "audit": { "$ref": "common.schema.json#/$defs/audit" }
   },
   "$defs": {
+    "file_ref": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "started_work": {
+      "type": "object",
+      "required": ["story_id", "task_start", "deliveries", "claim"],
+      "properties": {
+        "story_id": { "type": "string", "minLength": 1 },
+        "task_start": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/file_ref" }
+          ]
+        },
+        "deliveries": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "profile_hash", "terminal_status", "close_receipt"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "profile_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "terminal_status": { "enum": ["cancelled", "closed", "revoked", "rolled_back", "superseded"] },
+              "close_receipt": { "$ref": "#/$defs/file_ref" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "claim": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["path", "agent", "status_before"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "agent": { "type": ["string", "null"] },
+                "status_before": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "ref": {
       "type": "object",
       "required": ["id", "path", "content_hash"],

@@ -4575,6 +4575,121 @@ test("updating an existing local release binds release verification to the build
   assert.equal(released.lifecycle_status, "terminal");
 });
 
+test("a started story closes only after every delivery ended without delivered work", () => {
+  const storyId = "ST-CLOSE-STARTED";
+  const profileId = "AUT-CLOSE-STARTED";
+  const project = tmpProject("started-story-closure");
+  initializeAutonomyProject(project);
+  createApprovedImplementationContract(project, {
+    storyId,
+    contractId: "CONTRACT-CLOSE-STARTED",
+    profileId,
+  });
+  const releaseRoot = path.join(project, "local-release");
+  const releaseOutput = path.join(releaseRoot, "app");
+  fs.mkdirSync(releaseOutput, { recursive: true });
+  mustRunJson([
+    "autonomy", "delivery", "propose",
+    "--root", project,
+    "--id", profileId,
+    "--delivery", "LOCAL-CLOSE-STARTED",
+    "--kind", "local_release",
+    "--story", storyId,
+    "--contract", "CONTRACT-CLOSE-STARTED",
+    "--requirement", "REQ-AUTONOMY",
+    "--level", "checkpointed",
+    "--target-root", releaseRoot,
+    "--write-path", releaseOutput,
+    "--smoke-test", '["node","--version"]',
+    "--rollback", "Restore the previous local release.",
+  ]);
+  mustRunJson([
+    "autonomy", "delivery", "approve",
+    "--root", project,
+    "--id", profileId,
+    "--phase", "implementation",
+    ...humanApproval("Approve the exact local delivery"),
+  ]);
+  mustRunJson([
+    "task", "start",
+    "--root", project,
+    "--intent-json", taskIntent(storyId),
+    "--delivery-profile", profileId,
+    "--confirm-start",
+    "--actor-type", "human",
+  ]);
+  mustRun([
+    "story", "claim",
+    "--root", project,
+    "--id", storyId,
+    "--agent", "codex",
+    "--actor-type", "human",
+  ]);
+  const cancelArgs = [
+    "story", "cancel",
+    "--root", project,
+    "--id", storyId,
+    "--reason", "The change request was withdrawn after the delivery was cancelled",
+  ];
+  const active = mustFail(
+    [...cancelArgs, ...humanApproval("Cancel the withdrawn story")],
+    /ST-CLOSE-STARTED was already started: .* cannot close yet: delivery AUT-CLOSE-STARTED is still started; end it first with .*autonomy delivery close --id AUT-CLOSE-STARTED --terminal-status cancelled/su,
+  );
+  assert.match(`${active.stdout}\n${active.stderr}`, /nothing was changed/u);
+  const closurePath = path.join(project, ".sdlc", "stories", storyId, "closure.json");
+  assert.equal(fs.existsSync(closurePath), false);
+
+  mustRunJson([
+    "autonomy", "delivery", "close",
+    "--root", project,
+    "--id", profileId,
+    "--terminal-status", "cancelled",
+    "--reason", "The destination was recreated outside the governed build",
+    ...humanApproval("Close the delivery as cancelled"),
+  ]);
+  mustFail(
+    [...cancelArgs, "--actor-type", "agent"],
+    /requires --actor-type human/u,
+  );
+  const closed = mustRunJson([...cancelArgs, ...humanApproval("Cancel the withdrawn story")]);
+  assert.equal(closed.status, "cancelled");
+  const closure = JSON.parse(fs.readFileSync(closurePath, "utf8"));
+  assert.equal(closure.subject.started_work.story_id, storyId);
+  assert.deepEqual(
+    closure.subject.started_work.deliveries.map((delivery) => [delivery.id, delivery.terminal_status]),
+    [[profileId, "cancelled"]],
+  );
+  assert.equal(closure.subject.started_work.claim.status_before, "active");
+  assert.equal(closure.approval.approved_by.type, "human");
+  const claimPath = path.join(project, ".sdlc", "stories", storyId, "claim.json");
+  assert.equal(JSON.parse(fs.readFileSync(claimPath, "utf8")).status, "released");
+  const storyTrace = fs.readFileSync(path.join(project, ".sdlc", "traces", `${storyId}.jsonl`), "utf8");
+  assert.match(storyTrace, /Cancelled after every delivery ended \(AUT-CLOSE-STARTED: cancelled\)/u);
+
+  const status = mustRunJson(["status", "--root", project]);
+  assert.equal(status.summary.active_work, 0);
+  assert.equal(status.summary.blocked_work, 0);
+  assert.equal(status.summary.closed_work, 1);
+  const orchestration = mustRunJson(["orchestrate", "status", "--root", project]);
+  assert.equal(orchestration.stories.find((item) => item.id === storyId).status, "cancelled");
+  mustFail([
+    "story", "claim",
+    "--root", project,
+    "--id", storyId,
+    "--agent", "codex",
+    "--actor-type", "human",
+  ], /terminal status 'cancelled' and cannot be claimed/u);
+
+  // Reopening the work behind the closure's back invalidates it.
+  const releasedClaim = fs.readFileSync(claimPath, "utf8");
+  fs.writeFileSync(claimPath, releasedClaim.replace('"status": "released"', '"status": "active"'), "utf8");
+  const reopened = mustRunJson(["status", "--root", project]);
+  assert.equal(reopened.summary.closed_work, 0);
+  assert.equal(reopened.summary.blocked_work, 1);
+  fs.writeFileSync(claimPath, releasedClaim, "utf8");
+  assert.equal(mustRunJson(["status", "--root", project]).summary.closed_work, 1);
+});
+
 test("package-manager local smoke cannot fall back to the parent source package", {
   skip: hostSupportsLocalSmokeSandbox()
     ? false
