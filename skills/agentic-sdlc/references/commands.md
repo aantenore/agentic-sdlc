@@ -159,6 +159,19 @@ outside the workspace and needs the user's explicit agreement.
 
 Every pull request and every local release needs a new delivery profile ID and an explicit choice among `supervised`, `checkpointed`, and `bounded-autonomous`. Never reuse a profile or approval from another delivery. One profile binds exactly one story and that story's one approved contract. When several stories must ship together, first create an agreed aggregation story/contract; do not use the profile as an unrelated multi-story container. Decide this at breakdown time: when the user wants one pull request or one local release for several parts, propose one delivery story with tasks (`work item create --type task --story <story-id>`) rather than approving several stories that will never be delivered separately.
 
+When a story's delivery ends `cancelled` or `rolled_back`, the same story may
+continue with exactly one new delivery instead of a replacement story: create a
+new contract ID with `--replace-story-contract --delivery-profile
+<new-profile-id>`, approve it, propose and approve the new profile (a fresh
+autonomy choice), release the story claim, run `task start` with the new
+contract and profile, and claim the story again. The story keeps its workflow
+run and completed phases; the new task-start receipt links the replaced one,
+and the write-scope, secret-scan, and lifecycle checks stay anchored to the
+first task start. A delivery that is still active, or that ended `released`,
+`merged`, or `ready_for_review`, cannot be replaced; a further successor is
+possible only after the new delivery itself ends `cancelled` or
+`rolled_back`.
+
 Create the story, reserve a new profile ID, and create the final contract with that ID. Obtain normal contract approval before proposing the profile. The contract stores only the planned `delivery_execution_profile_id`; the later profile binds the approved requirement-profile, story, and contract hashes.
 
 ```bash
