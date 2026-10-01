@@ -461,6 +461,19 @@ The dedicated assessment journey remains the exception described above: it packa
      --json
    ```
 
+   Passing `build.local` completion records the content manifest (paths,
+   modes, sizes, SHA-256) of every approved write path; later
+   `rollback.verify` and `release.local` require the destination to match it.
+   A recreated write path with identical content is accepted; a replaced root,
+   a symlink, or different content is refused. To update an existing release,
+   propose the destination plus a backup write path, then inside one open
+   `build.local` authorization copy the current release into the backup and
+   install the new build; complete `build.local`, rehearse the rollback
+   without touching the destination, record `rollback.verify`, then
+   `release.local`. If smoke fails, restore the backup and close the delivery
+   `--terminal-status rolled_back`. Never install files at release time; if
+   the destination changed after the build, request `build.local` again.
+
    When the local delivery changes a data file, add both typed actions and bind
    the reversible boundary at proposal time:
 

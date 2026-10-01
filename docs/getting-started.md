@@ -344,6 +344,18 @@ or started. Before `rollback.verify`, `data.migrate`, `data.rollback`, or
 Creating the destination with an untracked `mkdir` does not repair a blocked
 release: the creation itself belongs to the approved build boundary.
 
+### When you update a release that already exists
+
+Codex installs the new version only while a `build.local` authorization is
+open: it first copies the current release into an approved backup directory,
+then replaces the destination with the new build and completes `build.local`.
+The CLI records the exact content it found (paths, modes, sizes, SHA-256).
+The rollback rehearsal, the release, and its smoke test are then bound to that
+content: a destination recreated with the same files is fine, while changed
+files, a replaced root, or a symlink stop the release until a new
+`build.local` records the new content. If the smoke test fails, the backup is
+restored and the delivery is closed as `rolled_back`.
+
 ## Local, Repository, And Production Are Separate
 
 | Boundary | Examples | Network or wider authority |

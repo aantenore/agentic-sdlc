@@ -282,6 +282,39 @@ node bin/agentic-sdlc.mjs autonomy delivery action \
   --evidence evidence/local-build.json
 ```
 
+Passing `build.local` completion records a content manifest (relative paths,
+modes, sizes, and SHA-256 digests) of every approved write path, except a
+write path that holds a declared data-migration file. From then on
+`rollback.verify`, `data.migrate`, `data.rollback`, and `release.local` require
+the destination to match that manifest. A write path may be deleted and
+recreated as long as its content still matches; the target root must keep its
+identity, and symlinked or relocated write paths are always refused.
+
+To update an existing local release, follow backup -> install -> smoke ->
+rollback inside the governed actions; never install files at release time:
+
+1. Propose a new delivery profile whose write paths are the destination and a
+   backup directory (for example `--write-path <root>/app --write-path
+   <root>/backup`) and whose `--rollback` restores the destination from the
+   backup.
+2. After task start, request `build.local`. While that authorization is open,
+   copy the current release into the backup path, then install the new build
+   into the destination (replacing the directory is fine).
+3. Complete `build.local` with immutable evidence; the CLI records the content
+   manifest.
+4. Rehearse the rollback without changing the destination (for example restore
+   the backup into a scratch copy) and record `rollback.verify` with that
+   evidence.
+5. Authorize and complete `release.local`; the sandboxed smoke test runs
+   against the exact recorded content.
+6. If the smoke test fails, restore the backup as the rollback procedure says
+   and close the delivery with `--terminal-status rolled_back`.
+
+When the destination changed after `build.local` (a hotfix, a reinstall with
+other files), the refusal names the changed write paths: request `build.local`
+again, install the build, complete it, then repeat `rollback.verify` and
+`release.local`.
+
 Approve, inspect, explain, or revoke the exact profile:
 
 ```bash
