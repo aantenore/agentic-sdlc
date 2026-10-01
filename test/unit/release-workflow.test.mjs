@@ -103,7 +103,9 @@ const MATRIX_EXPRESSION = /^      matrix: \$\{\{ fromJSON\(github\.event_name ==
 // Steps after the scope detection run only when the change set is not
 // documentation-only; "!= 'true'" makes a missing or failed output run them.
 const NOT_DOCS_ONLY = "steps.scope.outputs.docs_only != 'true'";
-const SCOPE_STEP = /^id: scope\n\s+name: Detect Markdown-only changes\n\s+run: node scripts\/ci-change-scope\.mjs\n\s+env:\n\s+CI_EVENT_NAME: \$\{\{ github\.event_name \}\}\n\s+CI_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+CI_BEFORE_SHA: \$\{\{ github\.event\.before \}\}\n/u;
+const SCOPE_STEP = /^id: scope\n\s+name: Detect Markdown-only changes\n\s+run: node scripts\/ci-change-scope\.mjs\n\s+env:\n\s+CI_EVENT_NAME: \$\{\{ github\.event_name \}\}\n\s+CI_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+CI_BEFORE_SHA: \$\{\{ github\.event\.before \}\}\n(?:\s+# [^\n]+\n\s+CI_ALWAYS_RUN: [^\n]+\n)?/u;
+// The unsharded job's scope step also opts the reference cell (ubuntu, Node 24) out of skipping.
+const ALWAYS_RUN_ENV = "CI_ALWAYS_RUN: ${{ matrix.os == 'ubuntu-latest' && matrix.node == 24 }}";
 const AGGREGATOR_ARGS = `--platform windows-latest --node "$MATRIX_NODE" --shards ${SHARD_TOTAL}`;
 
 
@@ -321,6 +323,11 @@ function ciContractErrors(source) {
   const layouts = [["test", unix, 7], ["test-windows-shard", shard, 6], ["test-windows", aggregator, 2]];
   for (const [, block, afterCount] of layouts) {
     const { leading, scope, after } = stepLayout(block);
+    const alwaysRun = scope.includes(ALWAYS_RUN_ENV);
+    if (alwaysRun !== (block === unix)
+      || (scope.match(/CI_ALWAYS_RUN/gu) ?? []).length !== (block === unix ? 1 : 0)) {
+      errors.push("CI reference cell skips");
+    }
     if (leading.length !== 2
       || !/^uses: actions\/checkout@/u.test(leading[0])
       || !/^uses: actions\/setup-node@/u.test(leading[1])
@@ -689,6 +696,10 @@ test("a documentation-only change skips steps, never jobs, and never counts as v
   assert.equal(stepIsGated(after[1]), true);
   // Pushes, pull requests only: the script itself refuses every other event.
   assert.match(ciWorkflow, /CI_EVENT_NAME: \$\{\{ github\.event_name \}\}/u);
+  // Tests read README.md and docs/, so ubuntu Node 24 never skips; nothing else opts out.
+  assert.ok(stepLayout(jobs.get("test")).scope.includes(ALWAYS_RUN_ENV));
+  assert.doesNotMatch(jobs.get("test-windows-shard"), /CI_ALWAYS_RUN/u);
+  assert.doesNotMatch(jobs.get("test-windows"), /CI_ALWAYS_RUN/u);
   // Required-by-the-gate jobs must have a marker step that the skip also skips.
   for (const [id, platform] of [["test", "ubuntu-latest"], ["test-windows", "windows-latest"]]) {
     const marker = stepLayout(jobs.get(id)).after.find((step) => stepName(step) === CI_GATE_POLICY.executedStep(platform));
@@ -982,6 +993,21 @@ test("CI guards reject a weakened documentation-only skip", () => {
       name: "scope detection without the base commit",
       source: ciWorkflow.replace("          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}\n", ""),
       expected: "CI docs-only skip",
+    },
+    {
+      name: "ubuntu Node 24 allowed to skip on docs-only changes",
+      source: ciWorkflow.replace("          # Tests read README.md and docs/, so this reference cell never skips.\n          CI_ALWAYS_RUN: ${{ matrix.os == 'ubuntu-latest' && matrix.node == 24 }}\n", ""),
+      expected: "CI reference cell skips",
+    },
+    {
+      name: "always-run flag widened to every Unix cell",
+      source: ciWorkflow.replace("CI_ALWAYS_RUN: ${{ matrix.os == 'ubuntu-latest' && matrix.node == 24 }}", "CI_ALWAYS_RUN: ${{ matrix.os == 'ubuntu-latest' }}"),
+      expected: "CI reference cell skips",
+    },
+    {
+      name: "always-run flag pointing at another Node line",
+      source: ciWorkflow.replace("matrix.os == 'ubuntu-latest' && matrix.node == 24 }}\n", "matrix.os == 'ubuntu-latest' && matrix.node == 20 }}\n"),
+      expected: "CI reference cell skips",
     },
     {
       name: "aggregator confirmation that the suite ran is always skipped",

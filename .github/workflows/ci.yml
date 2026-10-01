@@ -38,6 +38,8 @@ jobs:
           CI_EVENT_NAME: ${{ github.event_name }}
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           CI_BEFORE_SHA: ${{ github.event.before }}
+          # Tests read README.md and docs/, so this reference cell never skips.
+          CI_ALWAYS_RUN: ${{ matrix.os == 'ubuntu-latest' && matrix.node == 24 }}
       - id: python
         if: steps.scope.outputs.docs_only != 'true'
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1

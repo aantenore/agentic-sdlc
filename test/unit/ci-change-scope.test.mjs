@@ -96,6 +96,23 @@ test("schedule and manual runs never skip, even with a Markdown-only diff", () =
 });
 
 
+test("a job flagged always-run never skips, even for a Markdown-only diff", () => {
+  const env = { CI_EVENT_NAME: "pull_request", CI_BASE_SHA: BASE };
+  assert.equal(decideDocsOnly({ env, git: gitReturning("README.md\0") }).docsOnly, true);
+  for (const value of ["true"]) {
+    const decision = decideDocsOnly({
+      env: { ...env, CI_ALWAYS_RUN: value },
+      git: () => { throw new Error("must not run git"); },
+    });
+    assert.equal(decision.docsOnly, false);
+  }
+  // Only the literal "true" opts out; the unset or false value of other cells still skips.
+  for (const value of ["false", "", undefined]) {
+    assert.equal(decideDocsOnly({ env: { ...env, CI_ALWAYS_RUN: value }, git: gitReturning("README.md\0") }).docsOnly, true);
+  }
+});
+
+
 test("a code, skill, or command change runs the full suite", () => {
   for (const diff of ["README.md\0lib/x.mjs\0", "skills/a/SKILL.md\0", "docs/a.md\0commands/b.md\0", ""]) {
     const decision = decideDocsOnly({
