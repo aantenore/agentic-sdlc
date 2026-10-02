@@ -354,13 +354,18 @@ function createGovernedDeliveryStory(project, {
   deliveryKind = "pull_request",
   storyActionUses = 1,
   beforeTaskStart = null,
+  existingProject = false,
 }) {
   const requirementId = `REQ-${suffix}`;
   const storyId = `ST-${suffix}`;
   const contractId = `CONTRACT-${suffix}`;
   const profileId = `AUT-${suffix}`;
   const branch = `codex/${storyId}`;
-  initializeGitProject(project, branch, configureProject);
+  if (existingProject) {
+    mustGit(project, ["checkout", "-b", branch]);
+  } else {
+    initializeGitProject(project, branch, configureProject);
+  }
 
   const requirementScopes = [
     { id: requirementId, writePaths: allowedWritePaths },
@@ -392,7 +397,7 @@ function createGovernedDeliveryStory(project, {
     ...(outputType ? [{ type: outputType, phase: outputPhase }] : []),
     ...additionalOutputRefs,
   ];
-  for (const outputRef of outputRefs) {
+  for (const outputRef of existingProject ? [] : outputRefs) {
     mustRun([
       "output", "template", "propose",
       "--root", project,
@@ -4809,6 +4814,332 @@ test("a cancelled local delivery is replaced once on the same workflow-bound sto
   const finalStatus = mustRunJson(["status", "--root", project], project);
   assert.equal(finalStatus.summary.completed_work, 1);
   assert.equal(finalStatus.summary.blocked_work, 0);
+});
+
+// Runs one governed local-release story from task start to its sealed final
+// lifecycle receipt. `files` are written before the build, `evidenceDir` holds
+// the story's own evidence, and the released artifact carries `releaseProof`.
+function certifyLocalReleaseStory(project, {
+  suffix,
+  allowedWritePaths,
+  evidenceDir,
+  files,
+  releaseProof,
+  existingProject = false,
+}) {
+  const workflowInstanceId = `delivery-${suffix.toLowerCase()}`;
+  const fixture = createGovernedDeliveryStory(project, {
+    suffix,
+    allowedWritePaths,
+    deliveryKind: "local_release",
+    storyActionUses: 12,
+    existingProject,
+    beforeTaskStart: ({ storyId }) => {
+      mustRun([
+        "workflow", "instance", "start",
+        "--root", project,
+        "--id", workflowInstanceId,
+        "--definition", "software-project",
+        "--definition-version", "3",
+        "--story", storyId,
+        "--actor", "workflow-e2e-ci",
+        "--actor-type", "ci",
+      ], project);
+    },
+  });
+  const transition = (to) => mustRun([
+    "workflow", "instance", "transition",
+    "--root", project,
+    "--id", workflowInstanceId,
+    "--to", to,
+    "--request-id", `${workflowInstanceId}-${to}`,
+    "--actor", "workflow-e2e-ci",
+    "--actor-type", "ci",
+  ], project);
+  const completeStep = (step, extra = []) => mustRun([
+    "story", "complete-step",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--step", step,
+    "--summary", `${step} completed against the approved boundary`,
+    ...extra,
+    "--authorization", fixture.storyActionAuthorizationId,
+  ], project);
+  for (const [relativePath, contents] of Object.entries(files)) {
+    writeProjectFile(project, relativePath, contents);
+  }
+  const artifact = writeProjectFile(
+    project,
+    `${evidenceDir}/implementation-summary-${suffix.toLowerCase()}.md`,
+    `# Implementation summary\n\n${suffix} is complete.\n`,
+  );
+  mustRun([
+    "output", "link",
+    "--root", project,
+    "--story", fixture.storyId,
+    "--type", "implementation-summary",
+    "--artifact", artifact,
+    "--template", "implementation-summary-v1",
+    "--mode", "new",
+    "--requirement", fixture.requirementId,
+    "--authorization", fixture.storyActionAuthorizationId,
+  ], project);
+  for (const [step, next] of [
+    ["discovery", "analysis"],
+    ["analysis", "design"],
+    ["design", "implementation"],
+    ["implementation", "validation"],
+  ]) {
+    completeStep(step, step === "implementation" ? ["--type", "implementation-summary"] : []);
+    transition(next);
+  }
+  const testEvidence = writeProjectFile(
+    project,
+    `.sdlc/tests/${fixture.storyId}-test.json`,
+    "{\"passed\":true}\n",
+  );
+  appendTrace(project, fixture.storyId, "test", "passed", testEvidence);
+  completeStep("validation", ["--evidence", testEvidence]);
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
+  mustRunJson(["gate", "check", "--root", project, "--strict", "--story", fixture.storyId], project);
+  transition("release");
+  const build = mustRunJson([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", fixture.profileId,
+    "--action", "build.local",
+    "--confirm-action",
+    ...humanApproval(`Approve the ${suffix} local build`),
+  ], project);
+  const buildEvidence = writeProjectFile(
+    project,
+    `${evidenceDir}/local-build-${suffix.toLowerCase()}.json`,
+    "{\"built\":true}\n",
+  );
+  writeProjectFile(project, "docs/local-release/app/release-proof.txt", releaseProof);
+  // Story-scoped release evidence stays outside the released artifact, which
+  // later stories may legitimately release again.
+  const releaseProofEvidence = writeProjectFile(
+    project,
+    `${evidenceDir}/release-proof-${suffix.toLowerCase()}.json`,
+    `${JSON.stringify({ released: releaseProof.trim() })}\n`,
+  );
+  mustRun([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", fixture.profileId,
+    "--action", "build.local",
+    "--outcome", "passed",
+    "--authorization-receipt", build.action_receipt.id,
+    "--evidence", buildEvidence,
+  ], project);
+  const rollbackEvidence = writeProjectFile(
+    project,
+    `${evidenceDir}/rollback-rehearsal-${suffix.toLowerCase()}.json`,
+    "{\"restored\":true}\n",
+  );
+  for (const extra of [
+    ["--confirm-action", ...humanApproval(`Approve the ${suffix} rollback rehearsal`)],
+    ["--outcome", "passed"],
+  ]) {
+    mustRun([
+      "autonomy", "delivery", "action",
+      "--root", project,
+      "--id", fixture.profileId,
+      "--action", "rollback.verify",
+      "--evidence", rollbackEvidence,
+      ...extra,
+    ], project);
+  }
+  mustRun([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", fixture.profileId,
+    "--action", "release.local",
+    "--confirm-action",
+    ...humanApproval(`Approve the ${suffix} local release`),
+  ], project);
+  mustRunJson([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", fixture.profileId,
+    "--action", "release.local",
+    "--outcome", "passed",
+    "--evidence", releaseProofEvidence,
+    "--smoke-test", '["node","--version"]',
+    "--rollback", "Restore the previous governed local release snapshot.",
+  ], project);
+  const releaseEvidence = writeProjectFile(
+    project,
+    `.sdlc/tests/${fixture.storyId}-release.json`,
+    "{\"ready\":true}\n",
+  );
+  appendTrace(project, fixture.storyId, "release", "passed", releaseEvidence);
+  completeStep("release", ["--evidence", releaseEvidence]);
+  transition("operations");
+  completeStep("operations");
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
+  mustRun([
+    "story", "release",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--agent", "codex",
+    "--reason", "Release the completed lane before final certification.",
+  ], project);
+  const certified = mustRunJson([
+    "gate", "check",
+    "--root", project,
+    "--strict",
+    "--story", fixture.storyId,
+    "--lifecycle-complete",
+  ], project);
+  assert.equal(certified.status, "passed");
+  return { ...fixture, workflowInstanceId };
+}
+
+function storyCertificationView(project, storyId) {
+  const status = mustRunJson(["status", "--root", project], project);
+  const orchestration = mustRunJson(["orchestrate", "status", "--root", project], project);
+  return {
+    status,
+    story: orchestration.stories.find((story) => story.id === storyId),
+  };
+}
+
+test("a certification superseded by a later valid certification stays completed as history", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox for terminal local release evidence",
+}, () => {
+  const project = temporaryProject("certification-history");
+  const first = certifyLocalReleaseStory(project, {
+    suffix: "HIST-A",
+    allowedWritePaths: ["docs", "src"],
+    evidenceDir: "docs",
+    files: {
+      "docs/shared.md": "# Shared behaviour\n\nFirst version.\n",
+      "src/feature.mjs": "export const feature = 1;\n",
+    },
+    releaseProof: "first release\n",
+  });
+  const sealedFirst = storyCertificationView(project, first.storyId);
+  assert.equal(sealedFirst.story.lifecycle_source, "workflow_final_receipt");
+  assert.equal(sealedFirst.status.historical_certifications, undefined);
+
+  // A later requirement evolves a file and the released artifact that the
+  // first story certified, then certifies its own complete lifecycle.
+  const second = certifyLocalReleaseStory(project, {
+    suffix: "HIST-B",
+    allowedWritePaths: ["docs", "notes"],
+    evidenceDir: "notes",
+    files: {
+      "docs/shared.md": "# Shared behaviour\n\nSecond version.\n",
+    },
+    releaseProof: "second release\n",
+    existingProject: true,
+  });
+
+  // Covered: every differing certified path is bound by the later receipt.
+  const covered = storyCertificationView(project, first.storyId);
+  assert.equal(covered.status.summary.completed_work, 2);
+  assert.equal(covered.status.summary.blocked_work, 0);
+  assert.notEqual(covered.status.next_action.reason, "final_lifecycle_receipt_invalid");
+  assert.equal(covered.story.lifecycle_source, "workflow_final_receipt_historical");
+  assert.equal(covered.story.status, "done");
+  assert.deepEqual(covered.story.certification.superseded_by, [second.storyId]);
+  const supersededPaths = covered.story.certification.superseded_paths;
+  assert.ok(supersededPaths.some((entry) =>
+    entry.kind === "project_path" && entry.path === "docs/shared.md"));
+  assert.ok(supersededPaths.some((entry) =>
+    entry.kind === "local_release_target" && entry.path === first.localReleaseOutput));
+  assert.equal(supersededPaths.some((entry) => entry.path === "src/feature.mjs"), false);
+  assert.deepEqual(covered.status.historical_certifications, [{
+    story_id: first.storyId,
+    superseded_by: [second.storyId],
+    superseded_paths: supersededPaths,
+  }]);
+  const coveredText = mustRun(["status", "--root", project], project).stdout;
+  assert.match(
+    coveredText,
+    new RegExp(`Historical certification: ${first.storyId} \\(completed; content later certified by ${second.storyId}\\)`, "u"),
+  );
+  const firstWorkflow = mustRunJson([
+    "workflow", "instance", "status",
+    "--root", project,
+    "--id", first.workflowInstanceId,
+  ], project);
+  assert.equal(firstWorkflow.status, "terminal");
+  assert.equal(firstWorkflow.terminal, true);
+  assert.equal(firstWorkflow.final_receipt_valid, false);
+  assert.equal(firstWorkflow.final_receipt_historical, true);
+  assert.deepEqual(firstWorkflow.final_receipt_superseded_by, [second.storyId]);
+  assert.equal(covered.status.historical_certifications.some((item) =>
+    item.story_id === second.storyId), false);
+  mustFail([
+    "trace", "append",
+    "--root", project,
+    "--story", first.storyId,
+    "--type", "test",
+    "--outcome", "passed",
+    "--summary", "Late evidence for a historical certification",
+    "--actor", "codex",
+    "--actor-type", "agent",
+  ], project, /already has a terminal lifecycle receipt/u);
+
+  // Partially covered: a certified path outside the later story's scope
+  // changed without any later certification, so the receipt is invalid.
+  const featurePath = path.join(project, "src", "feature.mjs");
+  const featureBytes = fs.readFileSync(featurePath);
+  fs.writeFileSync(featurePath, "export const feature = 2;\n");
+  const partial = storyCertificationView(project, first.storyId);
+  assert.equal(partial.story.lifecycle_source, "invalid_workflow_final_receipt");
+  assert.equal(partial.story.certification, undefined);
+  assert.equal(partial.status.summary.completed_work, 1);
+  assert.equal(partial.status.summary.blocked_work, 1);
+  assert.equal(partial.status.next_action.reason, "final_lifecycle_receipt_invalid");
+  assert.equal(partial.status.next_action.story_id, first.storyId);
+  assert.equal(partial.status.historical_certifications, undefined);
+  fs.writeFileSync(featurePath, featureBytes);
+  assert.equal(
+    storyCertificationView(project, first.storyId).story.lifecycle_source,
+    "workflow_final_receipt_historical",
+  );
+
+  // The later certification is itself invalid: nothing covers the drift.
+  const sharedPath = path.join(project, "docs", "shared.md");
+  const sharedBytes = fs.readFileSync(sharedPath);
+  fs.writeFileSync(sharedPath, "# Shared behaviour\n\nUncertified edit.\n");
+  const laterInvalid = storyCertificationView(project, first.storyId);
+  assert.equal(laterInvalid.story.lifecycle_source, "invalid_workflow_final_receipt");
+  assert.equal(laterInvalid.status.summary.completed_work, 0);
+  assert.equal(laterInvalid.status.summary.blocked_work, 2);
+  assert.equal(laterInvalid.status.historical_certifications, undefined);
+  fs.writeFileSync(sharedPath, sharedBytes);
+  assert.equal(
+    storyCertificationView(project, first.storyId).status.summary.completed_work,
+    2,
+  );
+
+  // Ordering: restore the content the first story certified. The first
+  // receipt is current again, but it was sealed before the second one, so it
+  // never turns the second story's drift into history.
+  fs.writeFileSync(sharedPath, "# Shared behaviour\n\nFirst version.\n");
+  fs.writeFileSync(
+    path.join(first.localReleaseOutput, "release-proof.txt"),
+    "first release\n",
+  );
+  const reordered = storyCertificationView(project, second.storyId);
+  assert.equal(reordered.story.lifecycle_source, "invalid_workflow_final_receipt");
+  assert.equal(reordered.story.certification, undefined);
+  const restoredFirst = reordered.status.summary;
+  assert.equal(restoredFirst.completed_work, 1);
+  assert.equal(restoredFirst.blocked_work, 1);
+  assert.equal(reordered.status.next_action.story_id, second.storyId);
+  assert.equal(reordered.status.historical_certifications, undefined);
+  assert.equal(
+    storyCertificationView(project, first.storyId).story.lifecycle_source,
+    "workflow_final_receipt",
+  );
 });
 
 test("a formally closed pull request remains terminal but cannot certify lifecycle success", () => {
