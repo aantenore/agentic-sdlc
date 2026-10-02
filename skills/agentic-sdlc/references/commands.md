@@ -170,7 +170,7 @@ and the write-scope, secret-scan, and lifecycle checks stay anchored to the
 first task start. A delivery that is still active, or that ended `released`,
 `merged`, or `ready_for_review`, cannot be replaced; a further successor is
 possible only after the new delivery itself ends `cancelled` or
-`rolled_back`.
+`rolled_back`. Stories without a workflow binding follow the same rule.
 
 Create the story, reserve a new profile ID, and create the final contract with that ID. Obtain normal contract approval before proposing the profile. The contract stores only the planned `delivery_execution_profile_id`; the later profile binds the approved requirement-profile, story, and contract hashes.
 
