@@ -7,6 +7,14 @@ import test, { after } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { computeStableHash } from "../lib/canonical.mjs";
+import { buildContext } from "../lib/engine/common.mjs";
+import {
+  historicalWorkflowFinalReceipt,
+  readWorkflowInstance,
+} from "../lib/engine/workflow.mjs";
+import { runWithMutationGovernance } from "../lib/governance/mutation-guard.mjs";
+import { workflowFinalGateReceiptPath } from "../lib/lifecycle/workflow.mjs";
+import { currentHost, setHost } from "../lib/runtime/host.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = path.join(REPOSITORY_ROOT, "bin", "agentic-sdlc.mjs");
@@ -5140,6 +5148,71 @@ test("a certification superseded by a later valid certification stays completed 
     storyCertificationView(project, first.storyId).story.lifecycle_source,
     "workflow_final_receipt",
   );
+});
+
+test("a historical verdict is voided when a covered file changes after the successors validate", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox for terminal local release evidence",
+}, () => {
+  const project = temporaryProject("certification-history-recheck");
+  const first = certifyLocalReleaseStory(project, {
+    suffix: "RECHK-A",
+    allowedWritePaths: ["docs", "src"],
+    evidenceDir: "docs",
+    files: {
+      "docs/shared.md": "# Shared behaviour\n\nFirst version.\n",
+      "src/feature.mjs": "export const feature = 1;\n",
+    },
+    releaseProof: "first release\n",
+  });
+  certifyLocalReleaseStory(project, {
+    suffix: "RECHK-B",
+    allowedWritePaths: ["docs", "notes"],
+    evidenceDir: "notes",
+    files: { "docs/shared.md": "# Shared behaviour\n\nSecond version.\n" },
+    releaseProof: "second release\n",
+    existingProject: true,
+  });
+  const context = buildContext({ root: project });
+  const { instance } = readWorkflowInstance(context, first.workflowInstanceId);
+  // Library calls need the project boundary the CLI establishes per command.
+  const historyOf = () => runWithMutationGovernance(
+    { mode: "disabled", root: project },
+    () => historicalWorkflowFinalReceipt(context, first.storyId, instance),
+  );
+  const sharedPath = path.join(project, "docs", "shared.md");
+  const sharedBytes = fs.readFileSync(sharedPath);
+  assert.equal(historyOf()?.historical, true);
+
+  // The successors validate against the snapshot; the covered file then
+  // changes to content that matches neither certification, right before the
+  // old story's final evaluation reads its own receipt again.
+  const receiptPath = workflowFinalGateReceiptPath(context, first.storyId);
+  const host = currentHost();
+  let receiptOpens = 0;
+  let mutated = false;
+  const restore = setHost({
+    fs: {
+      ...host.fs,
+      openSync: (target, ...args) => {
+        if (target === receiptPath && ++receiptOpens === 2) {
+          fs.writeFileSync(sharedPath, "# Shared behaviour\n\nThird version.\n");
+          mutated = true;
+        }
+        return host.fs.openSync(target, ...args);
+      },
+    },
+  });
+  try {
+    assert.equal(historyOf(), null);
+  } finally {
+    restore();
+  }
+  assert.equal(mutated, true);
+  assert.notDeepEqual(fs.readFileSync(sharedPath), sharedBytes);
+  fs.writeFileSync(sharedPath, sharedBytes);
+  assert.equal(historyOf()?.historical, true);
 });
 
 function legacySuccessorContractArgs(project, fixture, index) {
