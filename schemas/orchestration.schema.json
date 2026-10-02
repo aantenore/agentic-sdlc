@@ -59,6 +59,34 @@
               "path": { "type": "string" }
             },
             "additionalProperties": false
+          },
+          "certification": {
+            "type": "object",
+            "description": "Present only for a completed story whose final lifecycle receipt is historical: content it certified was later certified by the listed stories.",
+            "required": ["state", "superseded_by", "superseded_paths"],
+            "properties": {
+              "state": { "const": "historical" },
+              "superseded_by": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string" }
+              },
+              "superseded_paths": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "path", "story_id"],
+                  "properties": {
+                    "kind": { "enum": ["project_path", "local_release_target"] },
+                    "path": { "type": "string" },
+                    "story_id": { "type": "string" }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": true
