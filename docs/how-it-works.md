@@ -89,8 +89,9 @@ projection reports `lifecycle_source: workflow_final_receipt_historical`, and
 path that no later valid certification binds, a later certification that is
 itself invalid, or one sealed before the earlier receipt keeps the earlier
 receipt invalid and asks for recertification. Evidence a story recorded (test,
-release, and delivery evidence files) is not superseded: keep it in
-story-scoped paths that later stories do not overwrite.
+release, and delivery evidence files) and its linked output artifacts are not
+superseded: keep them in story-scoped paths that later stories do not
+overwrite.
 
 The normal user experiences this chain as an explained sequence of decisions
 and results. Codex prepares the structured inputs and runs the CLI; record IDs,
