@@ -51,13 +51,17 @@ existing project and count fields, adds `schema_version: cli-status:v1`, and
 includes the same summary and next action in a stable machine-readable shape.
 
 The summary counts `available_work`, `active_work`, `blocked_work`,
-`stale_claims`, `completed_work` (stories with a valid final lifecycle
-certification), and `closed_work` (stories closed with `story supersede` or
-`story cancel`, including a started story whose deliveries all ended without
-delivered work). Closed stories are never counted as
+`stale_claims`, `completed_work` (stories with a valid or historical final
+lifecycle certification), and `closed_work` (stories closed with `story
+supersede` or `story cancel`, including a started story whose deliveries all
+ended without delivered work). Closed stories are never counted as
 available or blocked work. A certified story whose files changed after its
 final check is not counted as completed: `status` points to the
-lifecycle-complete gate that re-verifies it.
+lifecycle-complete gate that re-verifies it. The exception is a change that a
+later story certified: when every differing certified path holds exactly the
+content of another story's valid final receipt sealed later, the earlier story
+stays completed and the JSON view lists it under `historical_certifications`
+with the superseding story IDs.
 
 ## Choose presentation without changing authority
 

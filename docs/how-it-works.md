@@ -76,6 +76,22 @@ paths outside the story's approved write scope are ignored. Changing a
 certified file afterwards still invalidates the receipt. Preserve the old
 receipt in repository history if the audit trail matters.
 
+Later governed work may legitimately evolve files an earlier story certified.
+The earlier receipt then becomes **historical** rather than invalid when every
+certified path or local release target that differs now holds exactly the
+content bound by another story's currently valid final receipt, sealed after
+the earlier one, and everything else the earlier receipt certified still
+matches. A historical story stays completed work and closed to new evidence:
+`status` counts it in `completed_work` and lists it under
+`historical_certifications` with the superseding story IDs, the story
+projection reports `lifecycle_source: workflow_final_receipt_historical`, and
+`workflow instance status` shows `final_receipt_historical`. Any differing
+path that no later valid certification binds, a later certification that is
+itself invalid, or one sealed before the earlier receipt keeps the earlier
+receipt invalid and asks for recertification. Evidence a story recorded (test,
+release, and delivery evidence files) is not superseded: keep it in
+story-scoped paths that later stories do not overwrite.
+
 The normal user experiences this chain as an explained sequence of decisions
 and results. Codex prepares the structured inputs and runs the CLI; record IDs,
 hashes, and low-level transition commands remain optional audit detail.
