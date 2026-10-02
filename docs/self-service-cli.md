@@ -52,8 +52,9 @@ includes the same summary and next action in a stable machine-readable shape.
 
 The summary counts `available_work`, `active_work`, `blocked_work`,
 `stale_claims`, `completed_work` (stories with a valid final lifecycle
-certification), and `closed_work` (never-started stories closed with
-`story supersede` or `story cancel`). Closed stories are never counted as
+certification), and `closed_work` (stories closed with `story supersede` or
+`story cancel`, including a started story whose deliveries all ended without
+delivered work). Closed stories are never counted as
 available or blocked work. A certified story whose files changed after its
 final check is not counted as completed: `status` points to the
 lifecycle-complete gate that re-verifies it.

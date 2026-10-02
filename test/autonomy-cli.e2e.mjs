@@ -4393,6 +4393,303 @@ test("existing-root starts require governed build for absent child paths while a
   }
 });
 
+test("updating an existing local release binds release verification to the build content manifest", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox",
+  timeout: 240_000,
+}, () => {
+  const suffix = "UPDATE";
+  const storyId = `ST-LOCAL-${suffix}`;
+  const profileId = `AUT-LOCAL-${suffix}`;
+  const project = tmpProject("local-release-update");
+  initializeAutonomyProject(project);
+  createApprovedImplementationContract(project, {
+    storyId,
+    contractId: `CONTRACT-LOCAL-${suffix}`,
+    profileId,
+  });
+  const releaseRoot = path.join(project, "local-release");
+  const releaseOutput = path.join(releaseRoot, "app");
+  const backupOutput = path.join(releaseRoot, "backup");
+  const staging = path.join(project, "build-staging");
+  const writeRelease = (directory, version) => {
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, "smoke.mjs"), `process.stdout.write("v${version}\\n");\n`, "utf8");
+    fs.writeFileSync(path.join(directory, "VERSION"), `${version}\n`, "utf8");
+  };
+  writeRelease(releaseOutput, 1);
+  const smokeCommand = JSON.stringify(["node", "smoke.mjs"]);
+  const rollback = "Restore local-release/app byte-for-byte from local-release/backup.";
+  mustRunJson([
+    "autonomy", "delivery", "propose",
+    "--root", project,
+    "--id", profileId,
+    "--delivery", `LOCAL-RELEASE-${suffix}`,
+    "--kind", "local_release",
+    "--story", storyId,
+    "--contract", `CONTRACT-LOCAL-${suffix}`,
+    "--requirement", "REQ-AUTONOMY",
+    "--level", "checkpointed",
+    "--target-root", releaseRoot,
+    "--write-path", releaseOutput,
+    "--write-path", backupOutput,
+    "--smoke-cwd", releaseOutput,
+    "--smoke-test", smokeCommand,
+    "--rollback", rollback,
+  ]);
+  mustRunJson([
+    "autonomy", "delivery", "approve",
+    "--root", project,
+    "--id", profileId,
+    "--phase", "implementation",
+    ...humanApproval("Approve the exact update of the existing local release"),
+  ]);
+  mustRunJson([
+    "task", "start",
+    "--root", project,
+    "--intent-json", taskIntent(storyId),
+    "--delivery-profile", profileId,
+    "--confirm-start",
+    "--actor-type", "human",
+  ]);
+  const authorize = (action, extra = []) => {
+    const first = mustRunJson([
+      "autonomy", "delivery", "action",
+      "--root", project,
+      "--id", profileId,
+      "--action", action,
+      ...extra,
+    ]);
+    return first.status === "checkpoint_required"
+      ? mustRunJson([
+          "autonomy", "delivery", "action",
+          "--root", project,
+          "--id", profileId,
+          "--action", action,
+          ...extra,
+          "--confirm-action",
+          ...humanApproval(`Approve exact ${action}`),
+        ])
+      : first;
+  };
+  const completeBuild = (authorization, evidenceName) => {
+    fs.writeFileSync(path.join(project, evidenceName), `{"build":"${evidenceName}"}\n`, "utf8");
+    return mustRunJson([
+      "autonomy", "delivery", "action",
+      "--root", project,
+      "--id", profileId,
+      "--action", "build.local",
+      "--outcome", "passed",
+      "--authorization-receipt", authorization.action_receipt.id,
+      "--evidence", evidenceName,
+    ]);
+  };
+  // Supported update: backup -> install inside the open build.local window.
+  const firstBuild = authorize("build.local");
+  fs.cpSync(releaseOutput, backupOutput, { recursive: true });
+  writeRelease(staging, 2);
+  fs.rmSync(releaseOutput, { recursive: true, force: true });
+  fs.cpSync(staging, releaseOutput, { recursive: true });
+  const firstCompletion = completeBuild(firstBuild, "build-v2.json");
+  const recordedContent = firstCompletion.action_receipt.action_details
+    .local_target_build_completion.artifact_content;
+  assert.equal(recordedContent.schema_version, "local-release-target-content:v1");
+  assert.deepEqual(
+    recordedContent.paths.map((entry) => entry.path),
+    [releaseOutput, backupOutput].sort(),
+  );
+
+  // Recreating the destination with the exact built content is tolerated.
+  fs.rmSync(releaseOutput, { recursive: true, force: true });
+  fs.cpSync(staging, releaseOutput, { recursive: true });
+  fs.writeFileSync(path.join(project, "rollback-rehearsal.json"), '{"restored":"backup"}\n', "utf8");
+  const rollbackArgs = ["--evidence", "rollback-rehearsal.json"];
+  const rollbackAuthorization = authorize("rollback.verify", rollbackArgs);
+
+  // Different content after the build is refused with the exact repair.
+  fs.writeFileSync(path.join(releaseOutput, "VERSION"), "2-hotfix\n", "utf8");
+  const drift = mustFail([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", profileId,
+    "--action", "rollback.verify",
+    "--outcome", "passed",
+    "--authorization-receipt", rollbackAuthorization.action_receipt.id,
+    "--evidence", "rollback-rehearsal.json",
+  ], /no longer matches the manifest that build\.local .* recorded.*request build\.local again, install the build/su);
+  assert.ok(`${drift.stdout}\n${drift.stderr}`.includes(releaseOutput));
+
+  // A symlinked destination stays refused even with identical content.
+  fs.rmSync(releaseOutput, { recursive: true, force: true });
+  const elsewhere = path.join(project, "elsewhere-app");
+  fs.cpSync(staging, elsewhere, { recursive: true });
+  fs.symlinkSync(elsewhere, releaseOutput, "dir");
+  mustFail([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", profileId,
+    "--action", "build.local",
+  ], /symlink/u);
+  fs.rmSync(releaseOutput, { force: true });
+  mustFail([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", profileId,
+    "--action", "build.local",
+  ], /changed outside governed build\.local.*app \(directory -> absent\).*manual mkdir is not a repair/isu);
+
+  // A new governed build re-attests the installed content and the release
+  // binds to it.
+  writeRelease(staging, 3);
+  fs.cpSync(staging, releaseOutput, { recursive: true });
+  const secondBuild = authorize("build.local");
+  completeBuild(secondBuild, "build-v3.json");
+  fs.rmSync(releaseOutput, { recursive: true, force: true });
+  fs.cpSync(staging, releaseOutput, { recursive: true });
+  const secondRollback = authorize("rollback.verify", rollbackArgs);
+  mustRunJson([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", profileId,
+    "--action", "rollback.verify",
+    "--outcome", "passed",
+    "--authorization-receipt", secondRollback.action_receipt.id,
+    "--evidence", "rollback-rehearsal.json",
+  ]);
+  const releaseAuthorization = authorize("release.local");
+  fs.writeFileSync(path.join(project, "release-proof.txt"), "v3 released\n", "utf8");
+  const released = mustRunJson([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", profileId,
+    "--action", "release.local",
+    "--outcome", "passed",
+    "--authorization-receipt", releaseAuthorization.action_receipt.id,
+    "--evidence", "release-proof.txt",
+    "--smoke-cwd", releaseOutput,
+    "--smoke-test", smokeCommand,
+    "--rollback", rollback,
+  ], { timeout: 90_000 });
+  assert.equal(released.action_receipt.outcome, "passed");
+  assert.equal(released.lifecycle_status, "terminal");
+});
+
+test("a started story closes only after every delivery ended without delivered work", () => {
+  const storyId = "ST-CLOSE-STARTED";
+  const profileId = "AUT-CLOSE-STARTED";
+  const project = tmpProject("started-story-closure");
+  initializeAutonomyProject(project);
+  createApprovedImplementationContract(project, {
+    storyId,
+    contractId: "CONTRACT-CLOSE-STARTED",
+    profileId,
+  });
+  const releaseRoot = path.join(project, "local-release");
+  const releaseOutput = path.join(releaseRoot, "app");
+  fs.mkdirSync(releaseOutput, { recursive: true });
+  mustRunJson([
+    "autonomy", "delivery", "propose",
+    "--root", project,
+    "--id", profileId,
+    "--delivery", "LOCAL-CLOSE-STARTED",
+    "--kind", "local_release",
+    "--story", storyId,
+    "--contract", "CONTRACT-CLOSE-STARTED",
+    "--requirement", "REQ-AUTONOMY",
+    "--level", "checkpointed",
+    "--target-root", releaseRoot,
+    "--write-path", releaseOutput,
+    "--smoke-test", '["node","--version"]',
+    "--rollback", "Restore the previous local release.",
+  ]);
+  mustRunJson([
+    "autonomy", "delivery", "approve",
+    "--root", project,
+    "--id", profileId,
+    "--phase", "implementation",
+    ...humanApproval("Approve the exact local delivery"),
+  ]);
+  mustRunJson([
+    "task", "start",
+    "--root", project,
+    "--intent-json", taskIntent(storyId),
+    "--delivery-profile", profileId,
+    "--confirm-start",
+    "--actor-type", "human",
+  ]);
+  mustRun([
+    "story", "claim",
+    "--root", project,
+    "--id", storyId,
+    "--agent", "codex",
+    "--actor-type", "human",
+  ]);
+  const cancelArgs = [
+    "story", "cancel",
+    "--root", project,
+    "--id", storyId,
+    "--reason", "The change request was withdrawn after the delivery was cancelled",
+  ];
+  const active = mustFail(
+    [...cancelArgs, ...humanApproval("Cancel the withdrawn story")],
+    /ST-CLOSE-STARTED was already started: .* cannot close yet: delivery AUT-CLOSE-STARTED is still started; end it first with .*autonomy delivery close --id AUT-CLOSE-STARTED --terminal-status cancelled/su,
+  );
+  assert.match(`${active.stdout}\n${active.stderr}`, /nothing was changed/u);
+  const closurePath = path.join(project, ".sdlc", "stories", storyId, "closure.json");
+  assert.equal(fs.existsSync(closurePath), false);
+
+  mustRunJson([
+    "autonomy", "delivery", "close",
+    "--root", project,
+    "--id", profileId,
+    "--terminal-status", "cancelled",
+    "--reason", "The destination was recreated outside the governed build",
+    ...humanApproval("Close the delivery as cancelled"),
+  ]);
+  mustFail(
+    [...cancelArgs, "--actor-type", "agent"],
+    /requires --actor-type human/u,
+  );
+  const closed = mustRunJson([...cancelArgs, ...humanApproval("Cancel the withdrawn story")]);
+  assert.equal(closed.status, "cancelled");
+  const closure = JSON.parse(fs.readFileSync(closurePath, "utf8"));
+  assert.equal(closure.subject.started_work.story_id, storyId);
+  assert.deepEqual(
+    closure.subject.started_work.deliveries.map((delivery) => [delivery.id, delivery.terminal_status]),
+    [[profileId, "cancelled"]],
+  );
+  assert.equal(closure.subject.started_work.claim.status_before, "active");
+  assert.equal(closure.approval.approved_by.type, "human");
+  const claimPath = path.join(project, ".sdlc", "stories", storyId, "claim.json");
+  assert.equal(JSON.parse(fs.readFileSync(claimPath, "utf8")).status, "released");
+  const storyTrace = fs.readFileSync(path.join(project, ".sdlc", "traces", `${storyId}.jsonl`), "utf8");
+  assert.match(storyTrace, /Cancelled after every delivery ended \(AUT-CLOSE-STARTED: cancelled\)/u);
+
+  const status = mustRunJson(["status", "--root", project]);
+  assert.equal(status.summary.active_work, 0);
+  assert.equal(status.summary.blocked_work, 0);
+  assert.equal(status.summary.closed_work, 1);
+  const orchestration = mustRunJson(["orchestrate", "status", "--root", project]);
+  assert.equal(orchestration.stories.find((item) => item.id === storyId).status, "cancelled");
+  mustFail([
+    "story", "claim",
+    "--root", project,
+    "--id", storyId,
+    "--agent", "codex",
+    "--actor-type", "human",
+  ], /terminal status 'cancelled' and cannot be claimed/u);
+
+  // Reopening the work behind the closure's back invalidates it.
+  const releasedClaim = fs.readFileSync(claimPath, "utf8");
+  fs.writeFileSync(claimPath, releasedClaim.replace('"status": "released"', '"status": "active"'), "utf8");
+  const reopened = mustRunJson(["status", "--root", project]);
+  assert.equal(reopened.summary.closed_work, 0);
+  assert.equal(reopened.summary.blocked_work, 1);
+  fs.writeFileSync(claimPath, releasedClaim, "utf8");
+  assert.equal(mustRunJson(["status", "--root", project]).summary.closed_work, 1);
+});
+
 test("package-manager local smoke cannot fall back to the parent source package", {
   skip: hostSupportsLocalSmokeSandbox()
     ? false
@@ -5930,6 +6227,10 @@ test("local release autonomy requires a strict child target, smoke test, rollbac
   );
 
   fs.writeFileSync(path.join(project, "build-runtime-proof.txt"), "local build evidence\n", "utf8");
+  // The release evidence lives inside the artifact, so it belongs to the
+  // content that build.local records and later actions must still match.
+  const releaseEvidence = path.join(releaseOutput, "release-proof.txt");
+  fs.writeFileSync(releaseEvidence, "local release evidence\n", "utf8");
   const historicalBuildAuthorization = mustRunJson([
     "autonomy", "delivery", "action",
     "--root", project,
@@ -6149,8 +6450,6 @@ test("local release autonomy requires a strict child target, smoke test, rollbac
     refreshedBoundaryGate.stdout,
   );
 
-  const releaseEvidence = path.join(releaseOutput, "release-proof.txt");
-  fs.writeFileSync(releaseEvidence, "local release evidence\n", "utf8");
   const completionArgsFor = (root) => [
     "autonomy", "delivery", "action",
     "--root", root,

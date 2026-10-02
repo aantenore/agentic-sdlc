@@ -769,7 +769,7 @@ test("a canonical story workflow cannot leave the current phase before its story
   const fixture = createGovernedDeliveryStory(project, {
     suffix: "WORKFLOW-PHASE-COMPLETION",
     allowedWritePaths: ["docs"],
-    storyActionUses: 3,
+    storyActionUses: 5,
     beforeTaskStart: ({ storyId }) => {
       mustRun([
         "workflow", "instance", "start",
@@ -948,6 +948,64 @@ test("a canonical story workflow cannot leave the current phase before its story
   ], project);
   assert.equal(aliasTransition.current_state, "design");
   assert.equal(aliasTransition.event.sequence, 2);
+
+  const skippedPhase = mustFail([
+    "workflow", "instance", "transition",
+    "--root", project,
+    "--id", workflowInstanceId,
+    "--to", "validation",
+    "--request-id", "phase-completion-skip-implementation",
+    "--actor", "workflow-e2e-ci",
+    "--actor-type", "ci",
+  ], project, /Invalid workflow transition: design -> validation/u);
+  assert.match(
+    `${skippedPhase.stdout}\n${skippedPhase.stderr}`,
+    /From 'design' the workflow can move only to 'implementation'.*workflow instance transition --id delivery-phase-completion --to implementation/su,
+  );
+
+  for (const step of ["design", "implementation"]) {
+    mustRun([
+      "story", "complete-step",
+      "--root", project,
+      "--id", fixture.storyId,
+      "--step", step,
+      "--summary", `The ${step} phase is complete.`,
+      "--authorization", fixture.storyActionAuthorizationId,
+    ], project);
+    if (step === "design") {
+      mustRun([
+        "workflow", "instance", "transition",
+        "--root", project,
+        "--id", workflowInstanceId,
+        "--to", "implementation",
+        "--request-id", "phase-completion-implementation",
+        "--actor", "workflow-e2e-ci",
+        "--actor-type", "ci",
+      ], project);
+    }
+  }
+  const missingOutput = mustFail([
+    "workflow", "instance", "transition",
+    "--root", project,
+    "--id", workflowInstanceId,
+    "--to", "validation",
+    "--request-id", "phase-completion-validation-missing-output",
+    "--actor", "workflow-e2e-ci",
+    "--actor-type", "ci",
+  ], project, /guards denied the transition from 'implementation' to 'validation'/u);
+  const missingOutputText = `${missingOutput.stdout}\n${missingOutput.stderr}`;
+  assert.match(
+    missingOutputText,
+    /required-output-linked: required output implementation-summary is not linked: no output link record exists for story ST-WORKFLOW-PHASE-COMPLETION with type implementation-summary, template implementation-summary-v1, and mode new/u,
+  );
+  assert.match(
+    missingOutputText,
+    /declares it without a phase, so it is due before leaving 'implementation'/u,
+  );
+  assert.match(
+    missingOutputText,
+    /output link --story ST-WORKFLOW-PHASE-COMPLETION --type implementation-summary --artifact "<path-to-implementation-summary>" --template implementation-summary-v1 --mode new/u,
+  );
 });
 
 test("pre-task workflow binding tamper remains fail-closed across status, scheduling, claims, and task start", () => {
@@ -2343,6 +2401,13 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   fs.mkdirSync(path.join(project, "docs", "local-release", "app"), {
     recursive: true,
   });
+  // The release proof ships inside the built artifact, so it is written
+  // before build.local records the destination content.
+  const localReleaseEvidence = writeProjectFile(
+    project,
+    "docs/local-release/app/release-proof.txt",
+    "governed local release completed\n",
+  );
   const localBuildEvidence = writeProjectFile(
     project,
     "docs/local-build-proof.json",
@@ -2381,11 +2446,6 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--evidence", rollbackEvidence,
   ], project);
 
-  const localReleaseEvidence = writeProjectFile(
-    project,
-    "docs/local-release/app/release-proof.txt",
-    "governed local release completed\n",
-  );
   mustRun([
     "autonomy", "delivery", "action",
     "--root", project,
@@ -3024,6 +3084,53 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   ], committedCertificationProject);
   assert.equal(committedCertificationStatus.status, "terminal");
   assert.equal(committedCertificationStatus.final_receipt_valid, true);
+
+  // The documented hand-off: the user commits the certified story on its
+  // branch together with an unrelated ignore rule, switches back to main, and
+  // fast-forwards. Git rewrites every tracked file with the checkout umask, so
+  // only content and the executable bit can stay bound to the final receipt.
+  const branchMergeProject = cloneTemporaryProject(
+    project,
+    "final-receipt-branch-merge",
+  );
+  fs.appendFileSync(
+    path.join(branchMergeProject, ".git", "info", "exclude"),
+    "/docs/local-release/\n",
+    "utf8",
+  );
+  fs.appendFileSync(
+    path.join(branchMergeProject, ".gitignore"),
+    "coverage/\n",
+    "utf8",
+  );
+  const restrictedGovernedRecord = path.join(
+    branchMergeProject,
+    ".sdlc",
+    "traces",
+    `${fixture.storyId}.jsonl`,
+  );
+  fs.chmodSync(restrictedGovernedRecord, 0o600);
+  assert.equal(finalReceiptIsValid(branchMergeProject), true);
+  mustGit(branchMergeProject, ["add", "-A"]);
+  mustGit(
+    branchMergeProject,
+    ["commit", "-m", "test: persist certified story with an unrelated ignore rule"],
+  );
+  mustGit(branchMergeProject, ["checkout", "-q", "main"]);
+  mustGit(branchMergeProject, ["merge", "-q", "--ff-only", fixture.branch]);
+  assert.equal(fs.statSync(restrictedGovernedRecord).mode & 0o777, 0o644 & ~process.umask());
+  assert.equal(finalReceiptIsValid(branchMergeProject), true);
+  const mergedProjectStatus = mustRunJson([
+    "status", "--root", branchMergeProject,
+  ], branchMergeProject);
+  assert.notEqual(mergedProjectStatus.next_action?.reason, "final_lifecycle_receipt_invalid");
+  assert.equal(mergedProjectStatus.summary.blocked_work, 0);
+  fs.appendFileSync(
+    path.join(branchMergeProject, "docs", "tracked-runtime.md"),
+    "\nChanged after the merged certification.\n",
+    "utf8",
+  );
+  assert.equal(finalReceiptIsValid(branchMergeProject), false);
 
   const divergentModeProject = cloneTemporaryProject(
     committedCertificationProject,
@@ -4415,6 +4522,293 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   ], project);
   assert.equal(restoredContractRaceStatus.summary.completed_work, 1);
   assert.equal(restoredContractRaceStatus.summary.blocked_work, 0);
+});
+
+test("a cancelled local delivery is replaced once on the same workflow-bound story and certifies", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox for terminal local release evidence",
+}, () => {
+  const project = temporaryProject("successor-delivery");
+  const workflowInstanceId = "delivery-successor";
+  const fixture = createGovernedDeliveryStory(project, {
+    suffix: "SUCCESSOR",
+    allowedWritePaths: ["docs"],
+    deliveryKind: "local_release",
+    storyActionUses: 12,
+    beforeTaskStart: ({ storyId }) => {
+      mustRun([
+        "workflow", "instance", "start",
+        "--root", project,
+        "--id", workflowInstanceId,
+        "--definition", "software-project",
+        "--definition-version", "3",
+        "--story", storyId,
+        "--actor", "workflow-e2e-ci",
+        "--actor-type", "ci",
+      ], project);
+    },
+  });
+  const transition = (to, requestId) => mustRun([
+    "workflow", "instance", "transition",
+    "--root", project,
+    "--id", workflowInstanceId,
+    "--to", to,
+    "--request-id", requestId,
+    "--actor", "workflow-e2e-ci",
+    "--actor-type", "ci",
+  ], project);
+  const completeStep = (step, extra = []) => mustRun([
+    "story", "complete-step",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--step", step,
+    "--summary", `${step} completed against the approved boundary`,
+    ...extra,
+    "--authorization", fixture.storyActionAuthorizationId,
+  ], project);
+  const artifact = writeProjectFile(
+    project,
+    "docs/implementation-summary.md",
+    "# Implementation summary\n\nThe approved implementation is complete.\n",
+  );
+  mustRun([
+    "output", "link",
+    "--root", project,
+    "--story", fixture.storyId,
+    "--type", "implementation-summary",
+    "--artifact", artifact,
+    "--template", "implementation-summary-v1",
+    "--mode", "new",
+    "--requirement", fixture.requirementId,
+    "--authorization", fixture.storyActionAuthorizationId,
+  ], project);
+  for (const [step, next] of [
+    ["discovery", "analysis"],
+    ["analysis", "design"],
+    ["design", "implementation"],
+    ["implementation", "validation"],
+  ]) {
+    completeStep(step, step === "implementation" ? ["--type", "implementation-summary"] : []);
+    transition(next, `successor-${next}`);
+  }
+  const testEvidence = writeProjectFile(project, ".sdlc/tests/ST-SUCCESSOR-test.json", "{\"passed\":true}\n");
+  appendTrace(project, fixture.storyId, "test", "passed", testEvidence);
+  completeStep("validation", ["--evidence", testEvidence]);
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
+  mustRunJson(["gate", "check", "--root", project, "--strict", "--story", fixture.storyId], project);
+  transition("release", "successor-release");
+
+  // First delivery: the destination is built, then the delivery is cancelled.
+  const buildFirst = mustRunJson([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", fixture.profileId,
+    "--action", "build.local",
+    "--confirm-action",
+    ...humanApproval("Approve the first local build"),
+  ], project);
+  fs.mkdirSync(fixture.localReleaseOutput, { recursive: true });
+  const buildEvidence = writeProjectFile(project, "docs/local-build-proof.json", "{\"built\":1}\n");
+  mustRun([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", fixture.profileId,
+    "--action", "build.local",
+    "--outcome", "passed",
+    "--authorization-receipt", buildFirst.action_receipt.id,
+    "--evidence", buildEvidence,
+  ], project);
+  const successorProfileId = `${fixture.profileId}-2`;
+  const successorContractId = `${fixture.contractId}-2`;
+  const contractArgs = (contractId, profileId) => [
+    "contract", "create",
+    "--root", project,
+    "--id", contractId,
+    "--story", fixture.storyId,
+    "--phase", "implementation",
+    "--delivery-profile", profileId,
+    "--level", "supervised",
+    "--replace-story-contract",
+    "--context-summary", `Release ${fixture.storyId} again after the cancelled delivery.`,
+    "--qa", "Who confirms the exact delivery?|The human reviewer",
+    "--tool", "node",
+    "--output-ref", "implementation-summary:implementation-summary-v1:new",
+  ];
+  mustFail(
+    contractArgs(successorContractId, successorProfileId),
+    project,
+    /immutable task-start boundary \(delivery AUT-SUCCESSOR is started\)/u,
+  );
+  mustRun([
+    "autonomy", "delivery", "close",
+    "--root", project,
+    "--id", fixture.profileId,
+    "--terminal-status", "cancelled",
+    "--reason", "The destination was rebuilt outside the governed build",
+    ...humanApproval("Close the first delivery as cancelled"),
+  ], project);
+
+  // Exactly one successor: a new contract, a fresh delivery choice and its
+  // own approvals, continuing the same workflow run.
+  mustRun(contractArgs(successorContractId, successorProfileId), project);
+  mustRun([
+    "contract", "approve",
+    "--root", project,
+    "--id", successorContractId,
+    ...humanApproval(`Approve ${successorContractId}`),
+  ], project);
+  mustRun([
+    "autonomy", "delivery", "propose",
+    "--root", project,
+    "--id", successorProfileId,
+    "--delivery", "LOCAL-SUCCESSOR-2",
+    "--kind", "local_release",
+    "--story", fixture.storyId,
+    "--contract", successorContractId,
+    "--requirement", fixture.requirementId,
+    "--level", "supervised",
+    "--target-root", fixture.localReleaseRoot,
+    "--write-path", fixture.localReleaseOutput,
+    "--smoke-test", '["node","--version"]',
+    "--rollback", "Restore the previous governed local release snapshot.",
+  ], project);
+  mustRun([
+    "story", "release",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--agent", "codex",
+    "--reason", "Hand the story over to its successor delivery.",
+  ], project);
+  const successorStartArgs = [
+    "task", "start",
+    "--root", project,
+    "--intent-json", implementationIntent(fixture.storyId),
+    "--story", fixture.storyId,
+    "--phase", "implementation",
+    "--contract-id", successorContractId,
+    "--delivery-profile", successorProfileId,
+    "--confirm-start",
+    "--actor-type", "human",
+  ];
+  const unapprovedStart = JSON.parse(run([...successorStartArgs, "--json"], project).stdout);
+  assert.equal(unapprovedStart.execution_allowed, false);
+  mustRun([
+    "autonomy", "delivery", "approve",
+    "--root", project,
+    "--id", successorProfileId,
+    "--phase", "implementation",
+    ...humanApproval(`Approve ${successorProfileId}`),
+  ], project);
+  const successorStart = mustRunJson(successorStartArgs, project);
+  assert.equal(successorStart.execution_allowed, true, JSON.stringify(successorStart, null, 2));
+  mustRun([
+    "story", "claim",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--agent", "codex",
+    "--branch", fixture.branch,
+    "--authorization", fixture.storyActionAuthorizationId,
+  ], project);
+  const successorReceipt = readJson(project, `.sdlc/stories/${fixture.storyId}/task-start.json`);
+  assert.equal(successorReceipt.delivery_profile_ref.id, successorProfileId);
+  assert.equal(successorReceipt.workflow_instance_ref.id, workflowInstanceId);
+  const replaced = readJson(project, successorReceipt.previous_task_start_receipt_ref.path);
+  assert.equal(replaced.delivery_profile_ref.id, fixture.profileId);
+  assert.equal(replaced.workflow_instance_ref.hash, successorReceipt.workflow_instance_ref.hash);
+  assert.match(
+    fs.readFileSync(path.join(project, ".sdlc", "traces", `${fixture.storyId}.jsonl`), "utf8"),
+    /replaces delivery AUT-SUCCESSOR \(cancelled\)/u,
+  );
+  mustFail(
+    contractArgs(`${fixture.contractId}-3`, `${fixture.profileId}-3`),
+    project,
+    /delivery AUT-SUCCESSOR-2 is started/u,
+  );
+
+  // The successor delivery releases and the story certifies.
+  const buildSecond = mustRunJson([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", successorProfileId,
+    "--action", "build.local",
+    "--confirm-action",
+    ...humanApproval("Approve the successor local build"),
+  ], project);
+  const secondBuildEvidence = writeProjectFile(project, "docs/local-build-proof-2.json", "{\"built\":2}\n");
+  writeProjectFile(project, "docs/local-release/app/release-proof.txt", "successor release\n");
+  mustRun([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", successorProfileId,
+    "--action", "build.local",
+    "--outcome", "passed",
+    "--authorization-receipt", buildSecond.action_receipt.id,
+    "--evidence", secondBuildEvidence,
+  ], project);
+  const rollbackEvidence = writeProjectFile(
+    project,
+    "docs/local-release/rollback-rehearsal.json",
+    "{\"restored\":true}\n",
+  );
+  for (const extra of [["--confirm-action", ...humanApproval("Approve the rollback rehearsal")], ["--outcome", "passed"]]) {
+    mustRun([
+      "autonomy", "delivery", "action",
+      "--root", project,
+      "--id", successorProfileId,
+      "--action", "rollback.verify",
+      "--evidence", rollbackEvidence,
+      ...extra,
+    ], project);
+  }
+  mustRun([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", successorProfileId,
+    "--action", "release.local",
+    "--confirm-action",
+    ...humanApproval("Approve the successor local release"),
+  ], project);
+  const released = mustRunJson([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", successorProfileId,
+    "--action", "release.local",
+    "--outcome", "passed",
+    "--evidence", "docs/local-release/app/release-proof.txt",
+    "--smoke-test", '["node","--version"]',
+    "--rollback", "Restore the previous governed local release snapshot.",
+  ], project);
+  assert.equal(readJson(project, released.close_receipt_path).terminal_status, "released");
+  mustFail(
+    contractArgs(`${fixture.contractId}-3`, `${fixture.profileId}-3`),
+    project,
+    /delivery AUT-SUCCESSOR-2 ended released/u,
+  );
+  const releaseEvidence = writeProjectFile(project, ".sdlc/tests/ST-SUCCESSOR-release.json", "{\"ready\":true}\n");
+  appendTrace(project, fixture.storyId, "release", "passed", releaseEvidence);
+  completeStep("release", ["--evidence", releaseEvidence]);
+  transition("operations", "successor-operations");
+  completeStep("operations");
+  mustRun(["secret", "scan", "--root", project, "--story", fixture.storyId], project);
+  mustRun([
+    "story", "release",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--agent", "codex",
+    "--reason", "Release the completed lane before final certification.",
+  ], project);
+  const certified = mustRunJson([
+    "gate", "check",
+    "--root", project,
+    "--strict",
+    "--story", fixture.storyId,
+    "--lifecycle-complete",
+  ], project);
+  assert.equal(certified.status, "passed");
+  const finalStatus = mustRunJson(["status", "--root", project], project);
+  assert.equal(finalStatus.summary.completed_work, 1);
+  assert.equal(finalStatus.summary.blocked_work, 0);
 });
 
 test("a formally closed pull request remains terminal but cannot certify lifecycle success", () => {

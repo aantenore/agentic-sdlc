@@ -84,3 +84,55 @@ test("every project status outcome stays in plain language", () => {
     }
   }
 });
+
+test("a started-story closure binds terminal deliveries without delivered work", () => {
+  const startedWork = (overrides = {}) => ({
+    story_id: "ST-001",
+    task_start: { path: ".sdlc/stories/ST-001/task-start.json", sha256: HASH },
+    deliveries: [{
+      id: "AUT-1",
+      profile_hash: HASH,
+      terminal_status: "cancelled",
+      close_receipt: { path: ".sdlc/autonomy/executions/AUT-1/close.json", sha256: HASH },
+    }],
+    claim: { path: ".sdlc/stories/ST-001/claim.json", agent: "codex", status_before: "active" },
+    ...overrides,
+  });
+  const subject = buildStoryClosureSubject({
+    event: "cancelled",
+    stories: [ref("ST-001")],
+    reason: "Withdrawn",
+    started_work: startedWork(),
+  });
+  assert.equal(subject.started_work.deliveries[0].terminal_status, "cancelled");
+
+  const invalid = [
+    { stories: [ref("ST-001"), ref("ST-002")], started_work: startedWork() },
+    { stories: [ref("ST-002")], started_work: startedWork() },
+    { stories: [ref("ST-001")], started_work: startedWork({ deliveries: [] }) },
+    {
+      stories: [ref("ST-001")],
+      started_work: startedWork({
+        deliveries: [{ ...startedWork().deliveries[0], terminal_status: "released" }],
+      }),
+    },
+    {
+      stories: [ref("ST-001")],
+      started_work: startedWork({
+        deliveries: [{ ...startedWork().deliveries[0], terminal_status: "merged" }],
+      }),
+    },
+    {
+      stories: [ref("ST-001")],
+      breakdown: { id: "BD-1", path: ".sdlc/work-breakdown/BD-1.json", content_hash: HASH },
+      started_work: startedWork(),
+    },
+  ];
+  for (const input of invalid) {
+    assert.throws(
+      () => buildStoryClosureSubject({ event: "cancelled", reason: "x", ...input }),
+      DomainValidationError,
+      JSON.stringify(input),
+    );
+  }
+});

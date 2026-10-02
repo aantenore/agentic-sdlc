@@ -472,3 +472,24 @@ test("pullRequestReadyForReviewCompletion refuses later pushes, failures, missin
   const localRelease = pullRequestReadyForReviewCompletion({ delivery_kind: "local_release" }, [passed]);
   assert.match(localRelease.errors.join("; "), /only a pull_request delivery/u);
 });
+
+test("content-bound local targets relax identity only for manifest-covered write paths", async () => {
+  const { localReleaseTargetStructureMatches } = await import("../../lib/lifecycle/delivery.mjs");
+  const entry = (entryPath, inode, realPath = entryPath) => ({
+    path: entryPath,
+    status: "directory",
+    real_path: realPath,
+    device: "1",
+    inode,
+  });
+  const before = { entries: [entry("/r", "1"), entry("/r/app", "2"), entry("/r/data", "3")] };
+  const recreatedApp = { entries: [entry("/r", "1"), entry("/r/app", "9"), entry("/r/data", "3")] };
+  const recreatedData = { entries: [entry("/r", "1"), entry("/r/app", "2"), entry("/r/data", "9")] };
+  const replacedRoot = { entries: [entry("/r", "8"), entry("/r/app", "2"), entry("/r/data", "3")] };
+  const relocatedApp = { entries: [entry("/r", "1"), entry("/r/app", "2", "/elsewhere"), entry("/r/data", "3")] };
+  assert.equal(localReleaseTargetStructureMatches(before, recreatedApp, ["/r/app"]), true);
+  assert.equal(localReleaseTargetStructureMatches(before, recreatedData, ["/r/app"]), false);
+  assert.equal(localReleaseTargetStructureMatches(before, replacedRoot, ["/r/app", "/r/data"]), false);
+  assert.equal(localReleaseTargetStructureMatches(before, relocatedApp, ["/r/app"]), false);
+  assert.equal(localReleaseTargetStructureMatches(before, recreatedApp, []), false);
+});

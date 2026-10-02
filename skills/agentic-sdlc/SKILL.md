@@ -185,7 +185,7 @@ The dedicated assessment journey remains the exception described above: it packa
    node <plugin-root>/bin/agentic-sdlc.mjs dependency propose --root <target-project> --id DEP-REQ-001 --edge ST-002:ST-001:requires_artifact:validation:artifact_linked
    ```
 
-   If the user later replaces or drops planned stories that were never started, record that decision instead of leaving them as blocked work: `story supersede --from-breakdown BD-REQ-001 --by <delivering-story>` (or `--id <story-id>`) or `story cancel --id <story-id>`, each with `--reason` and a formal approval from the user. Story records are not rewritten; started stories are refused. See `references/commands.md`.
+   If the user later replaces or drops planned stories that were never started, record that decision instead of leaving them as blocked work: `story supersede --from-breakdown BD-REQ-001 --by <delivering-story>` (or `--id <story-id>`) or `story cancel --id <story-id>`, each with `--reason` and a formal approval from the user. Story records are not rewritten. A started story closes only on its own with `--id`, after every delivery bound to it ended `cancelled` or `rolled_back` (never with an active delivery or delivered work); the closure releases its claim. See `references/commands.md`.
 
 6. Before creating a contract, gather project-specific context from `.sdlc/`, user-provided files, repository files, or direct user answers. If critical context, output format, acceptance criteria, delivery target, autonomy choice, or a phase-guiding decision is missing, ask concise questions and stop instead of inventing details or creating a vague contract. Use `--allow-incomplete-contract` only for explicit clarification, migration, or recovery drafts, never to start phase work.
 7. Before technical analysis or a contract that depends on project-specific tooling, profile the project/story and propose capability recommendations. Do not keyword-match the user's language. Use repo files, `.sdlc/`, user files, or canonical JSON normalized by Codex:
@@ -251,6 +251,8 @@ The dedicated assessment journey remains the exception described above: it packa
    freshness check.
 
 10. Create or locate the story first, then create its final phase contract before doing phase work. It must include enough agreed context, zero unresolved open questions, exact requirement execution profile references, and `--output-ref` for durable story outputs. When delivery work is in scope, reserve a new stable profile ID and store it through `--delivery-profile`; this writes only the planned `delivery_execution_profile_id`, not a delivery-profile hash or approval. Approve the contract before step 13 creates the matching profile against the approved hashes. Never rewrite the approved contract to point back to that profile. A contract or phase override may narrow the effective autonomy level but never widen it.
+
+   When a delivery of a started story ends `cancelled` or `rolled_back`, continue the same story with exactly one new delivery rather than inventing a replacement story: a new contract ID with `--replace-story-contract` and a new `--delivery-profile`, its approval, a new profile with a fresh autonomy choice, `story release`, `task start` with the new contract and profile, then `story claim` again. The workflow run and completed phases are kept and the new task start links the replaced delivery. Active, released, merged, or ready-for-review deliveries cannot be replaced.
 
    Story contract creation auto-populates `story.contract_id`; use `--replace-story-contract` only for explicit renegotiation or recovery. Contract creation is a proposal, not approval to proceed. Summarize the complete contract through `approval requests` and stop until the user explicitly approves, answers, requests changes, or has already granted a broader contract-approval scope that clearly covers it. A broader contract approval never supplies the mandatory autonomy choice for a new delivery unit.
 
@@ -460,6 +462,19 @@ The dedicated assessment journey remains the exception described above: it packa
      --evidence evidence/local-build.json \
      --json
    ```
+
+   Passing `build.local` completion records the content manifest (paths,
+   modes, sizes, SHA-256) of every approved write path; later
+   `rollback.verify` and `release.local` require the destination to match it.
+   A recreated write path with identical content is accepted; a replaced root,
+   a symlink, or different content is refused. To update an existing release,
+   propose the destination plus a backup write path, then inside one open
+   `build.local` authorization copy the current release into the backup and
+   install the new build; complete `build.local`, rehearse the rollback
+   without touching the destination, record `rollback.verify`, then
+   `release.local`. If smoke fails, restore the backup and close the delivery
+   `--terminal-status rolled_back`. Never install files at release time; if
+   the destination changed after the build, request `build.local` again.
 
    When the local delivery changes a data file, add both typed actions and bind
    the reversible boundary at proposal time:
