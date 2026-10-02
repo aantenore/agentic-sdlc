@@ -5142,6 +5142,159 @@ test("a certification superseded by a later valid certification stays completed 
   );
 });
 
+function legacySuccessorContractArgs(project, fixture, index) {
+  return [
+    "contract", "create",
+    "--root", project,
+    "--id", `${fixture.contractId}-${index}`,
+    "--story", fixture.storyId,
+    "--phase", "implementation",
+    "--delivery-profile", `${fixture.profileId}-${index}`,
+    "--level", "supervised",
+    "--replace-story-contract",
+    "--context-summary", `Deliver ${fixture.storyId} again.`,
+    "--qa", "Who confirms the exact delivery?|The human reviewer",
+    "--tool", "node",
+    "--output-ref", "implementation-summary:implementation-summary-v1:new",
+  ];
+}
+
+test("a legacy story accepts a successor delivery only after a cancelled or rolled-back delivery", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox for terminal local release evidence",
+}, () => {
+  // Allowed: a legacy (not workflow-bound) delivery closed as cancelled.
+  const project = temporaryProject("legacy-successor");
+  const fixture = createGovernedDeliveryStory(project, {
+    suffix: "LEGACY-NEXT",
+    allowedWritePaths: ["docs"],
+    deliveryKind: "local_release",
+  });
+  assert.equal(readJson(project, `.sdlc/stories/${fixture.storyId}/task-start.json`).workflow_instance_ref, undefined);
+  mustFail(
+    legacySuccessorContractArgs(project, fixture, 2),
+    project,
+    /immutable task-start boundary \(delivery AUT-LEGACY-NEXT is started\)/u,
+  );
+  mustRun([
+    "autonomy", "delivery", "close",
+    "--root", project,
+    "--id", fixture.profileId,
+    "--terminal-status", "cancelled",
+    "--reason", "The first delivery is abandoned before any release",
+    ...humanApproval("Close the first legacy delivery as cancelled"),
+  ], project);
+  mustRun(legacySuccessorContractArgs(project, fixture, 2), project);
+  mustRun([
+    "contract", "approve",
+    "--root", project,
+    "--id", `${fixture.contractId}-2`,
+    ...humanApproval(`Approve ${fixture.contractId}-2`),
+  ], project);
+  mustRun([
+    "autonomy", "delivery", "propose",
+    "--root", project,
+    "--id", `${fixture.profileId}-2`,
+    "--delivery", "LOCAL-LEGACY-NEXT-2",
+    "--kind", "local_release",
+    "--story", fixture.storyId,
+    "--contract", `${fixture.contractId}-2`,
+    "--requirement", fixture.requirementId,
+    "--level", "supervised",
+    "--target-root", fixture.localReleaseRoot,
+    "--write-path", fixture.localReleaseOutput,
+    "--smoke-test", '["node","--version"]',
+    "--rollback", "Restore the previous governed local release snapshot.",
+  ], project);
+  mustRun([
+    "autonomy", "delivery", "approve",
+    "--root", project,
+    "--id", `${fixture.profileId}-2`,
+    "--phase", "implementation",
+    ...humanApproval(`Approve ${fixture.profileId}-2`),
+  ], project);
+  mustRun([
+    "story", "release",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--agent", "codex",
+    "--reason", "Hand the story over to its successor delivery.",
+  ], project);
+  const successorStart = mustRunJson([
+    "task", "start",
+    "--root", project,
+    "--intent-json", implementationIntent(fixture.storyId),
+    "--story", fixture.storyId,
+    "--phase", "implementation",
+    "--contract-id", `${fixture.contractId}-2`,
+    "--delivery-profile", `${fixture.profileId}-2`,
+    "--confirm-start",
+    "--actor-type", "human",
+  ], project);
+  assert.equal(successorStart.execution_allowed, true, JSON.stringify(successorStart, null, 2));
+  const successorReceipt = readJson(project, `.sdlc/stories/${fixture.storyId}/task-start.json`);
+  assert.equal(successorReceipt.delivery_profile_ref.id, `${fixture.profileId}-2`);
+  assert.ok(successorReceipt.previous_task_start_receipt_ref?.path);
+
+  // Refused: the successor delivery released, so the story is delivered.
+  const build = mustRunJson([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", `${fixture.profileId}-2`,
+    "--action", "build.local",
+    "--confirm-action",
+    ...humanApproval("Approve the successor local build"),
+  ], project);
+  const buildEvidence = writeProjectFile(project, "docs/local-build-legacy.json", "{\"built\":true}\n");
+  writeProjectFile(project, "docs/local-release/app/release-proof.txt", "legacy release\n");
+  mustRun([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", `${fixture.profileId}-2`,
+    "--action", "build.local",
+    "--outcome", "passed",
+    "--authorization-receipt", build.action_receipt.id,
+    "--evidence", buildEvidence,
+  ], project);
+  const rollbackEvidence = writeProjectFile(project, "docs/rollback-legacy.json", "{\"restored\":true}\n");
+  for (const extra of [["--confirm-action", ...humanApproval("Approve the rollback rehearsal")], ["--outcome", "passed"]]) {
+    mustRun([
+      "autonomy", "delivery", "action",
+      "--root", project,
+      "--id", `${fixture.profileId}-2`,
+      "--action", "rollback.verify",
+      "--evidence", rollbackEvidence,
+      ...extra,
+    ], project);
+  }
+  mustRun([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", `${fixture.profileId}-2`,
+    "--action", "release.local",
+    "--confirm-action",
+    ...humanApproval("Approve the successor local release"),
+  ], project);
+  const releaseEvidence = writeProjectFile(project, "docs/release-legacy.json", "{\"released\":true}\n");
+  const released = mustRunJson([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", `${fixture.profileId}-2`,
+    "--action", "release.local",
+    "--outcome", "passed",
+    "--evidence", releaseEvidence,
+    "--smoke-test", '["node","--version"]',
+    "--rollback", "Restore the previous governed local release snapshot.",
+  ], project);
+  assert.equal(readJson(project, released.close_receipt_path).terminal_status, "released");
+  mustFail(
+    legacySuccessorContractArgs(project, fixture, 3),
+    project,
+    /delivery AUT-LEGACY-NEXT-2 ended released; the story continues with a new delivery only after a cancelled or rolled_back delivery/u,
+  );
+});
+
 test("a formally closed pull request remains terminal but cannot certify lifecycle success", () => {
   const project = temporaryProject("closed-pull-request");
   const fixture = createGovernedDeliveryStory(project, {
