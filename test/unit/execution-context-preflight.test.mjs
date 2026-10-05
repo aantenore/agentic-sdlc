@@ -242,3 +242,48 @@ test("legacy receipts remain readable but cannot authorize mutable-context exemp
   assert.equal(decision.allowed, false);
   assert.equal(decision.reason, "source_snapshot_lacks_stable_identity");
 });
+
+test("preflight on an unborn HEAD names the empty tree instead of a commit", () => {
+  const emptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+  const unbornInput = { ...receiptInput(), git_head_sha: null, git_base_tree: emptyTree };
+  const receipt = buildExecutionContextPreflightReceipt(unbornInput);
+  assert.equal(receipt.git_head_sha, null);
+  assert.equal(receipt.git_base_tree, emptyTree);
+  assert.equal(validateExecutionContextPreflightReceipt(receipt).valid, true);
+
+  // A missing base, or a commit together with a tree, is never sealed.
+  assert.throws(
+    () => buildExecutionContextPreflightReceipt({ ...receiptInput(), git_head_sha: null }),
+    /empty tree of an unborn HEAD/u,
+  );
+  assert.throws(
+    () => buildExecutionContextPreflightReceipt({ ...receiptInput(), git_base_tree: emptyTree }),
+    /only valid without a Git commit SHA/u,
+  );
+
+  // Moving from an unborn HEAD to a commit while sealing is a Git change.
+  const snapshot = {
+    git_head_sha: null,
+    git_base_tree: emptyTree,
+    source_snapshots: receipt.source_snapshots.map((source) => ({
+      path: source.path,
+      sha256: source.sha256,
+      file_type: source.file_type,
+      mode: source.mode,
+    })),
+    workspace_changes: receipt.workspace_changes,
+  };
+  assert.equal(executionContextSnapshotRevalidationDecision(receipt, snapshot).valid, true);
+  const committed = executionContextSnapshotRevalidationDecision(receipt, {
+    ...snapshot,
+    git_head_sha: "1".repeat(40),
+    git_base_tree: undefined,
+  });
+  assert.equal(committed.valid, false);
+  assert.match(committed.errors.join("\n"), /Git HEAD changed/u);
+
+  // A tampered base no longer matches the sealed hash.
+  const tampered = structuredClone(receipt);
+  tampered.git_base_tree = "0".repeat(40);
+  assert.equal(validateExecutionContextPreflightReceipt(tampered).valid, false);
+});
