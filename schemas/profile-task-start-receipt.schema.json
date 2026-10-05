@@ -51,6 +51,7 @@
     "authorization_ref": { "type": ["string", "null"] },
     "authorization_use_ref": { "type": ["string", "null"] },
     "authority_assurance": { "type": "object" },
+    "git_base": { "$ref": "#/$defs/unborn_git_base" },
     "confirmed_by": { "$ref": "common.schema.json#/$defs/actor" },
     "confirmed_at": { "type": "string", "format": "date-time" },
     "audit": { "$ref": "common.schema.json#/$defs/audit" }
@@ -80,6 +81,16 @@
     }
   ],
   "$defs": {
+    "unborn_git_base": {
+      "description": "Explicit base of a task start on a Git repository without commits: no base commit, Git's empty tree.",
+      "type": "object",
+      "required": ["base_sha", "base_tree"],
+      "properties": {
+        "base_sha": { "type": "null" },
+        "base_tree": { "type": "string", "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$" }
+      },
+      "additionalProperties": false
+    },
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "path_hashed_id_ref": {
       "type": "object",

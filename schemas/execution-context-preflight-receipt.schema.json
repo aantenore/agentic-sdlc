@@ -96,7 +96,14 @@
         "additionalProperties": false
       }
     },
-    "git_head_sha": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
+    "git_head_sha": {
+      "description": "The commit HEAD pointed at, or null when HEAD was unborn; then git_base_tree names the empty tree.",
+      "oneOf": [
+        { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
+        { "type": "null" }
+      ]
+    },
+    "git_base_tree": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
     "status": { "const": "passed" },
     "created_by": { "$ref": "common.schema.json#/$defs/actor" },
     "created_at": { "type": "string", "format": "date-time" },
@@ -123,5 +130,12 @@
       "additionalProperties": false
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "git_head_sha": { "type": "null" } } },
+      "then": { "required": ["git_base_tree"] },
+      "else": { "not": { "required": ["git_base_tree"] } }
+    }
+  ],
   "additionalProperties": false
 }
