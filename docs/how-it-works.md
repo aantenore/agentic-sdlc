@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.17.6 Works
+# How Agentic SDLC 0.17.7 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -59,6 +59,15 @@ there — current approvals, required output, latest test evidence, terminal
 delivery, and release evidence into the final receipt. A strict check run
 earlier may support an intermediate decision but must not be presented as
 proof that discovery-to-operations delivery is complete.
+
+A delivery may start in a Git repository that has no commit yet. The task-start
+receipt then records an explicit empty-tree base (`git_base` with a null
+`base_sha` and the empty `base_tree`) instead of a commit, and the preflight
+receipt does the same. The changed-path scope, the secret-scan range and the
+final lifecycle freshness proof all read that base, so the delivery needs no
+commit to start or to certify, and the agent never creates one. A first commit
+that holds exactly the certified bytes keeps the final receipt valid; any other
+first-commit content invalidates it like any other drift.
 
 Final receipts sealed with `workflow-final-freshness-proof:v1` are historical
 evidence, not a current certificate. On an unchanged, still-valid terminal
@@ -141,7 +150,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.17.6` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.17.7` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project

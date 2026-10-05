@@ -322,6 +322,13 @@ git -C /absolute/project commit -m "Add the verified local result"
 
 An in-repository release destination is never part of that command.
 
+A Git repository without any commit is a supported start. The governed task
+start records Git's empty tree as the delivery base, so the agent never creates
+a commit, not even an empty first one, and the delivery reaches
+lifecycle-complete with the repository still unborn. Your first commit
+afterwards keeps the certification valid when it holds exactly the certified
+files.
+
 “Local” describes the destination and data boundary; it does not mean unrestricted. A missing tool installation, write outside the workspace, or machine-global change remains a separate decision.
 
 ### When the local destination does not exist yet

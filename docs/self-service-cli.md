@@ -235,7 +235,10 @@ The changed files come from the commit range when one is available, together
 with every uncommitted and untracked file, from the uncommitted workspace alone
 when there is no base to compare against, and from the story's approved write
 paths for a local release with neither. A repository without its first commit
-is scanned from its working tree, and the record names no head commit. The
+is scanned from its working tree, and the record names no head commit. A story
+that started in such a repository records Git's empty tree as its delivery base,
+so after the first commit the default range runs from the empty tree and covers
+every committed file. The
 record binds the state of the working tree it read, and the gate accepts it only
 while that state is unchanged. A range named with `--base` or `--head` is
 scanned exactly, without the working tree, so the gate accepts it only while the

@@ -258,6 +258,11 @@
                 { "type": "string", "pattern": "^[a-f0-9]{40,64}$" }
               ]
             },
+            "baseline_tree": {
+              "description": "Empty tree a delivery that started before the first commit was compared with; present only then, together with a null baseline_head_sha.",
+              "type": "string",
+              "pattern": "^[a-f0-9]{40,64}$"
+            },
             "certification_head_sha": {
               "oneOf": [
                 { "type": "null" },
