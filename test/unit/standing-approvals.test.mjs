@@ -77,8 +77,8 @@ test("proposals refuse missing, unbounded, or out-of-project inputs", () => {
   assert.throws(() => proposal({ requirement_refs: [] }), /--requirement/u);
   assert.throws(() => proposal({ budget: { per_delivery_amount: "5" } }), /--currency/u);
   assert.throws(() => proposal({ budget: { per_delivery_amount: "50", total_amount: "5", currency: "EUR" } }), /must not exceed/u);
-  for (const unsafe of ["/etc", "../outside", "src/../..", ".sdlc/autonomy", ".git/hooks", ".", "C:/x"]) {
-    assert.throws(() => normalizeStandingWritePath(unsafe), /Standing approval write path|narrower/u, unsafe);
+  for (const unsafe of ["/etc", "../outside", "src/../..", ".sdlc/autonomy", ".git/hooks", ".", "C:/x", "**", "**/*", ".s*/**", "*", "src**", "src/a**/b"]) {
+    assert.throws(() => normalizeStandingWritePath(unsafe), /Standing approval (write path|glob)|narrower/u, unsafe);
   }
 });
 
