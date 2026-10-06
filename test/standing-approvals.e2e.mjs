@@ -599,6 +599,12 @@ test("a delivery to a destination the standing approval does not cover is refuse
     "--qa", "Who confirms?|The standing approval", "--tool", "node",
     "--output-ref", "implementation-summary:implementation-summary-v1:new",
   ], project);
+  mustFail([
+    "contract", "approve", "--root", project, "--id", "CONTRACT-DEST", "--standing-approval", standingId, "--status", "rejected",
+  ], project, /can only approve/u);
+  mustFail([
+    "contract", "approve", "--root", project, "--id", "CONTRACT-DEST", "--standing-approval", standingId, "--actor-type", "human",
+  ], project, /cannot be combined with --actor-type/u);
   mustRun(["contract", "approve", "--root", project, "--id", "CONTRACT-DEST", "--standing-approval", standingId], project);
   mustFail([
     "autonomy", "delivery", "propose", "--root", project, "--id", "AUT-DEST", "--delivery", "LOCAL-DEST",
