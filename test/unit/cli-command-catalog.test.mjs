@@ -117,10 +117,11 @@ test("delivery self-service help mirrors the runtime flags and marks the main re
   assert.equal(propose.has("--contract-id"), false);
 
   const approve = describe("autonomy delivery approve");
-  for (const flag of ["--id", "--actor-type", "--approval-source"]) {
-    assert.equal(approve.get(flag)?.required, true, `${flag} should be marked required`);
+  assert.equal(approve.get("--id")?.required, true, "--id should be marked required");
+  for (const flag of ["--actor-type", "--approval-source"]) {
+    assert.match(approve.get(flag)?.required_when?.en || "", /--standing-approval is not used/u, `${flag} should be required without a standing approval`);
   }
-  for (const flag of ["--summary", "--approval-evidence", "--authorization", "--host-receipt-file"]) {
+  for (const flag of ["--summary", "--approval-evidence", "--authorization", "--host-receipt-file", "--standing-approval"]) {
     assert.equal(approve.has(flag), true, `missing runtime approval flag: ${flag}`);
   }
 
@@ -283,7 +284,8 @@ test("focused lifecycle help mirrors the runtime inputs needed to create and sta
 
   const contractApprove = describe("contract approve");
   assert.equal(contractApprove.get("--id")?.required, true);
-  assert.equal(contractApprove.get("--actor-type")?.required, true);
+  assert.match(contractApprove.get("--actor-type")?.required_when?.en || "", /--standing-approval is not used/u);
+  assert.equal(contractApprove.has("--standing-approval"), true);
   assert.match(contractApprove.get("--approval-source")?.required_when.en, /not supplied by CI/u);
   for (const flag of ["--actor-name", "--actor-email", "--summary", "--approval-evidence", "--authorization", "--host-receipt-file"]) {
     assert.equal(contractApprove.has(flag), true, `missing contract approval flag: ${flag}`);

@@ -419,7 +419,11 @@ test("approval, authorization, routing, and contract help expose governed runtim
   for (const command of approvals) {
     const options = describe(command);
     assert.equal(options.get("--id")?.required, true, command);
-    assert.equal(options.get("--actor-type")?.required, true, command);
+    if (command === "contract approve") {
+      assert.match(options.get("--actor-type")?.required_when, /--standing-approval is not used/u, command);
+    } else {
+      assert.equal(options.get("--actor-type")?.required, true, command);
+    }
     assert.match(options.get("--approval-source")?.required_when, /not supplied by CI/u, command);
     assert.equal(options.get("--summary")?.required_one_of, "--summary or --approval-evidence", command);
     assert.match(options.get("--authorization")?.required_when, /automation/u, command);

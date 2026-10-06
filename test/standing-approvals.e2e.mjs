@@ -6,6 +6,7 @@ import path from "node:path";
 import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { buildObservatoryViewModel } from "../lib/change-observatory/index.mjs";
 import { standingRecordHash } from "../lib/standing-approvals.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -470,7 +471,7 @@ function confirmationsRequested(project, storyId) {
 
 test("two local deliveries run under one standing approval with zero confirmations and certify", {
   skip: hostSupportsLocalSmokeSandbox() ? false : SKIP_REASON,
-}, () => {
+}, async () => {
   const project = initializeProject("happy");
   const standingId = grantStanding(project);
   for (const [index, suffix] of ["ONE", "TWO"].entries()) {
@@ -501,6 +502,16 @@ test("two local deliveries run under one standing approval with zero confirmatio
   const projectStatus = mustRunJson(["status", "--root", project], project);
   assert.equal(projectStatus.summary.completed_work, 2, JSON.stringify(projectStatus.summary));
   assert.equal(projectStatus.standing_approvals[0].id, standingId);
+  const model = await buildObservatoryViewModel(project);
+  const standingItem = model.decisions.find((item) => item.type === "standing-approval");
+  assert.ok(standingItem, "the observatory lists the standing approval");
+  assert.equal(standingItem.status, "exhausted");
+  assert.match(standingItem.summary, /2 of 2 deliveries used, 0 left; expires /u);
+  const uses = model.decisions.filter((item) => item.type === "standing-approval-use");
+  assert.deepEqual(uses.map((item) => item.summary).sort(), [
+    "Delivery LOCAL-ONE used slot 1 of 2.",
+    "Delivery LOCAL-TWO used slot 2 of 2.",
+  ]);
 });
 
 /** Task start only: enough to exercise delivery actions without a workflow instance. */
