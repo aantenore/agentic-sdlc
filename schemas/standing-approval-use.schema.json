@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "standing-approval-use.schema.json",
+  "title": "Standing approval use: one delivery slot consumed by one exact delivery",
+  "type": "object",
+  "required": [
+    "kind",
+    "schema_version",
+    "id",
+    "standing_approval_ref",
+    "slot",
+    "max_deliveries",
+    "delivery",
+    "profile_ref",
+    "story_id",
+    "contract_id",
+    "created_at",
+    "audit",
+    "record_hash",
+    "hash_algorithm"
+  ],
+  "properties": {
+    "kind": { "const": "standing_approval_use" },
+    "schema_version": { "const": "standing-approval-use:v1" },
+    "id": { "type": "string", "minLength": 1 },
+    "standing_approval_ref": {
+      "type": "object",
+      "required": ["id", "record_hash", "approval_hash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "record_hash": { "$ref": "#/$defs/sha256" },
+        "approval_hash": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "slot": { "type": "integer", "minimum": 1 },
+    "max_deliveries": { "type": "integer", "minimum": 1 },
+    "delivery": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["local_release", "pull_request"] }
+      },
+      "additionalProperties": false
+    },
+    "profile_ref": {
+      "type": "object",
+      "required": ["id", "hash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "hash": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "story_id": { "type": ["string", "null"] },
+    "contract_id": { "type": ["string", "null"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "audit": {
+      "type": "object",
+      "required": ["actor"],
+      "properties": {
+        "actor": { "oneOf": [{ "type": "null" }, { "$ref": "common.schema.json#/$defs/actor" }] }
+      },
+      "additionalProperties": false
+    },
+    "record_hash": { "$ref": "#/$defs/sha256" },
+    "hash_algorithm": { "const": "sha256:stable-json:v1" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "additionalProperties": false
+}
