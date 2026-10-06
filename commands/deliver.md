@@ -18,4 +18,5 @@ Rules for this command:
 - Include `.gitignore` in the requirement write paths whenever the work may add or change it.
 - `pull_request.create` and `git.push` are authorized actions. They need an approved profile that names them; ask before the first remote-visible action.
 - Protected-branch merge, deployment, and production access stay outside this command. After the verified `pull_request.create` completion (and any later `pull_request.update`), close the delivery with `autonomy delivery close --terminal-status ready_for_review` before the lifecycle-complete gate.
+- When an active standing approval the user already gave covers this exact kind of pull request (`autonomy standing status`), pass `--standing-approval <id>` instead of asking for the work brief, working-mode, and action confirmations. It never covers merge. If any step answers `checkpoint_required` with `standing_approval.reasons`, stop and ask the user for the normal confirmation. Never create or widen a standing approval without the user's explicit approval.
 - If `$ARGUMENTS` is empty, ask for the requirement before touching any record.

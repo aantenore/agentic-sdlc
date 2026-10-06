@@ -198,6 +198,7 @@ authenticity claim.
   Done, and Verified;
 - what changed, grouped by recorded intent where available;
 - decisions, approvals, rationale summaries, alternatives, and evidence;
+- standing approvals with their status, deliveries used and left, expiry, and each delivery that ran under one;
 - how independently the current delivery may proceed, whether a review is now
   needed, and which sensitive actions remain protected; exact internal settings
   and recorded reason codes stay in technical details;

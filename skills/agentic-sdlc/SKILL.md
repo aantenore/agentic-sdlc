@@ -70,6 +70,22 @@ The lifecycle-complete gate compares every changed Git path since task start wit
 
 There is currently no command that retires an approved story that was never started. It remains in the approved breakdown, and `status` may keep reporting it as open or blocked work after another story has been delivered and certified. Avoid this by agreeing the delivery shape before approving the breakdown. If it already happened, confirm with the user which stories are no longer planned; for those only, tell the user plainly that those entries belong to the earlier plan, that they do not change the certified delivery, and which story actually carries the result.
 
+### Standing approvals for repeated toil
+
+By default every delivery gets its own work brief approval, its own working-mode choice, and its own confirmations. A **standing approval** is the only exception, and only the user can create it: a bounded, revocable approval that lets the same kind of low-risk delivery repeat without asking each time.
+
+**When to offer it.** Offer it only for repetitive toil the user has already seen delivered normally at least once, such as dependency patch bumps, removal of retired feature flags, or a mechanical migration applied file by file. Never offer it for work that needs a merge, production, a deploy, a data migration, a force-push, or deletions outside the agreed paths: those are never covered, whatever the limits say.
+
+**How to propose it.** Say in plain language what would repeat and what stays protected, for example:
+
+> "These flag cleanups keep coming back. If you want, I can stop asking for each one: up to 5 local releases until 1 November, only in `src/flags` and `docs`, at most 10 files and 200 lines each. Tests, secret scanning, and the final checks still run every time. If anything goes outside these limits I stop and ask you, and you can revoke it at any moment. Should I set this up?"
+
+In Italian: "Queste pulizie dei flag si ripetono. Se vuoi, posso smettere di chiederti conferma ogni volta: fino a 5 rilasci locali entro il 1° novembre, solo in `src/flags` e `docs`, al massimo 10 file e 200 righe ciascuno. Test, scansione dei segreti e controlli finali continuano a girare ogni volta. Se qualcosa esce da questi limiti mi fermo e ti chiedo, e puoi revocarla in qualsiasi momento. Vuoi che la imposti?"
+
+**Never create or widen one on your own.** Record the proposal with `autonomy standing propose`, show its plain-language summary, and run `autonomy standing approve --actor-type human --approval-source explicit-user --summary "<the user's words>"` only after the user explicitly agrees to those exact limits. Records are immutable: different limits need a new proposal and a new explicit approval. An agent, system, or automation actor can never approve or revoke one.
+
+**How to use it.** For a matching delivery, use the middle working level and pass `--standing-approval <id>` instead of the approver options on `contract approve`, `autonomy delivery propose` (with `--level checkpointed`), and `autonomy delivery approve`. Then request each delivery action without `--confirm-action`: the CLI records a derived approval when the step fits, or answers `checkpoint_required` with `standing_approval.reasons`. In that case stop, tell the user which limit was crossed (paths, size, destination, expiry, count, budget, changed rules, or revocation), and ask for the normal confirmation. Every existing check still runs. Use `autonomy standing status` to report remaining deliveries and warn the user before expiry; use `autonomy standing revoke` as soon as the user asks to stop.
+
 The dedicated assessment journey remains the exception described above: it packages its requirement, contract draft, budget, and any already named delivery choice into checkpoint 2, then applies and starts that unchanged proposal without exposing extra normal decisions.
 
 ## Workflow

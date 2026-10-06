@@ -165,3 +165,7 @@ The preview changes no files. If the configuration changes again before apply, t
 - `templates/config-compat/` contains frozen compatibility defaults used only for older projects that do not yet have a lock.
 
 The lock is hash-bound evidence, not a digital signature. A signed host approval is a different record with a verified trusted-key attestation; the CLI does not call an ordinary config lock “signed.”
+
+## Standing approval limits
+
+`standing_approval_policy` caps what any standing approval may request: `max_validity_days`, `max_deliveries`, `max_changed_files`, `max_changed_lines`, and `expiry_warning_hours`, plus `enabled`. Projects created before this section existed use the same documented fallback values without changing their effective configuration hash. Changing the configuration later, through the hash-bound workflow above, suspends every standing approval approved under the previous configuration: it reports `stale` and covers nothing until the user approves a new one.

@@ -604,6 +604,10 @@ Examples:
 .sdlc/autonomy/executions/AUT-PR-184/start.json
 .sdlc/autonomy/executions/AUT-PR-184/close.json
 .sdlc/autonomy/actions/AUT-ACT-....json
+.sdlc/autonomy/standing/SA-FLAGS/proposal.json
+.sdlc/autonomy/standing/SA-FLAGS/approval.json
+.sdlc/autonomy/standing/SA-FLAGS/revocation.json
+.sdlc/autonomy/standing/SA-FLAGS/uses/0001.json
 ```
 
 `requirement-execution-profile:v1` binds one immutable requirement revision and stores its maximum level, optional phase levels, material scope hash, tools, capabilities, environments, write paths, forbidden actions, checkpoints, exception actions, budget reference, validity, and authority assurance. It is a ceiling, not an executable authorization.
@@ -622,6 +626,8 @@ Delivery binding is one-way: reserve the planned profile ID in the final require
 `executions/<profile>/start.json` and `close.json` are the immutable single-run lifecycle. Action receipts under `actions/` record the canonical action, exact runtime target/details, effective decision, any checkpoint approval, evidence hashes, and single-use authorization linkage. They implement authorize → external/tool execution → complete. Passing `pull_request.merge` or `release.local` completion creates the corresponding `merged` or `released` close receipt automatically; other valid terminal states require a separately approved close.
 
 Local smoke commands are JSON argv arrays, never shell strings. Shells, indirect dispatchers, inline interpreter code, and ambiguous loaders are rejected; explicit interpreted entrypoints are bound to allowed artifact paths. A v3 release chain records authorization, durable write-ahead attempt, target, command, cwd, sandbox, launcher/runtime/payload identity, pre/post artifact manifests, exit status, outcome, and output hashes. The sandbox denies external network, with host-specific loopback behavior, but can read host-account files and does not attest transitive imports; only reviewed code that avoids ungoverned host paths belongs in the artifact. Remote push/merge evidence is different: the CLI records a live remote pre-state and queries the exact Git remote or GitHub PR at completion. The hash-bound observation is not a provider-signed offline attestation; retain durable host/CI/provider evidence as well.
+
+`standing/<id>/` holds one standing approval: a user-approved, bounded, revocable delegation for repeated low-risk deliveries. `proposal.json` (`standing-approval:v1`) records the recipe and description, requirement profile hashes, project-relative paths or globs, per-delivery file and line limits, the single destination (local release, or pull request create/update without merge), the number of deliveries, the mandatory expiry, an optional budget, the project, configuration, and policy hashes it binds, and the CLI-fixed list of what is never covered. `approval.json` and `revocation.json` (`standing-approval-decision:v1`) hold the person's formal approval or revocation. Each `uses/<slot>.json` (`standing-approval-use:v1`) is one consumed delivery slot bound to one delivery profile; the slot number is the file name, so two deliveries can never share a slot. Every record is immutable and hash-sealed; an edited record makes the standing approval invalid. Derived approvals on contracts, delivery profiles, and action receipts carry `approval_source: standing-approval` with the standing approval id, hashes, and slot, and the strict gate checks they were created while it was approved, unexpired, and unrevoked.
 
 ## `stories/`
 

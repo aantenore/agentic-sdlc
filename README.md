@@ -444,6 +444,21 @@ Local smoke tests are stored as shell-free JSON argv arrays, for example `--smok
 
 A custom limit is meaningful only if a configured source can measure it. A hard limit fails closed when its required exact, trusted coverage is unavailable.
 
+### Standing approvals for repeated low-risk work
+
+The default stays the same: every delivery asks for its own work brief approval, working-mode choice, and confirmations. For repetitive toil such as dependency bumps, retired-flag cleanup, or a mechanical migration, the user may instead approve a **standing approval** once: "from now on, approve this kind of delivery within these limits". It is bounded, revocable, and never created or widened without the user's explicit approval.
+
+| Bound | Example |
+| --- | --- |
+| Kind of work | recipe `flag-cleanup` with a plain-language description, tied to approved requirements |
+| Paths | project-relative prefixes or globs, such as `src/flags` and `docs` |
+| Size per delivery | at most 10 changed files and 200 added plus removed lines |
+| Destination | local release only, or a pull request created or updated but never merged |
+| Count and expiry | 5 deliveries until 1 November (capped by `standing_approval_policy.max_validity_days`) |
+| Budget (optional) | per delivery and total; a set budget that cannot be measured stops the delivery |
+
+Merge, production, deploy, data migrations, force-push, and deletions of tracked files outside the paths are never covered. A matching delivery passes `--standing-approval <id>` on `contract approve`, `autonomy delivery propose`, and `autonomy delivery approve`; approving it consumes one delivery slot atomically. Each delivery action is then confirmed by a derived approval that names the standing approval and its slot, but only after the CLI re-checks the expiry, revocation, delivery count, the bound project, configuration, policy, and requirement hashes, and the files changed since task start. Anything outside the bounds answers `checkpoint_required` with the reason, so the normal confirmation applies. Tests, secret scanning, review, smoke tests, gates, and the lifecycle-complete certificate all still run. `autonomy standing revoke` takes effect at once, including for deliveries in progress at their next step. `status`, `autonomy standing status`, and the Change Observatory list standing approvals, the deliveries that used them, the deliveries left, and the expiry, and `status` warns before expiry.
+
 ## Native Codex Metering Versus Exact Metering
 
 The bundled `codex-session` adapter reads only the exact task's local

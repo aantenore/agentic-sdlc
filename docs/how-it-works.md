@@ -312,6 +312,12 @@ The system always applies the safest limit among the user’s choice, the projec
 
 The approval screen should lead with a readable summary: what will be delivered, where, which files and actions are allowed, where work will pause, what remains excluded, when the choice expires, and how rollback works. Machine JSON and internal identifiers remain available as optional audit details; understanding the JSON is not a prerequisite for informed approval.
 
+### Standing approvals: the one bounded exception
+
+A user may approve once that similar low-risk deliveries proceed without asking each time, for example dependency bumps or retired-flag cleanup. A standing approval names the kind of work, its requirements, project-relative paths, files and lines per delivery, one destination (a local release, or a pull request created or updated but never merged), a number of deliveries, a mandatory expiry, and an optional budget. It covers only the middle working mode, and it never covers merge, production, deploy, data migrations, force-push, or deletions outside its paths.
+
+A delivery proposed under a standing approval treats every delivery action as a confirmation point. The work brief approval, the working-mode choice, and each action confirmation are then satisfied by a derived approval that references the standing approval and the delivery slot it consumed, but only while the standing approval is approved, unexpired, unrevoked, and bound to unchanged project, configuration, policy, and requirement hashes, and while the files changed since task start stay inside its bounds. Otherwise the normal confirmation applies, with the reason shown. Revocation takes effect at the next step of every delivery in progress. All other checks run unchanged.
+
 ### Optional technical mapping
 
 The stored names for the three choices are `supervised`, `checkpointed`, and `bounded-autonomous`. The requirement safety limit is stored in a requirement execution profile; the one-delivery choice is stored in a separate delivery execution profile bound to the immutable requirement, story, and contract hashes.
