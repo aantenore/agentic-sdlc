@@ -16,6 +16,7 @@ import {
   standingBudgetReasons,
   standingChangeReasons,
   standingDeliveryBoundReasons,
+  standingDeliveryUseResolution,
   standingDerivedApprovalErrors,
   standingPathAllowed,
   standingRecordHash,
@@ -237,4 +238,49 @@ test("policy values come from configuration and are validated", () => {
   assert.equal(standingApprovalPolicy({ standing_approval_policy: { max_deliveries: 3 } }).max_deliveries, 3);
   assert.throws(() => standingApprovalPolicy({ standing_approval_policy: { max_deliveries: 0 } }), /positive integer/u);
   assert.throws(() => standingApprovalPolicy({ standing_approval_policy: { enabled: "yes" } }), /boolean/u);
+});
+
+test("a recorded slot is reused only for an exact retry of the same delivery profile", () => {
+  const record = proposal();
+  const approval = approvalOf(record, "2026-10-06T11:00:00.000Z");
+  const use = (slot, delivery, profileRef) => buildStandingApprovalUse({
+    proposal: record,
+    approvalDecision: approval,
+    slot,
+    delivery,
+    profileRef,
+    storyId: "ST-1",
+    contractId: "C-1",
+    createdAt: "2026-10-06T12:00:00.000Z",
+  });
+  const held = use(1, { id: "PR-1", kind: "pull_request" }, { id: "AUT-1", hash: HASH });
+  const resolve = (profile, uses = [held]) => standingDeliveryUseResolution({ proposal: record, approval, uses }, profile);
+  const exact = { profile_id: "AUT-1", profile_hash: HASH, delivery_id: "PR-1", delivery_kind: "pull_request" };
+
+  assert.deepEqual(resolve(exact), { existing: held, reasons: [] });
+  assert.deepEqual(resolve({ ...exact, profile_id: "AUT-9", delivery_id: "PR-9" }), { existing: null, reasons: [] });
+  // A different profile for the same delivery never reuses or adds a slot.
+  assert.match(resolve({ ...exact, profile_id: "AUT-2" }).reasons.join(), /already used the standing approval through profile AUT-1/u);
+  // The same profile id with different content is refused.
+  const changed = resolve({ ...exact, profile_hash: "d".repeat(64) });
+  assert.equal(changed.existing, null);
+  assert.match(changed.reasons.join(), /different content/u);
+  // The same profile id aimed at another delivery or kind is refused.
+  assert.match(resolve({ ...exact, delivery_id: "PR-2" }).reasons.join(), /already used the standing approval for delivery/u);
+  assert.match(resolve({ ...exact, delivery_kind: "local_release" }).reasons.join(), /already used the standing approval for delivery/u);
+  // A slot bound to another standing approval or approval is refused.
+  const foreign = standingDeliveryUseResolution({ proposal: record, approval: approvalOf(record, "2026-10-06T11:30:00.000Z"), uses: [held] }, exact);
+  assert.match(foreign.reasons.join(), /different standing approval/u);
+  // Duplicated records are an integrity violation, not a silent pick.
+  const duplicate = use(2, { id: "PR-1", kind: "pull_request" }, { id: "AUT-2", hash: HASH });
+  assert.match(resolve(exact, [held, duplicate]).reasons.join(), /more than one slot/u);
+  assert.match(
+    standingApprovalIntegrityErrors({ proposal: record, approval, uses: [held, duplicate] }).join(),
+    /repeats a delivery or profile/u,
+  );
+  const sameProfile = use(2, { id: "PR-2", kind: "pull_request" }, { id: "AUT-1", hash: HASH });
+  assert.match(
+    standingApprovalIntegrityErrors({ proposal: record, approval, uses: [held, sameProfile] }).join(),
+    /repeats a delivery or profile/u,
+  );
 });

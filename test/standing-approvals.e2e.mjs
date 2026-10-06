@@ -7,6 +7,7 @@ import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { buildObservatoryViewModel } from "../lib/change-observatory/index.mjs";
+import { buildDeliveryExecutionProfileV2 } from "../lib/autonomy-policy.mjs";
 import { standingRecordHash } from "../lib/standing-approvals.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -720,7 +721,9 @@ test("a configuration change after approval suspends the standing approval", () 
   mustFail(["contract", "approve", "--root", project, "--id", "CONTRACT-CFG", "--standing-approval", standingId], project, /it is stale/u);
 });
 
-test("revoking a standing approval mid-delivery falls back at the next step", () => {
+test("revoking a standing approval mid-delivery falls back at the next step", {
+  skip: hostSupportsLocalSmokeSandbox() ? false : SKIP_REASON,
+}, () => {
   const { project, standingId, delivery } = startedDelivery("revoke");
   writeProjectFile(project, "src/flag-one.mjs", "export const one = false;\n");
   const build = mustAuthorize(project, delivery.profileId, "build.local");
@@ -829,6 +832,105 @@ test("concurrent deliveries cannot both consume the last slot", async () => {
   assert.match(refused[0].stderr, /it is exhausted|deliveries were used/u);
   const uses = fs.readdirSync(path.join(project, ".sdlc", "autonomy", "standing", standingId, "uses"));
   assert.deepEqual(uses, ["0001.json"]);
+});
+
+/** Proposes another profile for an already prepared delivery, optionally with different content. */
+function proposeProfileFor(project, delivery, profileId, standingId, extra = []) {
+  return run([
+    "autonomy", "delivery", "propose",
+    "--root", project,
+    "--id", profileId,
+    "--delivery", `LOCAL-${delivery.storyId.slice(3)}`,
+    "--kind", "local_release",
+    "--story", delivery.storyId,
+    "--contract", delivery.contractId,
+    "--requirement", delivery.requirementId,
+    "--level", "checkpointed",
+    "--target-root", delivery.releaseRoot,
+    "--write-path", delivery.releaseOutput,
+    "--smoke-test", SMOKE,
+    "--rollback", ROLLBACK,
+    "--standing-approval", standingId,
+    ...extra,
+    "--json",
+  ], project);
+}
+
+function standingUseFiles(project, standingId) {
+  return fs.readdirSync(path.join(project, ".sdlc", "autonomy", "standing", standingId, "uses")).sort();
+}
+
+test("a second profile for an already used delivery is refused and consumes no slot", () => {
+  const project = initializeProject("dup-profile");
+  const standingId = grantStanding(project, { maxDeliveries: 2 });
+  const first = prepareDelivery(project, "ONE", standingId);
+  approveDelivery(project, first, standingId);
+  assert.deepEqual(standingUseFiles(project, standingId), ["0001.json"]);
+  const evidence = writeProjectFile(project, "docs/revocation-evidence.txt", "revocation approval evidence\n");
+  mustRun([
+    "autonomy", "delivery", "revoke", "--root", project, "--id", first.profileId,
+    "--reason", "Replace the delivery profile", "--approval-evidence", evidence,
+    ...humanApproval("Approve revocation of this exact delivery profile"),
+  ], project);
+  // One slot remains, but the delivery already holds one.
+  mustRun([
+    "contract", "create", "--root", project, "--id", "CONTRACT-ONE-B", "--story", first.storyId, "--phase", "implementation",
+    "--delivery-profile", "AUT-ONE-B", "--level", "checkpointed", "--context-summary", "Second profile for the same delivery.",
+    "--replace-story-contract", "--qa", "Who confirms the delivery?|The standing approval", "--tool", "node",
+    "--output-ref", "implementation-summary:implementation-summary-v1:new",
+  ], project);
+  mustRun(["contract", "approve", "--root", project, "--id", "CONTRACT-ONE-B", "--standing-approval", standingId], project);
+  const proposed = proposeProfileFor(project, { ...first, contractId: "CONTRACT-ONE-B" }, "AUT-ONE-B", standingId);
+  assert.equal(proposed.status, 0, `${proposed.stdout}\n${proposed.stderr}`);
+  mustFail([
+    "autonomy", "delivery", "approve", "--root", project, "--id", "AUT-ONE-B",
+    "--phase", "implementation", "--standing-approval", standingId,
+  ], project, /already used the standing approval through profile AUT-ONE/u);
+  assert.deepEqual(standingUseFiles(project, standingId), ["0001.json"]);
+  const status = mustRunJson(["autonomy", "standing", "status", "--root", project, "--id", standingId], project);
+  assert.equal(status.standing_approvals[0].remaining, 1);
+});
+
+test("the same profile id with different content cannot reuse the recorded slot", () => {
+  const project = initializeProject("changed-profile");
+  const standingId = grantStanding(project, { maxDeliveries: 2 });
+  const delivery = prepareDelivery(project, "ONE", standingId);
+  const profilePath = path.join(project, ".sdlc", "autonomy", "deliveries", `${delivery.profileId}.json`);
+  const proposedContent = fs.readFileSync(profilePath, "utf8");
+  approveDelivery(project, delivery, standingId);
+  // The profile returns to proposed with other content under the same id.
+  const changed = buildDeliveryExecutionProfileV2({
+    ...JSON.parse(proposedContent),
+    extensions: { ...JSON.parse(proposedContent).extensions, note: "changed after the slot was recorded" },
+  });
+  fs.writeFileSync(profilePath, `${JSON.stringify(changed, null, 2)}\n`);
+  assert.notEqual(changed.profile_hash, JSON.parse(proposedContent).profile_hash);
+  mustFail([
+    "autonomy", "delivery", "approve", "--root", project, "--id", delivery.profileId,
+    "--phase", "implementation", "--standing-approval", standingId,
+  ], project, /different content/u);
+  assert.deepEqual(standingUseFiles(project, standingId), ["0001.json"]);
+});
+
+test("an exact retry of the same approval is idempotent and consumes no extra slot", () => {
+  const project = initializeProject("retry");
+  const standingId = grantStanding(project, { maxDeliveries: 2 });
+  const delivery = prepareDelivery(project, "ONE", standingId);
+  const profilePath = path.join(project, ".sdlc", "autonomy", "deliveries", `${delivery.profileId}.json`);
+  const proposedContent = fs.readFileSync(profilePath, "utf8");
+  approveDelivery(project, delivery, standingId);
+  const useBefore = fs.readFileSync(path.join(project, ".sdlc", "autonomy", "standing", standingId, "uses", "0001.json"), "utf8");
+  // An interrupted approval leaves the slot recorded and the profile still proposed.
+  fs.writeFileSync(profilePath, proposedContent);
+  const retried = approveDelivery(project, delivery, standingId);
+  assert.equal(retried.status, "active");
+  assert.deepEqual(standingUseFiles(project, standingId), ["0001.json"]);
+  assert.equal(
+    fs.readFileSync(path.join(project, ".sdlc", "autonomy", "standing", standingId, "uses", "0001.json"), "utf8"),
+    useBefore,
+  );
+  const status = mustRunJson(["autonomy", "standing", "status", "--root", project, "--id", standingId], project);
+  assert.equal(status.standing_approvals[0].remaining, 1);
 });
 
 test("a tampered standing approval record covers nothing", () => {
