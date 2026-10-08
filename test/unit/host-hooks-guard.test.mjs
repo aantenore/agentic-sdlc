@@ -166,3 +166,46 @@ test("one hooks.json fits both hosts: plain command handlers, a known blocking s
     assert.ok(hooks.hooks.PreToolUse[0].matcher.split("|").includes(tool), tool);
   }
 });
+
+test("clearing the agent session markers or hiding the command does not get past the guard", () => {
+  for (const command of [
+    "CLAUDECODE= node bin/agentic-sdlc.mjs autonomy standing appr\\ove --id X --actor-type human",
+    "env -u CLAUDECODE node bin/agentic-sdlc.mjs autonomy standing $'approve' --id X",
+    "A=approve; unset CLAUDECODE; node bin/agentic-sdlc.mjs autonomy standing $A --id X",
+    "CLAUDECODE= node bin/agentic-sdl?.mjs autonomy standing approve --id X",
+    "export CODEX_THREAD_ID=",
+    "env -i PATH=$PATH node bin/agentic-sdlc.mjs status",
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command))?.decision, "deny", command);
+  }
+  assert.equal(evaluatePreToolUse({ tool_name: "PowerShell", tool_input: { command: "$env:CLAUDECODE = ''; node bin/agentic-sdlc.mjs status" } })?.decision, "deny");
+  assert.equal(evaluatePreToolUse({ tool_name: "PowerShell", tool_input: { command: "Remove-Item Env:CODEX_THREAD_ID" } })?.decision, "deny");
+});
+
+test("only commands that write the records themselves are denied", () => {
+  for (const command of [
+    "rm -rf .sdlc/autonomy/stand?ng",
+    "cd .sdlc && rm -rf autonomy/standing",
+    "cat x.json > .sdlc/autonomy/standing/SA-1/approval.json",
+    "git clean -fdx",
+    "git clean -fd .",
+    "git stash -u",
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command))?.decision, "deny", command);
+  }
+  for (const command of [
+    "git pull --rebase && git add .sdlc/autonomy/standing && git commit -m 'chore: record'",
+    "git checkout -b x && cat .sdlc/autonomy/standing/SA-1/proposal.json",
+    "npm test > /tmp/t.log; ls .sdlc/autonomy/standing",
+    "git fetch && git merge origin/main && git log -- .sdlc/autonomy/standing",
+    "cat .sdlc/autonomy/standing/SA-1/proposal.json > /tmp/p.json",
+    "git restore --staged .sdlc",
+    "git clean -fd -- src/",
+    "git clean -fd -e .sdlc",
+    "git stash",
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command)), null, command);
+  }
+  const variable = "R=refs/agentic-sdlc; git push origin :$R/standing/SA-X/abc/revoked";
+  assert.equal(evaluatePreToolUse(shell(variable))?.decision, "deny");
+});

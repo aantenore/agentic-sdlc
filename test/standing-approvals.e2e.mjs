@@ -1020,7 +1020,7 @@ test("a standing approval covers nothing once its shared remote is renamed, repl
   const approveTwo = ["contract", "approve", "--root", project, "--id", "CONTRACT-TWO", "--standing-approval", standingId];
 
   git(project, ["remote", "rename", "origin", "upstream"]);
-  mustFail(approveTwo, project, /no longer configured as 'origin'/u);
+  mustFail(approveTwo, project, /the git remote 'origin' is no longer configured/u);
   git(project, ["remote", "rename", "upstream", "origin"]);
 
   const replacement = temporaryProject("moved-replacement");
@@ -1045,6 +1045,54 @@ test("deliveries used before the remote existed are shared before a new one is c
   approveDelivery(project, second, standingId);
   const slots = sharedRefs(remote).filter((ref) => /\/slots\//u.test(ref)).map((ref) => ref.slice(-4)).sort();
   assert.deepEqual(slots, ["0001", "0002"]);
+});
+
+test("a separate push address, a cleaned revocation file, or a removed remote never undo a revocation", () => {
+  const project = initializeProject("pushurl");
+  const { remote, otherCopy } = sharedRemote(project, "pushurl");
+  const fork = temporaryProject("pushurl-fork");
+  spawnSync("git", ["init", "--bare", "--quiet", fork], { encoding: "utf8" });
+  git(project, ["remote", "set-url", "--push", "origin", fork]);
+  const standingId = grantStanding(project, { id: "SA-PUSHURL", maxDeliveries: 2 });
+  const revoked = mustRunJson([
+    "autonomy", "standing", "revoke", "--root", project, "--id", standingId,
+    "--reason", "Pause delegated work", ...humanApproval("Stop the standing approval"),
+  ], project);
+  assert.equal(revoked.shared_revocation.status, "shared");
+  assert.ok(sharedRefs(remote).some((ref) => ref.endsWith("/revoked")), "the revocation reaches the fetch address");
+  assert.deepEqual(sharedRefs(fork), []);
+  void otherCopy;
+
+  // The revocation file is uncommitted: cleaning it away does not bring the standing approval back.
+  fs.rmSync(path.join(project, ".sdlc", "autonomy", "standing", standingId, "revocation.json"));
+  git(project, ["remote", "remove", "origin"]);
+  createBrief(project, "PU", "REQ-TOIL");
+  mustFail(
+    ["contract", "approve", "--root", project, "--id", "CONTRACT-PU", "--standing-approval", standingId],
+    project,
+    /revoked on this computer|no longer configured/u,
+  );
+});
+
+test("sync reports attention when the revocation could not be shared, and git's language does not matter", () => {
+  const project = initializeProject("sync-attention");
+  const { remote } = sharedRemote(project, "sync-attention");
+  const standingId = grantStanding(project, { id: "SA-ATTN" });
+  fs.writeFileSync(path.join(remote, "hooks", "pre-receive"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+  mustRunJson([
+    "autonomy", "standing", "revoke", "--root", project, "--id", standingId,
+    "--reason", "Pause delegated work", ...humanApproval("Stop the standing approval"),
+  ], project);
+  const synced = mustRunJson(["autonomy", "standing", "sync", "--root", project, "--id", standingId], project);
+  assert.equal(synced.status, "attention");
+  const human = mustRun(["autonomy", "standing", "sync", "--root", project, "--id", standingId], project);
+  assert.match(human.stdout, /NOT up to date/u);
+  // Without a remote, a non-English git still means "no remote": the state stays local.
+  const local = initializeProject("locale");
+  const status = spawnSync(process.execPath, [CLI, "autonomy", "standing", "status", "--root", local, "--json"], {
+    cwd: local, encoding: "utf8", env: { ...cliEnvironment(), LANG: "it_IT.UTF-8", LC_ALL: "it_IT.UTF-8", LANGUAGE: "it" },
+  });
+  assert.equal(status.status, 0, status.stderr);
 });
 
 test("required sharing refuses a project without the remote, and local_only never contacts it", () => {

@@ -5,6 +5,7 @@ import {
   STANDING_APPROVAL_POLICY_DEFAULTS,
   buildStandingApprovalProposal,
 } from "../../lib/standing-approvals.mjs";
+import { remoteFingerprint } from "../../lib/engine/standing-shared.mjs";
 import {
   buildSharedRevocationPayload,
   buildSharedSlotPayload,
@@ -131,4 +132,31 @@ test("the shared state summary is plain and never claims a check that did not ha
   const unreachable = sharedStateSummary({ scope: "shared", remote: "origin", available: false, error: "offline", slots: [], errors: [] });
   assert.equal(unreachable.checked, false);
   assert.equal(unreachable.error, "offline");
+});
+
+test("one repository has one fingerprint whatever the address form, and credentials never count", () => {
+  const forms = [
+    "https://github.com/Acme/Shop.git",
+    "https://user:secret@github.com/acme/shop",
+    "https://www.github.com/acme/shop/",
+    "ssh://git@github.com:22/acme/shop.git",
+    "git@github.com:acme/shop.git",
+    "git@github.com:/acme/shop",
+    "git://github.com/acme//shop.git",
+  ];
+  const fingerprints = new Set(forms.map(remoteFingerprint));
+  assert.equal(fingerprints.size, 1, forms.join(" "));
+  assert.notEqual(remoteFingerprint("https://github.com/acme/shop"), remoteFingerprint("https://github.com/acme/shop-fork"));
+  assert.notEqual(remoteFingerprint("https://github.com/acme/shop"), remoteFingerprint("https://gitlab.com/acme/shop"));
+  assert.notEqual(remoteFingerprint("/srv/git/shop.git"), remoteFingerprint("/srv/git/other.git"));
+  assert.equal(remoteFingerprint("C:\\repos\\shop.git"), remoteFingerprint("C:/repos/shop"));
+});
+
+test("a revocation or a slot kept in this repository's refs still counts in local scope", () => {
+  const record = proposal({ max_deliveries: 1 });
+  const local = { scope: "local", note: "no remote", localRevoked: { reason: "stop" }, localSlots: [] };
+  assert.match(sharedStateReasons(record, local).join(), /revoked on this computer \(stop\)/u);
+  const used = { scope: "local", note: "no remote", localRevoked: null, localSlots: [{ slot: 1 }] };
+  assert.match(sharedStateReasons(record, used).join(), /all 1 deliveries were used/u);
+  assert.deepEqual(sharedStateReasons(record, used, { use: { slot: 1 } }), []);
 });
