@@ -144,10 +144,45 @@ test("three computers refreshing the same baseline at the same moment: exactly o
   }
   const loser = losers[0];
 
-  // A retry from the same baseline stays refused, whoever asks.
+  // A retry before pulling stays refused.
   const retry = run(["baseline", "refresh", "--root", loser, "--from", "BASELINE-INITIAL", "--json"], loser);
   assert.notEqual(retry.status, 0);
-  assert.match(retry.stdout + retry.stderr, /Pull the project records, then run baseline refresh --from BASELINE-INITIAL-R2/u);
+  assert.match(retry.stdout + retry.stderr, /Pull the project records and run the refresh again: it continues from BASELINE-INITIAL-R2/u);
+
+  // The winner approves and shares its successor.
+  const winner = winners[0];
+  mustRun(["baseline", "approve", "--root", winner, "--id", "BASELINE-INITIAL-R2", ...humanApproval("Winner snapshot")], winner);
+  git(winner, ["add", "-A"]);
+  git(winner, ["commit", "--quiet", "-m", "test: winner refresh"]);
+  git(winner, ["push", "--quiet", "origin", "main"]);
+
+  // The loser pulls and asks again from the same baseline: the refresh continues
+  // from the winning successor and re-reads the current files, so the new
+  // snapshot holds both computers' changes, not the loser's old delta.
+  git(loser, ["pull", "--quiet", "--no-rebase", "origin", "main"]);
+  const rebased = JSON.parse(mustRun(["baseline", "refresh", "--root", loser, "--from", "BASELINE-INITIAL", "--json"], loser).stdout);
+  assert.equal(rebased.requested_from, "BASELINE-INITIAL");
+  assert.equal(rebased.previous_baseline_id, "BASELINE-INITIAL-R2");
+  assert.equal(rebased.baseline_id, "BASELINE-INITIAL-R3");
+  const winnerChange = `src/change-${computers.indexOf(winner)}.mjs`;
+  const loserChange = `src/change-${computers.indexOf(loser)}.mjs`;
+  const r3 = JSON.parse(fs.readFileSync(path.join(loser, ".sdlc", "baseline", "BASELINE-INITIAL-R3.json"), "utf8"));
+  assert.ok(r3.source_paths.includes(winnerChange), r3.source_paths.join(","));
+  assert.ok(r3.source_paths.includes(loserChange), r3.source_paths.join(","));
+  // Only the loser's file is new relative to the winning snapshot.
+  assert.deepEqual(r3.refresh.delta, { added: [loserChange], changed: [], removed: [] });
+
+  mustRun(["baseline", "approve", "--root", loser, "--id", "BASELINE-INITIAL-R3", ...humanApproval("Both changes")], loser);
+  const status = JSON.parse(mustRun(["baseline", "status", "--root", loser, "--json"], loser).stdout);
+  const entry = (id) => status.baselines.find((item) => item.id === id);
+  assert.equal(entry("BASELINE-INITIAL-R3").effective_status, "approved", JSON.stringify(status));
+  assert.equal(entry("BASELINE-INITIAL-R3").stale, false, JSON.stringify(entry("BASELINE-INITIAL-R3")));
+  assert.equal(entry("BASELINE-INITIAL-R2").effective_status, "superseded");
+  assert.equal(entry("BASELINE-INITIAL").effective_status, "superseded");
+  assert.deepEqual(remoteRefreshRefs(remote), [
+    "refs/agentic-sdlc/baseline-refresh/BASELINE-INITIAL-R2/successor",
+    "refs/agentic-sdlc/baseline-refresh/BASELINE-INITIAL/successor",
+  ]);
 });
 
 test("a refresh on a computer without a reachable remote writes nothing in a shared project", () => {
