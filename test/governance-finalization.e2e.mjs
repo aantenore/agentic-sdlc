@@ -503,7 +503,13 @@ function createGovernedDeliveryStory(project, {
     "--level", "supervised",
     ...deliveryTargetArgs,
     ...(deliveryKind === "pull_request"
-      ? allowedWritePaths.flatMap((writePath) => ["--write-path", writePath])
+      ? [
+          ...allowedWritePaths.flatMap((writePath) => ["--write-path", writePath]),
+          "--code-review", "not-required",
+          "--code-review-actor-type", "human",
+          "--code-review-approval-source", "explicit-user",
+          "--code-review-summary", "No review needed for this story",
+        ]
       : []),
     ...deliveryActionArgs,
   ], project);
