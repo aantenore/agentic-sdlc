@@ -1040,6 +1040,8 @@ import {
   claimStory,
   closeHandoff,
   compactTraces,
+  explainHistoryReadLimitError,
+  verifyTraceHistory,
   completeStoryStep,
   createContract,
   createStory,
@@ -1187,6 +1189,7 @@ function buildCliRuntimeHandlerRegistry() {
     "trace.append": call(appendTrace),
     "trace.evidence.bind": call(bindHistoricalTraceEvidencePolicy),
     "trace.compact": call(compactTraces),
+    "trace.verify": call(verifyTraceHistory),
     "sync.record": call(recordSyncEvent),
     "test.record": call(recordTestRun),
     "incident.record": call(recordIncident),
@@ -1357,7 +1360,8 @@ async function main() {
       failUsage(`Unknown command: ${parsed.positionals.slice(0, 2).join(" ")}`);
     }
     await dispatchWithMutationGovernance(registry, resolution, { ...invocation, context });
-  } catch (error) {
+  } catch (caught) {
+    const error = explainHistoryReadLimitError(caught);
     const jsonRequested = parsed.options?.json === true || rawJsonRequested;
     const errorRedaction = error instanceof UnsupportedNodeRuntimeError
       ? cliErrorRedactionResolution(OPERATIONAL_REDACTION_POLICY, false)
