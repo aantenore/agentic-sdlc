@@ -812,30 +812,18 @@
           "$ref": "#/$defs/budget_defaults"
         },
         "maxima": {
-          "description": "Largest soft or hard limit a proposal or budget amendment may set for a metric: a whole number, or a decimal string for money metrics in the budget's currency.",
+          "description": "Largest soft or hard limit a new proposal or budget amendment may set per metric: a whole number, or a decimal string (or {amount, currency}) for money metrics. The shape is checked when a budget is prepared or amended, so an older configuration stays loadable.",
           "type": "object",
-          "additionalProperties": {
-            "oneOf": [
-              { "type": "integer", "minimum": 1 },
-              { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$" }
-            ]
-          }
+          "additionalProperties": true
         },
         "warning_thresholds_percent": {
-          "description": "Project-wide warning percentages; they take precedence over budget_policy.defaults and apply unless a proposal's --budget-json sets its own.",
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": { "type": "integer", "minimum": 1, "maximum": 99 }
+          "description": "Project-wide warning percentages (integers from 1 to 99); they take precedence over budget_policy.defaults unless a proposal's --budget-json sets its own. Checked when a budget is prepared."
         },
         "completion_reserve_percent": {
-          "description": "Project-wide completion reserve; it takes precedence over budget_policy.defaults and applies unless a proposal's --budget-json sets its own.",
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 50
+          "description": "Project-wide completion reserve (an integer from 0 to 50); it takes precedence over budget_policy.defaults unless a proposal's --budget-json sets its own. Checked when a budget is prepared."
         },
         "on_limit": {
-          "const": "request_extension"
+          "description": "Only request_extension has an effect; checked when a budget is prepared."
         },
         "presentation": {
           "type": "object",
@@ -914,20 +902,12 @@
         "limit_policy": {
           "type": "object",
           "required": ["on_warning", "on_soft_limit", "on_hard_limit", "on_metering_violation"],
-          "properties": {
-            "on_warning": { "const": "notify" },
-            "on_soft_limit": { "const": "checkpoint" },
-            "on_hard_limit": { "const": "stop" },
-            "on_metering_violation": { "const": "stop" }
-          },
+          "description": "Only notify, checkpoint, stop, and stop have an effect; other values are refused when a budget is prepared.",
           "additionalProperties": true
         },
         "extensions": {
           "type": "object",
-          "properties": {
-            "automatic_extension": { "const": false },
-            "on_limit": { "const": "request_extension" }
-          },
+          "description": "automatic_extension must be false and on_limit must be request_extension; checked when a budget is prepared.",
           "additionalProperties": true
         }
       },

@@ -419,6 +419,51 @@ test("usage history recorded before the cumulative rule existed stays readable",
   );
 });
 
+test("an older pinned configuration with custom budget values still loads and is checked only for new budgets", () => {
+  const project = tmpProject("budget-legacy-config");
+  mustRun(["init", "--root", project, "--project-name", "E2E", "--force"]);
+  fs.writeFileSync(path.join(project, "README.md"), "# Fixture\n\nLocal repository evidence.\n");
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = readJson(configPath);
+  config.budget_policy.completion_reserve_percent = 60;
+  config.budget_policy.on_limit = "ask_owner";
+  config.budget_policy.maxima = { cost: { amount: "20.00", currency: "USD" } };
+  config.budget_policy.defaults.limit_policy.on_soft_limit = "partial_delivery";
+  config.budget_policy.defaults.extensions.automatic_extension = true;
+  writeJson(configPath, config);
+  pinProjectConfig(project);
+
+  const status = JSON.parse(mustRun(["config", "status", "--root", project, "--json"]).stdout);
+  assert.notEqual(status.status, "invalid", status.validation_error);
+  // Mutating commands keep working.
+  mustRun(["baseline", "propose", "--root", project, "--id", "BASELINE-1", "--source", "README.md", "--summary", "Current state"]);
+  mustRun(["baseline", "approve", "--root", project, "--id", "BASELINE-1", ...humanApproval("Baseline is accurate")]);
+
+  const prepare = (id, budget) => [
+    "assessment", "proposal", "prepare", "--root", project, "--id", id,
+    "--baseline", "BASELINE-1", "--story", `ST-${id}`, "--requirement", `REQ-${id}`,
+    "--scope-title", "Legacy configuration", "--scope-summary", "Check the legacy configuration.",
+    "--format", "Markdown", "--delivery", "artifact",
+    "--artifact", `.sdlc/stories/ST-${id}/outputs/technical-assessment.md`,
+    ...(budget ? ["--budget-json", JSON.stringify(budget)] : []),
+  ];
+  mustFail(
+    prepare("ASSESS-DEFAULTS"),
+    /budget settings in \.sdlc\/config\.json cannot be used for a new budget:[\s\S]*completion_reserve_percent is 60; use a whole number from 0 to 50[\s\S]*config migrate/u,
+  );
+  const explicit = (soft) => ({
+    completion_reserve_percent: 15,
+    extensions: { on_limit: "request_extension" },
+    limits: { cost: { unit: "money", currency: "USD", metering: "estimated", soft } },
+  });
+  mustFail(
+    prepare("ASSESS-POLICY-ON-LIMIT", { completion_reserve_percent: 15, limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10 } } }),
+    /budget_policy\.on_limit is "ask_owner"; only "request_extension" has an effect/u,
+  );
+  mustFail(prepare("ASSESS-OVER-MAX", explicit("25.00")), /limits\.cost\.soft 25 exceeds the project maximum 20/u);
+  mustRun(prepare("ASSESS-WITHIN-MAX", explicit("10.00")));
+});
+
 test("the shipped default budget is soft-only, so a normal project can complete without signing keys", () => {
   const { project, prepared } = runningAssessment("budget-default-complete", null);
   const limits = prepared.proposal.execution_budget.limits;
@@ -512,7 +557,16 @@ test("project budget settings take precedence over the defaults template and are
   const config = readJson(configPath);
   config.budget_policy.warning_thresholds_percent = [150];
   writeJson(configPath, config);
-  mustFail(["config", "migrate", "--root", project, "--json"], /warning_thresholds_percent/u);
+  // The configuration still loads (older pinned values must keep working), but
+  // a new budget cannot use the out-of-range value.
+  pinProjectConfig(project);
+  fs.writeFileSync(path.join(project, "README.md"), "# Fixture\n\nLocal repository evidence.\n");
+  mustRun(["baseline", "propose", "--root", project, "--id", "BASELINE-1", "--source", "README.md", "--summary", "Current state"]);
+  mustRun(["baseline", "approve", "--root", project, "--id", "BASELINE-1", ...humanApproval("Baseline is accurate")]);
+  mustFail([
+    "assessment", "proposal", "prepare", "--root", project, "--id", "ASSESS-1", "--baseline", "BASELINE-1",
+    "--scope-title", "Thresholds", "--scope-summary", "Out-of-range thresholds are refused.",
+  ], /budget_policy\.warning_thresholds_percent is \[150\]; use a list of whole numbers from 1 to 99/u);
 
   // Without a lock, missing keys are inherited from the legacy defaults; the
   // explicit "hard": null keeps the old hard limits from coming back.
