@@ -335,3 +335,45 @@ test("budget amendments bind base and result without mutating the original", () 
     /cannot lower completion_reserve_percent/,
   );
 });
+
+test("cumulative aggregation is reserved for trusted attested sources", () => {
+  const budget = normalizeExecutionBudget(budgetInput());
+  for (const assurance of ["manual_declared", "advisory_observed"]) {
+    assert.throws(
+      () => buildExecutionUsageReceipt({
+        id: `usage-${assurance}-cumulative`,
+        execution_id: "execution-001",
+        budget,
+        usage: { calls: 5 },
+        metering: { calls: "estimated" },
+        ended_at: "2026-07-14T09:00:00.000Z",
+        source: { adapter: "manual", assurance, aggregation: "cumulative", attestation_ref: null },
+      }),
+      /'cumulative' requires trusted_attested assurance/,
+    );
+  }
+});
+
+test("a regressing cumulative receipt is rejected before it can join the history", () => {
+  const budget = normalizeExecutionBudget({
+    id: "budget-cumulative",
+    limits: { steps: { unit: "steps", metering: "exact", soft: 10, hard: 20 } },
+  });
+  const cumulative = (id, steps, endedAt) => buildExecutionUsageReceipt({
+    id,
+    execution_id: "execution-001",
+    budget,
+    usage: { steps },
+    metering: { steps: "exact" },
+    started_at: "2026-07-14T08:00:00.000Z",
+    ended_at: endedAt,
+    source: trustedMeterSource(),
+  });
+  const first = cumulative("usage-first", 6, "2026-07-14T09:00:00.000Z");
+  const regressed = cumulative("usage-regressed", 4, "2026-07-14T09:10:00.000Z");
+  assert.equal(evaluateBudgetUsage(budget, [first]).usage.steps, 6);
+  assert.throws(
+    () => evaluateBudgetUsage(budget, [first, regressed]),
+    /regressed below previously recorded usage/,
+  );
+});
