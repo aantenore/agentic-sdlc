@@ -932,6 +932,7 @@ import {
   approveCapabilityRecommendation,
   proposeCapabilityProfile,
   proposeCapabilityRecommendation,
+  showCapabilityInventory,
   showCapabilityStatus,
 } from "../lib/engine/capability.mjs";
 import {
@@ -1179,6 +1180,7 @@ function buildCliRuntimeHandlerRegistry() {
     "capability.recommend": call(proposeCapabilityRecommendation),
     "capability.approve": call(approveCapabilityRecommendation),
     "capability.status": call(showCapabilityStatus),
+    "capability.inventory": call(showCapabilityInventory),
     "approval.requests": call(showApprovalRequests),
     "authorization.grant": call(grantAuthorization),
     "authorization.status": call(showAuthorizations),

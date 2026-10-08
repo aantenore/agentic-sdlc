@@ -1,0 +1,225 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import test, { after } from "node:test";
+import { fileURLToPath } from "node:url";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const bin = path.join(repoRoot, "bin", "agentic-sdlc.mjs");
+const created = new Set();
+
+function temporaryDirectory(label) {
+  const directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `sdlc-inventory-${label}-`)));
+  created.add(directory);
+  return directory;
+}
+
+after(() => {
+  for (const directory of created) fs.rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
+  created.clear();
+});
+
+// Every command runs against a throw-away home so the real installed tools of
+// whoever runs the suite never change what is asserted.
+function run(args, { cwd = repoRoot, home, env = {} } = {}) {
+  const environment = { ...process.env };
+  for (const key of [
+    "CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_USER_ID", "CLAUDECODE",
+    "AGENTIC_SDLC_AGENT_HOST", "CLAUDE_CONFIG_DIR", "CODEX_HOME",
+  ]) delete environment[key];
+  if (home) {
+    environment.HOME = home;
+    environment.USERPROFILE = home;
+  }
+  Object.assign(environment, env);
+  return spawnSync(process.execPath, [bin, ...args], {
+    cwd,
+    encoding: "utf8",
+    env: environment,
+    timeout: 60_000,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+}
+
+function mustRun(args, options) {
+  const result = run(args, options);
+  assert.equal(result.status, 0, `${args.join(" ")}\nSTDOUT:\n${result.stdout}\nSTDERR:\n${result.stderr}`);
+  return result;
+}
+
+function writeFile(root, relativePath, content) {
+  const target = path.join(root, relativePath);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, content);
+}
+
+function skillFile(root, directory, name, description) {
+  writeFile(root, `${directory}/SKILL.md`, `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${name}\n`);
+}
+
+function listTree(root) {
+  const entries = [];
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const full = path.join(directory, entry.name);
+      entries.push(path.relative(root, full));
+      if (entry.isDirectory()) visit(full);
+    }
+  };
+  visit(root);
+  return entries.sort();
+}
+
+const SENTINEL = ["sentinel", "server", "value"].join("_");
+
+// A project and a home that hold a skill, a command, a plugin, and MCP
+// servers for both supported host families, plus values that must not leak.
+function installedLayout() {
+  const project = temporaryDirectory("project");
+  const home = temporaryDirectory("home");
+  skillFile(project, ".claude/skills/react-review", "react-review", "Review React components and hooks.");
+  skillFile(project, ".agents/skills/sql-helper", "sql-helper", "Write and review Postgres queries.");
+  writeFile(project, ".claude/commands/ship.md", "---\ndescription: Ship the branch\n---\n");
+  writeFile(project, ".mcp.json", JSON.stringify({
+    mcpServers: {
+      "repo-index": { command: "node", args: ["index.js", `--flag=${SENTINEL}`], env: { SERVICE_ENV: SENTINEL } },
+      "docs-hosted": { type: "http", url: `https://example.invalid/${SENTINEL}`, headers: { Authorization: `Bearer ${SENTINEL}` } },
+    },
+  }));
+  skillFile(home, ".claude/skills/go-services", "go-services", "Design Go services.");
+  skillFile(home, ".codex/skills/terraform-ops", "terraform-ops", "Operate Terraform stacks.");
+  writeFile(home, ".claude/plugins/cache/market/widgets/1.0.0/.claude-plugin/plugin.json", JSON.stringify({
+    name: "widgets",
+    version: "1.0.0",
+    description: "Widget helpers.",
+  }));
+  skillFile(home, ".claude/plugins/cache/market/widgets/1.0.0/skills/widget-builder", "widget-builder", "Build widgets with Vue.");
+  writeFile(home, ".codex/plugins/cache/market/gadgets/2.1.0/.codex-plugin/plugin.json", JSON.stringify({
+    name: "gadgets",
+    version: "2.1.0",
+    description: "Gadget helpers.",
+  }));
+  skillFile(home, ".codex/plugins/cache/market/gadgets/2.1.0/skills/gadget-builder", "gadget-builder", "Build gadgets in Rust.");
+  writeFile(home, ".codex/config.toml", [
+    "[mcp_servers.codex-local]",
+    "command = \"node\"",
+    `args = ["server.js", "--flag=${SENTINEL}"]`,
+    "[mcp_servers.codex-local.env]",
+    `SERVICE_ENV = "${SENTINEL}"`,
+    "",
+  ].join("\n"));
+  return { project, home };
+}
+
+test("capability inventory lists both host layouts without leaking values or touching the project", () => {
+  const { project, home } = installedLayout();
+  const before = listTree(project);
+  const result = mustRun(["capability", "inventory", "--root", project, "--json"], { cwd: project, home });
+  assert.deepEqual(listTree(project), before, "the command is read-only and does not create .sdlc");
+  assert.equal(result.stdout.includes(SENTINEL), false);
+  assert.equal(result.stdout.includes(project), false, "no absolute project path is printed");
+  assert.equal(result.stdout.includes(home), false, "no absolute home path is printed");
+
+  const inventory = JSON.parse(result.stdout);
+  assert.equal(inventory.schema_version, "capability-inventory:v1");
+  const skills = new Map(inventory.skills.map((entry) => [entry.name, entry]));
+  assert.deepEqual([...skills.keys()].sort(), [
+    "gadget-builder",
+    "go-services",
+    "react-review",
+    "sql-helper",
+    "terraform-ops",
+    "widget-builder",
+  ]);
+  assert.equal(skills.get("react-review").path, ".claude/skills/react-review/SKILL.md");
+  assert.equal(skills.get("sql-helper").path, ".agents/skills/sql-helper/SKILL.md");
+  assert.equal(skills.get("go-services").path, "~/.claude/skills/go-services/SKILL.md");
+  assert.equal(skills.get("terraform-ops").path, "~/.codex/skills/terraform-ops/SKILL.md");
+  assert.equal(skills.get("widget-builder").plugin, "widgets");
+  assert.equal(skills.get("gadget-builder").plugin, "gadgets");
+  assert.equal(skills.get("react-review").description, "Review React components and hooks.");
+  assert.deepEqual(inventory.plugins.map((plugin) => `${plugin.name}@${plugin.version}`).sort(), ["gadgets@2.1.0", "widgets@1.0.0"]);
+  assert.deepEqual(inventory.commands.map((entry) => entry.name), ["ship"]);
+  const servers = new Map(inventory.mcp.map((entry) => [entry.name, entry]));
+  assert.deepEqual([...servers.keys()].sort(), ["codex-local", "docs-hosted", "repo-index"]);
+  assert.equal(servers.get("repo-index").transport, "stdio");
+  assert.equal(servers.get("docs-hosted").transport, "http");
+  assert.equal(servers.get("codex-local").path, "~/.codex/config.toml");
+  assert.equal(typeof inventory.correlation_id, "string");
+});
+
+test("capability inventory explains itself in plain English and Italian with details kept optional", () => {
+  const { project, home } = installedLayout();
+  for (const locale of ["en", "it"]) {
+    const result = mustRun(["capability", "inventory", "--root", project, "--locale", locale], { cwd: project, home });
+    const divider = locale === "it" ? "Dettagli tecnici (facoltativi):" : "Technical details (optional):";
+    assert.ok(result.stdout.includes(divider), result.stdout);
+    const [primary, details] = result.stdout.split(divider);
+    const labels = locale === "it"
+      ? ["Risultato:", "Cosa cambia in pratica:", "Cosa devi decidere:", "Cosa resta protetto:", "Prossimo passo:"]
+      : ["Outcome:", "What this changes in practice:", "What you need to decide:", "What remains protected:", "Next step:"];
+    for (const label of labels) assert.ok(primary.includes(label), `${locale} output lacks ${label}`);
+    assert.doesNotMatch(primary, /\.sdlc\/|--[a-z]|agentic-sdlc\s+[a-z]|\b(?:profile|schema|hash|receipt)\b/iu);
+    assert.match(details, /react-review/u);
+    assert.match(details, /go-services/u);
+    assert.match(details, /~\/\.codex\/config\.toml/u);
+    assert.equal(result.stdout.includes(SENTINEL), false);
+  }
+});
+
+test("capability inventory follows the configured locations and can be turned off", () => {
+  const { project, home } = installedLayout();
+  mustRun(["init", "--root", project, "--project-name", "Inventory", "--force"], { cwd: project, home });
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  skillFile(project, "team/tools/review-kit", "review-kit", "Shared review checklist.");
+  config.capability_discovery_policy.inventory.sources = [
+    { id: "team-tools", kind: "skills", scope: "project", path: "team/tools" },
+    { id: "user-codex-skills", kind: "skills", scope: "user", path: "${CODEX_HOME:-~/.codex}/skills" },
+  ];
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const preview = JSON.parse(mustRun(["config", "migrate", "--root", project, "--json"], { cwd: project, home }).stdout);
+  mustRun([
+    "config", "migrate", "--root", project, "--apply", "--plan-hash", preview.plan.plan_hash,
+    "--actor-type", "system", "--json",
+  ], { cwd: project, home });
+
+  const custom = JSON.parse(mustRun(["capability", "inventory", "--root", project, "--json"], { cwd: project, home }).stdout);
+  assert.deepEqual(custom.skills.map((entry) => entry.name).sort(), ["review-kit", "terraform-ops"]);
+  assert.deepEqual(custom.mcp, []);
+  assert.deepEqual(custom.sources.map((entry) => entry.id), ["team-tools", "user-codex-skills"]);
+
+  const relocated = temporaryDirectory("codex-home");
+  skillFile(relocated, "skills/relocated-skill", "relocated-skill", "Found through the host variable.");
+  const moved = JSON.parse(mustRun(["capability", "inventory", "--root", project, "--json"], {
+    cwd: project,
+    home,
+    env: { CODEX_HOME: relocated },
+  }).stdout);
+  assert.deepEqual(moved.skills.map((entry) => entry.name).sort(), ["relocated-skill", "review-kit"]);
+  assert.equal(moved.skills.find((entry) => entry.name === "relocated-skill").path.startsWith("(external)/"), true);
+
+  config.capability_discovery_policy.inventory.enabled = false;
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const offPreview = JSON.parse(mustRun(["config", "migrate", "--root", project, "--json"], { cwd: project, home }).stdout);
+  mustRun([
+    "config", "migrate", "--root", project, "--apply", "--plan-hash", offPreview.plan.plan_hash,
+    "--actor-type", "system", "--json",
+  ], { cwd: project, home });
+  const off = JSON.parse(mustRun(["capability", "inventory", "--root", project, "--json"], { cwd: project, home }).stdout);
+  assert.equal(off.enabled, false);
+  assert.deepEqual(off.counts, { skills: 0, commands: 0, plugins: 0, mcp: 0 });
+  const offText = mustRun(["capability", "inventory", "--root", project], { cwd: project, home }).stdout;
+  assert.match(offText, /turned off in this project's settings/u);
+});
+
+test("capability inventory is a catalogued read-only command", () => {
+  const model = JSON.parse(mustRun(["help", "capability", "inventory", "--json"]).stdout);
+  assert.equal(model.command.path, "capability inventory");
+  assert.match(model.human.protection, /Reads local records only/u);
+  assert.ok(model.examples.every((example) => !/<[^>]+>/u.test(example)));
+  assert.match(mustRun(["help", "capability"]).stdout, /capability inventory/u);
+  assert.match(mustRun(["completion", "bash"]).stdout, /inventory/u);
+});
