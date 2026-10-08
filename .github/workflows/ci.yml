@@ -11,6 +11,13 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same pull request cancels its older run, so superseded
+# runs never hold the runners. Pushes to main and scheduled runs are never
+# cancelled: the release gate needs the full run of each main commit.
+concurrency:
+  group: ci-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.sha }}
+  cancel-in-progress: ${{ github.event.pull_request != null }}
+
 jobs:
   # Linux runs the whole suite in one job per Node line. macOS and Windows are
   # slower runners, so their suites are split into parallel shards below. When
