@@ -225,6 +225,16 @@ test("enforces auth, Host, read-only methods, and exact portfolio queries", asyn
     assert.equal(response.statusCode, 400, endpoint);
     assert.equal(response.json.error.code, "invalid_portfolio_request", endpoint);
   }
+  const missingProject = await request(running, "/api/v1/portfolio/project");
+  assert.equal(
+    missingProject.json.error.message,
+    'Exactly one "project" query parameter must be provided',
+  );
+  const missingPath = await request(running, "/api/v1/portfolio/source?project=alpha");
+  assert.equal(
+    missingPath.json.error.message,
+    'Exactly one "project" and one "path" query parameter must be provided',
+  );
 
   const unknown = await request(running, "/api/v1/portfolio/project?project=missing");
   assert.equal(unknown.statusCode, 404);

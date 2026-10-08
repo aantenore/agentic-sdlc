@@ -6,25 +6,25 @@
   --surface-selected: #edf3ff;
   --ink: #151820;
   --ink-secondary: #515662;
-  --ink-muted: #727987;
+  --ink-muted: #5a6170;
   --line: #d9dde5;
   --line-strong: #bec4cf;
   --accent: #1f5eff;
   --accent-strong: #1748c9;
   --accent-soft: #dfe8ff;
-  --success: #21864b;
+  --success: #1b6f3d;
   --success-soft: #edf8f0;
-  --warning: #b46a00;
+  --warning: #8f5400;
   --warning-soft: #fff7e7;
   --danger: #b33a3a;
   --danger-soft: #fff0f0;
-  --neutral: #6e7480;
+  --neutral: #5f6674;
   --shadow: 0 8px 28px rgb(23 31 48 / 8%);
   --font-sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --radius-sm: 4px;
   --radius-md: 7px;
-  --focus: 0 0 0 3px rgb(31 94 255 / 24%);
+  --focus-ring: #1748c9;
   --app-bar-height: 56px;
   --nav-width: 122px;
   --raw-collapsed-height: 46px;
@@ -68,8 +68,12 @@ button:focus-visible,
 select:focus-visible,
 a:focus-visible,
 [tabindex]:focus-visible {
-  outline: none;
-  box-shadow: var(--focus);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+[hidden] {
+  display: none !important;
 }
 
 button {
@@ -188,7 +192,7 @@ svg {
   align-items: center;
   gap: 7px;
   color: var(--ink-secondary);
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -306,7 +310,7 @@ svg {
   gap: 10px;
   padding: 8px 13px;
   color: var(--ink-secondary);
-  font-size: 11px;
+  font-size: 12px;
   text-align: left;
 }
 
@@ -346,7 +350,7 @@ svg {
   gap: 2px;
   padding: 14px 13px 18px;
   border-top: 1px solid var(--line);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .nav-meta-label {
@@ -392,7 +396,7 @@ svg {
 
 .human-guidance-field dt {
   color: var(--ink-secondary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -572,7 +576,7 @@ svg {
 
 .summary-answer-label {
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -586,7 +590,7 @@ svg {
 
 .summary-recorded-answer .status-text {
   justify-self: start;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .summary-answer > .human-guidance,
@@ -614,7 +618,7 @@ svg {
   gap: 8px;
   margin-top: 8px;
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .summary-meta .provenance {
@@ -643,7 +647,7 @@ svg {
   padding: 8px 12px;
   color: var(--ink-secondary);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   list-style: none;
 }
 
@@ -660,7 +664,7 @@ svg {
 .diagnostics-disclosure > summary span {
   margin-left: auto;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -679,7 +683,7 @@ svg {
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink-secondary);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .diagnostics-list .diagnostic {
@@ -720,7 +724,7 @@ svg {
   border: 1px solid currentColor;
   border-radius: 999px;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -730,7 +734,7 @@ svg {
   padding: 9px 12px;
   border-top: 1px solid var(--line);
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .evidence-workspace {
@@ -810,7 +814,7 @@ svg {
 .section-heading p {
   margin: 2px 0 0;
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .section-heading-actions {
@@ -826,7 +830,7 @@ svg {
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink-secondary);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .lineage-scroll {
@@ -863,7 +867,7 @@ svg {
   padding: 7px 8px;
   background: #fafbfc;
   color: var(--ink-secondary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -887,7 +891,7 @@ svg {
   border: 1px solid var(--line-strong);
   border-radius: 50%;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .iteration-heading {
@@ -902,7 +906,7 @@ svg {
   display: block;
   margin-top: 2px;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -929,7 +933,7 @@ svg {
 
 .iteration-select-button strong {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .lineage-table tr[data-current="true"] .iteration-heading {
@@ -989,7 +993,7 @@ svg {
 
 .state-label {
   color: var(--ink-secondary);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .provenance {
@@ -997,7 +1001,7 @@ svg {
   align-items: center;
   gap: 4px;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1032,7 +1036,7 @@ svg {
   border-top: 1px solid var(--line);
   background: #fafbfc;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .dossier-panel > .diagnostic {
@@ -1054,7 +1058,7 @@ svg {
   display: block;
   margin-bottom: 4px;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1070,7 +1074,7 @@ svg {
   max-width: 680px;
   margin: 4px 0 0;
   color: var(--ink-secondary);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .dossier-meta-actions {
@@ -1130,7 +1134,7 @@ svg {
   border-radius: 50%;
   background: var(--surface);
   color: var(--ink-secondary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -1143,7 +1147,7 @@ svg {
   display: block;
   margin-top: 2px;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .dossier-lane-body {
@@ -1193,7 +1197,7 @@ svg {
 
 .dossier-item-title {
   color: var(--ink);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 750;
   line-height: 1.35;
 }
@@ -1201,13 +1205,13 @@ svg {
 .dossier-item > .human-guidance-notice {
   margin: 8px 10px 0;
   padding: 6px 8px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .dossier-item-summary {
   margin-top: 4px;
   color: var(--ink-secondary);
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -1239,7 +1243,7 @@ svg {
 .dossier-narrative-part > span {
   display: block;
   color: var(--ink-muted);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -1248,7 +1252,7 @@ svg {
 .dossier-narrative-part p {
   margin: 3px 0 0;
   color: var(--ink-secondary);
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -1265,7 +1269,7 @@ svg {
 .dossier-item-kind,
 .dossier-linkage {
   color: var(--ink-muted);
-  font-size: 8px;
+  font-size: 12px;
 }
 
 .dossier-item-kind {
@@ -1294,14 +1298,14 @@ svg {
 
 .dossier-missing strong,
 .dossier-unavailable strong {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .dossier-missing p,
 .dossier-unavailable p {
   margin: 0;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
@@ -1318,7 +1322,7 @@ svg {
   padding: 10px 14px;
   color: var(--ink-secondary);
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -1335,19 +1339,19 @@ svg {
   padding: 11px 14px;
   color: var(--ink-secondary);
   cursor: pointer;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .unlinked-lineage > summary span {
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .unlinked-lineage > p {
   margin: 0;
   padding: 0 14px 10px;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .unlinked-lineage-list {
@@ -1426,7 +1430,7 @@ svg {
   display: block;
   overflow: hidden;
   color: var(--ink);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1437,7 +1441,7 @@ svg {
   margin-top: 3px;
   overflow: hidden;
   color: var(--ink-secondary);
-  font-size: 10px;
+  font-size: 12px;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -1448,7 +1452,7 @@ svg {
   justify-items: end;
   gap: 4px;
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .status-text {
@@ -1481,7 +1485,7 @@ svg {
   border-bottom: 1px solid #e7e9ee;
   background: #fafbfc;
   color: var(--ink-secondary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -1491,7 +1495,7 @@ svg {
   border-radius: 999px;
   background: var(--surface);
   color: var(--ink-muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .verification-row {
@@ -1533,7 +1537,7 @@ svg {
   display: block;
   margin-bottom: 5px;
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1560,7 +1564,7 @@ svg {
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -1579,7 +1583,7 @@ svg {
 .intent-evidence-field dt {
   margin-bottom: 3px;
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1663,7 +1667,7 @@ svg {
 .empty-inline {
   padding: 22px 14px;
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 12px;
   text-align: center;
 }
 
@@ -1691,7 +1695,7 @@ svg {
 .inspector-header span {
   overflow: hidden;
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1715,7 +1719,7 @@ svg {
 .inspector-empty p {
   max-width: 270px;
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .inspector-section {
@@ -1725,13 +1729,13 @@ svg {
 
 .inspector-section h3 {
   margin: 0 0 7px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .inspector-section p {
   margin: 0;
   color: var(--ink-secondary);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.55;
   white-space: pre-wrap;
 }
@@ -1764,7 +1768,7 @@ svg {
 
 .explanation-label {
   color: var(--success);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1776,7 +1780,7 @@ svg {
   margin: 0;
   padding-left: 16px;
   color: var(--ink-secondary);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .source-row {
@@ -1795,7 +1799,7 @@ svg {
   overflow-wrap: anywhere;
   color: var(--ink-secondary);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .source-button {
@@ -1805,7 +1809,7 @@ svg {
   gap: 4px;
   padding: 2px;
   color: var(--accent-strong);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -1848,13 +1852,13 @@ svg {
 
 .raw-toggle strong {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .raw-toggle span {
   overflow: hidden;
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1882,7 +1886,7 @@ svg {
   border-radius: var(--radius-sm);
   color: var(--ink-muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .raw-content {
@@ -1949,7 +1953,7 @@ svg {
   border-radius: 999px;
   background: var(--surface-muted);
   color: var(--ink-secondary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -2014,7 +2018,7 @@ svg {
 .portfolio-counts dt {
   overflow: hidden;
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2042,7 +2046,7 @@ svg {
 .portfolio-preview-kind {
   display: block;
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -2415,4 +2419,65 @@ svg {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+.inspector-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.inspector-status-separator {
+  color: var(--ink-muted);
+}
+
+.diagnostics-disclosure[data-severity="info"] > summary strong,
+.diagnostics-disclosure[data-severity="info"] > summary svg {
+  color: var(--ink-secondary);
+}
+
+.diagnostics-quiet-summary {
+  margin: 0;
+  padding: 8px 14px 10px;
+  color: var(--ink-secondary);
+}
+
+.empty-explained {
+  display: grid;
+  gap: 6px;
+  max-width: 62ch;
+  padding: 14px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  color: var(--ink-secondary);
+}
+
+.empty-explained strong {
+  color: var(--ink);
+}
+
+.empty-explained p,
+.empty-explained ul {
+  margin: 0;
+}
+
+.empty-explained ul {
+  padding-left: 18px;
+}
+
+.empty-explained code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.summary-empty-combined {
+  grid-column: 1 / -1;
+}
+
+.diagnostics-disclosure[data-severity="info"] {
+  border-color: var(--line);
+  background: var(--surface-muted);
 }

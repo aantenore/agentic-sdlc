@@ -274,7 +274,7 @@ test("absolute paths and executable command lines remain only in optional techni
   }
 });
 
-test("approval and correction next actions direct people back to Codex chat", (t) => {
+test("approval and correction next actions direct people back to the agent conversation", (t) => {
   const previousDocument = globalThis.document;
   globalThis.document = fakeDocument();
   t.after(() => {
@@ -307,8 +307,8 @@ test("approval and correction next actions direct people back to Codex chat", (t
   for (const locale of ["en", "it"]) {
     setLocale(locale);
     const expected = locale === "it"
-      ? /chat di Codex[\s\S]*linguaggio naturale/iu
-      : /Codex chat[\s\S]*natural language/iu;
+      ? /conversazione con il tuo agente[\s\S]*linguaggio naturale/iu
+      : /your agent conversation[\s\S]*natural language/iu;
     for (const item of items) {
       const guidance = humanGuidanceForItem(item);
       assert.match(guidance.nextAction, expected, `${locale}/${item.type}/${item.status}`);

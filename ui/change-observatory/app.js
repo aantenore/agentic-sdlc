@@ -2,9 +2,11 @@ import { ObservatoryApi, accessTokenFromHash } from "./api.js";
 import {
   phaseSelectionId,
   phaseSelectionItem,
+  hasMissingKnowledgeBase,
   renderDiagnostics,
   renderFatalError,
   renderInspector,
+  renderKnowledgeBaseMissing,
   renderPrimary,
   renderProjectControls,
   renderSummary,
@@ -39,6 +41,8 @@ import {
 const locale = setLocale(localeFromLocation(window.location));
 applyDocumentLocale(document, locale);
 const portfolioMode = portfolioModeFromLocation(window.location);
+
+const UNKNOWN_PROJECT = "Unknown project";
 
 const VALID_VIEWS = new Set([
   "overview",
@@ -104,6 +108,7 @@ const state = {
   rawController: null,
   rawGeneration: 0,
   rawExpanded: false,
+  rawReturnFocus: null,
 };
 const loadCoordinator = new LatestRequestCoordinator();
 
@@ -210,7 +215,11 @@ function render() {
   ) return;
   setProjectWorkspaceContext(state.model.project.name);
   updateNavigation();
-  renderPrimary(elements.primary, state.model, state);
+  if (hasMissingKnowledgeBase(state.model)) {
+    renderKnowledgeBaseMissing(elements.primary, state.model);
+  } else {
+    renderPrimary(elements.primary, state.model, state);
+  }
   renderInspector(elements.inspector, state.selectedItem, {
     portfolioProjectId: state.portfolioProjectId,
   });
@@ -244,6 +253,22 @@ async function loadModel({ preserveSelection = false } = {}) {
   } finally {
     if (request.isCurrent()) elements.app.setAttribute("aria-busy", "false");
   }
+}
+
+// A project whose record has no readable name keeps the identifier chosen in
+// the portfolio file instead of the generic placeholder.
+function withManifestProjectName(model, project) {
+  const unnamed = model.project.name === UNKNOWN_PROJECT;
+  const unidentified = model.project.id === UNKNOWN_PROJECT;
+  if (!unnamed && !unidentified) return model;
+  return {
+    ...model,
+    project: {
+      ...model.project,
+      ...(unidentified ? { id: project.id } : {}),
+      ...(unnamed ? { name: project.name } : {}),
+    },
+  };
 }
 
 function applyProjectModel(model, {
@@ -450,8 +475,9 @@ async function loadPortfolioProject(projectId, {
   setDetailNavigationEnabled(false);
   setApiStatus("Loading project…", "loading");
   try {
-    const model = await api.loadProject(project.id, { signal: request.signal });
+    const loaded = await api.loadProject(project.id, { signal: request.signal });
     if (!request.isCurrent() || state.selectedProjectId !== project.id) return;
+    const model = withManifestProjectName(loaded, project);
     applyProjectModel(model, {
       portfolioProjectId: project.id,
       preservedSelection,
@@ -516,11 +542,35 @@ function setNavigationOpen(open) {
   elements.navToggle.setAttribute("aria-expanded", String(open));
 }
 
+function focusIsInsideRawDrawer() {
+  return Boolean(document.activeElement?.closest?.("#raw-drawer"));
+}
+
 function setRawExpanded(expanded) {
+  const wasExpanded = state.rawExpanded;
+  if (expanded && !wasExpanded) {
+    const active = document.activeElement;
+    state.rawReturnFocus = active && !active.closest?.("#raw-drawer") ? active : elements.rawToggle;
+  }
+  const focusWasInside = focusIsInsideRawDrawer();
   state.rawExpanded = expanded;
   elements.rawDrawer.dataset.expanded = String(expanded);
   elements.rawToggle.setAttribute("aria-expanded", String(expanded));
   elements.rawContent.hidden = !expanded;
+  if (expanded && !wasExpanded) {
+    // Keyboard users land on the record so they can read and scroll it at once.
+    elements.rawContent.querySelector("pre")?.focus?.({ preventScroll: true });
+  } else if (!expanded && wasExpanded) {
+    const target = state.rawReturnFocus ?? elements.rawToggle;
+    state.rawReturnFocus = null;
+    if (focusWasInside) target.focus?.({ preventScroll: true });
+  }
+}
+
+function closeRaw() {
+  state.rawController?.abort();
+  state.rawGeneration += 1;
+  setRawExpanded(false);
 }
 
 async function openRaw(href, path) {
@@ -619,9 +669,7 @@ function handleClick(event) {
       setRawExpanded(!state.rawExpanded);
       break;
     case "close-raw":
-      state.rawController?.abort();
-      state.rawGeneration += 1;
-      setRawExpanded(false);
+      closeRaw();
       break;
   }
 }
@@ -663,7 +711,14 @@ function handleNavigationKeydown(event) {
   buttons[next].focus();
 }
 
+function handleDocumentKeydown(event) {
+  if (event.key !== "Escape" || !state.rawExpanded) return;
+  event.preventDefault?.();
+  closeRaw();
+}
+
 document.addEventListener("click", handleClick);
+document.addEventListener("keydown", handleDocumentKeydown);
 document.addEventListener("change", handleChange);
 elements.navigation.addEventListener("keydown", handleNavigationKeydown);
 function synchronizeLocation() {

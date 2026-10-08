@@ -75,6 +75,29 @@ test("serves health, view model, raw records, static assets, and HEAD over loopb
   assert.match(denied.headers["www-authenticate"], /^Bearer /);
 });
 
+test("the Bearer scheme is matched case-insensitively and a wrong token is still refused", async (t) => {
+  const fixture = await createServerFixture(t);
+  const running = await startObservatoryServer({
+    projectRoot: fixture.projectRoot,
+    assetRoot: fixture.assetRoot,
+  });
+  t.after(() => running.close());
+
+  for (const scheme of ["bearer", "BEARER", "BeArEr"]) {
+    const accepted = await request(running, "/api/v1/observatory", {
+      authenticated: false,
+      headers: { Authorization: `${scheme} ${running.accessToken}` },
+    });
+    assert.equal(accepted.statusCode, 200, scheme);
+  }
+  const wrong = await request(running, "/api/v1/observatory", {
+    authenticated: false,
+    headers: { Authorization: `bearer ${"A".repeat(running.accessToken.length)}` },
+  });
+  assert.equal(wrong.statusCode, 401);
+  assert.equal(wrong.json.error.code, "access_denied");
+});
+
 test("liveness is shallow while readiness reports model failure and later recovery", async (t) => {
   const fixture = await createServerFixture(t);
   const canary = "CANARY-READY-FAILURE-MUST-NOT-LEAK";

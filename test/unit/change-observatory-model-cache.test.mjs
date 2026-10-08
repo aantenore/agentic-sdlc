@@ -1153,3 +1153,55 @@ async function waitFor(predicate) {
   }
   throw new Error("Timed out waiting for the model build");
 }
+
+test("a record that changes during a build is retried and then marked retryable", async (t) => {
+  const fixture = await createCacheFixture(t);
+  let builds = 0;
+  const pauses = [];
+  const cache = createObservatoryModelCache({
+    projectRoot: fixture.projectRoot,
+    sleep: async (milliseconds) => {
+      pauses.push(milliseconds);
+    },
+    async buildModel() {
+      builds += 1;
+      // A writer that never stops: every build ends with different records.
+      await writeProjectRecord(fixture.projectRoot, { version: 100 + builds });
+      return { builds };
+    },
+  });
+
+  await assert.rejects(
+    () => cache.get(),
+    (error) => error?.code === "canonical_revision_changed"
+      && error?.statusCode === 409
+      && error?.retryable === true
+      && /kept changing/u.test(error.message),
+  );
+  // Two stability attempts per read, one initial read plus three retries.
+  assert.equal(builds, 8);
+  assert.deepEqual(pauses, [25, 50, 75]);
+});
+
+test("a write burst that ends within the retry budget still produces a model", async (t) => {
+  const fixture = await createCacheFixture(t);
+  let builds = 0;
+  const cache = createObservatoryModelCache({
+    projectRoot: fixture.projectRoot,
+    sleep: async () => {},
+    stabilityAttempts: 1,
+    async buildModel() {
+      builds += 1;
+      if (builds <= 2) await writeProjectRecord(fixture.projectRoot, { version: 100 + builds });
+      return { builds };
+    },
+  });
+
+  const representation = await cache.get();
+  assert.equal(JSON.parse(representation.body.toString("utf8")).builds, 3);
+  assert.throws(() => createObservatoryModelCache({
+    projectRoot: fixture.projectRoot,
+    buildModel() {},
+    revisionRetries: 99,
+  }), /revisionRetries/u);
+});

@@ -247,6 +247,7 @@ import {
   gateGuidance,
   requirementAutonomyCeilingGuidance,
 } from "../lib/human-guidance.mjs";
+import { findCommand } from "../lib/cli/command-catalog.mjs";
 import { renderHelp, UnknownCommandError } from "../lib/cli/help.mjs";
 import { generateCompletion, SUPPORTED_SHELLS } from "../lib/cli/completion.mjs";
 import {
@@ -412,6 +413,7 @@ import {
   buildQuestionRecords,
   canonicalAbsoluteUrl,
   cliErrorRedactionResolution,
+  withheldDetailsMessage,
   cliHandler,
   compactIndexEntry,
   compactText,
@@ -1278,6 +1280,16 @@ async function main() {
       return;
     }
     const resolution = resolveCommand(parsed.positionals);
+    if (!resolution && findCommand(parsed.positionals)?.kind === "group") {
+      // A command family named without an action (for example `portfolio`)
+      // shows what it offers instead of reporting an unknown command.
+      console.log(renderHelp(parsed.positionals, {
+        locale: humanGuidanceLocale(parsed.options),
+        json: parsed.options.json === true,
+        version: VERSION,
+      }));
+      return;
+    }
     const registry = buildCliRuntimeHandlerRegistry();
     const invocation = {
       options: parsed.options,
@@ -1359,7 +1371,7 @@ async function main() {
         return;
       }
       const safeMessage = errorRedaction.withholdDetails
-        ? "Project privacy configuration is invalid or unsafe; command details were withheld."
+        ? withheldDetailsMessage(errorRedaction)
         : redactText(error.message, errorRedactionPolicy);
       console.error(`${safeMessage}\nCorrelation ID: ${CLI_OPERATION_CONTEXT.correlation_id}`);
       process.exitCode = failureExitCode;
@@ -1402,7 +1414,7 @@ async function main() {
         errorRedaction.withholdDetails
           ? {
               code: "observability_configuration_invalid",
-              message: "Project privacy configuration is invalid or unsafe; command details were withheld.",
+              message: withheldDetailsMessage(errorRedaction),
               statusCode: 400,
               retryable: false,
             }

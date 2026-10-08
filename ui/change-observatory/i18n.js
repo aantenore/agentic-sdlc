@@ -98,8 +98,33 @@ const ITALIAN = Object.freeze({
   "This part of the project history may be incomplete.": "Questa parte della storia del progetto potrebbe essere incompleta.",
   "Do not treat missing evidence as approval or completed work.": "Non considerare l’assenza di prove come un’approvazione o un lavoro completato.",
   "This view remains read-only and does not invent missing facts.": "Questa vista resta in sola lettura e non inventa informazioni mancanti.",
-  "Return to the Codex chat and describe the missing evidence in natural language; after it is recorded, refresh this view.": "Torna nella chat di Codex e descrivi in linguaggio naturale la prova mancante; dopo che è stata registrata, aggiorna questa vista.",
+  "Return to your agent conversation and describe the missing evidence in natural language; after it is recorded, refresh this view.": "Torna alla conversazione con il tuo agente e descrivi in linguaggio naturale la prova mancante; dopo che è stata registrata, aggiorna questa vista.",
   "Evidence diagnostics": "Problemi nelle prove",
+  "Evidence notes": "Note sulle prove",
+  "Evidence warnings": "Avvisi sulle prove",
+  "These are informational notes about how the evidence was read. Nothing is wrong and no action is needed.": "Sono note informative su come sono state lette le prove. Non c’è nulla che non vada e non serve alcuna azione.",
+  "Some recorded items were read with warnings. The views still work; open the technical details to see what was noted.": "Alcuni elementi registrati sono stati letti con avvisi. Le viste funzionano; apri i dettagli tecnici per vedere cosa è stato annotato.",
+  "Nothing has been recorded yet": "Non è ancora stato registrato nulla",
+  "This strip will answer: What was asked? What changed? Why was it decided?": "Questa fascia risponderà a: Cosa è stato chiesto? Cosa è cambiato? Perché è stato deciso?",
+  "No recorded evidence answers these questions yet.": "Nessuna prova registrata risponde ancora a queste domande.",
+  "No Agentic SDLC records were found in this folder": "In questa cartella non sono state trovate registrazioni di Agentic SDLC",
+  "Change Observatory looked for a project knowledge base in the folder you opened and did not find one, so there is nothing to show yet. Nothing is broken.": "Change Observatory ha cercato una base di conoscenza del progetto nella cartella che hai aperto e non l’ha trovata, quindi non c’è ancora nulla da mostrare. Non si è rotto nulla.",
+  "Checked path": "Percorso controllato",
+  "inside the project folder shown in your terminal": "dentro la cartella del progetto mostrata nel terminale",
+  "To start recording: ask your agent to initialize Agentic SDLC for this project, or run the initialize command in a terminal inside the project folder, then press Refresh.": "Per iniziare a registrare: chiedi al tuo agente di inizializzare Agentic SDLC per questo progetto, oppure esegui il comando di inizializzazione in un terminale dentro la cartella del progetto, poi premi Aggiorna.",
+  "If this is the wrong folder, press Ctrl+C in the terminal and start the observatory again from, or pointing at, your project folder.": "Se questa è la cartella sbagliata, premi Ctrl+C nel terminale e riavvia l’osservatorio dalla cartella del progetto, oppure indicandola.",
+  "Only the current evidence is shown; there are no other snapshots to switch to.": "Sono mostrate solo le prove correnti; non ci sono altre istantanee tra cui scegliere.",
+  "No intent evidence has been recorded for this project.": "Per questo progetto non è stata registrata alcuna prova sull’intento.",
+  "This view lists optional notes that describe what an agent was asked to do, kept without the conversation text. It is empty unless your team turns that recording on.": "Questa vista elenca note facoltative che descrivono cosa è stato chiesto a un agente, conservate senza il testo della conversazione. Resta vuota a meno che il tuo team non attivi questa registrazione.",
+  "An empty view does not mean anything is missing or wrong; your requests, changes, and decisions are shown in the other views.": "Una vista vuota non significa che manchi o non vada qualcosa; richieste, modifiche e decisioni sono mostrate nelle altre viste.",
+  "No status recorded": "Nessuno stato registrato",
+  "This project has no Agentic SDLC records to show yet.": "Questo progetto non ha ancora registrazioni di Agentic SDLC da mostrare.",
+  "This project cannot be shown until its Observatory privacy settings are corrected and the view is restarted.": "Questo progetto non può essere mostrato finché le sue impostazioni di privacy non vengono corrette e la vista non viene riavviata.",
+  "This project's records changed while they were being read. Reload the portfolio to try again.": "Le registrazioni di questo progetto sono cambiate durante la lettura. Ricarica il portfolio per riprovare.",
+  "This project's records are linked through an unsupported filesystem alias and cannot be read safely.": "Le registrazioni di questo progetto passano da un collegamento del file system non supportato e non possono essere lette in sicurezza.",
+  "This project contains more recorded data than the configured safe viewing limit.": "Questo progetto contiene più dati registrati del limite di visualizzazione sicuro configurato.",
+  "This project's folder was not found. Check its path in the portfolio file.": "La cartella di questo progetto non è stata trovata. Controlla il suo percorso nel file del portfolio.",
+  "This project could not be read safely. Its other portfolio projects are still available.": "Non è stato possibile leggere questo progetto in sicurezza. Gli altri progetti del portfolio sono ancora disponibili.",
   "Equivalent diagnostics grouped": "Problemi equivalenti raggruppati",
   Iteration: "Iterazione",
   Phase: "Fase",
@@ -189,7 +214,7 @@ const ITALIAN = Object.freeze({
   "Related views may be incomplete until the evidence is corrected.": "Le viste collegate potrebbero essere incomplete finché le prove non vengono corrette.",
   "Do not make a decision from the affected view alone.": "Non prendere una decisione basandoti soltanto sulla vista interessata.",
   "Unsafe or unsupported evidence is omitted and no project file is changed.": "Le prove non sicure o non supportate vengono omesse e nessun file del progetto viene modificato.",
-  "Open technical details, then return to the Codex chat and describe the correction in natural language; after it is recorded, refresh this view.": "Apri i dettagli tecnici, poi torna nella chat di Codex e descrivi la correzione in linguaggio naturale; dopo che è stata registrata, aggiorna questa vista.",
+  "Open technical details, then return to your agent conversation and describe the correction in natural language; after it is recorded, refresh this view.": "Apri i dettagli tecnici, poi torna alla conversazione con il tuo agente e descrivi la correzione in linguaggio naturale; dopo che è stata registrata, aggiorna questa vista.",
   Outcome: "Risultato",
   Impact: "Cosa cambia in pratica",
   Decision: "Cosa devi decidere",
@@ -205,7 +230,7 @@ const ITALIAN = Object.freeze({
   "Intent not recorded": "Intento non registrato",
   "Time not recorded": "Ora non registrata",
   "The evidence API reported an unspecified diagnostic.": "L’API delle prove ha segnalato un problema non specificato.",
-  "No contract evolution were recorded.": "Non è stata registrata alcuna evoluzione del contratto.",
+  "No contract evolution was recorded.": "Non è stata registrata alcuna evoluzione del contratto.",
   "No decisions were recorded.": "Non è stata registrata alcuna decisione.",
   "Source recorded": "Fonte registrata",
   "not recorded": "non registrata",
@@ -358,7 +383,7 @@ function translatePattern(value) {
   match = value.match(/^Event · (.+)$/u);
   if (match) return `Evento · ${match[1]}`;
   match = value.match(/^Linked by (.+)$/u);
-  if (match) return `Collegato tramite ${match[1]}`;
+  if (match) return `Collegato tramite ${match[1].split(", ").map(linkageTermItalian).join(", ")}`;
   match = value.match(/^Generated explanation · (.+)$/u);
   if (match) return `${t("Generated explanation")} · ${t(match[1])}`;
   match = value.match(/^Dossier diagnostics · (\d+)$/u);
@@ -386,6 +411,22 @@ function translatePattern(value) {
   match = value.match(/^The recorded state does not confirm that work may proceed on this (code change|local installation|delivery)\.$/u);
   if (match) return `Lo stato registrato non conferma che il lavoro possa procedere su ${autonomySubjectItalian(match[1])}.`;
   return null;
+}
+
+const LINKAGE_TERMS_ITALIAN = Object.freeze({
+  "story id": "ID della story",
+  related: "collegamento indiretto",
+  "contract id": "ID del contratto",
+  "requirement id": "ID della richiesta",
+  "story link": "collegamento alla story",
+  "requirement profile ref": "riferimento al limite della richiesta",
+  "delivery profile ref": "riferimento al limite della consegna",
+  "autonomy decision ref": "riferimento alla decisione di autonomia",
+  "evidence path": "percorso della prova",
+});
+
+function linkageTermItalian(term) {
+  return LINKAGE_TERMS_ITALIAN[term.trim().toLowerCase()] ?? term;
 }
 
 function autonomySubjectItalian(subject) {
@@ -485,7 +526,7 @@ function projectedStatus(item, fallbackStatus = null) {
   if (["revoked", "closed", "cancelled", "canceled", "superseded", "expired", "rolled_back"].includes(status)) {
     return t("No longer usable");
   }
-  if (!status || ["missing", "not_recorded"].includes(status)) return t("Missing");
+  if (!status || ["missing", "not_recorded"].includes(status)) return t("No status recorded");
   return t("Needs attention");
 }
 
@@ -604,13 +645,13 @@ function requirementGuidance(status, isItalian) {
       impact: "Nessuna consegna può usare questa bozza per iniziare o proseguire il lavoro.",
       decision: "Rivedi il limite proposto e approvalo oppure chiedi una correzione.",
       protection: "La bozza non autorizza modifiche, pubblicazioni, accessi esterni o consegne.",
-      nextAction: "Torna nella chat di Codex e rispondi in linguaggio naturale per approvare il limite proposto oppure descrivere la correzione che vuoi.",
+      nextAction: "Torna alla conversazione con il tuo agente e rispondi in linguaggio naturale per approvare il limite proposto oppure descrivere la correzione che vuoi.",
     } : {
       outcome: "A working limit has been drafted for this request, but it is not approved yet.",
       impact: "No delivery can use this draft to start or continue work.",
       decision: "Review the proposed limit and approve it or request a correction.",
       protection: "The draft does not authorize changes, publishing, external access, or any delivery.",
-      nextAction: "Return to the Codex chat and reply in natural language to approve the proposed limit or describe the correction you want.",
+      nextAction: "Return to your agent conversation and reply in natural language to approve the proposed limit or describe the correction you want.",
     };
   }
 
@@ -622,7 +663,7 @@ function requirementGuidance(status, isItalian) {
       impact: "Ogni consegna può ricevere una modalità di lavoro distinta, scelta in base al suo rischio.",
       decision: "Per ogni pull request o rilascio locale scegli e approva separatamente come procedere.",
       protection: "Questo limite, da solo, non autorizza modifiche, unioni, rilasci o accessi esterni.",
-      nextAction: "Torna nella chat di Codex e descrivi in linguaggio naturale la consegna da avviare; chiedi un accordo separato e approvalo lì.",
+      nextAction: "Torna alla conversazione con il tuo agente e descrivi in linguaggio naturale la consegna da avviare; chiedi un accordo separato e approvalo lì.",
     } : {
       outcome: status === "approved"
         ? "The working limit for this request was approved."
@@ -630,7 +671,7 @@ function requirementGuidance(status, isItalian) {
       impact: "Each delivery can receive a separate way of working chosen for its risk.",
       decision: "For every pull request or local release, choose and approve separately how to proceed.",
       protection: "This limit alone does not authorize changes, merges, releases, or external access.",
-      nextAction: "Return to the Codex chat and describe the delivery in natural language; ask for a separate agreement and approve it there.",
+      nextAction: "Return to your agent conversation and describe the delivery in natural language; ask for a separate agreement and approve it there.",
     };
   }
 
@@ -640,13 +681,13 @@ function requirementGuidance(status, isItalian) {
       impact: "Le consegne non possono iniziare o continuare facendo affidamento su questo limite.",
       decision: "Decidi se serve un nuovo limite e approvalo prima di proseguire.",
       protection: "La revoca mantiene bloccate modifiche, unioni, rilasci e accessi esterni non autorizzati.",
-      nextAction: "Torna nella chat di Codex e indica in linguaggio naturale se vuoi creare un nuovo limite oppure chiudere il lavoro collegato.",
+      nextAction: "Torna alla conversazione con il tuo agente e indica in linguaggio naturale se vuoi creare un nuovo limite oppure chiudere il lavoro collegato.",
     } : {
       outcome: "The working limit for this request was revoked and can no longer be used.",
       impact: "Deliveries cannot start or continue by relying on this limit.",
       decision: "Decide whether a new limit is needed and approve it before proceeding.",
       protection: "The revocation keeps unauthorized changes, merges, releases, and external access blocked.",
-      nextAction: "Return to the Codex chat and say in natural language whether you want a new limit or want to close the linked work.",
+      nextAction: "Return to your agent conversation and say in natural language whether you want a new limit or want to close the linked work.",
     };
   }
 
@@ -656,13 +697,13 @@ function requirementGuidance(status, isItalian) {
       impact: "Le consegne nuove o ancora aperte non possono usarlo per proseguire.",
       decision: "Decidi se il lavoro è concluso o se serve un nuovo limite approvato.",
       protection: "Il limite chiuso non autorizza nuove attività o consegne.",
-      nextAction: "Torna nella chat di Codex e indica in linguaggio naturale se vuoi usare il limite sostitutivo registrato oppure crearne uno nuovo.",
+      nextAction: "Torna alla conversazione con il tuo agente e indica in linguaggio naturale se vuoi usare il limite sostitutivo registrato oppure crearne uno nuovo.",
     } : {
       outcome: "The working limit for this request is closed and is no longer current.",
       impact: "New or unfinished deliveries cannot use it to proceed.",
       decision: "Decide whether the work is finished or a new approved limit is needed.",
       protection: "The closed limit does not authorize new work or deliveries.",
-      nextAction: "Return to the Codex chat and say in natural language whether to use the recorded replacement limit or create a new one.",
+      nextAction: "Return to your agent conversation and say in natural language whether to use the recorded replacement limit or create a new one.",
     };
   }
 
@@ -671,13 +712,13 @@ function requirementGuidance(status, isItalian) {
     impact: "Nessuna consegna deve fare affidamento su questo stato non riconosciuto.",
     decision: "Verifica le prove registrate prima di scegliere come procedere.",
     protection: "In assenza di uno stato valido, modifiche, unioni, rilasci e accessi esterni restano bloccati.",
-    nextAction: "Torna nella chat di Codex e descrivi in linguaggio naturale come correggere o sostituire il limite; dopo la registrazione, aggiorna questa vista.",
+    nextAction: "Torna alla conversazione con il tuo agente e descrivi in linguaggio naturale come correggere o sostituire il limite; dopo la registrazione, aggiorna questa vista.",
   } : {
     outcome: "It is not possible to confirm whether this request’s working limit can be used.",
     impact: "No delivery should rely on this unrecognized state.",
     decision: "Check the recorded evidence before choosing how to proceed.",
     protection: "Without a valid state, changes, merges, releases, and external access remain blocked.",
-    nextAction: "Return to the Codex chat and describe in natural language how to correct or replace the limit; after it is recorded, refresh this view.",
+    nextAction: "Return to your agent conversation and describe in natural language how to correct or replace the limit; after it is recorded, refresh this view.",
   };
 }
 
@@ -688,13 +729,13 @@ function deliveryGuidance(status, isItalian) {
       impact: "Il lavoro non deve iniziare o continuare sulla base di questa proposta.",
       decision: "Rivedi la proposta e approvala oppure chiedi una correzione.",
       protection: "La proposta non autorizza attività ordinarie o protette.",
-      nextAction: "Torna nella chat di Codex e rispondi in linguaggio naturale per approvare la proposta oppure descrivere la correzione che vuoi.",
+      nextAction: "Torna alla conversazione con il tuo agente e rispondi in linguaggio naturale per approvare la proposta oppure descrivere la correzione che vuoi.",
     } : {
       outcome: "A way of working was proposed for this delivery, but it is not approved yet.",
       impact: "Work must not start or continue under this proposal.",
       decision: "Review the proposal and approve it or request a correction.",
       protection: "The proposal authorizes neither routine nor protected actions.",
-      nextAction: "Return to the Codex chat and reply in natural language to approve the proposal or describe the correction you want.",
+      nextAction: "Return to your agent conversation and reply in natural language to approve the proposal or describe the correction you want.",
     };
   }
 
@@ -724,13 +765,13 @@ function deliveryGuidance(status, isItalian) {
       impact: "Il lavoro deve fermarsi e non può proseguire sulla base dell’accordo revocato.",
       decision: "Decidi se chiudere la consegna o creare e approvare un nuovo accordo.",
       protection: "Nessuna attività ordinaria o protetta resta autorizzata da questo accordo.",
-      nextAction: "Torna nella chat di Codex e indica in linguaggio naturale se vuoi chiudere la consegna oppure creare e approvare un nuovo accordo separato.",
+      nextAction: "Torna alla conversazione con il tuo agente e indica in linguaggio naturale se vuoi chiudere la consegna oppure creare e approvare un nuovo accordo separato.",
     } : {
       outcome: "The way of working for this delivery was revoked and can no longer be used.",
       impact: "Work must stop and cannot continue under the revoked agreement.",
       decision: "Decide whether to close the delivery or create and approve a new agreement.",
       protection: "This agreement no longer authorizes routine or protected actions.",
-      nextAction: "Return to the Codex chat and say in natural language whether to close the delivery or create and approve a separate new agreement.",
+      nextAction: "Return to your agent conversation and say in natural language whether to close the delivery or create and approve a separate new agreement.",
     };
   }
 
@@ -740,13 +781,13 @@ function deliveryGuidance(status, isItalian) {
       impact: "Nessun nuovo lavoro può iniziare o continuare sulla base di questo accordo.",
       decision: "Se serve altro lavoro, scegli e approva un nuovo accordo per una nuova consegna.",
       protection: "La chiusura impedisce di estendere automaticamente l’autorizzazione ad altre attività o consegne.",
-      nextAction: "Torna nella chat di Codex e indica in linguaggio naturale se vuoi aprire una nuova consegna con un accordo separato; altrimenti non intraprendere altre azioni.",
+      nextAction: "Torna alla conversazione con il tuo agente e indica in linguaggio naturale se vuoi aprire una nuova consegna con un accordo separato; altrimenti non intraprendere altre azioni.",
     } : {
       outcome: "This delivery agreement is closed and cannot be reused.",
       impact: "No new work may start or continue under this agreement.",
       decision: "If more work is needed, choose and approve a new agreement for a new delivery.",
       protection: "Closure prevents authority from being carried automatically into other work or deliveries.",
-      nextAction: "Return to the Codex chat and say in natural language whether to open a new delivery with a separate agreement; otherwise take no further action.",
+      nextAction: "Return to your agent conversation and say in natural language whether to open a new delivery with a separate agreement; otherwise take no further action.",
     };
   }
 
@@ -755,13 +796,13 @@ function deliveryGuidance(status, isItalian) {
     impact: "Il lavoro non deve iniziare o continuare finché lo stato non viene chiarito.",
     decision: "Verifica le prove registrate e stabilisci se serve un nuovo accordo.",
     protection: "Attività ordinarie e protette restano bloccate in assenza di uno stato valido.",
-    nextAction: "Torna nella chat di Codex e descrivi in linguaggio naturale come correggere o sostituire l’accordo; dopo la registrazione, aggiorna questa vista.",
+    nextAction: "Torna alla conversazione con il tuo agente e descrivi in linguaggio naturale come correggere o sostituire l’accordo; dopo la registrazione, aggiorna questa vista.",
   } : {
     outcome: "It is not possible to confirm whether this delivery agreement can be used.",
     impact: "Work must not start or continue until the state is clarified.",
     decision: "Check the recorded evidence and decide whether a new agreement is needed.",
     protection: "Routine and protected actions remain blocked without a valid state.",
-    nextAction: "Return to the Codex chat and describe in natural language how to correct or replace the agreement; after it is recorded, refresh this view.",
+    nextAction: "Return to your agent conversation and describe in natural language how to correct or replace the agreement; after it is recorded, refresh this view.",
   };
 }
 
@@ -786,13 +827,13 @@ function genericRecordGuidance(status, isItalian) {
       impact: "Non deve essere considerata una decisione approvata o un lavoro completato.",
       decision: "Rivedi le prove e accetta la proposta oppure chiedi una correzione.",
       protection: "Questa vista è in sola lettura e non trasforma la proposta in un’approvazione.",
-      nextAction: "Apri le prove collegate, poi torna nella chat di Codex e rispondi in linguaggio naturale per accettare la proposta oppure descrivere la correzione che vuoi.",
+      nextAction: "Apri le prove collegate, poi torna alla conversazione con il tuo agente e rispondi in linguaggio naturale per accettare la proposta oppure descrivere la correzione che vuoi.",
     } : {
       outcome: "This project item is a proposal and has not been accepted yet.",
       impact: "It must not be treated as an approved decision or completed work.",
       decision: "Review the evidence and accept the proposal or request a correction.",
       protection: "This view is read-only and does not turn the proposal into an approval.",
-      nextAction: "Open the linked evidence, then return to the Codex chat and reply in natural language to accept the proposal or describe the correction you want.",
+      nextAction: "Open the linked evidence, then return to your agent conversation and reply in natural language to accept the proposal or describe the correction you want.",
     };
   }
   if (statusMissing) {
@@ -894,7 +935,7 @@ export function humanGuidanceForItem(item) {
     protection: isItalian ? "Unione, rilascio, produzione, segreti e attività fuori dai limiti concordati restano bloccati senza un’approvazione specifica." : "Merge, release, production, secrets, and work outside the agreed limits remain blocked without specific approval.",
     nextAction: decisionMayProceed
       ? (isItalian ? "Continua a monitorare i risultati; apri i dettagli solo se ti servono." : "Keep reviewing outcomes; open details only when needed.")
-      : (isItalian ? "Apri le prove tecniche, poi torna nella chat di Codex e rispondi in linguaggio naturale per approvare il piano oppure descrivere la correzione che vuoi." : "Open the technical evidence, then return to the Codex chat and reply in natural language to approve the plan or describe the correction you want."),
+      : (isItalian ? "Apri le prove tecniche, poi torna alla conversazione con il tuo agente e rispondi in linguaggio naturale per approvare il piano oppure descrivere la correzione che vuoi." : "Open the technical evidence, then return to your agent conversation and reply in natural language to approve the plan or describe the correction you want."),
   });
 }
 
@@ -921,6 +962,39 @@ export function humanGuidanceTextForItem(item, locale = activeLocale) {
   return lines.join("\n");
 }
 
+function causeSpecificGuidance(error, isItalian) {
+  const code = String(error?.code ?? "");
+  if (code === "access_denied" || (error?.status === 401 && code === "API_RESPONSE_ERROR")) {
+    return {
+      outcome: isItalian ? "Questa pagina non ha il permesso di leggere l’osservatorio locale." : "This page is not allowed to read the local observatory.",
+      impact: isItalian ? "Nessuna prova del progetto può essere mostrata finché la pagina non viene aperta con il suo indirizzo completo." : "No project evidence can be shown until the page is opened with its full link.",
+      nextAction: isItalian ? "Riapri l’indirizzo completo mostrato nel terminale in cui è in esecuzione Change Observatory, compresa la parte dopo il simbolo #. Aggiornare questa pagina non serve." : "Reopen the full link printed in the terminal where Change Observatory is running, including the part after the # sign. Refreshing this page will not help.",
+    };
+  }
+  if (code === "observability_configuration_changed") {
+    return {
+      outcome: isItalian ? "Le impostazioni di privacy del progetto sono cambiate mentre l’osservatorio era in esecuzione." : "The project's privacy settings changed while the observatory was running.",
+      impact: isItalian ? "Per sicurezza, la pagina smette di mostrare questo progetto finché l’osservatorio non viene riavviato." : "To stay safe, the page stops showing this project until the observatory is restarted.",
+      nextAction: isItalian ? "Ferma il comando observe nel terminale (Ctrl+C), avvialo di nuovo e apri il nuovo indirizzo. Aggiornare questa pagina non serve." : "Stop the observe command in your terminal (Ctrl+C), start it again, and open the new link. Refreshing this page will not help.",
+    };
+  }
+  if (code === "API_UNAVAILABLE") {
+    return {
+      outcome: isItalian ? "La pagina ha perso il collegamento con l’osservatorio locale." : "The page lost its connection to the local observatory.",
+      impact: isItalian ? "Questa pagina non può mostrare richieste, decisioni o prove finché il collegamento non viene ripristinato." : "This page cannot show requests, decisions, or evidence until the connection is restored.",
+      nextAction: isItalian ? "Controlla che il terminale con Change Observatory sia ancora aperto. Se è stato fermato, riavvialo e apri il nuovo indirizzo completo; altrimenti premi Aggiorna." : "Check that the terminal running Change Observatory is still open. If it was stopped, start it again and open the new full link; otherwise press Refresh.",
+    };
+  }
+  if (code === "canonical_revision_changed") {
+    return {
+      outcome: isItalian ? "Le registrazioni del progetto stanno cambiando proprio ora." : "The project records are changing right now.",
+      impact: isItalian ? "La vista non può essere preparata in modo coerente mentre qualcuno sta scrivendo." : "The view cannot be prepared consistently while something is writing to them.",
+      nextAction: isItalian ? "Attendi qualche secondo e premi Aggiorna." : "Wait a few seconds and press Refresh.",
+    };
+  }
+  return null;
+}
+
 export function localizedErrorGuidance(error) {
   const isItalian = activeLocale === "it";
   const fallback = isItalian ? "Errore non specificato" : "Unspecified error";
@@ -938,12 +1012,13 @@ export function localizedErrorGuidance(error) {
       ? [`${isItalian ? "ID correlazione" : "Correlation ID"}: ${correlationId}`]
       : []),
   ].join(" · ");
+  const specific = causeSpecificGuidance(error, isItalian);
   return Object.freeze({
-    outcome: isItalian ? "La storia del progetto non è disponibile." : "The project history is unavailable.",
-    impact: isItalian ? "Questa pagina non può mostrare richieste, decisioni o prove finché il collegamento non viene ripristinato." : "This page cannot show requests, decisions, or evidence until the connection is restored.",
+    outcome: specific?.outcome ?? (isItalian ? "La storia del progetto non è disponibile." : "The project history is unavailable."),
+    impact: specific?.impact ?? (isItalian ? "Questa pagina non può mostrare richieste, decisioni o prove finché il collegamento non viene ripristinato." : "This page cannot show requests, decisions, or evidence until the connection is restored."),
     decision: isItalian ? "Non approvare nulla basandoti su questa vista incompleta." : "Do not approve anything based on this incomplete view.",
     protection: isItalian ? "La vista resta in sola lettura e non modifica alcun file." : "The view remains read-only and does not change any files.",
-    nextAction: isItalian ? "Aggiorna la pagina; se il problema continua, apri i dettagli tecnici." : "Refresh the page; if the problem continues, open technical details.",
+    nextAction: specific?.nextAction ?? (isItalian ? "Aggiorna la pagina; se il problema continua, apri i dettagli tecnici." : "Refresh the page; if the problem continues, open technical details."),
     technical,
   });
 }

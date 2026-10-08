@@ -228,6 +228,9 @@ function createDocument() {
   const navToggle = element(document, "button", { action: "toggle-navigation" });
   const projectSelect = element(document, "select", { id: "project-select" });
   const snapshotSelect = element(document, "select", { id: "snapshot-select" });
+  const snapshotControl = element(document, "label");
+  snapshotControl.className = "field-control snapshot-control";
+  snapshotControl.append(snapshotSelect);
   const refresh = element(document, "button", { action: "refresh" });
   const openFirstRaw = element(document, "button", { action: "open-first-raw" });
   const navigation = element(document, "nav", { id: "primary-navigation" });
@@ -256,12 +259,15 @@ function createDocument() {
   const rawPath = element(document, "span", { id: "raw-path" });
   const rawContent = element(document, "div", { id: "raw-content" });
   const rawCode = element(document, "code", { id: "raw-code" });
-  rawContent.append(rawCode);
+  const rawPre = element(document, "pre");
+  rawPre.setAttribute("tabindex", "0");
+  rawPre.append(rawCode);
+  rawContent.append(rawPre);
   rawDrawer.append(rawToggle, rawPath, rawContent);
   app.append(
     navToggle,
     projectSelect,
-    snapshotSelect,
+    snapshotControl,
     refresh,
     openFirstRaw,
     navigation,
