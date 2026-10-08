@@ -412,6 +412,7 @@ import {
   buildQuestionRecords,
   canonicalAbsoluteUrl,
   cliErrorRedactionResolution,
+  withheldDetailsMessage,
   cliHandler,
   compactIndexEntry,
   compactText,
@@ -1359,7 +1360,7 @@ async function main() {
         return;
       }
       const safeMessage = errorRedaction.withholdDetails
-        ? "Project privacy configuration is invalid or unsafe; command details were withheld."
+        ? withheldDetailsMessage(errorRedaction)
         : redactText(error.message, errorRedactionPolicy);
       console.error(`${safeMessage}\nCorrelation ID: ${CLI_OPERATION_CONTEXT.correlation_id}`);
       process.exitCode = failureExitCode;
@@ -1402,7 +1403,7 @@ async function main() {
         errorRedaction.withholdDetails
           ? {
               code: "observability_configuration_invalid",
-              message: "Project privacy configuration is invalid or unsafe; command details were withheld.",
+              message: withheldDetailsMessage(errorRedaction),
               statusCode: 400,
               retryable: false,
             }

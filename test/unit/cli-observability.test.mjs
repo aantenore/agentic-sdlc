@@ -351,6 +351,37 @@ test("CLI errors withhold user input when project configuration is a symlink", (
   assert.match(failure.stderr, /details were withheld/u);
 });
 
+test("a withheld configuration failure names the file and the problem class", (t) => {
+  const brokenJson = initializedProject("withheld-broken-json");
+  fs.writeFileSync(path.join(brokenJson, ".sdlc", "config.json"), "{ not json EMP-123456");
+  const jsonFailure = mustFail(["help", "no-such-command", "--root", brokenJson, "--json"]);
+  const message = JSON.parse(jsonFailure.stderr).error.message;
+  assert.match(message, /details were withheld/u);
+  assert.match(message, /\.sdlc\/config\.json is not valid JSON/u);
+  assert.match(message, /run the command again/u);
+  assert.doesNotMatch(jsonFailure.stderr, /EMP-123456/u);
+  assert.doesNotMatch(jsonFailure.stderr, new RegExp(escapeRegExp(brokenJson), "u"));
+
+  const badSetting = initializedProject("withheld-bad-setting");
+  fs.writeFileSync(
+    path.join(badSetting, ".sdlc", "config.json"),
+    JSON.stringify({ observability: { redaction: { pii_pattern: [{ name: "x", pattern: "EMP-[0-9]{6}" }] } } }),
+  );
+  const settingFailure = mustFail(["help", "no-such-command", "--root", badSetting, "--json"]);
+  assert.match(JSON.parse(settingFailure.stderr).error.message, /invalid or unsafe observability setting/u);
+
+  if (process.platform === "win32") return;
+  const linked = initializedProject("withheld-sdlc-symlink");
+  const realFolder = path.join(linked, "real-sdlc");
+  fs.renameSync(path.join(linked, ".sdlc"), realFolder);
+  fs.symlinkSync(realFolder, path.join(linked, ".sdlc"), "dir");
+  const linkFailure = mustFail(["help", "no-such-command", "--root", linked, "--json"]);
+  const linkMessage = JSON.parse(linkFailure.stderr).error.message;
+  assert.match(linkMessage, /\.sdlc is a symbolic link/u);
+  assert.doesNotMatch(linkMessage, /config\.json is not valid/u);
+  t.diagnostic("symlinked knowledge-base folder reported as a link, not as a config problem");
+});
+
 test("trace append seals a redacted event without treating identifiers or opaque business values as secrets", () => {
   const project = initializedProject("trace-redaction");
   const fakeSecret = `github_pat_${"A".repeat(32)}`;
