@@ -436,6 +436,40 @@ test("the shipped default budget is soft-only, so a normal project can complete 
   assert.equal(completed.status, "completed");
 });
 
+test("an interrupted completion cannot be cancelled", () => {
+  const { project, prepared } = runningAssessment("budget-interrupted-completion", {
+    limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10_000 } },
+  });
+  const artifact = ".sdlc/stories/ST-ASSESS-1/outputs/technical-assessment.md";
+  fs.mkdirSync(path.dirname(path.join(project, artifact)), { recursive: true });
+  fs.writeFileSync(path.join(project, artifact), "# Technical assessment\n\n## Evidence\nThe baseline describes the project.\n");
+  const workflowPath = path.join(project, ".sdlc", "assessments", "workflows", "ASSESS-1.json");
+  const applicationPath = path.join(project, ".sdlc", "assessments", "applications", "ASSESS-1.json");
+  mustRun([
+    "output", "link", "--root", project, "--story", "ST-ASSESS-1", "--type", "technical-analysis",
+    "--artifact", artifact, "--template", prepared.proposal.deliverable.template_id, "--mode", "new",
+    "--requirement", "REQ-ASSESS-1", "--authorization", readJson(workflowPath).authorization_ref,
+  ]);
+  const runningWorkflow = readJson(workflowPath);
+  const appliedApplication = readJson(applicationPath);
+  mustRun(["assessment", "proposal", "complete", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent"]);
+
+  // Simulate a crash after the release manifest was written but before the
+  // workflow and application recorded the completion.
+  writeJson(workflowPath, runningWorkflow);
+  writeJson(applicationPath, appliedApplication);
+  mustFail([
+    "assessment", "proposal", "cancel", "--root", project, "--id", "ASSESS-1",
+    "--reason", "Stop now", ...humanApproval("Stop"),
+  ], /cannot be cancelled: its completion already started[\s\S]*records it as released[\s\S]*assessment proposal complete --id ASSESS-1/u);
+  assert.equal(readJson(workflowPath).state, "running");
+  const recovered = JSON.parse(mustRun([
+    "assessment", "proposal", "complete", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent", "--json",
+  ]).stdout);
+  assert.equal(recovered.status, "completed");
+  assert.equal(readJson(workflowPath).state, "completed");
+});
+
 test("project budget settings take precedence over the defaults template and are validated", () => {
   const { prepared } = runningAssessment("budget-precedence", null, {
     apply: false,
