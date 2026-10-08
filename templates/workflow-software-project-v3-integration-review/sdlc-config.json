@@ -44,6 +44,7 @@
     ".yml"
   ],
   "baseline_policy": {
+    "auto_approve_explained_refresh": true,
     "source_extensions": [
       ".c",
       ".cc",

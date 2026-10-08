@@ -1044,6 +1044,9 @@ import {
   publishCodeReviews,
 } from "../lib/engine/review-shared.mjs";
 import {
+  refreshBaseline,
+} from "../lib/engine/baseline-refresh.mjs";
+import {
   addStoryAcceptance,
   appendTrace,
   approveBaseline,
@@ -1121,6 +1124,7 @@ function buildCliRuntimeHandlerRegistry() {
     "onboard.existing-project": call(onboardExistingProject),
     "baseline.propose": call(proposeBaseline),
     "baseline.approve": call(approveBaseline),
+    "baseline.refresh": call(refreshBaseline),
     "baseline.status": call(showBaselineStatus),
     "assessment.proposal.prepare": call(prepareAssessmentProposal),
     "assessment.proposal.approve": call(approveAssessmentProposal),
