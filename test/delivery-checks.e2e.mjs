@@ -339,6 +339,17 @@ test("the checks table lists what was recorded, redacts it, and follows the proj
   }
   assert.match(redacted.stdout, /`node scripts\/audit\.mjs --access-token \[REDACTED\]`: passed/u);
 
+  // The machine's own paths stay out of the table too: under the project they become relative,
+  // anywhere else they are hidden.
+  const outsideFile = path.join(os.tmpdir(), "checks-out.json");
+  recordTest(project, ["node", path.join(project, "scripts", "t.mjs"), `--out=${outsideFile}`], { exitCode: 0, passed: 1, evidence: "evidence/test.log" });
+  const portable = mustRun(checksArgs(project));
+  for (const text of [portable.stdout, mustRun(checksArgs(project, ["--format", "json"])).stdout]) {
+    assert.ok(!text.includes(project), "the table printed the project's absolute path");
+    assert.ok(!text.includes(os.tmpdir()), "the table printed a path outside the project");
+  }
+  assert.match(portable.stdout, /`node scripts\/t\.mjs '--out=<path>'`: passed/u);
+
   // 4. A new commit leaves the earlier scan and review describing a state that no longer exists.
   fs.writeFileSync(path.join(project, "src", "later.txt"), "unreviewed follow-up\n", "utf8");
   git(project, ["add", "--", "src/later.txt"]);
@@ -348,7 +359,13 @@ test("the checks table lists what was recorded, redacts it, and follows the proj
   assert.equal(rows(moved, "secret_scan")[0].facts.state, "stale");
   assert.equal(rows(moved, "code_review")[0].status, "not_run");
   assert.equal(rows(moved, "code_review")[0].facts.state, "stale");
-  assert.equal(rows(moved, "tests").find((check) => check.subject === "npm test").status, "pass", "a recorded test run is not recomputed");
+  // A test run describes the commit it ran on: after a new commit it is stale until it runs again.
+  for (const check of rows(moved, "tests")) {
+    assert.equal(check.status, "not_run", check.subject);
+    assert.equal(check.facts.state, "stale", check.subject);
+  }
+  assert.equal(rows(moved, "smoke_tests")[0].status, "not_run");
+  assert.match(mustRun(checksArgs(project)).stdout, /describes an earlier state, not the current one; run it again/u);
   assert.match(mustRun(checksArgs(project)).stdout, /The latest scan covers `[0-9a-f]{12}`, not the current state/u);
   // A fresh scan reads the credential the stored record kept, reports it, and never shows it.
   const rescan = run(["secret", "scan", "--root", project, "--story", STORY_ID, "--json"]);
@@ -358,12 +375,18 @@ test("the checks table lists what was recorded, redacts it, and follows the proj
   assert.equal(flagged.facts.finding_count, 1);
   assert.match(mustRun(checksArgs(project)).stdout, /1 credential match in \d+ scanned files; matches are never shown/u);
   assert.equal(rows(checksModel(project), "code_review")[0].status, "not_run");
+  recordTest(project, ["npm", "test"], { exitCode: 0, passed: 13, framework: "node:test", evidence: "evidence/test.log" });
+  assert.equal(rows(checksModel(project), "tests").find((check) => check.subject === "npm test").status, "pass");
 
-  // 5. Off the delivery's head branch, recorded checks are listed without a head comparison.
+  // 5. Off the delivery's head branch no head-dependent check can pass.
   git(project, ["checkout", "--quiet", "main"]);
   const offBranch = mustRun(checksArgs(project));
   assert.match(offBranch.stdout, /not checked out here/u);
-  assert.equal(JSON.parse(mustRun(checksArgs(project, ["--format", "json"])).stdout).delivery.head_sha, null);
+  const offModel = JSON.parse(mustRun(checksArgs(project, ["--format", "json"])).stdout);
+  assert.equal(offModel.delivery.head_sha, null);
+  for (const kind of ["tests", "smoke_tests", "secret_scan", "code_review"]) {
+    assert.ok(rows(offModel, kind).every((check) => check.status !== "pass"), `${kind} must not pass off the head branch`);
+  }
   git(project, ["checkout", "--quiet", "feature/pr-checks"]);
 
   // 6. A record edited after it was written is not evidence: it is left out and counted.
@@ -375,8 +398,10 @@ test("the checks table lists what was recorded, redacts it, and follows the proj
   const tamperedModel = checksModel(project);
   assert.equal(tamperedModel.ignored_records, 1);
   assert.deepEqual(rows(tamperedModel, "tests").map((check) => [check.subject, check.status]), [
-    ["node scripts/audit.mjs --access-token [REDACTED]", "pass"],
-    ["npm run lint", "fail"],
+    ["node scripts/audit.mjs --access-token [REDACTED]", "not_run"],
+    ["node scripts/t.mjs '--out=<path>'", "not_run"],
+    ["npm run lint", "not_run"],
+    ["npm test", "pass"],
   ]);
   assert.match(afterTamper.stdout, /1 recorded file failed validation and was left out\./u);
 });

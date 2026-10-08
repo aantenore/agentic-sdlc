@@ -756,7 +756,7 @@ pasted into the pull-request description:
 Each row is `[PASS]`, `[FAIL]`, or `[NOT RUN]`. The command reads and reports; it
 never runs a test, repairs a record, or approves anything, so a check nobody
 recorded is `[NOT RUN]` rather than a pass, and a scan or review of an earlier
-commit stops counting as soon as the head moves. A newer run of the same
+commit stops counting as soon as the head moves, and so does a test run made before it. A newer run of the same
 command replaces an older one, so a late failure is not hidden behind an
 earlier pass. A record whose hash no longer matches is left out and counted.
 

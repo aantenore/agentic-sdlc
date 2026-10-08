@@ -8,6 +8,7 @@ import {
   buildPullRequestChecks,
   classifyEvidencePath,
   displayCommand,
+  projectRelativeArgv,
   renderPullRequestChecksMarkdown,
 } from "../../lib/delivery/pull-request-checks.mjs";
 
@@ -378,4 +379,79 @@ test("commands are shown as recorded and quoted only where a shell would need it
   const row = renderPullRequestChecksMarkdown(long).split("\n").find((line) => line.startsWith("| Tests |"));
   assert.match(row, /`x{199}…`/u);
   assert.ok(!row.includes("x".repeat(200)));
+});
+
+test("a test run recorded for an earlier commit is stale, not a pass", () => {
+  for (const key of ["tests", "smoke_tests"]) {
+    const facts = { delivery: delivery(), head_sha: HEAD, [key]: [testRun({ current: false })] };
+    const model = buildPullRequestChecks(facts);
+    const [check] = rowFor(model, key);
+    assert.equal(check.status, "not_run", key);
+    assert.equal(check.facts.state, "stale");
+    assert.match(renderPullRequestChecksMarkdown(model), /describes an earlier state, not the current one; run it again/u);
+    assert.match(renderPullRequestChecksMarkdown(model, { locale: "it" }), /riguarda uno stato precedente/u);
+    // A stale failure is not reported as a failure of the current state either.
+    const failed = buildPullRequestChecks({
+      delivery: delivery(),
+      head_sha: HEAD,
+      [key]: [testRun({ current: false, outcome: "failed", exit_code: 1, totals: { passed: 0, failed: 1, skipped: 0 } })],
+    });
+    assert.equal(rowFor(failed, key)[0].status, "not_run");
+  }
+  // A run of the current commit replaces a stale one of the same command.
+  const mixed = buildPullRequestChecks({
+    delivery: delivery(),
+    head_sha: HEAD,
+    tests: [
+      testRun({ id: "old", current: false, finished_at: "2026-05-01T09:00:00.000Z" }),
+      testRun({ id: "new", current: true, finished_at: "2026-05-01T10:00:00.000Z" }),
+    ],
+  });
+  assert.equal(rowFor(mixed, "tests")[0].status, "pass");
+});
+
+test("with the delivery head unknown, no passing check is reported as a pass", () => {
+  const facts = completeFacts();
+  facts.head_sha = null;
+  const model = buildPullRequestChecks(facts);
+  for (const kind of ["tests", "smoke_tests", "secret_scan", "code_review"]) {
+    assert.equal(rowFor(model, kind)[0].status, "not_run", kind);
+    assert.equal(rowFor(model, kind)[0].facts.head_unknown, true, kind);
+  }
+  assert.notEqual(model.overall, "pass");
+  const markdown = renderPullRequestChecksMarkdown(model);
+  assert.match(markdown, /the branch head is unknown here/u);
+  assert.match(markdown, /listed as not run/u);
+  // A failure is still a failure.
+  const failing = completeFacts();
+  failing.head_sha = null;
+  failing.secret_scans[0] = { ...failing.secret_scans[0], outcome: "findings", finding_count: 1 };
+  failing.code_review.reviews = [review({ verdict: "changes_requested", blocking_count: 1 })];
+  const failed = buildPullRequestChecks(failing);
+  assert.equal(rowFor(failed, "secret_scan")[0].status, "fail");
+  assert.equal(rowFor(failed, "code_review")[0].status, "fail");
+});
+
+test("absolute paths in a recorded command are made root-relative or hidden", () => {
+  const roots = ["/work/project", "/private/work/project/"];
+  assert.deepEqual(
+    projectRelativeArgv(
+      ["node", "/work/project/scripts/t.mjs", "--out=/private/work/project/out/r.json", "--cache=/home/runner/cache", "--root=/work/project", "/work/project/../etc/passwd", "relative/ok.mjs", "C:\\Users\\dev\\x.mjs", "/work/projectile/x"],
+      roots,
+    ),
+    ["node", "scripts/t.mjs", "--out=out/r.json", "--cache=<path>", "--root=.", "<path>", "relative/ok.mjs", "<path>", "<path>"],
+  );
+  assert.deepEqual(projectRelativeArgv(["/tmp/x"], []), ["<path>"]);
+  assert.deepEqual(projectRelativeArgv(undefined), []);
+});
+
+test("a review without a reviewer name says unknown instead of an empty code span", () => {
+  const model = buildPullRequestChecks({
+    delivery: delivery(),
+    head_sha: HEAD,
+    code_review: { required: false, reviews: [review({ reviewer_id: "" })] },
+  });
+  const markdown = renderPullRequestChecksMarkdown(model);
+  assert.match(markdown, /Approved by unknown at head/u);
+  assert.ok(!markdown.includes("``"));
 });

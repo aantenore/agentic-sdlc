@@ -1048,7 +1048,7 @@ The host writes the description, so put the table in it when authorizing `pull_r
 
 | Row | Read from | Passes when |
 |---|---|---|
-| Tests | `test-run:v1` records of the delivery's story, recorded while the delivery was running | The latest run of that command passed. One row per distinct command; a later failure replaces an earlier pass. |
+| Tests | `test-run:v1` records of the delivery's story, recorded while the delivery was running | The latest run of that command passed and was made at the current commit. One row per distinct command; a later failure replaces an earlier pass, and a run made before a later commit is `NOT RUN` until it is run again. |
 | Smoke tests | The same records, when recorded with `test record --framework smoke` | The latest smoke run passed. |
 | Secret scan | `secret-scan:v1` records for the delivery | The latest scan that still covers the current head, delivery base, and uncommitted work is clean. A scan of an earlier state is `NOT RUN`. |
 | Code review gate | `code-review:v1` records for the delivery profile | An independent reviewer approved the current head. Only the author's review, or a review of an earlier head, is `NOT RUN`. Shows whether `gate_policy.merge_requires_code_review` makes it a merge requirement. |
@@ -1058,7 +1058,7 @@ The host writes the description, so put the table in it when authorizing `pull_r
 
 Each row carries a plain-text marker, `[PASS]`, `[FAIL]`, or `[NOT RUN]` (`[SUPERATO]`, `[FALLITO]`, `[NON ESEGUITO]` with `--locale it`). A check with no record is `NOT RUN`, never a pass. A record whose own hash no longer matches is left out and counted in a closing note. The table is a report of recorded facts, not a gate: the strict and lifecycle-complete gates stay the authority, and a gate receipt is shown as sealed, not re-evaluated.
 
-Evidence is linked only as a plain project-relative path (for example `.sdlc/tests/ST-001-run.json`); an absolute path, a parent-relative path, or a URL is dropped. The model passes through the project's privacy redaction before printing, so a credential in a recorded command appears as `[REDACTED]`; the stored record keeps what ran. The output is the table alone, with no envelope, correlation ID, or clock reading, so identical records give identical bytes. `--json` and `--format json` print the same language-neutral document (`pull-request-checks:v1`); `--json` with `--format markdown` is refused. A local release is refused: the table is built for pull-request deliveries.
+When the delivery's head branch is not checked out, no head-dependent check (tests, smoke tests, secret scan, code review) can pass; a failure is still shown. Absolute paths in a recorded command are shown root-relative when they lie under the project and as `<path>` otherwise. Evidence is linked only as a plain project-relative path (for example `.sdlc/tests/ST-001-run.json`); an absolute path, a parent-relative path, or a URL is dropped. The model passes through the project's privacy redaction before printing, so a credential in a recorded command appears as `[REDACTED]`; the stored record keeps what ran. The output is the table alone, with no envelope, correlation ID, or clock reading, so identical records give identical bytes. `--json` and `--format json` print the same language-neutral document (`pull-request-checks:v1`); `--json` with `--format markdown` is refused. A local release is refused: the table is built for pull-request deliveries.
 
 ## Append Trace
 
