@@ -472,6 +472,52 @@ test("the budget checkpoint follows --locale, shows currency, and never offers a
   assert.doesNotMatch(italian, /What I am asking you|Esempio configurazione|trusted_sources =/u);
 });
 
+test("a deleted usage receipt is detected through the ledger and blocks budget decisions", () => {
+  const { project } = runningAssessment("budget-ledger", {
+    limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10_000 } },
+  });
+  const record = (id, tokens) => JSON.parse(mustRun([
+    "budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1", "--id", id,
+    "--input-tokens", String(tokens), "--output-tokens", "0", "--json",
+  ]).stdout);
+  record("USAGE-A", 4000);
+  record("USAGE-B", 3000);
+  const applicationPath = path.join(project, ".sdlc", "assessments", "applications", "ASSESS-1.json");
+  const ledger = readJson(applicationPath).usage_ledger;
+  assert.equal(ledger.receipt_count, 2);
+  assert.deepEqual(ledger.receipts.map((entry) => entry.id), ["USAGE-A", "USAGE-B"]);
+  assert.match(ledger.head_hash, /^[a-f0-9]{64}$/u);
+
+  const usageDirectory = path.join(project, ".sdlc", "budgets", "ASSESS-1", "usage");
+  const deletedPath = path.join(usageDirectory, "USAGE-A.json");
+  const deletedBytes = fs.readFileSync(deletedPath);
+  fs.rmSync(deletedPath);
+  const blocked = /does not match its usage ledger: the ledger records 2 receipt\(s\), but 1 is missing[\s\S]*Missing: USAGE-A\.[\s\S]*Restore the original files/u;
+  mustFail(["budget", "status", "--root", project, "--proposal", "ASSESS-1"], blocked);
+  mustFail(["budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1", "--input-tokens", "1", "--output-tokens", "0"], blocked);
+  fs.writeFileSync(deletedPath, deletedBytes);
+  const restored = JSON.parse(mustRun(["budget", "status", "--root", project, "--proposal", "ASSESS-1", "--json"]).stdout);
+  assert.equal(restored.aggregate.usage.tokens, 7000);
+
+  // A receipt written by an interrupted record (file present, ledger not yet
+  // updated) only adds usage: it is counted and registered by the next record.
+  const application = readJson(applicationPath);
+  const orphan = buildExecutionUsageReceipt({
+    id: "USAGE-ORPHAN",
+    execution_id: "ASSESS-1",
+    budget: application.effective_budget,
+    usage: { tokens: 500 },
+    metering: { tokens: "estimated" },
+    ended_at: new Date().toISOString(),
+    source: { adapter: "manual-runtime-adapter", assurance: "manual_declared", aggregation: "delta", attestation_ref: null },
+  });
+  writeJson(path.join(usageDirectory, "USAGE-ORPHAN.json"), orphan);
+  const withOrphan = JSON.parse(mustRun(["budget", "status", "--root", project, "--proposal", "ASSESS-1", "--json"]).stdout);
+  assert.equal(withOrphan.aggregate.usage.tokens, 7500);
+  record("USAGE-C", 100);
+  assert.deepEqual(readJson(applicationPath).usage_ledger.receipts.map((entry) => entry.id), ["USAGE-A", "USAGE-B", "USAGE-ORPHAN", "USAGE-C"]);
+});
+
 test("meter setup errors say how to continue", () => {
   const { project } = runningAssessment("budget-meter-errors", {
     limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10_000 } },

@@ -55,6 +55,28 @@
     "output_ref": { "$ref": "#/$defs/output_ref" },
     "release_manifest_ref": { "$ref": "#/$defs/release_manifest_ref" },
     "audit": { "$ref": "common.schema.json#/$defs/audit" },
+    "usage_ledger": {
+      "description": "Append-only list of the usage receipts registered for this proposal, chained into head_hash, so a deleted or edited receipt is detected.",
+      "type": "object",
+      "required": ["receipt_count", "head_hash", "receipts"],
+      "properties": {
+        "receipt_count": { "type": "integer", "minimum": 0 },
+        "head_hash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "receipt_hash"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "receipt_hash": { "$ref": "#/$defs/sha256" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "application_hash": { "$ref": "#/$defs/sha256" },
     "hash_algorithm": { "const": "sha256:stable-json:v1" }
   },
