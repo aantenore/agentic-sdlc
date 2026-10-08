@@ -101,12 +101,24 @@ function trustMeteringAdapter(project, metrics) {
 }
 
 /** Initializes a project and runs one assessment proposal up to `running`. */
-function runningAssessment(name, budget, { trustedMetrics = [], locale = null } = {}) {
+function runningAssessment(name, budget, {
+  trustedMetrics = [],
+  locale = null,
+  configure = null,
+  apply = true,
+} = {}) {
   const project = tmpProject(name);
   mustRun(["init", "--root", project, "--project-name", "E2E", "--force"]);
   fs.writeFileSync(path.join(project, "README.md"), "# Fixture\n\nLocal repository evidence.\n");
   mustRun(["baseline", "propose", "--root", project, "--id", "BASELINE-1", "--source", "README.md", "--summary", "Current state"]);
   mustRun(["baseline", "approve", "--root", project, "--id", "BASELINE-1", ...humanApproval("Baseline is accurate")]);
+  if (configure) {
+    const configPath = path.join(project, ".sdlc", "config.json");
+    const config = readJson(configPath);
+    configure(config);
+    writeJson(configPath, config);
+    pinProjectConfig(project);
+  }
   const keyPair = trustedMetrics.length > 0 ? trustMeteringAdapter(project, trustedMetrics) : null;
   const prepared = JSON.parse(mustRun([
     "assessment", "proposal", "prepare", "--root", project, "--id", "ASSESS-1",
@@ -119,7 +131,9 @@ function runningAssessment(name, budget, { trustedMetrics = [], locale = null } 
     "--json",
   ]).stdout);
   mustRun(["assessment", "proposal", "approve", "--root", project, "--id", "ASSESS-1", ...humanApproval("Approve the exact proposal")]);
-  mustRun(["assessment", "proposal", "apply", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent"]);
+  if (apply) {
+    mustRun(["assessment", "proposal", "apply", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent"]);
+  }
   return { project, keyPair, prepared };
 }
 
@@ -240,4 +254,32 @@ test("manual metric flags are strict whole numbers or decimals and must belong t
   const recorded = JSON.parse(mustRun(record("--input-tokens", "100", "--output-tokens", "16", "--cost-amount", "1.50", "--json")).stdout);
   assert.equal(recorded.receipt.usage.tokens, 116);
   assert.equal(recorded.receipt.usage.cost, "1.5");
+});
+
+test("meter setup errors say how to continue", () => {
+  const { project } = runningAssessment("budget-meter-errors", {
+    limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10_000 } },
+  }, { apply: false });
+  mustFail(
+    ["budget", "meter", "start", "--root", project, "--proposal", "ASSESS-1"],
+    /requires CODEX_THREAD_ID[\s\S]*--thread-id <id>[\s\S]*does not run Codex tasks[\s\S]*--adapter codeburn[\s\S]*budget usage record --proposal <proposal-id> --input-tokens <n> --output-tokens <n>/u,
+  );
+  mustFail(
+    ["budget", "meter", "start", "--root", project, "--proposal", "ASSESS-1", "--adapter", "codeburn"],
+    /'codeburn' is disabled[\s\S]*metering_adapters\.codeburn\.enabled to true[\s\S]*config migrate[\s\S]*pinned again/u,
+  );
+
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = readJson(configPath);
+  config.budget_policy.metering_adapters.codeburn.enabled = true;
+  config.budget_policy.metering_adapters.codeburn.command = {
+    executable: path.join(project, "missing-tools", "codeburn"),
+    arguments: [],
+  };
+  writeJson(configPath, config);
+  pinProjectConfig(project);
+  mustFail(
+    ["budget", "meter", "start", "--root", project, "--proposal", "ASSESS-1", "--adapter", "codeburn"],
+    /CodeBurn is not installed or not on PATH[\s\S]*Install CodeBurn 0\.9\.x separately[\s\S]*command\.executable[\s\S]*config migrate/u,
+  );
 });

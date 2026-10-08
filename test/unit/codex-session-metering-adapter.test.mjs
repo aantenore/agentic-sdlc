@@ -77,6 +77,13 @@ function tokenCount({
   };
 }
 
+function homeAbbreviated(value) {
+  const relative = path.relative(os.homedir(), path.resolve(value));
+  return relative && !relative.startsWith("..") && !path.isAbsolute(relative)
+    ? ["~", ...relative.split(path.sep)].join("/")
+    : path.resolve(value);
+}
+
 function writeJsonl(file, entries, newline = "\n") {
   fs.writeFileSync(file, `${entries.map((entry) => JSON.stringify(entry)).join(newline)}${newline}`);
 }
@@ -235,7 +242,11 @@ test("Codex session selection rejects project drift, linked files, and counter r
       { id: "WRONG-PROJECT", query: { thread_id: THREAD_ID } },
       { codex_home: current.codexHome, project_root: path.join(current.root, "other") },
     ),
-    /cwd does not match/u,
+    // Both paths are named so the person can see which project the task ran in.
+    (error) => error.code === "codex_session_project_mismatch"
+      && /cwd does not match/u.test(error.message)
+      && error.message.includes(`the session ran in ${homeAbbreviated(current.projectRoot)}`)
+      && error.message.includes(`but the project root is ${homeAbbreviated(path.join(current.root, "other"))}`),
   );
 
   if (process.platform !== "win32") {

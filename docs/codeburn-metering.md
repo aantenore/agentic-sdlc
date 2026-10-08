@@ -42,6 +42,16 @@ The project configuration models the CodeBurn launcher as an executable plus dis
 
 The default works for a native executable on `PATH`. On Windows, npm installs command shims as `.cmd` files, which cannot be launched by Node's shell-free `execFile` API. Keep the no-shell boundary by pointing `executable` at `node.exe` and putting CodeBurn's installed `dist/cli.js` path in `arguments`. The adapter prepends those arguments to both `--version` and the allowlisted report argv; it never concatenates a command string or evaluates shell syntax. The same mechanism also supports hermetic tool paths in CI and other managed runtimes.
 
+### Enabling the adapter
+
+CodeBurn ships disabled. To use it, install CodeBurn 0.9.x yourself, set
+`budget_policy.metering_adapters.codeburn.enabled` to `true` (and adjust
+`provider` or `command` if needed) in `.sdlc/config.json`, then pin the edited
+configuration: run `agentic-sdlc config migrate`, review the plan, and apply it
+with `agentic-sdlc config migrate --apply --plan-hash <hash>`. Until it is
+pinned, the project keeps using its previous configuration. If the executable
+cannot be found, `budget meter start` says so and repeats these steps.
+
 ## Start snapshot
 
 Use a start snapshot immediately before the task begins. The example below asks CodeBurn to aggregate Codex sessions matching `TravelOps` on 14 July 2026, normalizes the cumulative counters, hashes the source report, and returns a persistible snapshot:
