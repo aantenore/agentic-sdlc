@@ -376,11 +376,11 @@ The evaluator chooses the most restrictive host, project, requirement, delivery,
 
 ## Standing Approvals For Repeated Low-Risk Deliveries
 
-A standing approval lets similar deliveries proceed without a confirmation for each one. It never exists without the user's explicit approval, covers only the `checkpointed` level, and never covers merge, production, deploy, data migrations, force-push, or deletions of tracked files outside its paths. Every bound is mandatory except the optional budget; the expiry is capped by `standing_approval_policy.max_validity_days`.
+A standing approval lets similar deliveries proceed without a confirmation for each one. It never exists without the user's explicit approval, covers only the `checkpointed` level, and never covers merge, production, deploy, data migrations, force-push, or deletions of tracked files outside its paths. Every bound is mandatory; the expiry is capped by `standing_approval_policy.max_validity_days`.
 
 For `--destination pull_request`, `--repository <owner/repository>` is required and pushes are confined to head branches under `--head-branch-prefix` (default `standing/<id>/`). The base branch and shared, release, or production branches (`main`, `master`, `develop`, `release/*`, `prod*`, ...) are never covered. A work brief approved under a standing approval must be for a non-release phase, must not allow infrastructure tools (`kubectl`, `terraform`, cloud CLIs, ...), must name a delivery that is new or proposed under the same standing approval, and the briefs it approves never name more deliveries than `--max-deliveries`.
 
-Delivery cost is not measurable yet, so a standing approval with a budget sends every step back to the normal confirmation; leave the budget out until delivery metering exists.
+Delivery cost is not measurable yet, so `autonomy standing propose` refuses `--budget-per-delivery` and `--budget-total`: such a standing approval would send every step back to the normal confirmation and never cover anything. A standing approval recorded with a budget by an earlier version still fails closed at every step.
 
 ```bash
 node bin/agentic-sdlc.mjs autonomy standing propose \

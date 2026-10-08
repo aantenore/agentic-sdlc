@@ -9,6 +9,7 @@ import {
   buildStandingApprovalProposal,
   buildStandingApprovalUse,
   deriveStandingApprovalState,
+  formatStandingBudget,
   normalizeStandingWritePath,
   standingActionReasons,
   standingApprovalIntegrityErrors,
@@ -214,6 +215,18 @@ test("a configured budget fails closed without a measurement", () => {
     /above the total budget/u,
   );
   assert.match(standingBudgetReasons(record, { measurable: true, currency: "USD", delivery_amount: 1, total_amount: 1 }).join(), /not EUR/u);
+});
+
+test("a recorded standing budget reads as currency amounts", () => {
+  assert.equal(formatStandingBudget(null), "none");
+  assert.equal(
+    formatStandingBudget({ currency: "USD", per_delivery_amount: 5, total_amount: null }),
+    "USD 5.00 per delivery, no total",
+  );
+  assert.equal(
+    formatStandingBudget({ currency: "EUR", per_delivery_amount: null, total_amount: 20.125 }),
+    "no per-delivery limit, EUR 20.125 total",
+  );
 });
 
 test("a derived approval is historically valid only inside the approval window", () => {
