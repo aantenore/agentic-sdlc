@@ -103,10 +103,10 @@ function installedLayout() {
   }));
   skillFile(home, ".codex/plugins/cache/market/gadgets/2.1.0/skills/gadget-builder", "gadget-builder", "Build gadgets in Rust.");
   writeFile(home, ".codex/config.toml", [
-    "[mcp_servers.codex-local]",
+    "[mcp_servers.toml-local]",
     "command = \"node\"",
     `args = ["server.js", "--flag=${SENTINEL}"]`,
-    "[mcp_servers.codex-local.env]",
+    "[mcp_servers.toml-local.env]",
     `SERVICE_ENV = "${SENTINEL}"`,
     "",
   ].join("\n"));
@@ -143,10 +143,10 @@ test("capability inventory lists both host layouts without leaking values or tou
   assert.deepEqual(inventory.plugins.map((plugin) => `${plugin.name}@${plugin.version}`).sort(), ["gadgets@2.1.0", "widgets@1.0.0"]);
   assert.deepEqual(inventory.commands.map((entry) => entry.name), ["ship"]);
   const servers = new Map(inventory.mcp.map((entry) => [entry.name, entry]));
-  assert.deepEqual([...servers.keys()].sort(), ["codex-local", "docs-hosted", "repo-index"]);
+  assert.deepEqual([...servers.keys()].sort(), ["docs-hosted", "repo-index", "toml-local"]);
   assert.equal(servers.get("repo-index").transport, "stdio");
   assert.equal(servers.get("docs-hosted").transport, "http");
-  assert.equal(servers.get("codex-local").path, "~/.codex/config.toml");
+  assert.equal(servers.get("toml-local").path, "~/.codex/config.toml");
   assert.equal(typeof inventory.correlation_id, "string");
 });
 
@@ -191,7 +191,7 @@ test("capability inventory follows the configured locations and can be turned of
   assert.deepEqual(custom.mcp, []);
   assert.deepEqual(custom.sources.map((entry) => entry.id), ["team-tools", "user-codex-skills"]);
 
-  const relocated = temporaryDirectory("codex-home");
+  const relocated = temporaryDirectory("relocated-home");
   skillFile(relocated, "skills/relocated-skill", "relocated-skill", "Found through the host variable.");
   const moved = JSON.parse(mustRun(["capability", "inventory", "--root", project, "--json"], {
     cwd: project,
@@ -440,4 +440,271 @@ test("--from-inventory cannot be combined with a hand-built list, follows config
   ], { cwd: project, home }).stdout);
   assert.equal(manual.recommendation.recommendations.some((item) => item.name === "pdf-forms"), true);
   assert.equal(manual.inventory_match, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// Proactive suggestion at task start and in status
+
+function intent(storyId, phase, overrides = {}) {
+  return JSON.stringify({
+    requested_action: "implement_story",
+    confidence: 0.95,
+    referenced_entities: [{ type: "story", id: storyId }],
+    provided_artifacts: [],
+    missing_context: [],
+    proposed_phase: phase,
+    artifact_type: null,
+    skip_phases: [],
+    ...overrides,
+  });
+}
+
+function taskStart(project, home, storyId, phase, extra = [], overrides = {}) {
+  return mustRun([
+    "task", "start", "--root", project, "--story", storyId,
+    "--intent-json", intent(storyId, phase, overrides), ...extra,
+  ], { cwd: project, home });
+}
+
+function taskStartJson(project, home, storyId, phase = "implementation", extra = [], overrides = {}) {
+  return JSON.parse(taskStart(project, home, storyId, phase, ["--json", ...extra], overrides).stdout);
+}
+
+function statusJson(project, home) {
+  return JSON.parse(mustRun(["status", "--root", project, "--json"], { cwd: project, home }).stdout);
+}
+
+function createPhaseStory(project, home, id, phase, title = `Story ${id}`) {
+  ensureRequirement(project, "REQ-001");
+  mustRun([
+    "story", "create", "--root", project, "--id", id, "--title", title,
+    "--acceptance", "Observable acceptance", "--phase", phase, "--status", "ready",
+  ], { cwd: project, home });
+}
+
+function userTools(home) {
+  skillFile(home, ".claude/skills/react-review", "react-review", "Review React components and hooks.");
+  skillFile(home, ".codex/skills/node-debug", "node-debug", "Debug Node.js services.");
+  skillFile(home, ".codex/skills/pdf-forms", "pdf-forms", "Fill in PDF forms.");
+}
+
+const DECISION_FIELDS = [
+  "status", "execution_allowed", "route", "phase", "story_id", "contract_id", "contract_action",
+  "blocking_reasons", "questions", "next_commands", "approval_requests",
+];
+
+function pick(source, fields) {
+  return Object.fromEntries(fields.map((field) => [field, source[field]]));
+}
+
+test("task start offers installed tools that name the declared stack, without changing the decision", () => {
+  const project = temporaryDirectory("suggest-project");
+  const home = temporaryDirectory("suggest-home");
+  const bareHome = temporaryDirectory("suggest-bare-home");
+  initProject(project, home);
+  reactProject(project);
+  createPhaseStory(project, home, "ST-001", "implementation", "Fill in PDF forms for customers");
+  userTools(home);
+
+  // Without any installed tool the decision carries no suggestion; it is the
+  // reference the suggested run must equal.
+  const bare = taskStartJson(project, bareHome, "ST-001");
+  assert.equal(bare.capability_suggestion, undefined, "no suggestion without an installed match");
+
+  writeFile(project, ".mcp.json", JSON.stringify({
+    mcpServers: { "react-docs": { command: "node", args: [`--flag=${SENTINEL}`], env: { SERVICE_ENV: SENTINEL } } },
+  }));
+  const serverOnly = taskStartJson(project, bareHome, "ST-001").capability_suggestion;
+  assert.deepEqual(serverOnly.matches.map((match) => [match.type, match.name]), [["mcp", "react-docs"]]);
+
+  const withTools = taskStartJson(project, home, "ST-001");
+  assert.deepEqual(pick(withTools, DECISION_FIELDS), pick(bare, DECISION_FIELDS), "a suggestion never changes the decision");
+  const suggestion = withTools.capability_suggestion;
+  assert.equal(suggestion.schema_version, "capability-suggestion:v1");
+  assert.equal(suggestion.story_id, "ST-001");
+  assert.equal(suggestion.phase, "implementation");
+  assert.equal(suggestion.basis, "project_detection");
+  assert.equal(suggestion.profile_id, null);
+  assert.equal(suggestion.applies_automatically, false);
+  assert.deepEqual(suggestion.matches.map((match) => match.name).sort(), ["node-debug", "react-docs", "react-review"]);
+  assert.equal(
+    suggestion.matches.some((match) => match.name === "pdf-forms"),
+    false,
+    "the wording of the story is never matched, only the declared technology",
+  );
+  assert.deepEqual(suggestion.tags, ["frontend", "node", "react", "typescript"]);
+  assert.deepEqual(suggestion.commands, [
+    "agentic-sdlc capability profile propose --id CAP-PROFILE-ST-001 --story ST-001 --phase implementation --context-file package.json",
+    "agentic-sdlc capability recommend --id CAP-REC-ST-001 --profile CAP-PROFILE-ST-001 --from-inventory",
+  ]);
+  assert.match(withTools.assistant_message, /Installed tools that look relevant to this work: .*react-review \(skill\)/u);
+  assert.equal(JSON.stringify(withTools).includes(SENTINEL), false);
+
+  // Nothing was proposed, approved, or bound by merely showing it.
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "capability-discovery", "profiles")), false);
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "capability-discovery", "recommendations")), false);
+});
+
+test("the task start suggestion reads in plain language first and keeps commands in the details", () => {
+  const project = temporaryDirectory("suggest-text-project");
+  const home = temporaryDirectory("suggest-text-home");
+  initProject(project, home);
+  reactProject(project);
+  createPhaseStory(project, home, "ST-001", "implementation");
+  userTools(home);
+  skillFile(home, ".claude/skills/schema-react-helper", "schema-react-helper", "Helps with React schemas.");
+
+  for (const locale of ["en", "it"]) {
+    const text = taskStart(project, home, "ST-001", "implementation", ["--locale", locale]).stdout;
+    const divider = locale === "it" ? "Dettagli tecnici (facoltativi):" : "Technical details (optional):";
+    const [primary, details] = text.split(divider);
+    const prefix = locale === "it" ? "Suggerimento strumenti:" : "Tool suggestion:";
+    const line = primary.split("\n").find((entry) => entry.startsWith(prefix));
+    assert.ok(line, `${locale} primary lacks the suggestion\n${text}`);
+    assert.match(line, /react-review/u);
+    assert.doesNotMatch(
+      primary,
+      /\.sdlc\/|--[a-z]|agentic-sdlc\s+[a-z]|\b(?:profile|schema|hash|receipt|checkpoint)\b|\b(?:REQ|AUT|AUTH|CAP|ST|ACT|PR)-[A-Z0-9]/iu,
+      "the primary part carries no commands, identifiers, or internal terms",
+    );
+    assert.equal(line.includes("schema-react-helper"), false, "a name with an internal term stays in the details");
+    assert.match(details, /capability recommend --id CAP-REC-ST-001 --profile CAP-PROFILE-ST-001 --from-inventory/u);
+    assert.match(details, /capability profile propose --id CAP-PROFILE-ST-001 --story ST-001 --phase implementation --context-file package\.json/u);
+    assert.match(details, /schema-react-helper/u);
+    assert.match(details, /~\/\.claude\/skills\/react-review\/SKILL\.md/u);
+  }
+});
+
+test("with an approved profile the suggestion points at the recommendation and stops once one is recorded", () => {
+  const project = temporaryDirectory("suggest-profile-project");
+  const home = temporaryDirectory("suggest-profile-home");
+  initProject(project, home);
+  reactProject(project);
+  createPhaseStory(project, home, "ST-001", "implementation");
+  userTools(home);
+
+  mustRun([
+    "capability", "profile", "propose", "--root", project, "--id", "CAP-PROFILE-ST-001", "--story", "ST-001",
+    "--phase", "implementation", "--context-file", "package.json",
+  ], { cwd: project, home });
+  assert.equal(
+    taskStartJson(project, home, "ST-001").capability_suggestion,
+    undefined,
+    "a proposed profile is already a pending decision",
+  );
+
+  mustRun([
+    "capability", "profile", "approve", "--root", project, "--id", "CAP-PROFILE-ST-001", ...HUMAN,
+    "--summary", "Approved the evidence and boundaries",
+  ], { cwd: project, home });
+  const suggestion = taskStartJson(project, home, "ST-001").capability_suggestion;
+  assert.equal(suggestion.basis, "approved_profile");
+  assert.equal(suggestion.profile_id, "CAP-PROFILE-ST-001");
+  assert.deepEqual(suggestion.commands, [
+    "agentic-sdlc capability recommend --id CAP-REC-ST-001 --profile CAP-PROFILE-ST-001 --from-inventory",
+  ]);
+  assert.match(suggestion.message, /ask me to put them forward for your review/u);
+  assert.doesNotMatch(suggestion.message, /evidence and boundaries need your review first/u);
+  // The stack does not change with the phase of the same story.
+  assert.equal(taskStartJson(project, home, "ST-001", "validation").capability_suggestion?.basis, "approved_profile");
+
+  // Running the suggested command records a proposal; from then on the
+  // pending decision, not another suggestion, is what is shown.
+  const [, ...argv] = suggestion.commands[0].split(" ");
+  mustRun([...argv, "--root", project], { cwd: project, home });
+  assert.equal(taskStartJson(project, home, "ST-001").capability_suggestion, undefined);
+  mustRun([
+    "capability", "approve", "--root", project, "--id", "CAP-REC-ST-001", ...HUMAN,
+    "--summary", "Approved the displayed tools and limits",
+  ], { cwd: project, home });
+  assert.equal(taskStartJson(project, home, "ST-001").capability_suggestion, undefined);
+});
+
+test("a story that already binds an approved recommendation is not offered another", () => {
+  const project = temporaryDirectory("suggest-bound-project");
+  const home = temporaryDirectory("suggest-bound-home");
+  initProject(project, home);
+  reactProject(project);
+  createPhaseStory(project, home, "ST-001", "design");
+  userTools(home);
+  approvedProfile(project, home, "ST-001", "design");
+  mustRun([
+    "capability", "recommend", "--root", project, "--id", "CAP-REC-ST-001", "--profile", "CAP-PROFILE-ST-001", "--from-inventory",
+  ], { cwd: project, home });
+  mustRun([
+    "capability", "approve", "--root", project, "--id", "CAP-REC-ST-001", ...HUMAN, "--summary", "Approved the tools",
+  ], { cwd: project, home });
+  mustRun(["output", "template", "propose", "--root", project, "--type", "functional-analysis", "--summary", "Standard template"], { cwd: project, home });
+  mustRun([
+    "output", "template", "approve", "--root", project, "--id", "functional-analysis-v1", ...HUMAN, "--summary", "Approved template",
+  ], { cwd: project, home });
+  mustRun([
+    "contract", "create", "--root", project, "--phase", "design", "--story", "ST-001", "--id", "contract-ST-001-design",
+    "--context-summary", "Design with the approved tools.", "--qa", "Who approves?|Owner",
+    "--output-ref", "functional-analysis:functional-analysis-v1:new", "--capability-recommendation", "CAP-REC-ST-001",
+  ], { cwd: project, home });
+  const decision = taskStartJson(project, home, "ST-001", "design", ["--contract-id", "contract-ST-001-design"]);
+  assert.equal(decision.capability_suggestion, undefined);
+  assert.equal(statusJson(project, home).capability_suggestion, undefined);
+});
+
+test("status carries the same suggestion for the first operational story", () => {
+  const project = temporaryDirectory("suggest-status-project");
+  const home = temporaryDirectory("suggest-status-home");
+  initProject(project, home);
+  reactProject(project);
+  createPhaseStory(project, home, "ST-001", "implementation");
+  userTools(home);
+
+  const status = statusJson(project, home);
+  assert.equal(status.capability_suggestion.story_id, "ST-001");
+  assert.deepEqual(status.capability_suggestion.matches.map((match) => match.name).sort(), ["node-debug", "react-review"]);
+  assert.equal(status.capability_suggestion.commands[1], "agentic-sdlc capability recommend --id CAP-REC-ST-001 --profile CAP-PROFILE-ST-001 --from-inventory");
+
+  for (const locale of ["en", "it"]) {
+    const text = mustRun(["status", "--root", project, "--locale", locale], { cwd: project, home }).stdout;
+    const divider = locale === "it" ? "Dettagli tecnici (facoltativi):" : "Technical details (optional):";
+    const [primary, details] = text.split(divider);
+    assert.match(primary, new RegExp(`${locale === "it" ? "Suggerimento strumenti" : "Tool suggestion"}: .*react-review`, "u"));
+    assert.doesNotMatch(primary, /--[a-z]|agentic-sdlc\s+[a-z]|\b(?:profile|schema|hash)\b/iu);
+    assert.match(details, /capability profile propose --id CAP-PROFILE-ST-001/u);
+  }
+
+  mustRun([
+    "capability", "profile", "propose", "--root", project, "--id", "CAP-PROFILE-ST-001", "--story", "ST-001",
+    "--phase", "implementation",
+  ], { cwd: project, home });
+  assert.equal(statusJson(project, home).capability_suggestion, undefined, "a pending profile is already surfaced as a decision");
+});
+
+test("the suggestion stays quiet when nothing matches, when switched off, or for assessments", () => {
+  const project = temporaryDirectory("suggest-quiet-project");
+  const home = temporaryDirectory("suggest-quiet-home");
+  initProject(project, home);
+  createPhaseStory(project, home, "ST-001", "implementation");
+  userTools(home);
+
+  // No declared technology at all: there is nothing to match against.
+  assert.equal(taskStartJson(project, home, "ST-001").capability_suggestion, undefined);
+  assert.equal(statusJson(project, home).capability_suggestion, undefined);
+
+  reactProject(project);
+  assert.ok(taskStartJson(project, home, "ST-001").capability_suggestion);
+  const assessment = taskStartJson(project, home, "ST-001", "analysis", [], {
+    requested_action: "technical_assessment",
+    artifact_type: "technical-analysis",
+  });
+  assert.equal(assessment.capability_suggestion, undefined, "assessments settle their tools in their own journey");
+
+  const config = JSON.parse(fs.readFileSync(path.join(project, ".sdlc", "config.json"), "utf8"));
+  config.capability_discovery_policy.inventory.suggest = false;
+  pinConfig(project, home, config);
+  assert.equal(taskStartJson(project, home, "ST-001").capability_suggestion, undefined);
+  assert.equal(statusJson(project, home).capability_suggestion, undefined);
+  assert.ok(JSON.parse(mustRun(["capability", "inventory", "--root", project, "--json"], { cwd: project, home }).stdout).skills.length > 0, "the inventory command is unaffected");
+
+  config.capability_discovery_policy.inventory.suggest = true;
+  config.capability_discovery_policy.inventory.enabled = false;
+  pinConfig(project, home, config);
+  assert.equal(taskStartJson(project, home, "ST-001").capability_suggestion, undefined);
 });

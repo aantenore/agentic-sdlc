@@ -17,6 +17,7 @@ import {
   parseTomlMcpServers,
   sanitizeInlineText,
 } from "../../lib/capability-inventory.mjs";
+import { validateAgainstSchema } from "../../lib/json-schema-validator.mjs";
 import { currentHost, setHost } from "../../lib/runtime/host.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -106,35 +107,35 @@ function buildLayout() {
   skill(home, ".codex/skills/delta-skill", "delta-skill", "Operates Terraform stacks.");
   skill(home, ".agents/skills/epsilon-skill", null, "Falls back to the directory name.");
 
-  const claudeCache = ".claude/plugins/cache/market";
-  write(home, `${claudeCache}/widgets/1.2.0/.claude-plugin/plugin.json`, JSON.stringify({
+  const firstCache = ".claude/plugins/cache/market";
+  write(home, `${firstCache}/widgets/1.2.0/.claude-plugin/plugin.json`, JSON.stringify({
     name: "widgets",
     version: "1.2.0",
     description: "Widget helpers.",
     skills: "./skills/",
     commands: "./commands/",
   }));
-  skill(home, `${claudeCache}/widgets/1.2.0/skills/widget-skill`, "widget-skill", "Builds widgets for Vue.");
-  write(home, `${claudeCache}/widgets/1.2.0/commands/widget.md`, "---\ndescription: Make a widget\n---\n");
-  write(home, `${claudeCache}/widgets/1.10.0/.claude-plugin/plugin.json`, JSON.stringify({
+  skill(home, `${firstCache}/widgets/1.2.0/skills/widget-skill`, "widget-skill", "Builds widgets for Vue.");
+  write(home, `${firstCache}/widgets/1.2.0/commands/widget.md`, "---\ndescription: Make a widget\n---\n");
+  write(home, `${firstCache}/widgets/1.10.0/.claude-plugin/plugin.json`, JSON.stringify({
     name: "widgets",
     version: "1.10.0",
     description: "Widget helpers, newest.",
   }));
-  skill(home, `${claudeCache}/widgets/1.10.0/skills/widget-skill`, "widget-skill", "Builds widgets for Vue, newest.");
-  write(home, `${claudeCache}/widgets/0.9.0/.claude-plugin/plugin.json`, JSON.stringify({
+  skill(home, `${firstCache}/widgets/1.10.0/skills/widget-skill`, "widget-skill", "Builds widgets for Vue, newest.");
+  write(home, `${firstCache}/widgets/0.9.0/.claude-plugin/plugin.json`, JSON.stringify({
     name: "widgets",
     version: "0.9.0",
     description: "Widget helpers, oldest.",
   }));
 
-  const codexCache = ".codex/plugins/cache/market";
-  write(home, `${codexCache}/gadgets/2.0.0/.codex-plugin/plugin.json`, JSON.stringify({
+  const secondCache = ".codex/plugins/cache/market";
+  write(home, `${secondCache}/gadgets/2.0.0/.codex-plugin/plugin.json`, JSON.stringify({
     name: "gadgets",
     version: "2.0.0",
     description: "Gadget helpers for Rust.",
   }));
-  skill(home, `${codexCache}/gadgets/2.0.0/skills/gadget-skill`, "gadget-skill", "Builds gadgets.");
+  skill(home, `${secondCache}/gadgets/2.0.0/skills/gadget-skill`, "gadget-skill", "Builds gadgets.");
 
   write(home, ".claude.json", JSON.stringify({
     mcpServers: { "user-tool": { command: "node", env: { SERVICE_ENV: SENTINELS.env } } },
@@ -147,7 +148,7 @@ function buildLayout() {
   write(home, ".codex/config.toml", [
     "[mcp_servers.\"quoted name\"]",
     "command = \"node\"",
-    "[mcp_servers.user-codex-tool]",
+    "[mcp_servers.user-toml-tool]",
     "command = \"node\"",
     "",
   ].join("\n"));
@@ -175,6 +176,41 @@ test("the template defaults and the built-in defaults describe the same inventor
     const config = JSON.parse(fs.readFileSync(path.join(REPOSITORY_ROOT, file), "utf8"));
     assert.deepEqual(config.capability_discovery_policy.inventory, DEFAULT_CAPABILITY_INVENTORY_POLICY, file);
     assert.deepEqual(capabilityInventoryPolicyFromConfig(config), normalizeCapabilityInventoryPolicy(undefined), file);
+  }
+});
+
+test("the configuration schema accepts the shipped inventory policy and rejects unsafe or malformed ones", () => {
+  const schemaDir = path.join(REPOSITORY_ROOT, "schemas");
+  const base = JSON.parse(fs.readFileSync(path.join(REPOSITORY_ROOT, "templates", "sdlc-config.json"), "utf8"));
+  const check = (mutate) => {
+    const config = structuredClone(base);
+    mutate(config.capability_discovery_policy.inventory);
+    return validateAgainstSchema(config, "sdlc-config.schema.json", { schemaDir });
+  };
+  assert.equal(check(() => {}).valid, true);
+  for (const good of [".claude/skills", "~/.claude/skills", "${EXAMPLE_HOME:-~/.example}/skills", "tools/skills"]) {
+    assert.equal(check((inventory) => { inventory.sources[0].path = good; }).valid, true, good);
+  }
+  const bad = {
+    "a parent traversal": (inventory) => { inventory.sources[0].path = "../outside"; },
+    "a nested traversal": (inventory) => { inventory.sources[0].path = "a/../../b"; },
+    "an absolute path": (inventory) => { inventory.sources[0].path = "/etc"; },
+    "a backslash": (inventory) => { inventory.sources[0].path = "a\\b"; },
+    "an unknown kind": (inventory) => { inventory.sources[0].kind = "network"; },
+    "an unknown scope": (inventory) => { inventory.sources[0].scope = "world"; },
+    "an unknown source property": (inventory) => { inventory.sources[0].url = "https://example.invalid"; },
+    "a malformed identifier": (inventory) => { inventory.sources[0].id = "Bad Id"; },
+    "a missing path": (inventory) => { delete inventory.sources[0].path; },
+    "an empty key list": (inventory) => { inventory.sources.find((source) => source.kind === "mcp-json").keys = []; },
+    "an unsafe manifest": (inventory) => { inventory.sources.find((source) => source.kind === "plugins").manifests = ["../plugin.json"]; },
+    "a zero limit": (inventory) => { inventory.limits.max_entries = 0; },
+    "an unknown limit": (inventory) => { inventory.limits.surprise = 1; },
+    "an unknown inventory property": (inventory) => { inventory.network = true; },
+    "a non-boolean switch": (inventory) => { inventory.suggest = "yes"; },
+    "a non-array alias": (inventory) => { inventory.matching.aliases.go = "golang"; },
+  };
+  for (const [description, mutate] of Object.entries(bad)) {
+    assert.equal(check(mutate).valid, false, `${description} must be rejected`);
   }
 });
 
@@ -397,7 +433,7 @@ test("project and user layouts for both host families are discovered with portab
     "repo-search",
     "sse-feed",
     "switched-off",
-    "user-codex-tool",
+    "user-toml-tool",
     "user-tool",
   ]);
   assert.equal(servers.get("repo-search").transport, "stdio");
@@ -411,7 +447,7 @@ test("project and user layouts for both host families are discovered with portab
   assert.equal(servers.get("repo-search").path, ".mcp.json");
   assert.equal(servers.get("local-tool").path, ".codex/config.toml");
   assert.equal(servers.get("user-tool").path, "~/.claude.json");
-  assert.equal(servers.get("user-codex-tool").path, "~/.codex/config.toml");
+  assert.equal(servers.get("user-toml-tool").path, "~/.codex/config.toml");
   assert.equal(servers.has("other-project-tool"), false, "another project's local servers are not this project's");
 
   assert.deepEqual(inventory.counts, {

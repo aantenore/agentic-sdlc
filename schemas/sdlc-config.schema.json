@@ -221,6 +221,7 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean" },
+        "suggest": { "type": "boolean" },
         "limits": {
           "type": "object",
           "properties": {

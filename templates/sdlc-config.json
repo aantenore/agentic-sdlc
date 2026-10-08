@@ -921,6 +921,7 @@
     "require_approval_for_production": true,
     "inventory": {
       "enabled": true,
+      "suggest": true,
       "limits": {
         "max_entries": 500,
         "max_directories": 500,
