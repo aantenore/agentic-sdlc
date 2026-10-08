@@ -326,6 +326,23 @@ Lock files keep two commands on the same computer from using the same delivery s
 
 Approving a standing approval is refused inside an agent's session; the user approves it in their own terminal. Where the work runs only in a hosted agent session with no terminal of the user's own, standing approvals cannot be approved there; use the normal per-delivery confirmations instead. Deliveries used before the remote existed are shared before a new one is claimed. A revocation made while the remote is unreachable is kept on this computer and shared later with `autonomy standing sync --id <id>`; `autonomy standing status` and `explain` show what everyone using the project sees. A standing approval is also bound to the project folder it was approved in, so a copy in a different folder never relies on it at all.
 
+#### Signed standing approvals
+
+In a project that requires signed approvals (`authority_policy.mode: host_verified`), a standing approval is approved only with a receipt from the trusted host: `autonomy standing approve --id <id> ... --host-receipt-file <receipt.json>`. The receipt uses the same Ed25519 `host-approval-receipt:v2` format and the same `authority_policy.trusted_host_keys` as every other signed decision, and it must sign:
+
+- action `autonomy.standing.approve`;
+- the subject `{ kind: "standing_approval_decision", action, decision: "approved", standing_approval_id, standing_approval_hash, expires_at }`, where the hash is the proposal's `record_hash`, which already binds every limit; `autonomy standing propose --json` and `explain --json` print it under `host_receipt_request`, with its `subject_hash`;
+- a decision by a person or an approved CI actor, valid at the moment the approval is recorded;
+- limits the standing approval respects: a `max_authorization_ttl_seconds` shorter than the time to its expiry, or `no_external_access` on a pull-request destination, refuse it.
+
+A receipt for another standing approval, for a revocation, for a changed expiry, or signed by a key the project does not trust is refused, and nothing is approved. The CLI copies the verified receipt into `approval.json` (`assurance` and `host_receipt`), so its signature is checked again, as of the decision time, every time the standing approval is read, without the original file. Every derived approval made under it names the exact receipt (`standing_approval_ref.host_receipt_ref`), and the strict gate verifies that reference and the signature behind it. In such a project a standing approval whose approval has no valid receipt is invalid and covers nothing; that includes one written directly to the record files, so a separate script can no longer approve one on the agent's behalf. Bounds, shared state, the never-covered actions, and every other check are unchanged. Deliveries approved under a signed standing approval still run at the middle working level.
+
+Revoking is never harder than approving: `autonomy standing revoke` verifies and records a receipt for action `autonomy.standing.revoke` when one is given, and otherwise accepts the person's explicit revocation as before, even where approvals must be signed, because a revocation only removes authority. A receipt given to `revoke` that does not verify refuses the command, so it is never silently dropped.
+
+A project in `audit_only` mode may pass a receipt as well. It is verified the same way (a wrong receipt is refused, never ignored), and `status`, `explain`, and the Change Observatory then show the approval as signed by the trusted host; without one nothing changes.
+
+Two consequences follow from checking signatures at every read. Removing or rotating the key that signed a standing approval, or switching an existing project to `host_verified`, makes standing approvals approved without a valid receipt invalid, and the strict gate then also rejects the derived approvals they produced; approve new standing approvals with receipts from the current key. The CLI still refuses `autonomy standing approve` inside an agent's session: the receipt adds proof of the person's decision, it does not move that decision into the agent's session.
+
 ### Optional technical mapping
 
 The stored names for the three choices are `supervised`, `checkpointed`, and `bounded-autonomous`. The requirement safety limit is stored in a requirement execution profile; the one-delivery choice is stored in a separate delivery execution profile bound to the immutable requirement, story, and contract hashes.
