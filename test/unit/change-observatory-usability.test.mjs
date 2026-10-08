@@ -124,7 +124,7 @@ test("human-facing wording stays host-neutral and keeps both languages in step",
     ),
   );
   for (const source of sources) {
-    assert.doesNotMatch(source, /Codex chat|chat di Codex/u);
+    assert.doesNotMatch(source, /\b[A-Z][a-z]+ chat\b|\bchat di [A-Z]\w+/u, "no product-specific chat wording");
   }
   setLocale("it");
   for (const english of [
