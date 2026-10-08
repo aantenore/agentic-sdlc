@@ -402,3 +402,35 @@ test("history size is warned near the read limit and named when exceeded", async
   assert.equal(verify.files[0].size_state, "over_limit");
   assert.equal(json(mustFail(["doctor", "--root", project, "--json"])).checks.find((check) => check.id === "trace-size").status, "failed");
 });
+
+test("trace append refuses evidence outside the project and flags missing evidence", () => {
+  const project = initializedProject("evidence-paths");
+  const outside = path.join(os.tmpdir(), "agentic-sdlc-outside-evidence.txt");
+  for (const evidence of [outside, "../../outside.txt", "docs/../../outside.txt"]) {
+    const failure = mustFail([
+      "trace", "append", "--root", project, "--type", "decision", "--summary", "outside", "--evidence", evidence, "--json",
+    ]);
+    assert.match(json(failure).error.message, /Evidence path must name a file inside this project/u, evidence);
+  }
+  assert.equal(fs.existsSync(projectTrace(project)), false, "refused evidence must not append an event");
+
+  const missing = json(mustRun([
+    "trace", "append", "--root", project, "--type", "decision", "--summary", "missing",
+    "--evidence", "docs/not-yet-written.md", "--json",
+  ]));
+  assert.deepEqual(missing.evidence_unverified, ["docs/not-yet-written.md"]);
+  assert.equal(missing.trace_path, ".sdlc/traces/project.jsonl");
+  const human = mustRun([
+    "trace", "append", "--root", project, "--type", "decision", "--summary", "missing again",
+    "--evidence", "docs/not-yet-written.md",
+  ]);
+  assert.match(human.stdout, /Evidence not verified: docs\/not-yet-written\.md does not exist/u);
+
+  fs.writeFileSync(path.join(project, "notes.txt"), "evidence\n");
+  const present = json(mustRun([
+    "trace", "append", "--root", project, "--type", "decision", "--summary", "present",
+    "--evidence", path.join(project, "notes.txt"), "--json",
+  ]));
+  assert.deepEqual(present.event.evidence, ["notes.txt"]);
+  assert.deepEqual(present.evidence_unverified, []);
+});
