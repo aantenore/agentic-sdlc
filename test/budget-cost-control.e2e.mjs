@@ -411,6 +411,15 @@ test("project budget settings take precedence over the defaults template and are
   config.budget_policy.warning_thresholds_percent = [150];
   writeJson(configPath, config);
   mustFail(["config", "migrate", "--root", project, "--json"], /warning_thresholds_percent/u);
+
+  // Without a lock, missing keys are inherited from the legacy defaults; the
+  // explicit "hard": null keeps the old hard limits from coming back.
+  const unlocked = tmpProject("budget-unlocked-config");
+  mustRun(["init", "--root", unlocked, "--project-name", "E2E", "--force"]);
+  fs.rmSync(path.join(unlocked, ".sdlc", "config.lock.json"));
+  const status = JSON.parse(mustRun(["config", "status", "--root", unlocked, "--json"]).stdout);
+  assert.notEqual(status.status, "invalid", status.validation_error);
+  assert.deepEqual(status.inherited_paths.filter((pointer) => pointer.includes("/budget_policy/")), []);
 });
 
 test("a new budget is refused when its metrics, units, limits, actions, or maxima are unusable", () => {

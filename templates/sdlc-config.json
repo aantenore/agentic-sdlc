@@ -433,12 +433,14 @@
         "active_time_seconds": {
           "unit": "seconds",
           "metering": "estimated",
-          "soft": 2700
+          "soft": 2700,
+          "hard": null
         },
         "steps": {
           "unit": "steps",
           "metering": "estimated",
-          "soft": 40
+          "soft": 40,
+          "hard": null
         },
         "tokens": {
           "unit": "tokens",
