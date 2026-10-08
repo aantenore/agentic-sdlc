@@ -331,4 +331,8 @@ test("a standing approval never approves release-phase or infrastructure work br
     standingContractBoundReasons({ phase: "implementation", allowed_tools: ["node", "kubectl apply -f x", "Terraform"] }).join(),
     /kubectl, terraform/u,
   );
+  assert.match(
+    standingContractBoundReasons({ phase: "implementation", allowed_tools: ["/usr/bin/kubectl", "npx terraform plan", "bash -c 'ssh host'", "C:\\tools\\helm.exe"] }).join(),
+    /kubectl, terraform, ssh, helm/u,
+  );
 });
