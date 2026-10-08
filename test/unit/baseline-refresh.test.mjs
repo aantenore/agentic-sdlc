@@ -77,3 +77,34 @@ test("a started story accepts bytes that another story's merged delivery produce
   assert.equal(explains("ST-MINE", "src/app.mjs", null), false);
   assert.equal(explains("ST-OTHER", "src/billing/a.mjs", A), false);
 });
+
+test("each delivery reads every delta path inside its scope at once, newest delivery first", () => {
+  const delta = { added: ["src/a.mjs", "src/b.mjs"], changed: ["docs/c.md"], removed: [] };
+  const current = { "src/a.mjs": A, "src/b.mjs": B, "docs/c.md": C };
+  const prefetches = [];
+  const delivery = (storyId, content) => {
+    const cache = new Map();
+    return {
+      story_id: storyId,
+      delivery_profile_id: `AUT-${storyId}`,
+      merge_commit_sha: "3".repeat(40),
+      write_scopes: [["src"]],
+      prefetch: (paths) => {
+        prefetches.push([storyId, paths]);
+        for (const sourcePath of paths) cache.set(sourcePath, content[sourcePath] ?? null);
+      },
+      contentSha256: (sourcePath) => {
+        assert.equal(cache.has(sourcePath), true, `${sourcePath} was read before its batch`);
+        return cache.get(sourcePath);
+      },
+    };
+  };
+  const { explanations, unexplained } = explainBaselineDelta(delta, current, [
+    delivery("ST-NEW", { "src/a.mjs": A, "src/b.mjs": B }),
+    delivery("ST-OLD", { "src/a.mjs": C }),
+  ]);
+  assert.deepEqual(explanations.map((item) => [item.path, item.story_id]), [["src/a.mjs", "ST-NEW"], ["src/b.mjs", "ST-NEW"]]);
+  assert.deepEqual(unexplained, [{ path: "docs/c.md", change: "changed" }]);
+  // The newest delivery explains everything, so the older one is never read.
+  assert.deepEqual(prefetches, [["ST-NEW", ["src/a.mjs", "src/b.mjs"]]]);
+});

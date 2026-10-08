@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.20.0 Works
+# How Agentic SDLC 0.21.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -150,7 +150,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.20.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.21.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -264,6 +264,8 @@ A change counts as delivered when a merged pull-request delivery started from th
 The strict gate re-verifies a policy approval from the records every time: the delta must match the two snapshots, every change must still be attributed to a merged delivery, the predecessor must rest on a person's or CI approval, and, when the merged commit is in the clone, its bytes must match. Projects created before this setting existed keep asking for every refresh until they opt in through `config migrate`.
 
 Several computers can deliver and refresh at the same time. Before writing anything, a refresh claims the single successor of its baseline as a create-only ref on the git remote (`refs/agentic-sdlc/baseline-refresh/<baseline>/successor`), under the same `orchestration_policy.coordination` setting as shared story claims. Of two computers refreshing the same baseline at once, exactly one push is accepted; the other writes nothing and is told which successor won. After pulling, it runs the same refresh again: a refresh asked from a baseline that already has a successor continues from the newest one in the line and re-reads the current files, so the next revision holds the changes of both computers instead of replaying the older delta. Stories that started from any baseline of the same lineage still explain their merged changes. A story already running against an older baseline keeps working while other stories merge around it: bytes that another story's merged delivery produced inside its own write scope are not treated as drift for the running story. When sharing is on but the remote cannot be reached, the refresh stops without writing. A successor written while sharing was off is checked again when it is approved: if the remote already records another successor for the same baseline, it is an orphan and is never approved. An approved baseline is never replaced in place either: `baseline propose --force` on it is refused and points to `baseline refresh`.
+
+A refresh line can grow without limit. Each refresh pins the approval hash of its predecessor and names the approval by a person or CI that the line rests on (`refresh.anchor_baseline_ref`), so checking a refresh approved from delivered work reads three records whatever the length of the line: the refresh, its predecessor, and that anchor; every earlier refresh was verified in full while it was the active baseline. Commands that only need the identity, order, status, or refresh links of baselines read them from a derived index (`.sdlc/indexes/baseline-index.json`, not versioned, rebuilt from the records whenever one changes), and a refreshed baseline that no work brief cites is not re-read by the project gate. Delivered work is matched newest first, and each delivery reads every changed path of its scope from Git in one batch. A baseline record is redacted one section at a time for the trace, so projects above about 4,500 files are not refused by the redaction limits; raise `baseline_policy.max_discovered_files` above its default of 5,000 to describe larger projects. `node scripts/benchmark-baseline-scale.mjs` measures these paths on synthetic projects.
 
 The directories read by default are listed in `baseline_policy.source_roots` and `baseline_policy.test_roots` when the project sets them, and otherwise in the shared defaults (`src`, `app`, `lib`, `packages`, `services`, `cmd`, `internal`, `pkg`, `test`, `tests`, and similar). File types come from `baseline_policy.source_extensions`.
 
