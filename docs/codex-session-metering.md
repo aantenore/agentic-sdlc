@@ -17,6 +17,10 @@ Codex supplies cumulative `total_token_usage` counters. The adapter validates:
 - `total_tokens = input_tokens + output_tokens`;
 - cache-read plus cache-write input does not exceed input;
 - counters never regress within the selected task;
+- every `token_count` event that carries counters has a valid timestamp and
+  non-negative whole-number counters; an invalid event fails the collection
+  with `malformed_codex_session_event` instead of being skipped (an event
+  without `info` carries only rate-limit context and is ignored);
 - the task metadata `cwd` equals the target project;
 - the session file remains inside `CODEX_HOME` and is not a symlink;
 - baseline and current snapshots keep the same task identity.
