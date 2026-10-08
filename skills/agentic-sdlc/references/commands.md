@@ -1034,6 +1034,32 @@ node bin/agentic-sdlc.mjs review record --root <project> --delivery AUT-PR-001 -
 
 The reviewed head commit and the base commit are read from the repository (the delivery's head branch must be checked out), and the reviewer's Git name and email from the local Git configuration; there is no option to name a commit. An approval cannot carry a `blocking` finding. When `gate_policy.merge_requires_code_review` is `true`, `autonomy delivery action --action pull_request.merge` exits `1` unless an approved review exists for the exact head being merged, by a reviewer whose actor and Git email differ from every commit author in `base..head`. A new commit on the head branch requires a new review.
 
+## Print The Pull-Request Checks Table
+
+Use `autonomy delivery checks` to print the checks that were actually recorded for one pull-request delivery as a Markdown table, ready to paste into the pull-request description. It only reads: nothing is re-run, repaired, or approved.
+
+```bash
+node bin/agentic-sdlc.mjs autonomy delivery checks --root <project> --id AUT-PR-001
+node bin/agentic-sdlc.mjs autonomy delivery checks --root <project> --id AUT-PR-001 --format json
+node bin/agentic-sdlc.mjs autonomy delivery checks --root <project> --id AUT-PR-001 --locale it
+```
+
+The host writes the description, so put the table in it when authorizing `pull_request.create` or `pull_request.update`. Both authorizations return the table as `pull_request_body_checks.markdown` (the same bytes the command prints) with the command that regenerates it as `pull_request_body_checks.command`; when a record cannot be read, `markdown` is `null` and `unavailable_reason` says why, and the authorization still succeeds. The table is built when the action is authorized, so record the test, scan, and review evidence first. A typical hand-off is `node bin/agentic-sdlc.mjs autonomy delivery checks --root <project> --id AUT-PR-001 > checks.md`, then a description built from the summary text followed by `checks.md`.
+
+| Row | Read from | Passes when |
+|---|---|---|
+| Tests | `test-run:v1` records of the delivery's story, recorded while the delivery was running | The latest run of that command passed and was made at the current commit. One row per distinct command; a later failure replaces an earlier pass, and a run made before a later commit is `NOT RUN` until it is run again. |
+| Smoke tests | The same records, when recorded with `test record --framework smoke` | The latest smoke run passed. |
+| Secret scan | `secret-scan:v1` records for the delivery | The latest scan that still covers the current head, delivery base, and uncommitted work is clean. A scan of an earlier state is `NOT RUN`. |
+| Code review gate | `code-review:v1` records for the delivery profile | An independent reviewer approved the current head. Only the author's review, or a review of an earlier head, is `NOT RUN`. Shows whether `gate_policy.merge_requires_code_review` makes it a merge requirement. |
+| Strict gate, Lifecycle-complete gate | `.sdlc/gates/<story>-strict.json` and `-final.json` | The receipt exists, matches its schema and its own hash, and is for this story. |
+| Standing approval | The standing approval the delivery was proposed under (row appears only then) | A delivery slot is recorded for this delivery and the approval is not `invalid` or `revoked`. |
+| Budget decision | The start receipt's recorded autonomy decision and the contract | An execution budget is bound and the start decision was not stopped by it. With no budget bound, the row is `NOT RUN`. |
+
+Each row carries a plain-text marker, `[PASS]`, `[FAIL]`, or `[NOT RUN]` (`[SUPERATO]`, `[FALLITO]`, `[NON ESEGUITO]` with `--locale it`). A check with no record is `NOT RUN`, never a pass. A record whose own hash no longer matches is left out and counted in a closing note. The table is a report of recorded facts, not a gate: the strict and lifecycle-complete gates stay the authority, and a gate receipt is shown as sealed, not re-evaluated.
+
+When the delivery's head branch is not checked out, no head-dependent check (tests, smoke tests, secret scan, code review) can pass; a failure is still shown. Absolute paths in a recorded command are shown root-relative when they lie under the project and as `<path>` otherwise. Evidence is linked only as a plain project-relative path (for example `.sdlc/tests/ST-001-run.json`); an absolute path, a parent-relative path, or a URL is dropped. The model passes through the project's privacy redaction before printing, so a credential in a recorded command appears as `[REDACTED]`; the stored record keeps what ran. The output is the table alone, with no envelope, correlation ID, or clock reading, so identical records give identical bytes. `--json` and `--format json` print the same language-neutral document (`pull-request-checks:v1`); `--json` with `--format markdown` is refused. A local release is refused: the table is built for pull-request deliveries.
+
 ## Append Trace
 
 ```bash

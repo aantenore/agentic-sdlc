@@ -737,6 +737,41 @@ A project whose configuration never declared it keeps the merge gate it agreed
 to, so a plugin update cannot start refusing its merges. Adoption is by
 initializing from the current template or migrating through `config migrate`.
 
+### The pull-request description lists what was recorded
+
+A reviewer opening a pull request should not have to take the author's word
+that it was tested. `autonomy delivery checks --id <profile>` prints a Markdown
+table of the checks the project actually recorded for that delivery, to be
+pasted into the pull-request description:
+
+| Check | Where it comes from |
+| --- | --- |
+| Tests and smoke tests | `test record` runs of the story made while the delivery ran: command, outcome, evidence |
+| Secret scan | the latest `secret scan` that still covers the current head and uncommitted work |
+| Code review gate | the latest independent `review record` of the current head |
+| Strict and lifecycle-complete gates | the receipts that passing `gate check --strict` runs sealed |
+| Standing approval | the approval and delivery slot the delivery used, when it used one |
+| Budget decision | the budget part of the decision recorded when the delivery started |
+
+Each row is `[PASS]`, `[FAIL]`, or `[NOT RUN]`. The command reads and reports; it
+never runs a test, repairs a record, or approves anything, so a check nobody
+recorded is `[NOT RUN]` rather than a pass, and a scan or review of an earlier
+commit stops counting as soon as the head moves, and so does a test run made before it. A newer run of the same
+command replaces an older one, so a late failure is not hidden behind an
+earlier pass. A record whose hash no longer matches is left out and counted.
+
+The pull-request description itself is written by the host, not by the CLI, so
+authorizing `pull_request.create` or `pull_request.update` returns the table
+(`pull_request_body_checks.markdown`) and the command that prints it again. The output is the table alone, with no clock reading or
+envelope, so identical records produce identical bytes and an update can pin
+the description with `--expected-pr-body-sha256`. Before anything is printed
+the table goes through the same privacy redaction as the Change Observatory, so
+a credential-shaped argument in a recorded command appears as `[REDACTED]`, and
+evidence is linked only as a project-relative path. The table is a report, not
+a gate: the strict and lifecycle-complete gates remain the authority.
+
+The [issue-to-shadow-delivery example](examples/README.md#github-action-issue-to-shadow-delivery) shows the same table in a CI comment: it records an issue as a proposed requirement, approves nothing, and prints the table for the delivery that a person later approves.
+
 ### Output verification is layered
 
 Codex creates the approved artifact, and the CLI links it to the approved story, requirement, template, and proposal authorization. The link stores the artifact fingerprint and a separate verification receipt.
