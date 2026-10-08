@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "delivery-usage-ledger.schema.json",
+  "title": "Delivery usage ledger: the ordered, hash-chained list of one delivery's usage receipts",
+  "type": "object",
+  "required": [
+    "kind",
+    "schema_version",
+    "profile_id",
+    "delivery_id",
+    "receipt_count",
+    "head_hash",
+    "receipts",
+    "updated_at",
+    "ledger_hash",
+    "hash_algorithm"
+  ],
+  "properties": {
+    "kind": { "const": "delivery_usage_ledger" },
+    "schema_version": { "const": "delivery-usage-ledger:v1" },
+    "profile_id": { "type": "string", "minLength": 1 },
+    "delivery_id": { "type": "string", "minLength": 1 },
+    "receipt_count": { "type": "integer", "minimum": 0 },
+    "head_hash": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }] },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "receipt_hash"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "receipt_hash": { "$ref": "#/$defs/sha256" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "ledger_hash": { "$ref": "#/$defs/sha256" },
+    "hash_algorithm": { "const": "sha256:stable-json:v1" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "additionalProperties": false
+}

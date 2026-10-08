@@ -914,13 +914,15 @@ import {
   captureOptimizationFromCommand,
   completeAssessmentProposal,
   prepareAssessmentProposal,
-  recordBudgetMeter,
-  recordBudgetUsage,
   showAssessmentProposalStatus,
-  showBudgetStatus,
   showOptimizationStatus,
-  startBudgetMeter,
 } from "../lib/engine/assessment.mjs";
+import {
+  budgetMeterRecordCommand,
+  budgetMeterStartCommand,
+  budgetStatusCommand,
+  budgetUsageRecordCommand,
+} from "../lib/engine/delivery-metering.mjs";
 import {
   grantAuthorization,
   revokeAuthorization,
@@ -1125,11 +1127,11 @@ function buildCliRuntimeHandlerRegistry() {
     "workflow.instance.transition": call(transitionWorkflowInstance),
     "workflow.instance.status": project(({ context, options }) => showWorkflowInstance(context, options, { explain: false })),
     "workflow.instance.explain": project(({ context, options }) => showWorkflowInstance(context, options, { explain: true })),
-    "budget.usage.record": call(recordBudgetUsage),
-    "budget.meter.start": call(startBudgetMeter),
-    "budget.meter.record": call(recordBudgetMeter),
+    "budget.usage.record": call(budgetUsageRecordCommand),
+    "budget.meter.start": call(budgetMeterStartCommand),
+    "budget.meter.record": call(budgetMeterRecordCommand),
     "budget.amend": call(amendAssessmentBudget),
-    "budget.status": call(showBudgetStatus),
+    "budget.status": call(budgetStatusCommand),
     "requirement.propose": project(({ context, options, resolution }) => proposeRequirement(context, options, {
       legacyAlias: resolution.matched_path.join(" ") === "requirement create",
     })),
