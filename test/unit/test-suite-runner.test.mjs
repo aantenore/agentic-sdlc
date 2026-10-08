@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -8,13 +9,19 @@ import { fileURLToPath } from "node:url";
 import {
   DEFAULT_TEST_CONCURRENCY,
   MAX_TEST_CONCURRENCY,
+  SHARD_WEIGHTS_FILE,
+  SHARD_WEIGHTS_SCHEMA,
   TEST_CONCURRENCY_ENV,
   TEST_SHARD_ENV,
   discoverTestFiles,
+  loadShardWeights,
   main,
+  medianWeight,
+  parseShardWeights,
   parseTestConcurrency,
   parseTestShard,
   partitionTestFiles,
+  projectRelativePath,
   selectShardFiles,
 } from "../../scripts/run-test-suite.mjs";
 import { NODE_ENGINE_RANGE } from "../../lib/runtime-support.mjs";
@@ -180,6 +187,79 @@ test("the real test tree is covered exactly once by three shards", () => {
   assert.ok(shards.every((shard) => shard.length > 0));
 });
 
+// Expected durations are what balances the shards, so a file that is small but
+// slow must weigh more than a large file that finishes quickly.
+const FIXTURE_WEIGHTS = new Map(Object.entries({
+  "/t/a.mjs": 10, "/t/b.mjs": 700, "/t/c.mjs": 20, "/t/d.mjs": 650,
+  "/t/e.mjs": 30, "/t/f.mjs": 600, "/t/g.mjs": 40, "/t/h.mjs": 50, "/t/i.mjs": 60,
+}));
+const fixtureWeight = (file) => FIXTURE_WEIGHTS.get(file);
+
+test("shards are balanced by the weight function, not by file count or size", () => {
+  const bySize = partitionTestFiles(fixtureFiles(), 3, fixtureSize);
+  const byWeight = partitionTestFiles(fixtureFiles(), 3, fixtureWeight);
+  assert.notDeepEqual(byWeight, bySize);
+  const loads = (shards, weight) => shards.map((shard) => shard.reduce((sum, file) => sum + weight(file), 0));
+  // Each of the three heavy files is alone with light ones, so the shards finish together.
+  assert.deepEqual(byWeight, [
+    ["/t/b.mjs", "/t/e.mjs"],
+    ["/t/c.mjs", "/t/d.mjs", "/t/h.mjs"],
+    ["/t/a.mjs", "/t/f.mjs", "/t/g.mjs", "/t/i.mjs"],
+  ]);
+  const weighted = loads(byWeight, fixtureWeight);
+  assert.deepEqual(weighted, [730, 720, 710]);
+  // The same split judged by the weights is far worse when it was made from sizes.
+  const sized = loads(bySize, fixtureWeight);
+  assert.ok(Math.max(...sized) - Math.min(...sized) > Math.max(...weighted) - Math.min(...weighted));
+});
+
+test("shard weights are parsed strictly", () => {
+  const valid = { schema: SHARD_WEIGHTS_SCHEMA, defaultWeight: 40, files: { "test/a.mjs": 10, "test/b.mjs": 90 } };
+  const parsed = parseShardWeights(JSON.stringify(valid));
+  assert.equal(parsed.defaultWeight, 40);
+  assert.deepEqual([...parsed.files], [["test/a.mjs", 10], ["test/b.mjs", 90]]);
+  for (const broken of [
+    "not json",
+    "null",
+    "[]",
+    JSON.stringify({ ...valid, schema: "other" }),
+    JSON.stringify({ ...valid, defaultWeight: 0 }),
+    JSON.stringify({ ...valid, defaultWeight: 1.5 }),
+    JSON.stringify({ ...valid, files: [] }),
+    JSON.stringify({ ...valid, files: null }),
+    JSON.stringify({ ...valid, files: { "test/a.mjs": 0 } }),
+    JSON.stringify({ ...valid, files: { "test/a.mjs": -3 } }),
+    JSON.stringify({ ...valid, files: { "test/a.mjs": "10" } }),
+    JSON.stringify({ ...valid, files: { "test/a.mjs": Number.MAX_SAFE_INTEGER + 2 } }),
+  ]) {
+    assert.throws(() => parseShardWeights(broken), TypeError, broken);
+  }
+});
+
+test("a missing weights table falls back to sizes and a corrupt one is an error", () => {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "shard-weights-"));
+  try {
+    assert.equal(loadShardWeights(path.join(scratch, "absent.json")), null);
+    const corrupt = path.join(scratch, "corrupt.json");
+    fs.writeFileSync(corrupt, "{");
+    assert.throws(() => loadShardWeights(corrupt), TypeError);
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
+});
+
+test("median weight is the lower middle value and never below one", () => {
+  assert.equal(medianWeight([]), 1);
+  assert.equal(medianWeight([5]), 5);
+  assert.equal(medianWeight([30, 10, 20]), 20);
+  assert.equal(medianWeight([40, 10, 30, 20]), 20);
+  assert.equal(medianWeight([0, 0, 0]), 1);
+});
+
+test("project-relative paths use forward slashes", () => {
+  assert.equal(projectRelativePath(path.join(PROJECT_ROOT, "test", "unit", "x.mjs")), "test/unit/x.mjs");
+});
+
 test("a shard that would be empty is rejected instead of silently passing", () => {
   assert.throws(
     () => selectShardFiles(["/t/only.mjs"], { index: 2, total: 3 }, () => 1),
@@ -197,7 +277,7 @@ test("runner runs only its shard and reports it", async () => {
       stdout: { write(chunk) { stdout += chunk; return true; } },
       stderr: { write() { return true; } },
       findTestFiles: fixtureFiles,
-      fileSize: fixtureSize,
+      fileWeight: fixtureSize,
       runTests(options) {
         seen.push(...options.files);
         queueMicrotask(() => {
