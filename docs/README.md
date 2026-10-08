@@ -40,6 +40,7 @@ This page is the documentation map. Start with the goal that matches what you wa
 | Open visual project lineage | [Change Observatory](change-observatory.md) | Launch paths, explainability, raw evidence, and local security boundaries |
 | Find the next command or use machine output | [Self-service CLI](self-service-cli.md) | Focused help, compact status, safe presets, completion, and local plan/apply updates |
 | Check readiness of an assessment, breakdown, or capability profile | [Self-service CLI — Check phase readiness](self-service-cli.md#check-phase-readiness) | `assessment status`, `breakdown status`, `breakdown policy show`/`set`, and `capability profile status` |
+| See which skills, plugins, and MCP servers are already installed, and let the plugin suggest the relevant ones | [Self-service CLI — See what tools are already installed](self-service-cli.md#see-what-tools-are-already-installed) | `capability inventory`, `capability recommend --from-inventory`, and the suggestion at `task start` and in `status` |
 | Understand `.sdlc/` storage | [Knowledge-base structure](kb-structure.md) | Which files are canonical, derived, append-only, or releasable |
 | Install, update, or repair the plugin on Codex | [Portable install](portable-install.md) | Cross-platform installation, local marketplace setup, and troubleshooting |
 | Install, update, or repair the plugin on Claude Code | [Claude Code installation](claude-code-install.md) | Marketplace install, slash commands, path resolution, and Codex-only steps that do not apply |

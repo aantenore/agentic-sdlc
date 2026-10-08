@@ -17,4 +17,5 @@ Rules for this command:
 - Use the current working directory as `<project-root>` when `$ARGUMENTS` is empty.
 - If the project has no `.sdlc` directory yet, say so and offer `init` or `onboard` instead of guessing.
 - Report, in this order: the current outcome, what it changes in practice, the decision that needs a person, what stays protected, and the next step.
+- If the output includes a tool suggestion, add it after the next step in one plain sentence: it only names installed tools that fit the work, and it approves, binds, and installs nothing.
 - Add `--json` only when the output feeds another tool.

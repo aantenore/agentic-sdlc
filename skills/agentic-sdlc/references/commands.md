@@ -801,24 +801,55 @@ node bin/agentic-sdlc.mjs capability profile propose \
   --phase analysis \
   --context-file .sdlc/requirements/REQ-001.json
 node bin/agentic-sdlc.mjs capability profile approve --root <project> --id CAP-PROFILE-ST-001 --actor-type human --approval-source explicit-user --summary "Approved capability profile"
+node bin/agentic-sdlc.mjs capability inventory --root <project> --json
 node bin/agentic-sdlc.mjs capability recommend \
   --root <project> \
   --id CAP-REC-ST-001 \
   --profile CAP-PROFILE-ST-001 \
-  --available-capabilities-file .sdlc/decisions/available-capabilities.json
+  --from-inventory
 node bin/agentic-sdlc.mjs capability approve --root <project> --id CAP-REC-ST-001 --actor-type human --approval-source explicit-user --summary "Approved capability recommendation"
 node bin/agentic-sdlc.mjs capability status --root <project> --story ST-001 --json
 ```
 
 Use profile records to capture project/story context, detected stack, constraints, integrations, evidence, source paths, and source hashes. Use recommendation records to capture skills, MCPs, tools, connectors, plugins, models, concrete bindings, decision matrices, open questions, and execution-policy suggestions.
 
-The available-capabilities inventory is optional. Without it, the default
-recommendation may use only capabilities proven by the running plugin or
-detected local project surface: the Agentic SDLC governance capability itself
-and, for a detected Node.js project, the local test runner. Supply an inventory
-when recommending additional host skills, tools, connectors, plugins, MCPs, or
-models. A default recommendation must not mark the running plugin itself as
-unknown and then fail only after delivery approval.
+`capability inventory [--json] [--full]` is read-only. It lists the skills,
+commands, plugins, and MCP servers already installed for the user and the
+project: skill and command directories and the plugin caches of both supported
+agent hosts, MCP servers from `.mcp.json`, host settings, and the TOML host
+configuration, and any other location named by
+`capability_discovery_policy.inventory`. It keeps only names, one-line
+descriptions, plugin versions, and a server's transport type; server
+arguments, environment, headers, and URLs are never read into the output.
+Paths are project-relative or `~`-relative, and there is no network access.
+It works before `init` and changes nothing.
+
+`capability recommend --from-inventory` uses that inventory as the available
+capabilities, so the list is never built by hand. Only installed skills,
+plugins, and servers whose name or description names a technology declared by
+the approved profile (detected stack and integrations) are proposed, at most
+`matching.max_suggestions`; the wording of a request is never matched, and the
+other installed entries are recorded as available but not recommended. The
+output reports what was examined (`inventory_match`). The recommendation is
+still `proposed` and needs approval. `--from-inventory` cannot be combined with
+`--available-capabilities-json` or `--available-capabilities-file`, which stay
+available for tools the inventory cannot see.
+
+Without any inventory, the default recommendation may use only capabilities
+proven by the running plugin or detected local project surface: the Agentic
+SDLC governance capability itself and, for a detected Node.js project, the
+local test runner. A default recommendation must not mark the running plugin
+itself as unknown and then fail only after delivery approval.
+
+When a story has no capability recommendation and installed capabilities match
+its declared technology, `task start` and `status` also return a
+`capability_suggestion` (`capability-suggestion:v1`: `story_id`, `phase`,
+`basis`, `tags`, `matches`, `message`, `commands`) and a short plain-language
+sentence. It is silent when a recommendation or profile is already approved or
+pending, when nothing matches, or when `capability_discovery_policy.inventory`
+sets `suggest` or `enabled` to `false`. It never changes the decision and never
+approves, binds, or installs anything; running the listed `commands` only
+records a proposal.
 
 If a recommendation requires installing a missing skill/plugin/connector or using a new external/write/production target, approval is separate:
 

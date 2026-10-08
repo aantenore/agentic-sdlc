@@ -225,12 +225,18 @@ The dedicated assessment journey remains the exception described above: it packa
      --approval-source explicit-user \
      --summary "<user-approved profile>"
 
+   node <plugin-root>/bin/agentic-sdlc.mjs capability inventory --root <target-project> --json
+
    node <plugin-root>/bin/agentic-sdlc.mjs capability recommend \
      --root <target-project> \
      --id CAP-REC-ST-001 \
      --profile CAP-PROFILE-ST-001 \
-     --available-capabilities-file .sdlc/decisions/available-capabilities.json
+     --from-inventory
    ```
+
+   Do not ask the user to list what is installed and do not hand-build an available-capabilities file. `capability inventory` is read-only: it lists the skills, commands, plugins, and MCP servers already installed for the user and the project, from the well-known local locations of both supported agent hosts and the locations configured in `capability_discovery_policy.inventory`. It keeps only names, one-line descriptions, plugin versions, and a server's transport type (never arguments, environment, headers, or URLs), shows project- or `~`-relative paths, and makes no network call. `capability recommend --from-inventory` then proposes only the installed entries whose name or description names a technology declared by the approved profile (its detected stack and integrations); it never matches the wording of the request, and every other installed entry is recorded as available but not recommended. Use `--available-capabilities-json` or `--available-capabilities-file` only for tools the inventory cannot see; the two inputs cannot be combined. The result is still a proposal that the user approves.
+
+   `task start` and `status` may return a `capability_suggestion` when the story has no capability recommendation yet and installed tools match its declared technology. Mention it in one plain sentence: which installed tools look relevant, that nothing is used or approved yet, and, if the user wants them considered, run the listed `commands` (profile first when none is approved, then `recommend --from-inventory`). A suggestion never approves, binds, or installs anything.
 
    Ask for approval before installing missing skills/plugins or using external, write, production, tenant, workspace, endpoint, or secret-bearing targets. When presenting internal capability artifacts, do not teach the SDLC model to the user. Translate them into business/work language: "project evidence and boundaries" means the files, checks, and tool limits I may rely on; "allowed tools for this work" means the concrete tools, permissions, targets, and install decisions I want to use. Explain whether you need more information, whether installs or external access are involved, what approval allows, and what it does not approve. When `capability profile propose` or `capability recommend` returns `assistant_message`, show the business-facing explanation instead of summarizing only IDs. The explanation must be large enough to approve from chat: say what artifact was produced, what is inside it, what decision is needed, and what approval does not cover. If a CLI freshness/hash/stale check appears, do not expose those internal terms as the primary explanation. Say what it means operationally: for example, "I am refreshing the internal reference to the approved tools boundary; this does not change what you approved." Ask again only if the allowed files, tools, installs, external access, output, or work scope changed. Use `capability approve --approve-install` only when that installation approval was explicitly granted.
 

@@ -77,7 +77,7 @@ After checkpoint 1:
 1. Inspect the output registry and choose `reuse`, `delta`, or `new`. Prefer an approved related artifact plus a delta when it satisfies the request.
 2. For a new technical assessment, load `<plugin-root>/templates/technical-assessment.md`. Preserve every semantic section, marking unsupported content `Not evidenced` or `Not assessed`.
 3. Resolve or reserve a real requirement and story. The story must link to the requirement; never use a project-only placeholder or a fabricated requirement ID.
-4. Profile installed capabilities and exact targets from evidence. Missing installs or risky targets must be visible in checkpoint 2 or handled as an exception.
+4. Profile installed capabilities and exact targets from evidence. Do not ask the user what is installed: run `capability inventory --json` (read-only; the names, one-line descriptions, and transport types of the skills, commands, plugins, and MCP servers already installed for the user and the project, with no values, no secrets, and no network call) and use `capability recommend --from-inventory` to propose only the installed entries whose name or description names a technology declared by the approved evidence. Missing installs or risky targets must be visible in checkpoint 2 or handled as an exception; the allowed capabilities are shown inside checkpoint 2, not as a separate question.
 5. Resolve the complete execution budget from project configuration and runtime metering. Aggregate the main agent and all subagents at story scope.
 6. Run `assessment proposal prepare`. Persist an `assessment_proposal` with `schema_version: assessment-proposal:v1` and a `proposal_hash` over the approval payload.
 
