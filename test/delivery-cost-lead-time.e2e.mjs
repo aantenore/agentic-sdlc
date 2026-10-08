@@ -8,6 +8,7 @@ import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { AGENT_HOSTS, AGENT_HOST_OVERRIDE_ENV } from "../lib/agent-host.mjs";
+import { buildObservatoryViewModel } from "../lib/change-observatory/index.mjs";
 import { buildExecutionUsageReceipt } from "../lib/execution-budget.mjs";
 import { buildMeteringAttestation } from "../lib/metering-attestations.mjs";
 
@@ -283,7 +284,7 @@ function meterRecord(project, profileId) {
   return mustRunJson(["budget", "meter", "record", "--root", project, "--delivery", profileId, "--adapter", "codeburn", ...METER_PERIOD], project);
 }
 
-test("a delivery records usage, shows its lead time and cost, and keeps its history append-only", () => {
+test("a delivery records usage, shows its lead time and cost, and keeps its history append-only", async () => {
   const project = initializeProject("direct");
   const delivery = prepareDelivery(project, "ONE");
   mustFail(
@@ -364,6 +365,13 @@ test("a delivery records usage, shows its lead time and cost, and keeps its hist
   assert.equal(projectStatus.delivery_metrics.items, undefined, "per-delivery items only with --full");
   assert.match(mustRun(["status", "--root", project], project).stdout, /Deliveries: 1 \(0 finished, 1 in progress\); none finished yet; waiting for a person \S+ in total; cost USD 0\.30 over 1 delivery/u);
   assert.match(mustRun(["status", "--root", project, "--locale", "it"], project).stdout, /Consegne: 1 \(0 concluse, 1 in corso\)/u);
+
+  const model = await buildObservatoryViewModel(project);
+  const item = model.decisions.find((entry) => entry.type === "delivery-execution-profile" && entry.id === delivery.profileId);
+  assert.ok(item?.deliveryMetrics, "the observatory shows the delivery's metrics");
+  assert.equal(item.deliveryMetrics.cost.amount, "0.3");
+  assert.equal(item.deliveryMetrics.cost.status, "declared");
+  assert.equal(item.deliveryMetrics.leadTime.status, "in_progress");
 
   // Deleting a recorded receipt is detected: the history no longer matches its ledger.
   const receiptPath = path.join(project, ".sdlc", "autonomy", "metering", "AUT-ONE", "usage", "USAGE-ONE-COST.json");

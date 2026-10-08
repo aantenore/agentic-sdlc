@@ -14,6 +14,7 @@ import {
   sentenceCase,
 } from "./model.js";
 import {
+  deliveryMetricsTexts,
   displayKindForItem,
   displayTextForItem,
   humanGuidanceForItem,
@@ -24,6 +25,7 @@ import {
   RECORD_GUIDANCE_BUCKETS,
   recordGuidanceBucket,
   sharedRecordGuidance,
+  standingBudgetText,
   t,
 } from "./i18n.js";
 
@@ -808,6 +810,43 @@ function dossierPanel(model, state) {
   return panel;
 }
 
+// One compact line of lead time and cost under a delivery or a standing
+// approval in a list; the inspector shows the full breakdown.
+function recordMetricsLine(item) {
+  const text = item.deliveryMetrics
+    ? deliveryMetricsTexts(item.deliveryMetrics).compact
+    : item.standingBudget ? standingBudgetText(item.standingBudget) : null;
+  return text ? node("span", { className: "record-metrics", text }) : null;
+}
+
+function deliveryMetricsSection(item) {
+  if (!item.deliveryMetrics && !item.standingBudget) return null;
+  const fields = [];
+  if (item.deliveryMetrics) {
+    const texts = deliveryMetricsTexts(item.deliveryMetrics);
+    fields.push(guidanceField("Lead time", texts.leadTime));
+    if (texts.stages.length > 0) fields.push(guidanceField("Stages", texts.stages.join("; ")));
+    fields.push(guidanceField("Waiting for a person", texts.waiting));
+    fields.push(guidanceField("Cost", texts.cost));
+    fields.push(guidanceField("Tokens", texts.tokens));
+  }
+  if (item.standingBudget) {
+    fields.push(guidanceField("Standing approval budget", standingBudgetText(item.standingBudget)));
+  }
+  return node("section", {
+    className: "delivery-metrics",
+    attrs: { "aria-label": t("Delivery time and cost") },
+  }, [
+    node("h3", { text: "Delivery time and cost", i18n: true }),
+    node("dl", { className: "human-guidance-grid delivery-metrics-grid" }, fields),
+    node("p", {
+      className: "delivery-metrics-note",
+      text: "Shown as recorded; the command line checks the usage history again before relying on a cost.",
+      i18n: true,
+    }),
+  ]);
+}
+
 function recordRow(item, selectedId) {
   const selectionId = recordSelectionKey(item);
   const display = displayTextForItem(item);
@@ -825,6 +864,7 @@ function recordRow(item, selectedId) {
       node("span", { className: "record-main" }, [
         node("span", { className: "record-title", text: display.title }),
         node("span", { className: "record-summary", text: display.summary }),
+        recordMetricsLine(item),
       ]),
       node("span", { className: "record-meta" }, [
         statusText(display.status),
@@ -1329,7 +1369,7 @@ export function renderInspector(container, item, { portfolioProjectId = null } =
 
   if (isAutonomyRecord(item)) {
     const display = displayTextForItem(item);
-    container.replaceChildren(
+    container.replaceChildren(...[
       node("header", { className: "inspector-header" }, [
         node("h2", { text: display.title }),
         node("span", { className: "inspector-status" }, [
@@ -1339,8 +1379,9 @@ export function renderInspector(container, item, { portfolioProjectId = null } =
         ]),
       ]),
       humanGuidanceBlock(item),
+      deliveryMetricsSection(item),
       technicalDetailsForItem(item, [], portfolioProjectId),
-    );
+    ].filter(Boolean));
     return;
   }
 
@@ -1361,6 +1402,7 @@ export function renderInspector(container, item, { portfolioProjectId = null } =
       ]),
     ]),
     humanGuidanceBlock(item),
+    deliveryMetricsSection(item),
     technicalDetailsForItem(item, [
       inspectorTextSection(
         "Request / record",

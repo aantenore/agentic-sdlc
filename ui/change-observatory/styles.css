@@ -1446,6 +1446,39 @@ svg {
   -webkit-line-clamp: 2;
 }
 
+.record-metrics {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.delivery-metrics {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.delivery-metrics > h3 {
+  margin: 0;
+  padding: 11px 13px 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.delivery-metrics-grid dd {
+  font-variant-numeric: tabular-nums;
+}
+
+.delivery-metrics-note {
+  margin: 0;
+  padding: 0 13px 11px;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
 .record-meta {
   display: grid;
   flex: 0 0 auto;
