@@ -151,3 +151,55 @@ test("config recovery uses catalog mutation intent for conditional report writer
   const preview = mustRun(["config", "migrate", "--root", project, "--json"]);
   assert.equal(JSON.parse(preview.stdout).status, "planned");
 });
+
+test("portfolio status can fail on attention and names the reason per project", () => {
+  const root = fs.realpathSync(temporaryProject("portfolio-attention"));
+  const projectRoot = path.join(root, "projects", "alpha", ".sdlc");
+  fs.mkdirSync(projectRoot, { recursive: true });
+  fs.writeFileSync(path.join(projectRoot, "project.json"), `${JSON.stringify({
+    project_id: "alpha",
+    project_name: "Alpha",
+  })}\n`);
+  fs.writeFileSync(path.join(root, "portfolio.json"), `${JSON.stringify({
+    schema_version: "portfolio-manifest:v1",
+    projects: [
+      { id: "alpha", path: "projects/alpha" },
+      { id: "gone", path: "projects/does-not-exist" },
+    ],
+  })}\n`);
+  const args = ["portfolio", "status", "--root", root, "--manifest", "portfolio.json"];
+
+  const informational = run(args);
+  assert.equal(informational.status, 0, "without the flag the command only reports");
+  assert.match(informational.stdout, /- gone: unavailable \(.*folder was not found/u);
+
+  const gated = run([...args, "--fail-on-attention"]);
+  assert.equal(gated.status, 1);
+  assert.match(gated.stdout, /Attention needed/u);
+
+  const gatedJson = run([...args, "--fail-on-attention", "--json"]);
+  assert.equal(gatedJson.status, 1);
+  const payload = JSON.parse(gatedJson.stdout);
+  assert.equal(payload.fail_on_attention, true);
+  assert.match(payload.projects.find((project) => project.id === "gone").attention_reason, /folder was not found/u);
+  assert.equal(payload.projects.find((project) => project.id === "alpha").attention_reason, null);
+
+  fs.writeFileSync(path.join(root, "portfolio.json"), `${JSON.stringify({
+    schema_version: "portfolio-manifest:v1",
+    projects: [{ id: "alpha", path: "projects/alpha" }],
+  })}\n`);
+  assert.equal(run([...args, "--fail-on-attention"]).status, 0, "a healthy portfolio still passes the gate");
+});
+
+test("a command family named without an action shows its help instead of an unknown command", () => {
+  const portfolio = mustRun(["portfolio"]);
+  assert.match(portfolio.stdout, /portfolio status/u);
+  assert.doesNotMatch(portfolio.stdout + portfolio.stderr, /Unknown command/u);
+  const json = JSON.parse(mustRun(["portfolio", "--json"]).stdout);
+  assert.equal(json.command.path, "portfolio");
+  const italian = mustRun(["portfolio", "--locale", "it"]);
+  assert.match(italian.stdout, /^Risultato:/u);
+  const unknown = run(["portfolio", "bogus"]);
+  assert.notEqual(unknown.status, 0);
+  assert.match(unknown.stderr, /Unknown command: portfolio bogus/u);
+});
