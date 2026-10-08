@@ -139,12 +139,18 @@ export function renderProjectControls(model) {
   projectSelect.replaceChildren(
     node("option", { text: localizePlaceholder(model.project.name), attrs: { value: model.project.id } }),
   );
+  const snapshotLabel = model.project.branch || model.project.snapshot;
   snapshotSelect.replaceChildren(
     node("option", {
-      text: model.project.branch || model.project.snapshot || t("Current evidence"),
+      text: snapshotLabel || t("Current evidence"),
       attrs: { value: "current" },
     }),
   );
+  snapshotSelect.setAttribute("title", t("Only the current evidence is shown; there are no other snapshots to switch to."));
+  // Without a recorded branch or snapshot this control has nothing to show and
+  // can never be changed, so it is hidden instead of looking broken.
+  const snapshotControl = snapshotSelect.closest?.(".snapshot-control");
+  if (snapshotControl) snapshotControl.hidden = !snapshotLabel;
 }
 
 function renderSummaryAnswer(question, items, portfolioProjectId = null, sharedGuidance = null) {
@@ -158,7 +164,7 @@ function renderSummaryAnswer(question, items, portfolioProjectId = null, sharedG
       impact: "This part of the project history may be incomplete.",
       decision: "Do not treat missing evidence as approval or completed work.",
       protection: "This view remains read-only and does not invent missing facts.",
-      nextAction: "Return to the Codex chat and describe the missing evidence in natural language; after it is recorded, refresh this view.",
+      nextAction: "Return to your agent conversation and describe the missing evidence in natural language; after it is recorded, refresh this view.",
     }));
     article.append(
       node("div", { className: "summary-meta" }, [provenanceBadge("missing")]),
@@ -189,7 +195,46 @@ function recordedAnswerForItem(item) {
   ]);
 }
 
+function renderEmptySummary() {
+  return node("article", { className: "summary-answer summary-empty-combined" }, [
+    node("h2", { text: "Nothing has been recorded yet", i18n: true }),
+    node("p", {
+      className: "summary-empty-questions",
+      text: "This strip will answer: What was asked? What changed? Why was it decided?",
+      i18n: true,
+    }),
+    humanGuidanceSection({
+      outcome: "No recorded evidence answers these questions yet.",
+      impact: "This part of the project history may be incomplete.",
+      decision: "Do not treat missing evidence as approval or completed work.",
+      protection: "This view remains read-only and does not invent missing facts.",
+      nextAction: "Return to your agent conversation and describe the missing evidence in natural language; after it is recorded, refresh this view.",
+    }),
+    node("div", { className: "summary-meta" }, [provenanceBadge("missing")]),
+  ]);
+}
+
+export function hasMissingKnowledgeBase(model) {
+  return Array.isArray(model?.diagnostics)
+    && model.diagnostics.some((diagnostic) => diagnostic.code === "knowledge_base_missing");
+}
+
 export function renderSummary(container, model, { portfolioProjectId = null } = {}) {
+  if (hasMissingKnowledgeBase(model)) {
+    // The dedicated empty state in the main area explains this once.
+    container.hidden = true;
+    container.replaceChildren();
+    return;
+  }
+  container.hidden = false;
+  if (
+    !model.summary.asked.length
+    && !model.summary.changed.length
+    && !model.summary.decided.length
+  ) {
+    container.replaceChildren(renderEmptySummary());
+    return;
+  }
   const sharedGuidance = sharedGuidanceTracker();
   container.replaceChildren(...[
     renderSummaryAnswer("What was asked?", model.summary.asked, portfolioProjectId, sharedGuidance),
@@ -199,40 +244,100 @@ export function renderSummary(container, model, { portfolioProjectId = null } = 
   ].filter(Boolean));
 }
 
-export function renderDiagnostics(container, diagnostics) {
+export function renderKnowledgeBaseMissing(container, model) {
+  const diagnostic = (model?.diagnostics ?? []).find((item) => item.code === "knowledge_base_missing");
+  const checkedPath = diagnostic?.sourceRefs?.[0]?.path ?? ".sdlc";
+  container.replaceChildren(
+    node("section", {
+      className: "empty-explained knowledge-base-missing",
+      attrs: { role: "status" },
+    }, [
+      icon("source"),
+      node("strong", { text: "No Agentic SDLC records were found in this folder", i18n: true }),
+      node("p", {
+        text: "Change Observatory looked for a project knowledge base in the folder you opened and did not find one, so there is nothing to show yet. Nothing is broken.",
+        i18n: true,
+      }),
+      node("p", {}, [
+        document.createTextNode(`${t("Checked path")}: `),
+        node("code", { text: checkedPath }),
+        document.createTextNode(` ${t("inside the project folder shown in your terminal")}`),
+      ]),
+      node("p", { text: "To start recording: ask your agent to initialize Agentic SDLC for this project, or run the initialize command in a terminal inside the project folder, then press Refresh.", i18n: true }),
+      node("p", {}, [
+        node("code", { text: "agentic-sdlc init" }),
+      ]),
+      node("p", { text: "If this is the wrong folder, press Ctrl+C in the terminal and start the observatory again from, or pointing at, your project folder.", i18n: true }),
+    ]),
+  );
+}
+
+const DIAGNOSTIC_RANK = Object.freeze({ info: 0, warning: 1, error: 2 });
+
+function highestDiagnosticSeverity(diagnostics) {
+  let highest = "info";
+  for (const diagnostic of diagnostics) {
+    const severity = Object.hasOwn(DIAGNOSTIC_RANK, diagnostic.severity) ? diagnostic.severity : "warning";
+    if (DIAGNOSTIC_RANK[severity] > DIAGNOSTIC_RANK[highest]) highest = severity;
+  }
+  return highest;
+}
+
+const DIAGNOSTIC_HEADINGS = Object.freeze({
+  info: "Evidence notes",
+  warning: "Evidence warnings",
+  error: "Evidence diagnostics",
+});
+
+const DIAGNOSTIC_QUIET_SUMMARIES = Object.freeze({
+  info: "These are informational notes about how the evidence was read. Nothing is wrong and no action is needed.",
+  warning: "Some recorded items were read with warnings. The views still work; open the technical details to see what was noted.",
+});
+
+export function renderDiagnostics(container, allDiagnostics) {
+  // A missing knowledge base has its own dedicated empty state.
+  const diagnostics = allDiagnostics.filter((diagnostic) => diagnostic.code !== "knowledge_base_missing");
   if (!diagnostics.length) {
     container.hidden = true;
     container.replaceChildren();
     return;
   }
   container.hidden = false;
+  const severity = highestDiagnosticSeverity(diagnostics);
   const occurrenceTotal = diagnostics.reduce(
     (total, diagnostic) => total + diagnostic.occurrences,
     0,
   );
   const disclosure = node("details", {
     className: "diagnostics-disclosure",
-    attrs: { open: diagnostics.some((diagnostic) => diagnostic.severity === "error") ? "" : null },
+    attrs: { open: severity === "error" ? "" : null },
+    dataset: { severity },
   });
   disclosure.append(
     node("summary", {}, [
-      icon("alert"),
-      node("strong", { text: "Evidence diagnostics", i18n: true }),
+      icon(severity === "info" ? "source" : "alert"),
+      node("strong", { text: DIAGNOSTIC_HEADINGS[severity], i18n: true }),
       node("span", {
         text: `${diagnostics.length} ${diagnostics.length === 1 ? "category" : "categories"} · ${occurrenceTotal} ${occurrenceTotal === 1 ? "record" : "records"}`,
         i18n: true,
       }),
     ]),
-    node("div", { className: "diagnostics-human-summary" }, [
-      node("strong", { text: "Evidence needs attention", i18n: true }),
-      node("dl", { className: "human-guidance-grid" }, [
-        guidanceField("Outcome", "Some recorded evidence could not be read safely.", { i18nText: true }),
-        guidanceField("Impact", "Related views may be incomplete until the evidence is corrected.", { i18nText: true }),
-        guidanceField("Decision", "Do not make a decision from the affected view alone.", { i18nText: true }),
-        guidanceField("Protection", "Unsafe or unsupported evidence is omitted and no project file is changed.", { i18nText: true }),
-        guidanceField("Next action", "Open technical details, then return to the Codex chat and describe the correction in natural language; after it is recorded, refresh this view.", { i18nText: true }),
-      ]),
-    ]),
+    severity === "error"
+      ? node("div", { className: "diagnostics-human-summary" }, [
+        node("strong", { text: "Evidence needs attention", i18n: true }),
+        node("dl", { className: "human-guidance-grid" }, [
+          guidanceField("Outcome", "Some recorded evidence could not be read safely.", { i18nText: true }),
+          guidanceField("Impact", "Related views may be incomplete until the evidence is corrected.", { i18nText: true }),
+          guidanceField("Decision", "Do not make a decision from the affected view alone.", { i18nText: true }),
+          guidanceField("Protection", "Unsafe or unsupported evidence is omitted and no project file is changed.", { i18nText: true }),
+          guidanceField("Next action", "Open technical details, then return to your agent conversation and describe the correction in natural language; after it is recorded, refresh this view.", { i18nText: true }),
+        ]),
+      ])
+      : node("p", {
+        className: "diagnostics-quiet-summary",
+        text: DIAGNOSTIC_QUIET_SUMMARIES[severity],
+        i18n: true,
+      }),
     node("details", { className: "technical-details diagnostics-technical" }, [
       node("summary", { text: "Technical details (optional)", i18n: true }),
       node("div", { className: "diagnostics-list" }, diagnostics.map((diagnostic) =>
@@ -732,7 +837,7 @@ function recordRow(item, selectedId) {
 function recordsPanel(title, description, items, state, options = {}) {
   const panel = node("section", { className: "section-panel" }, [sectionHeading(title, description)]);
   if (!items.length) {
-    panel.append(emptyInline(options.emptyMessage ?? `No ${title.toLowerCase()} were recorded.`));
+    panel.append(emptyInline(options.emptyMessage ?? `Nothing was recorded under ${title.toLowerCase()}.`));
     return panel;
   }
   const list = node("div", { className: "record-list", attrs: { role: "list" } });
@@ -921,7 +1026,17 @@ function intentEvidencePanel(model, state) {
   panel.querySelector("h2").id = "intent-evidence-heading";
 
   if (!model.semanticObservations.length) {
-    panel.append(emptyInline("No IntentABI shadow observations were recorded."));
+    panel.append(node("div", { className: "empty-explained" }, [
+      node("strong", { text: "No intent evidence has been recorded for this project.", i18n: true }),
+      node("p", {
+        text: "This view lists optional notes that describe what an agent was asked to do, kept without the conversation text. It is empty unless your team turns that recording on.",
+        i18n: true,
+      }),
+      node("p", {
+        text: "An empty view does not mean anything is missing or wrong; your requests, changes, and decisions are shown in the other views.",
+        i18n: true,
+      }),
+    ]));
     return panel;
   }
 
@@ -938,7 +1053,10 @@ function overview(model, state) {
     dossierPanel(model, state),
     lineagePanel(model, state),
     node("div", { className: "overview-grid" }, [
-      recordsPanel("Contract evolution", "Versions, approvals, and status", model.contracts, state, { limit: 6 }),
+      recordsPanel("Contract evolution", "Versions, approvals, and status", model.contracts, state, {
+        limit: 6,
+        emptyMessage: "No contract evolution was recorded.",
+      }),
       changesPanel(model, state, { limit: 6 }),
       verificationPanel(model, state, { limit: 6 }),
     ]),
@@ -960,6 +1078,7 @@ export function renderPrimary(container, model, state) {
         "Approved boundaries, versions, and source evidence",
         model.contracts,
         state,
+        { emptyMessage: "No contract evolution was recorded." },
       );
       break;
     case "decisions":
@@ -1160,6 +1279,14 @@ function technicalDetailsForItem(item, sections = [], portfolioProjectId = null)
   ]);
 }
 
+function inspectorStatusSeparator() {
+  return node("span", {
+    className: "inspector-status-separator",
+    text: " · ",
+    attrs: { "aria-hidden": "true" },
+  });
+}
+
 export function renderInspector(container, item, { portfolioProjectId = null } = {}) {
   if (!item) {
     container.replaceChildren(
@@ -1207,6 +1334,7 @@ export function renderInspector(container, item, { portfolioProjectId = null } =
         node("h2", { text: display.title }),
         node("span", { className: "inspector-status" }, [
           statusText(display.status),
+          inspectorStatusSeparator(),
           node("span", { text: "Read-only", i18n: true }),
         ]),
       ]),
@@ -1228,6 +1356,7 @@ export function renderInspector(container, item, { portfolioProjectId = null } =
       node("h2", { text: display.title }),
       node("span", { className: "inspector-status" }, [
         statusText(display.status),
+        inspectorStatusSeparator(),
         node("span", { text: "Read-only", i18n: true }),
       ]),
     ]),

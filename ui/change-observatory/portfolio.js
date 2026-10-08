@@ -208,6 +208,7 @@ function normalizeProject(value) {
     errorCode: status === "unavailable" && ERROR_CODE_PATTERN.test(value.errorCode ?? "")
       ? value.errorCode
       : null,
+    message: status === "unavailable" ? boundedText(value.message, null, 256) : null,
     counts: Object.freeze(counts),
     previews: Object.freeze(previews),
   });

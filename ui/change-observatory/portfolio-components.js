@@ -69,6 +69,7 @@ export function renderPortfolioControls(summary, selectedProjectId = "", model =
 }
 
 export function renderPortfolioSummary(container, summary) {
+  container.hidden = false;
   container.replaceChildren(
     summaryCard("Projects", summary.projectCount),
     summaryCard("Available projects", summary.availableProjectCount, "ready"),
@@ -106,6 +107,7 @@ export function renderPortfolioUnavailable(container, project) {
     node("span", { className: "portfolio-status-mark", text: "!", attrs: { "aria-hidden": "true" } }),
     node("div", {}, [
       node("strong", { text: t("This project’s evidence is unavailable.") }),
+      project.message ? node("p", { text: t(project.message) }) : null,
       node("p", { text: t("Other projects remain available. Choose All projects to continue browsing the portfolio.") }),
     ]),
   ]));
@@ -161,7 +163,7 @@ function projectCard(project) {
         ])
       : node("p", {
           className: "portfolio-card-message",
-          text: t("This project could not be read safely. Other projects are still available."),
+          text: t(project.message ?? "This project could not be read safely. Other projects are still available."),
         }),
     previewItems.length
       ? node("ul", { className: "portfolio-previews" }, previewItems)
