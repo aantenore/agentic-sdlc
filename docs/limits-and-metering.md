@@ -47,7 +47,7 @@ In the default `audit_only` mode the tool records who you said you are but canno
 2. **Record cost against the delivery** once it is approved, with a meter or by hand:
 
    ```bash
-   agentic-sdlc budget meter start --delivery AUT-PR-184 --adapter codeburn    # once, before the work
+   agentic-sdlc budget meter start --delivery AUT-PR-184 --adapter codeburn    # once, after approval and before the work starts
    agentic-sdlc budget meter record --delivery AUT-PR-184 --adapter codeburn   # whenever you want a reading
    agentic-sdlc budget usage record --delivery AUT-PR-184 --input-tokens 1200 --output-tokens 300 --cost-amount 0.42 --currency USD
    ```
@@ -552,12 +552,13 @@ Each stage is the time between two recorded milestones, and the total runs from 
 
 ### Recording a delivery's usage
 
-`budget usage record`, `budget meter start`, `budget meter record`, and `budget status` take `--delivery <profile-id>` instead of `--proposal <proposal-id>`; assessments keep working exactly as before. New usage is accepted once the delivery is approved and until it is closed or revoked; an identical existing receipt can always be replayed safely.
+`budget usage record`, `budget meter start`, `budget meter record`, and `budget status` take `--delivery <profile-id>` instead of `--proposal <proposal-id>`; assessments keep working exactly as before. New usage is accepted once the delivery is approved, also after it closes, so a final reading can still be recorded; a meter is started only while the delivery is open. An identical existing receipt can always be replayed safely. A receipt dated in the future (more than five minutes ahead of this computer's clock) is refused.
 
 - **Meter plan.** Receipts are bound to the delivery's meter plan, an execution budget whose metrics (time, steps, tokens, calls, and cost) are measured and never limited (`measure_only`). Only a delivery plan may contain measure-only metrics; an assessment budget is refused if it tries.
 - **One currency.** Cost is recorded in the currency of the standing approval budget the delivery relies on, otherwise in the first `--currency` given (or the currency the meter reports). A cost in another currency is refused; amounts are never converted and are added as exact decimals.
-- **Same fail-closed rules as an assessment.** A new receipt is validated against the recorded history in memory before anything is written. Receipts are append-only and chained into the delivery's usage ledger, so a deleted or edited receipt stops `budget status --delivery`, recording, and every cost check until it is restored. Exact values need a receipt signed by a trusted source and imported with `--receipt-file`; manual input is estimated.
-- **Meter evidence.** An adapter observation is recorded only by `budget meter record`, which runs the meter itself and stores the baseline, snapshot, and delta; an imported receipt that claims to be one is refused. Each time the history is read, an adapter receipt must match its stored delta and a signed receipt must still verify against the configured key, or the delivery's cost is reported as untrusted.
+- **Same fail-closed rules as an assessment.** A new receipt is validated against the recorded history in memory before anything is written. Receipts are append-only and chained into the delivery's usage ledger, so a deleted or edited receipt, or a deleted ledger while more than one receipt exists, stops `budget status --delivery`, recording, and every cost check until it is restored. A single receipt without a ledger (an interrupted first record) is shown, but no cost budget relies on it until the next record registers it. Exact values need a receipt signed by a trusted source and imported with `--receipt-file`; manual input is estimated.
+- **Meter evidence.** An adapter observation is recorded only by `budget meter record`, which runs the meter itself and stores the baseline, snapshot, and delta; an imported receipt that claims to be one is refused. A receipt that claims a trusted signed source is accepted only from a file and only when its signature verifies against a configured key for every metric it carries, whatever metering level it declares. Each time the history is read, every adapter receipt must match its stored delta and every signed receipt must verify again, or the delivery's cost is reported as untrusted. Only such verified receipts make a cost "measured by a meter".
+- **One series per meter, over the delivery's own window.** A delivery keeps one baseline per meter adapter; a second `budget meter start` is refused, because a new baseline would restart the count. The CodeBurn report window is derived from the delivery, never from flags: this project, from the day the delivery was approved to the end of its validity (30 days after approval when it has none). `--project`, `--from`, `--to`, and `--provider` are refused with `--delivery`. The window counts the whole project, so work running in parallel in the same project is counted too, which can only overstate a delivery's cost.
 - **Not measured.** A delivery with no cost recorded reads "not measured". A cost declared by hand is shown as declared, not as measured by a meter.
 
 ### Where it shows
@@ -570,10 +571,10 @@ Each stage is the time between two recorded milestones, and the total runs from 
 
 At each delivery step the CLI measures the cost from the delivery's recorded usage, and the standing approval covers the step only when all of these hold; otherwise the step falls back to the normal confirmation with the reason:
 
-1. A meter (an adapter observation or a trusted signed reading) has reported this delivery's cost. A cost declared by hand still counts toward the amounts, but on its own it leaves the delivery not measured.
-2. The latest meter reading is newer than the delivery's last recorded step (its start or any action), so each covered step rests on a fresh reading: run `budget meter record --delivery <profile-id>` before the step.
+1. A meter (an adapter observation or a trusted signed reading) has reported this delivery's cost and the CLI verified that reading. A cost declared by hand still counts toward the amounts, but on its own it leaves the delivery not measured.
+2. The latest verified reading is newer than the delivery's last recorded step (its start, any action, or its close), is not dated in the future, and its meter window reaches today; an adapter meter must also have started before the work began, so no earlier spend escapes it. Run `budget meter start --delivery <profile-id>` after approval and before `task start`, and `budget meter record --delivery <profile-id>` before each step. The delivery's usage ledger must exist.
 3. The delivery's cost is within `--budget-per-delivery`.
-4. The cost of every delivery that used the standing approval, here or in another copy of the project, plus this one, is within `--budget-total`. A delivery among them whose records are not on this computer, or whose cost no meter recorded, makes the total unmeasurable, so the step is not covered.
+4. The cost of every delivery that used the standing approval, here or in another copy of the project, plus this one, is within `--budget-total`. Each of those deliveries needs the same fresh verified reading (newer than its own last step, also after it closed); one whose records are not on this computer, or whose cost is not freshly measured, makes the total unmeasurable, so the step is not covered. Record a final reading for a finished delivery with `budget meter record --delivery <its profile-id>`.
 
 Before a delivery starts (its proposal and approval under the standing approval) its own cost so far counts, which may be nothing yet, and the total so far must fit. `autonomy standing status` and `status` show what was spent against the budget. A standing approval recorded with numeric amounts by an earlier version is compared exactly too.
 
@@ -586,7 +587,7 @@ Before a delivery starts (its proposal and approval under the standing approval)
 .sdlc/autonomy/metering/<profile-id>/meters/<adapter>/{baselines,snapshots,deltas}/
 ```
 
-The ledger is the same unkeyed hash chain as an assessment's: it detects removed or edited receipts, not someone who rewrites every file under `.sdlc/`. Rely on a trusted signed source when a delivery's cost must be provable.
+The ledger is the same unkeyed hash chain as an assessment's: it detects removed or edited receipts, not someone who rewrites every file under `.sdlc/`. The plugin's host hooks also stop an agent from editing or deleting anything under `.sdlc/autonomy/metering/` directly. Rely on a trusted signed source when a delivery's cost must be provable. The Change Observatory verifies no meter evidence or signature, so it labels a meter's figure "reported by a meter, not verified here".
 
 ## RTK optimization and the cost gate
 

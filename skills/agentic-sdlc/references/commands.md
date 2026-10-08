@@ -380,7 +380,7 @@ A standing approval lets similar deliveries proceed without a confirmation for e
 
 For `--destination pull_request`, `--repository <owner/repository>` is required and pushes are confined to head branches under `--head-branch-prefix` (default `standing/<id>/`). The base branch and shared, release, or production branches (`main`, `master`, `develop`, `release/*`, `prod*`, ...) are never covered. A work brief approved under a standing approval must be for a non-release phase, must not allow infrastructure tools (`kubectl`, `terraform`, cloud CLIs, ...), must name a delivery that is new or proposed under the same standing approval, and the briefs it approves never name more deliveries than `--max-deliveries`.
 
-`--budget-per-delivery`, `--budget-total`, and `--currency` set an optional cost budget, accepted only when a source that reports delivery cost is configured (the CodeBurn adapter with its `cost` mapping, or a trusted signed source whose metrics include `cost`); otherwise propose is refused and nothing is recorded. Amounts are exact decimals. A step is covered only when a meter has reported the delivery's cost after its last recorded step (run `budget meter record --delivery <profile-id>` before each step), the delivery's cost is within the per-delivery budget, and the cost of every delivery that used the standing approval is within the total; a hand-declared cost counts toward the amounts but never makes a delivery measured, and a total that includes a delivery without a metered cost here is not measurable. Otherwise the normal confirmation applies.
+`--budget-per-delivery`, `--budget-total`, and `--currency` set an optional cost budget, accepted only when a source that reports delivery cost is configured (the CodeBurn adapter with its `cost` mapping, or a trusted signed source whose metrics include `cost`); otherwise propose is refused and nothing is recorded. Amounts are exact decimals. A step is covered only when a verified meter reading of the delivery's cost is newer than its last recorded step, its meter started before the work and its window reaches today (run `budget meter start --delivery <profile-id>` before `task start` and `budget meter record --delivery <profile-id>` before each step), the delivery's cost is within the per-delivery budget, and the cost of every delivery that used the standing approval is within the total; a hand-declared cost counts toward the amounts but never makes a delivery measured, and a total that includes a delivery without a fresh verified reading here (record a final one for a finished delivery) is not measurable. Otherwise the normal confirmation applies.
 
 ```bash
 node bin/agentic-sdlc.mjs autonomy standing propose \
@@ -1304,9 +1304,16 @@ recorded history before they are written, and are chained into the delivery's
 ledger; a deleted or edited receipt makes its cost unreadable until restored. A
 delivery records cost in one currency (the standing approval budget's, else the
 first `--currency`, else the meter's); a different currency is refused. Exact
-values need a trusted signed receipt imported with `--receipt-file`; an adapter
-observation is recorded only by `budget meter record`. A delivery with nothing
-recorded reads `not measured`, and a hand-declared cost is shown as declared.
+values need a trusted signed receipt imported with `--receipt-file`, whose
+signature is verified for every metric it carries; an adapter observation is
+recorded only by `budget meter record`. One baseline per meter adapter; start it
+after approval and before `task start`. The CodeBurn window is derived from the
+delivery (approval day to the end of its validity), so `--project`, `--from`,
+`--to`, and `--provider` are refused with `--delivery`. Usage can still be
+recorded after close, for a final reading; a reading dated in the future is
+refused. A delivery with nothing recorded reads `not measured`, a hand-declared
+cost is shown as declared, and the Change Observatory labels a meter's figure as
+not verified there. Never edit files under `.sdlc/autonomy/metering/`.
 
 Lead time comes only from existing records: proposed, approved, work started,
 first action, and released, ready for review, or closed, with the time between
