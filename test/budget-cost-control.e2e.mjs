@@ -448,6 +448,30 @@ test("a new budget is refused when its metrics, units, limits, actions, or maxim
   });
 });
 
+test("the budget checkpoint follows --locale, shows currency, and never offers an unsatisfiable hard limit", () => {
+  const budget = {
+    limits: {
+      cost: { unit: "money", currency: "USD", metering: "estimated", soft: "5" },
+      steps: { unit: "steps", metering: "exact", soft: 10, hard: 20 },
+    },
+  };
+  const english = runningAssessment("budget-checkpoint-en", budget, { apply: false, locale: "en" }).prepared.assistant_message;
+  for (const heading of ["What I am asking you", "Why it is needed", "Approved budget", "What your yes authorizes", "What it does not authorize", "Complete answer examples"]) {
+    assert.match(english, new RegExp(heading, "u"));
+  }
+  assert.match(english, /Monetary cost: soft limit USD 5\.00; no hard stop; metering estimated\./u);
+  assert.match(english, /Warning: the hard limit on steps cannot be satisfied in this project[\s\S]*Exact metering setup/u);
+  assert.doesNotMatch(english, /Cosa ti sto chiedendo|soglia soft|Budget approvato|Esempio configurazione/u);
+  assert.doesNotMatch(english, /5 money|trusted_sources =/u);
+  assert.doesNotMatch(english, /hard limit to 45 minutes/u);
+
+  const italian = runningAssessment("budget-checkpoint-it", budget, { apply: false, locale: "it" }).prepared.assistant_message;
+  assert.match(italian, /Cosa ti sto chiedendo/u);
+  assert.match(italian, /Costo monetario: soglia soft USD 5\.00; nessun hard stop; misura estimated\./u);
+  assert.match(italian, /Attenzione: l'hard limit su steps non può essere soddisfatto/u);
+  assert.doesNotMatch(italian, /What I am asking you|Esempio configurazione|trusted_sources =/u);
+});
+
 test("meter setup errors say how to continue", () => {
   const { project } = runningAssessment("budget-meter-errors", {
     limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10_000 } },

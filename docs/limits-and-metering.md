@@ -443,6 +443,26 @@ This is a syntactically valid example; replace the illustrative public key with 
 
 The complete exact-metering policy is hashed into the approved budget. Changing adapters, metrics, keys, or freshness after approval invalidates the binding and requires a new proposal; it cannot be smuggled through a budget amendment.
 
+### Exact metering setup
+
+Hard limits are optional. The shipped defaults use soft limits only, because a hard limit can be satisfied only by a signed, exact measurement that the agent itself cannot produce. Set one up end to end like this:
+
+1. **Run a signer outside the agent's control.** It must observe the real usage (a gateway in front of model calls, a CI job, or a runtime supervisor) and hold the private key. The plugin deliberately ships no signing command: an agent that could sign its own usage could forge it.
+2. **Create an Ed25519 key pair on the signer host**, for example with OpenSSL:
+
+   ```bash
+   openssl genpkey -algorithm ed25519 -out meter-private.pem
+   openssl pkey -in meter-private.pem -pubout -out meter-public.pem
+   ```
+
+   `meter-public.pem` is the PEM-encoded SPKI public key the project trusts. Never copy the private key into the repository or `.sdlc/`.
+3. **Trust the signer in `.sdlc/config.json`.** Add an entry to `budget_policy.exact_metering.trusted_sources` with your adapter id, the metrics it may assert as exact, and `trusted_keys: [{"key_id": "<stable id>", "algorithm": "Ed25519", "public_key": "<contents of meter-public.pem, newlines as \n>"}]` (see the example above).
+4. **Pin the edited configuration.** Run `agentic-sdlc config migrate`, review the plan, and apply it with `agentic-sdlc config migrate --apply --plan-hash <hash>`. Until then the project keeps its previous configuration.
+5. **Prepare the proposal with the hard limits** only after pinning, for example `{"limits":{"steps":{"unit":"steps","metering":"exact","soft":40,"hard":60}}}`. The checkpoint warns when a hard metric has no trusted source.
+6. **Have the signer write cumulative receipts.** For each observation it builds a signed attestation with `buildMeteringAttestation` from `lib/metering-attestations.mjs` (measurement: `execution_id` = proposal id, the effective `budget_id` and `budget_hash`, `adapter`, cumulative `usage` and `metering: "exact"` per metric, `cumulative: true`, start/end and coverage timestamps, and `signing: { key_id, private_key }`), then a usage receipt with `buildExecutionUsageReceipt` from `lib/execution-budget.mjs` whose `source` is `{ adapter, assurance: "trusted_attested", aggregation: "cumulative", attestation_ref: { id, path, hash } }`, where `hash` is the SHA-256 of the attestation file's bytes.
+7. **Import each receipt** with `agentic-sdlc budget usage record --proposal <id> --receipt-file <receipt.json>`. Cumulative values may never decrease; a regressing receipt is refused and nothing is written.
+8. **Finish with a fresh observation.** At completion the latest exact receipt must cover the whole execution and be no older than `completion_freshness_seconds`.
+
 ## RTK optimization and the cost gate
 
 The optimization gateway is deliberately integrated with budget status, but it
