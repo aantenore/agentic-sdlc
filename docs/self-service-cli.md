@@ -88,6 +88,13 @@ content of another story's valid final receipt sealed later, the earlier story
 stays completed and the JSON view lists it under `historical_certifications`
 with the superseding story IDs.
 
+When the first operational story has no tool recommendation yet and installed
+tools match its declared technology, the JSON view adds a
+`capability_suggestion` object and the human view adds one plain sentence
+(see [See what tools are already installed](#see-what-tools-are-already-installed)).
+It is informational: it does not change `next_action` and is left out while a
+history or configuration problem is the first thing to resolve.
+
 ## Choose presentation without changing authority
 
 Built-in presets change only language and presentation:
@@ -203,6 +210,45 @@ node "$PLUGIN_CLI" breakdown policy set --root /path/to/project \
 chooses the level that counts as one deliverable, and `--strict-gate-unit`
 chooses the level the strict validation gate applies to. `--task-gate` selects
 the task-level gate mode.
+
+## See what tools are already installed
+
+`capability inventory` lists the skills, commands, plugins, and tool servers
+(MCP servers) already installed for you and the project. It is read-only, works
+before a project is initialized, and opens only the well-known local folders of
+the supported agent hosts plus any location the project adds under
+`capability_discovery_policy.inventory`. It keeps names, one-line descriptions,
+plugin versions, and a server's transport type. Server arguments, environment,
+headers, and URLs are never read into the list, and no network call is made.
+Paths are shown relative to the project or to `~`.
+
+```bash
+node "$PLUGIN_CLI" capability inventory
+node "$PLUGIN_CLI" capability inventory --json
+node "$PLUGIN_CLI" capability inventory --full --locale it
+```
+
+The plain-language part says that nothing was changed, installed, or approved;
+the optional technical details list each item with its scope, plugin, path, and
+description, and each location with whether it was read, missing, or skipped.
+The default lists the first 25 items of each kind; `--full` or `--json` lists
+all of them.
+
+To use what was found, ask your agent to propose the installed tools that fit
+the work. It runs `capability recommend --from-inventory`, which proposes only
+the installed entries whose name or description names a technology the approved
+project evidence declares (its detected stack and integrations); the wording of
+a request is never matched. The result is an ordinary proposal that you still
+approve.
+
+When a piece of work has no tool recommendation yet and installed tools match
+its declared technology, `task start` and `status` add one plain sentence, for
+example "Installed tools that look relevant to this work: react-review (skill).
+Nothing is used or approved yet; ...", and put the command that would record a
+proposal in the technical details. This never changes the outcome of the check
+and never approves, binds, or installs anything. Set
+`capability_discovery_policy.inventory.suggest` to `false` to turn it off, or
+`enabled` to `false` to turn the discovery off altogether.
 
 ## Record the evidence of a test run
 

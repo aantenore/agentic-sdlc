@@ -411,7 +411,9 @@ Capability discovery is a project-specific architect step before technical analy
 flowchart TB
   Inputs["Repo manifests, .sdlc, user files"] --> Profile["capability profile propose"]
   Profile --> ProfileApproval["Human/CI profile approval"]
-  Available["Available skills, MCPs, tools, models"] --> Recommend["capability recommend"]
+  Installed["Installed skills, plugins, MCP servers"] --> Inventory["capability inventory"]
+  Inventory --> Recommend["capability recommend --from-inventory"]
+  Available["Other available tools, models"] --> Recommend
   ProfileApproval --> Recommend
   Recommend --> RecApproval["Recommendation approval"]
   RecApproval --> InstallGate{"Install required?"}
@@ -421,6 +423,23 @@ flowchart TB
   Contract --> CapabilityPolicy["capability_policy + bindings + execution_policy"]
   CapabilityPolicy --> Gate["gate check --strict"]
 ```
+
+### Installed-capability inventory
+
+The agent no longer has to build the list of available capabilities by hand. `capability inventory` is a read-only command that discovers what is already installed for the current user and project, from well-known local locations only and without network access:
+
+- skill directories (`<name>/SKILL.md`) in the project and in the user's home, for both supported agent hosts;
+- command directories (`*.md`);
+- the plugin caches of both hosts, where each plugin manifest names its skills and commands directories (a cache keeps superseded versions; only the newest version of a plugin is listed);
+- MCP servers declared in JSON settings (`.mcp.json`, host settings files, and the user and per-project sections of the host's user settings) and in TOML host configuration (`[mcp_servers.<name>]` tables).
+
+Only names, one-line descriptions from the front matter or manifest, plugin versions, and a server's transport type are kept. The parsers look at key presence, never at values, so server arguments, environment, headers, and URLs cannot reach the output, a record, or a message. Paths are reported project-relative or `~`-relative (a relocated host directory is shown as `(external)/…`); a project location cannot reach outside the project through a link; sizes, depths, entry counts, and the number of names examined per directory (`limits.max_listing_names`) are bounded and reported as `truncated` when reached; a skill file or manifest that is a link leaving the project is ignored like its directory; invisible and bidirectional control characters are removed from descriptions.
+
+The locations are configuration, not code. `capability_discovery_policy.inventory` in `.sdlc/config.json` (defaults in `templates/sdlc-config.json`, validated by `schemas/sdlc-config.schema.json`, and built in for projects whose configuration predates the setting) lists the sources: each has an `id`, a `kind` (`skills`, `commands`, `plugins`, `mcp-json`, or `mcp-toml`), a `scope` (`project` or `user`), and a `path` that is project-relative, `~`-relative, or `${VARIABLE:-default}`-based (so a host that relocates its directory is honoured). Only `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HOME`, `USERPROFILE`, `XDG_CONFIG_HOME`, and `APPDATA` may be referenced; the configuration and schema refuse any other variable, so a path can never carry another environment value into the output. `sources` replaces the default list when given, which lets a team point at its own directories or add another host without code changes; `enabled` turns discovery off; `suggest` turns only the suggestions below off; `limits` bound the scan.
+
+`capability recommend --from-inventory` uses the inventory as the available capabilities and is validated like any other recommendation. An inventory lists everything installed, not what the work needs, so a deterministic match narrows it: only entries whose name or description names a technology declared by the approved profile (its detected stack and integrations) are proposed, at most `matching.max_suggestions`. Tags are split into words; generic words (`matching.ignored_tags`), very short words, and ambiguous words (`matching.ambiguous_tags`, such as a language called "go") do not match on their own, and `matching.aliases` adds alternative spellings. The wording of a request is never consulted, and every other installed entry is not written into the recommendation when it comes from the user's home (only a count, `available_capabilities.omitted_user_scope`, is kept, because the record is committed with the project); a project-level entry that was not chosen is kept by name with `recommended: false`. The result is a `proposed` recommendation that still needs approval; nothing is bound automatically.
+
+The same matching drives a proactive suggestion. When `task start` (for contract, analysis, implementation, validation, and release work) or `status` finds a story without any capability recommendation, and installed capabilities match its declared technology, the result carries a `capability_suggestion` and a short plain-language sentence: which installed tools look relevant, that nothing is used or approved yet, and the commands that would record a recommendation (the approved profile's tags when there is one, otherwise the same deterministic project detection a profile starts from, in which case the profile comes first). The suggestion never changes the outcome, blockers, or commands of the decision, is silent when a recommendation or profile is already recorded or pending, and never approves, binds, or installs anything.
 
 The deterministic detector can read project manifests such as `package.json`, `tsconfig.json`, `pyproject.toml`, `Dockerfile`, `go.mod`, `Cargo.toml`, `Package.swift`, Gradle, Maven, and common frontend config files. Richer app understanding should be provided as canonical profile JSON by Codex, then reviewed and approved. This avoids language-specific routing and avoids hardcoding product domains into the plugin.
 

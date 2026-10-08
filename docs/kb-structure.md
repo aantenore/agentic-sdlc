@@ -446,7 +446,7 @@ A profile is proposed from repo files, `.sdlc/` context, user-provided files, or
 }
 ```
 
-A recommendation consumes an approved profile plus an optional available-capabilities snapshot:
+A recommendation consumes an approved profile plus an optional available-capabilities snapshot (supplied by hand, or taken from the installed inventory with `capability recommend --from-inventory`, in which case `available_capabilities.origin` is `capability-inventory:v1` and project-level entries that were not proposed carry `recommended: false`, and user-level ones are only counted in `omitted_user_scope`):
 
 ```json
 {

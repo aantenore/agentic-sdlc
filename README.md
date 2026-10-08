@@ -753,6 +753,8 @@ node bin/agentic-sdlc.mjs optimization run --root /path/to/project --command-jso
 node bin/agentic-sdlc.mjs optimization capture --root /path/to/project --proposal ASSESSMENT-001 --phase manual --json
 node bin/agentic-sdlc.mjs status --root /path/to/project
 node bin/agentic-sdlc.mjs approval requests --root /path/to/project --json
+node bin/agentic-sdlc.mjs capability inventory --root /path/to/project --json
+node bin/agentic-sdlc.mjs capability recommend --root /path/to/project --id CAP-REC-ST-001 --profile CAP-PROFILE-ST-001 --from-inventory
 node bin/agentic-sdlc.mjs assessment proposal status --root /path/to/project --id ASSESSMENT-001 --json
 node bin/agentic-sdlc.mjs budget meter start --root /path/to/project --proposal ASSESSMENT-001
 node bin/agentic-sdlc.mjs budget meter record --root /path/to/project --proposal ASSESSMENT-001
@@ -769,6 +771,8 @@ node bin/agentic-sdlc.mjs migration identity --root /path/to/project --recover -
 Natural-language interpretation stays in Codex. The CLI accepts canonical structured intent and performs deterministic state, format, authorization, and evidence checks.
 
 `autonomy delivery checks` prints the checks that were actually recorded for one pull-request delivery as a Markdown table for the pull-request description: test and smoke runs, the secret scan, the code review gate, the strict and lifecycle-complete gate receipts, the standing approval the delivery used, and its budget decision. Each row is `[PASS]`, `[FAIL]`, or `[NOT RUN]`; nothing is re-run, a check nobody recorded is never shown as a pass, and recorded commands go through the privacy redaction before printing. `--format json` prints the same facts as deterministic JSON. See [How It Works](docs/how-it-works.md#the-pull-request-description-lists-what-was-recorded).
+
+Installed tools are discovered, not typed in. `capability inventory` is a read-only listing of the skills, commands, plugins, and MCP servers already installed for the user and the project, read from the well-known local locations of both supported agent hosts (and any location added in `capability_discovery_policy.inventory`). It keeps only names, one-line descriptions, plugin versions, and a server's transport type, never server arguments, environment, headers, or URLs, and it makes no network call. `capability recommend --from-inventory` proposes only the installed entries that name a technology declared by the approved evidence, and `task start` and `status` mention such matches while a story has no tool recommendation. Nothing is ever approved, bound, or installed automatically. See [Architecture](docs/architecture.md#capability-discovery-layer).
 
 The default budget meter is bundled. It reads cumulative `token_count` events
 from the exact local Codex task, selected by `CODEX_THREAD_ID`, and advances an

@@ -86,6 +86,16 @@ test("exactly seven commands derive conditional mutation intent from runtime opt
   assert.equal(commandMutationIntent(findCommand("trace compact"), {}), true);
 });
 
+test("the installed-capability inventory is a read-only command that needs no project data", () => {
+  const inventory = findCommand("capability inventory");
+  assert.equal(inventory.canonical_action, "capability.inventory");
+  assert.deepEqual(inventory.mutation, { mode: "never" });
+  assert.equal(inventory.effect, "read");
+  assert.equal(commandMutationIntent(inventory, {}), false);
+  assert.equal(inventory.arguments, "none");
+  assert.equal(resolveCommand("capability inventory").canonical_action, "capability.inventory");
+});
+
 test("unknown or incomplete mutation metadata fails closed", () => {
   assert.throws(() => commandMutationIntent(null, {}), CliDispatchMetadataError);
   assert.throws(

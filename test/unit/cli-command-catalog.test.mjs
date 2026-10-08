@@ -58,6 +58,7 @@ test("catalog covers the dispatch families and the self-service commands", () =>
     "breakdown policy set",
     "dependency approve",
     "capability profile approve",
+    "capability inventory",
     "approval requests",
     "authorization grant",
     "task start",

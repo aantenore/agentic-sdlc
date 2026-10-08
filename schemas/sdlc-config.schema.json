@@ -194,9 +194,126 @@
         }
       },
       "additionalProperties": false
+    },
+    "capability_discovery_policy": {
+      "$ref": "#/$defs/capability_discovery_policy"
     }
   },
   "$defs": {
+    "capability_discovery_policy": {
+      "type": "object",
+      "properties": {
+        "principle": { "type": "string" },
+        "registry_path": { "type": "string", "minLength": 1 },
+        "default_auto_use_installed": { "type": "boolean" },
+        "default_auto_install": { "type": "boolean" },
+        "require_approval_for_install": { "type": "boolean" },
+        "require_approval_for_external_access": { "type": "boolean" },
+        "require_approval_for_write_access": { "type": "boolean" },
+        "require_approval_for_production": { "type": "boolean" },
+        "source_priorities": { "type": "array", "items": { "type": "string" } },
+        "agent_rules": { "type": "array", "items": { "type": "string" } },
+        "inventory": { "$ref": "#/$defs/capability_inventory_policy" }
+      },
+      "additionalProperties": true
+    },
+    "capability_inventory_policy": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "suggest": { "type": "boolean" },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "max_entries": { "type": "integer", "minimum": 1, "maximum": 5000 },
+            "max_directories": { "type": "integer", "minimum": 1, "maximum": 5000 },
+            "max_listing_names": { "type": "integer", "minimum": 1, "maximum": 100000 },
+            "max_depth": { "type": "integer", "minimum": 1, "maximum": 8 },
+            "max_frontmatter_bytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+            "max_config_bytes": { "type": "integer", "minimum": 1, "maximum": 67108864 },
+            "max_description_chars": { "type": "integer", "minimum": 1, "maximum": 1000 }
+          },
+          "additionalProperties": false
+        },
+        "matching": {
+          "type": "object",
+          "properties": {
+            "max_suggestions": { "type": "integer", "minimum": 1, "maximum": 25 },
+            "min_tag_length": { "type": "integer", "minimum": 1, "maximum": 16 },
+            "ignored_tags": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
+            "ambiguous_tags": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
+            "aliases": {
+              "type": "object",
+              "additionalProperties": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 } }
+            },
+            "exclude_names": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
+            "phase_tags": {
+              "type": "object",
+              "additionalProperties": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 } }
+            }
+          },
+          "additionalProperties": false
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "$ref": "#/$defs/capability_inventory_source" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "capability_inventory_source": {
+      "type": "object",
+      "required": ["id", "kind", "scope", "path"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+        "kind": { "enum": ["skills", "commands", "plugins", "mcp-json", "mcp-toml"] },
+        "scope": { "enum": ["project", "user"] },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?!/)(?!(?:.*/)?\\.\\.(?:/|$))(?!.*\\$\\{(?!(?:CLAUDE_CONFIG_DIR|CODEX_HOME|HOME|USERPROFILE|XDG_CONFIG_HOME|APPDATA)(?::-[^}]*)?\\}))[^\\u0000\\\\]+$"
+        },
+        "enabled": { "type": "boolean" },
+        "manifests": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^(?![/~$])(?!(?:.*/)?\\.\\.(?:/|$))[^\\u0000\\\\]+$"
+          }
+        },
+        "skills_dir": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^(?![/~$])(?!(?:.*/)?\\.\\.(?:/|$))[^\\u0000\\\\]+$"
+        },
+        "commands_dir": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^(?![/~$])(?!(?:.*/)?\\.\\.(?:/|$))[^\\u0000\\\\]+$"
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 6,
+            "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+          }
+        },
+        "table": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" }
+      },
+      "additionalProperties": false
+    },
     "governance_policy_config": {
       "type": "object",
       "required": [
