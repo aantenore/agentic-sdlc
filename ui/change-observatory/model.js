@@ -251,7 +251,7 @@ export function normalizeSemanticObservation(value) {
 const DELIVERY_MILESTONES = new Set(["proposed", "approved", "task_started", "first_action", "finished"]);
 const DELIVERY_FINISHES = new Set(["released", "ready_for_review", "closed"]);
 const LEAD_TIME_STATUSES = new Set(["finished", "in_progress", "approved", "awaiting_approval", "unknown"]);
-const COST_STATUSES = new Set(["metered", "declared", "not_measured", "mixed_currencies"]);
+const COST_STATUSES = new Set(["metered", "unverified", "declared", "not_measured", "mixed_currencies"]);
 const DECIMAL_AMOUNT = /^(?:0|[1-9]\d*)(?:\.\d+)?$/u;
 const CURRENCY_CODE = /^[A-Z][A-Z0-9]{2,7}$/u;
 
@@ -308,6 +308,7 @@ export function normalizeStandingBudget(value) {
     spent: amountOrNull(budget.spent) ?? "0",
     deliveries: countOrNull(budget.deliveries) ?? 0,
     notMeasured: countOrNull(budget.notMeasured) ?? 0,
+    verified: budget.verified === true,
   };
 }
 

@@ -326,6 +326,7 @@ const ITALIAN = Object.freeze({
   "Still in progress": "Ancora in corso",
   "Waiting for approval": "In attesa di approvazione",
   "measured by a meter": "misurato da un contatore",
+  "reported by a meter, not verified here": "riportato da un contatore, non verificato qui",
   "declared by hand, not measured by a meter": "dichiarato a mano, non misurato da un contatore",
   "Recorded in more than one currency, so it cannot be added up": "Registrato in più valute, quindi non sommabile",
   "No wait for a person was recorded": "Nessuna attesa di una persona registrata",
@@ -535,13 +536,15 @@ export function deliveryMetricsTexts(metrics) {
       : `${formatDurationText(lead.waitingSeconds ?? 0)} over ${confirmations} ${confirmations === 1 ? "confirmation" : "confirmations"}${unrecordedText}`)
     : t("No wait for a person was recorded");
   const amount = amountText(cost.currency, cost.amount);
-  const known = (cost.status === "metered" || cost.status === "declared") && amount;
+  const known = ["metered", "unverified", "declared"].includes(cost.status) && amount;
   const costValue = known
     ? amount
     : cost.status === "mixed_currencies" ? t("Recorded in more than one currency, so it cannot be added up") : t("Not measured");
   const costDetail = known && cost.status === "metered"
     ? `${costValue} · ${t("measured by a meter")}${cost.sources?.length ? ` (${cost.sources.join(", ")})` : ""}`
-    : known ? `${costValue} · ${t("declared by hand, not measured by a meter")}` : costValue;
+    : known && cost.status === "unverified"
+      ? `${costValue} · ${t("reported by a meter, not verified here")}`
+      : known ? `${costValue} · ${t("declared by hand, not measured by a meter")}` : costValue;
   const tokens = Number.isFinite(cost.tokens)
     ? (italian ? `${cost.tokens} token` : `${cost.tokens} tokens`)
     : t("Not measured");
@@ -568,12 +571,15 @@ export function standingBudgetText(budget) {
   ].filter(Boolean).join(italian ? " e " : " and ");
   const unmeasured = budget.notMeasured > 0
     ? (italian
-      ? `; ${budget.notMeasured} ${budget.notMeasured === 1 ? "consegna senza" : "consegne senza"} costo misurato`
-      : `; ${budget.notMeasured} ${budget.notMeasured === 1 ? "delivery" : "deliveries"} without a metered cost`)
+      ? `; ${budget.notMeasured} ${budget.notMeasured === 1 ? "consegna senza" : "consegne senza"} lettura di un contatore`
+      : `; ${budget.notMeasured} ${budget.notMeasured === 1 ? "delivery" : "deliveries"} without a meter reading`)
     : "";
+  const recorded = budget.verified
+    ? (italian ? "Speso finora" : "Spent so far")
+    : (italian ? "Registrato finora, non verificato qui," : "Recorded so far, not verified here,");
   return italian
-    ? `Speso finora ${spent} su ${budget.deliveries} ${budget.deliveries === 1 ? "consegna" : "consegne"}; limite ${limits}${unmeasured}.`
-    : `Spent so far ${spent} over ${budget.deliveries} ${budget.deliveries === 1 ? "delivery" : "deliveries"}; limit ${limits}${unmeasured}.`;
+    ? `${recorded} ${spent} su ${budget.deliveries} ${budget.deliveries === 1 ? "consegna" : "consegne"}; limite ${limits}${unmeasured}.`
+    : `${recorded} ${spent} over ${budget.deliveries} ${budget.deliveries === 1 ? "delivery" : "deliveries"}; limit ${limits}${unmeasured}.`;
 }
 
 export function isAutonomyRecord(item) {

@@ -133,7 +133,8 @@ test("the observatory derives each delivery's lead time and cost from its record
       waitingConfirmations: 1,
       unrecordedRequests: 0,
     },
-    cost: { status: "metered", amount: "0.4", currency: "USD", tokens: 1200, receipts: 1, sources: ["codeburn"] },
+    // The Observatory verifies no meter evidence, so the meter's figure is labelled unverified.
+    cost: { status: "unverified", amount: "0.4", currency: "USD", tokens: 1200, receipts: 1, sources: [] },
   });
   const standing = model.decisions.find((item) => item.type === "standing-approval");
   assert.deepEqual(standing.standingBudget, {
@@ -143,8 +144,9 @@ test("the observatory derives each delivery's lead time and cost from its record
     spent: "0.4",
     deliveries: 1,
     notMeasured: 0,
+    verified: false,
   });
-  assert.match(standing.summary, /1 of 2 deliveries used, 1 left; [\s\S]*Cost recorded so far: USD 0\.40 of USD 2\.00\./u);
+  assert.match(standing.summary, /1 of 2 deliveries used, 1 left; [\s\S]*Cost recorded so far, not verified here: USD 0\.40 of USD 2\.00\./u);
 });
 
 test("a delivery without usage shows its cost as not measured", async (t) => {
@@ -157,7 +159,7 @@ test("a delivery without usage shows its cost as not measured", async (t) => {
   const standing = model.decisions.find((item) => item.type === "standing-approval");
   assert.equal(standing.standingBudget.spent, "0");
   assert.equal(standing.standingBudget.notMeasured, 1);
-  assert.match(standing.summary, /USD 0\.00 of USD 2\.00; 1 without a metered cost\./u);
+  assert.match(standing.summary, /USD 0\.00 of USD 2\.00; 1 without a meter reading\./u);
 });
 
 class FakeNode {
@@ -242,15 +244,17 @@ test("the browser shows lead time and cost in English and Italian, as plain text
       "first action → released: 1h 00m",
     ],
     waiting: "10m 00s over 1 confirmation",
-    cost: "USD 0.40 · measured by a meter (codeburn)",
+    cost: "USD 0.40 · reported by a meter, not verified here",
     tokens: "1200 tokens",
     compact: "Lead time: 1h 30m · Cost: USD 0.40",
   });
-  assert.equal(standingBudgetText(standing.standingBudget), "Spent so far USD 0.40 over 1 delivery; limit USD 1.50 per delivery and USD 2.00 in total.");
+  assert.equal(standingBudgetText(standing.standingBudget), "Recorded so far, not verified here, USD 0.40 over 1 delivery; limit USD 1.50 per delivery and USD 2.00 in total.");
+  assert.equal(standingBudgetText({ ...standing.standingBudget, verified: true }), "Spent so far USD 0.40 over 1 delivery; limit USD 1.50 per delivery and USD 2.00 in total.");
   setLocale("it");
   assert.equal(deliveryMetricsTexts(delivery.deliveryMetrics).compact, "Tempo di consegna: 1h 30m · Costo: USD 0.40");
   assert.equal(deliveryMetricsTexts(delivery.deliveryMetrics).stages[3], "prima azione → rilasciata: 1h 00m");
-  assert.equal(standingBudgetText(standing.standingBudget), "Speso finora USD 0.40 su 1 consegna; limite USD 1.50 per consegna e USD 2.00 in tutto.");
+  assert.equal(standingBudgetText(standing.standingBudget), "Registrato finora, non verificato qui, USD 0.40 su 1 consegna; limite USD 1.50 per consegna e USD 2.00 in tutto.");
+  assert.match(deliveryMetricsTexts(delivery.deliveryMetrics).cost, /riportato da un contatore, non verificato qui/u);
 
   for (const locale of ["en", "it"]) {
     setLocale(locale);
@@ -264,7 +268,7 @@ test("the browser shows lead time and cost in English and Italian, as plain text
 
     const standingInspector = new FakeNode("aside");
     renderInspector(standingInspector, standing);
-    assert.match(primaryText(standingInspector), locale === "it" ? /Speso finora USD 0\.40/u : /Spent so far USD 0\.40/u, locale);
+    assert.match(primaryText(standingInspector), locale === "it" ? /Registrato finora, non verificato qui, USD 0\.40/u : /Recorded so far, not verified here, USD 0\.40/u, locale);
 
     const list = new FakeNode("main");
     renderPrimary(list, { decisions: [delivery, standing] }, { view: "decisions", selectedId: null, filters: {} });
