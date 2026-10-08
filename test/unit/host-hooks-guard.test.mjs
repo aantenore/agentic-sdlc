@@ -84,6 +84,35 @@ test("standing approval records change only through the CLI, in either host's ed
   }
 });
 
+test("delivery usage records change only through the CLI, so no receipt or ledger can be removed", () => {
+  for (const payload of [
+    { tool_name: "Write", tool_input: { file_path: "/work/p/.sdlc/autonomy/metering/AUT-1/ledger.json", content: "{}" } },
+    { tool_name: "Edit", tool_input: { file_path: ".sdlc\\autonomy\\metering\\AUT-1\\usage\\USAGE-1.json" } },
+    codexPatch("src/a.mjs", ".sdlc/autonomy/metering/AUT-1/meters/codeburn/deltas/abc.json"),
+    shell("rm .sdlc/autonomy/metering/AUT-1/ledger.json"),
+    shell("rm -rf .sdlc/autonomy/metering"),
+    shell("echo '{}' > .sdlc/autonomy/metering/AUT-1/usage/USAGE-2.json"),
+    shell("cd .sdlc/autonomy && rm metering/AUT-1/ledger.json"),
+    shell("git checkout HEAD~1 -- .sdlc/autonomy/metering/AUT-1"),
+    { tool_name: "PowerShell", tool_input: { command: "Remove-Item .sdlc\\autonomy\\metering\\AUT-1\\ledger.json" } },
+  ]) {
+    const decision = evaluatePreToolUse(payload);
+    assert.equal(decision?.decision, "deny", JSON.stringify(payload));
+    assert.match(decision.reason, /written only by the agentic-sdlc CLI/u);
+  }
+  assert.match(
+    evaluatePreToolUse({ tool_name: "Write", tool_input: { file_path: ".sdlc/autonomy/metering/AUT-1/ledger.json" } }).reason,
+    /Delivery usage records are append-only[\s\S]*would hide spent cost/u,
+  );
+  for (const payload of [
+    shell("cat .sdlc/autonomy/metering/AUT-1/ledger.json"),
+    shell("node bin/agentic-sdlc.mjs budget usage record --delivery AUT-1 --cost-amount 0.5 --currency USD"),
+    shell("git add .sdlc/autonomy/metering && git commit -m 'chore: record delivery usage'"),
+  ]) {
+    assert.equal(evaluatePreToolUse(payload), null, JSON.stringify(payload));
+  }
+});
+
 test("the shared refs of standing approvals are never rewritten by hand", () => {
   for (const command of [
     "git push origin :refs/agentic-sdlc/standing/SA-X/abc/revoked",
