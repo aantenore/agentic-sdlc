@@ -464,6 +464,17 @@ test("a completion records not_measured instead of a clean result for unmeasured
   assert.equal(completionBudgetStatus(warned), warned.status);
 });
 
+test("an amendment records the approver's decision only when one is given", () => {
+  const budget = normalizeExecutionBudget(budgetInput());
+  const base = { id: "amendment-summary", reason: "More calls are needed", created_at: "2026-07-14T09:31:00.000Z" };
+  const withSummary = buildBudgetAmendment(budget, { limits: { calls: { soft: 200 } } }, { ...base, approval_summary: "I approve 200 calls" });
+  assert.equal(withSummary.approval_summary, "I approve 200 calls");
+  const legacy = buildBudgetAmendment(budget, { limits: { calls: { soft: 200 } } }, base);
+  assert.equal(Object.hasOwn(legacy, "approval_summary"), false);
+  assert.notEqual(withSummary.amendment_hash, legacy.amendment_hash);
+  assert.equal(applyBudgetAmendment(budget, withSummary).budget_hash, applyBudgetAmendment(budget, legacy).budget_hash);
+});
+
 test("a regressing cumulative receipt is rejected before it can join the history", () => {
   const budget = normalizeExecutionBudget({
     id: "budget-cumulative",

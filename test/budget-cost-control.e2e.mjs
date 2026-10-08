@@ -368,6 +368,13 @@ test("budget amend applies the formal approval checks and the audit-only warning
   assert.equal(replay.idempotent, true);
   assert.equal(replay.authority_assurance_label, "audit_only");
   assert.match(replay.authority_note, /must not be represented as host-verified security/u);
+  // The approver's own words are kept with the immutable amendment, and a
+  // replay keeps the recorded decision instead of changing the hash.
+  const stored = readJson(path.join(project, ".sdlc", "budgets", "ASSESS-1", "amendments", "BAMEND-1.json"));
+  assert.equal(stored.approval_summary, "I approve raising only the token soft limit to 2000");
+  assert.equal(stored.reason, "Verification needs about 800 more estimated tokens");
+  const replayWithOtherWords = JSON.parse(mustRun(amend(...humanApproval("Same decision, other words"), "--json")).stdout);
+  assert.equal(replayWithOtherWords.amendment.amendment_hash, stored.amendment_hash);
 });
 
 test("usage history recorded before the cumulative rule existed stays readable", () => {
