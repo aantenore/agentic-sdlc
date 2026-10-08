@@ -223,3 +223,221 @@ test("capability inventory is a catalogued read-only command", () => {
   assert.match(mustRun(["help", "capability"]).stdout, /capability inventory/u);
   assert.match(mustRun(["completion", "bash"]).stdout, /inventory/u);
 });
+
+// ---------------------------------------------------------------------------
+// capability recommend --from-inventory
+
+const HUMAN = ["--actor-type", "human", "--approval-source", "explicit-user"];
+
+function initProject(project, home) {
+  mustRun(["init", "--root", project, "--project-name", "Inventory", "--force"], { cwd: project, home });
+}
+
+function ensureRequirement(project, requirementId) {
+  const requirementPath = path.join(project, ".sdlc", "requirements", `${requirementId}.json`);
+  if (fs.existsSync(requirementPath)) return;
+  const createdAt = new Date().toISOString();
+  writeFile(project, `.sdlc/requirements/${requirementId}.json`, `${JSON.stringify({
+    id: requirementId,
+    kind: "requirement",
+    schema_version: "requirement:v1",
+    title: `Requirement ${requirementId}`,
+    summary: `Canonical outcome and boundary for ${requirementId}`,
+    status: "active",
+    acceptance_criteria: [`The linked story output provides observable evidence for ${requirementId}`],
+    source_paths: [],
+    proposal_ref: null,
+    created_at: createdAt,
+    updated_at: createdAt,
+    audit: { fixture: true },
+  }, null, 2)}\n`);
+}
+
+function createStory(project, home, id) {
+  ensureRequirement(project, "REQ-001");
+  mustRun([
+    "story", "create", "--root", project, "--id", id, "--title", `Story ${id}`,
+    "--acceptance", "Observable acceptance",
+  ], { cwd: project, home });
+}
+
+function reactProject(project) {
+  writeFile(project, "package.json", JSON.stringify({
+    name: "inventory-fixture",
+    scripts: { test: "node --test" },
+    dependencies: { react: "^18.0.0" },
+    devDependencies: { typescript: "^5.0.0" },
+  }));
+}
+
+function installMatchingTools(project, home) {
+  skillFile(project, ".claude/skills/react-review", "react-review", "Review React components and hooks.");
+  skillFile(home, ".claude/skills/ts-lint", "ts-lint", "Apply TypeScript lint rules.");
+  skillFile(home, ".codex/skills/node-debug", "node-debug", "Debug Node.js services.");
+  skillFile(home, ".codex/skills/pdf-forms", "pdf-forms", "Fill in PDF forms.");
+  writeFile(project, ".mcp.json", JSON.stringify({
+    mcpServers: {
+      "react-docs": { command: "node", args: ["docs.js", `--flag=${SENTINEL}`], env: { SERVICE_ENV: SENTINEL } },
+      "calendar-sync": { type: "http", url: `https://example.invalid/${SENTINEL}` },
+    },
+  }));
+}
+
+function approvedProfile(project, home, storyId, phase = "implementation") {
+  const profileId = `CAP-PROFILE-${storyId}`;
+  mustRun([
+    "capability", "profile", "propose", "--root", project, "--id", profileId, "--story", storyId,
+    "--phase", phase, "--context-file", "package.json",
+  ], { cwd: project, home });
+  mustRun([
+    "capability", "profile", "approve", "--root", project, "--id", profileId, ...HUMAN,
+    "--summary", "Approved the evidence and boundaries",
+  ], { cwd: project, home });
+  return profileId;
+}
+
+function pinConfig(project, home, config) {
+  fs.writeFileSync(path.join(project, ".sdlc", "config.json"), `${JSON.stringify(config, null, 2)}\n`);
+  const preview = JSON.parse(mustRun(["config", "migrate", "--root", project, "--json"], { cwd: project, home }).stdout);
+  mustRun([
+    "config", "migrate", "--root", project, "--apply", "--plan-hash", preview.plan.plan_hash,
+    "--actor-type", "system", "--json",
+  ], { cwd: project, home });
+}
+
+test("capability recommend --from-inventory proposes only installed tools that name the declared stack", () => {
+  const project = temporaryDirectory("recommend-project");
+  const home = temporaryDirectory("recommend-home");
+  initProject(project, home);
+  reactProject(project);
+  createStory(project, home, "ST-001");
+  installMatchingTools(project, home);
+  const profileId = approvedProfile(project, home, "ST-001");
+
+  const result = mustRun([
+    "capability", "recommend", "--root", project, "--id", "CAP-REC-ST-001", "--profile", profileId,
+    "--from-inventory", "--json",
+  ], { cwd: project, home });
+  assert.equal(result.stdout.includes(SENTINEL), false, "no server value reaches the recommendation");
+  const proposed = JSON.parse(result.stdout);
+  assert.equal(proposed.status, "proposed");
+  assert.equal(proposed.recommendation.status, "proposed", "nothing is approved or bound automatically");
+  assert.deepEqual(proposed.recommendation.approvals, []);
+  assert.deepEqual(proposed.recommendation.bindings, []);
+
+  const recommended = proposed.recommendation.recommendations.map((item) => `${item.type}:${item.name}`).sort();
+  assert.deepEqual(recommended, [
+    "mcp:react-docs",
+    "skill:agentic-sdlc",
+    "skill:node-debug",
+    "skill:react-review",
+    "skill:ts-lint",
+    "tool:test-runner",
+  ]);
+  const byKey = new Map(proposed.recommendation.recommendations.map((item) => [`${item.type}:${item.name}`, item]));
+  assert.equal(byKey.get("skill:react-review").availability, "available");
+  assert.equal(byKey.get("skill:react-review").install_required, false);
+  assert.equal(byKey.get("skill:react-review").purpose, "Review React components and hooks.");
+  assert.match(byKey.get("skill:react-review").rationale, /mentions the declared technology: react/u);
+  assert.deepEqual(proposed.recommendation.policy_patch.skills.allowed.sort(), ["agentic-sdlc", "node-debug", "react-review", "ts-lint"]);
+  assert.deepEqual(proposed.recommendation.policy_patch.mcp.allowed, ["react-docs"]);
+
+  const available = proposed.recommendation.available_capabilities;
+  assert.equal(available.origin, "capability-inventory:v1");
+  assert.deepEqual(available.skills.find((item) => item.name === "pdf-forms"), {
+    name: "pdf-forms",
+    source: "user-codex-skills",
+    recommended: false,
+  });
+  assert.deepEqual(available.mcp.find((item) => item.name === "calendar-sync"), {
+    name: "calendar-sync",
+    source: "project-mcp-json",
+    recommended: false,
+  });
+  assert.deepEqual(proposed.inventory_match.tags, ["frontend", "node", "react", "typescript"]);
+  assert.equal(proposed.inventory_match.matched_total, 4);
+  assert.deepEqual(proposed.inventory_match.proposed.map((item) => item.name).sort(), ["node-debug", "react-docs", "react-review", "ts-lint"]);
+  assert.equal(proposed.approval_request.type, "capability_recommendation_approval");
+
+  // The proposal is an ordinary pending recommendation: approving it is a
+  // separate, explicit step.
+  mustRun([
+    "capability", "approve", "--root", project, "--id", "CAP-REC-ST-001", ...HUMAN,
+    "--summary", "Approved the displayed tools and limits",
+  ], { cwd: project, home });
+  const status = JSON.parse(mustRun(["capability", "status", "--root", project, "--story", "ST-001", "--json"], { cwd: project, home }).stdout);
+  assert.deepEqual(status.recommendations.map((item) => [item.id, item.status]), [["CAP-REC-ST-001", "approved"]]);
+});
+
+test("--from-inventory reports what it considered in both languages and proposes only the governance skill when nothing matches", () => {
+  const project = temporaryDirectory("recommend-none-project");
+  const home = temporaryDirectory("recommend-none-home");
+  initProject(project, home);
+  reactProject(project);
+  createStory(project, home, "ST-001");
+  skillFile(home, ".claude/skills/pdf-forms", "pdf-forms", "Fill in PDF forms.");
+  const profileId = approvedProfile(project, home, "ST-001");
+
+  const english = mustRun([
+    "capability", "recommend", "--root", project, "--id", "CAP-REC-ST-001", "--profile", profileId, "--from-inventory",
+  ], { cwd: project, home }).stdout;
+  assert.match(english, /Installed capabilities examined: 1; none names a technology the context declares, so only the built-in governance skill is proposed\./u);
+
+  const italian = mustRun([
+    "capability", "recommend", "--root", project, "--id", "CAP-REC-ST-001", "--profile", profileId, "--from-inventory",
+    "--force", "--locale", "it",
+  ], { cwd: project, home }).stdout;
+  assert.match(italian, /Capacità installate esaminate: 1; nessuna cita le tecnologie dichiarate dal contesto/u);
+
+  const json = JSON.parse(mustRun([
+    "capability", "recommend", "--root", project, "--id", "CAP-REC-ST-001", "--profile", profileId, "--from-inventory",
+    "--force", "--json",
+  ], { cwd: project, home }).stdout);
+  assert.deepEqual(
+    json.recommendation.recommendations.map((item) => item.name).sort(),
+    ["agentic-sdlc", "test-runner"],
+  );
+  assert.equal(json.inventory_match.matched_total, 0);
+});
+
+test("--from-inventory cannot be combined with a hand-built list, follows configuration, and can be disabled", () => {
+  const project = temporaryDirectory("recommend-config-project");
+  const home = temporaryDirectory("recommend-config-home");
+  initProject(project, home);
+  reactProject(project);
+  createStory(project, home, "ST-001");
+  installMatchingTools(project, home);
+  const profileId = approvedProfile(project, home, "ST-001");
+  const base = ["capability", "recommend", "--root", project, "--id", "CAP-REC-ST-001", "--profile", profileId];
+
+  const both = run([...base, "--from-inventory", "--available-capabilities-json", "{}"], { cwd: project, home });
+  assert.notEqual(both.status, 0);
+  assert.match(`${both.stdout}${both.stderr}`, /Use either --from-inventory or --available-capabilities-json\/--available-capabilities-file, not both\./u);
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "capability-discovery", "recommendations", "CAP-REC-ST-001.json")), false);
+
+  const config = JSON.parse(fs.readFileSync(path.join(project, ".sdlc", "config.json"), "utf8"));
+  config.capability_discovery_policy.inventory.matching.max_suggestions = 2;
+  pinConfig(project, home, config);
+  const limited = JSON.parse(mustRun([...base, "--from-inventory", "--json"], { cwd: project, home }).stdout);
+  assert.equal(limited.inventory_match.proposed.length, 2);
+  assert.equal(limited.inventory_match.matched_total, 4);
+  assert.equal(
+    limited.recommendation.recommendations.filter((item) => item.type === "skill" && item.name !== "agentic-sdlc").length
+      + limited.recommendation.recommendations.filter((item) => item.type === "mcp").length,
+    2,
+  );
+
+  config.capability_discovery_policy.inventory.enabled = false;
+  pinConfig(project, home, config);
+  const disabled = run([...base, "--from-inventory", "--force"], { cwd: project, home });
+  assert.notEqual(disabled.status, 0);
+  assert.match(`${disabled.stdout}${disabled.stderr}`, /turned off by capability_discovery_policy\.inventory\.enabled/u);
+
+  // The hand-built path still works exactly as before.
+  const manual = JSON.parse(mustRun([
+    ...base, "--force", "--available-capabilities-json",
+    JSON.stringify({ skills: [{ name: "pdf-forms", purpose: "Fill in PDF forms." }] }), "--json",
+  ], { cwd: project, home }).stdout);
+  assert.equal(manual.recommendation.recommendations.some((item) => item.name === "pdf-forms"), true);
+  assert.equal(manual.inventory_match, undefined);
+});

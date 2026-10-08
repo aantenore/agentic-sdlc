@@ -933,6 +933,7 @@
         "max_suggestions": 5,
         "min_tag_length": 3,
         "ignored_tags": [
+          "api",
           "automation",
           "browser",
           "build",
