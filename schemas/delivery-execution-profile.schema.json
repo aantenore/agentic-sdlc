@@ -397,7 +397,7 @@
           "required": ["mode", "source", "verified", "receipt_ref"],
           "properties": {
             "mode": { "const": "host_verified" },
-            "source": { "enum": ["host_approval_receipt", "ci_attestation"] },
+            "source": { "enum": ["host_approval_receipt", "ci_attestation", "standing_approval_receipt"] },
             "verified": { "const": true },
             "receipt_ref": { "$ref": "#/$defs/hashed_ref" }
           },

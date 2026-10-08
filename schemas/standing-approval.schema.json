@@ -140,6 +140,10 @@
       },
       "additionalProperties": false
     },
+    "authority_mode": {
+      "description": "The authority mode in force when the standing approval was proposed; under host_verified its approval must carry a receipt signed by the trusted host. Absent in records from before the field existed.",
+      "enum": ["audit_only", "host_verified"]
+    },
     "created_at": { "type": "string", "format": "date-time" },
     "audit": {
       "type": "object",

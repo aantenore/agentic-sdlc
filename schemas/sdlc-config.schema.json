@@ -140,7 +140,10 @@
             "properties": {
               "key_id": { "type": "string", "minLength": 1 },
               "algorithm": { "const": "Ed25519" },
-              "public_key": { "type": "string", "minLength": 1 }
+              "public_key": { "type": "string", "minLength": 1 },
+              "not_before": { "type": "string", "format": "date-time", "description": "Receipts decided before this time do not verify with this key." },
+              "not_after": { "type": "string", "format": "date-time", "description": "Receipts decided at or after this time do not verify with this key; earlier ones still do." },
+              "retired": { "type": "boolean", "description": "A retired key keeps verifying receipts it signed while valid, but stops granting new authority immediately. Removing a key instead also invalidates the history it signed." }
             },
             "additionalProperties": false
           }

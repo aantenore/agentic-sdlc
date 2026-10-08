@@ -352,6 +352,19 @@ test("host approval requires a trusted Ed25519 attestation and subject-bound con
     used_at: "2026-07-14T10:00:00.000Z",
   }, { trusted_host_keys: trustedHostKeys }).decision, "deny");
 
+  // Every host receipt shares one key rule: a key verifies receipts decided
+  // inside its window; a retired one keeps verifying them, never new ones.
+  const use = { action: "assessment.authorize", subject, used_at: "2026-07-14T09:00:00.000Z" };
+  const withKey = (window, options = {}) => validateHostApprovalReceiptAtUse(receipt, use, {
+    trusted_host_keys: [{ ...trustedHostKeys[0], ...window }],
+    ...options,
+  });
+  assert.equal(withKey({ retired: true, not_after: "2026-07-15T00:00:00.000Z" }).decision, "allow");
+  assert.match(withKey({ retired: true }, { active_at: "2026-07-14T09:00:00.000Z" }).errors.join(), /is retired/u);
+  assert.match(withKey({ not_after: "2026-07-14T07:00:00.000Z" }).errors.join(), /not valid when the receipt was decided/u);
+  assert.match(withKey({ not_after: "2026-07-14T08:30:00.000Z" }, { active_at: "2026-07-14T09:00:00.000Z" }).errors.join(), /not active for new decisions/u);
+  assert.equal(withKey({ not_before: "2026-07-01T00:00:00.000Z" }, { active_at: "2026-07-14T09:00:00.000Z" }).decision, "allow");
+
   const tampered = structuredClone(receipt);
   tampered.constraints.no_budget_extension = false;
   const tamperedBody = { ...tampered };

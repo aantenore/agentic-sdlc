@@ -293,6 +293,14 @@ test("focused lifecycle help mirrors the runtime inputs needed to create and sta
   }
   assert.equal(contractApprove.get("--summary")?.required_one_of.en, "--summary or --approval-evidence");
 
+  // A standing approval is signed with the trusted host's receipt where the
+  // project requires it; revoking accepts a receipt but never requires one.
+  const standingApprove = describe("autonomy standing approve");
+  assert.match(standingApprove.get("--host-receipt-file")?.required_when?.en || "", /trusted host or CI proof/u);
+  const standingRevoke = describe("autonomy standing revoke");
+  assert.equal(standingRevoke.has("--host-receipt-file"), true);
+  assert.equal(standingRevoke.get("--host-receipt-file")?.required_when, undefined);
+
   const taskStart = describe("task start");
   for (const flag of [
     "--intent-json",
