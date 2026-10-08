@@ -2,8 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  DELIVERY_METER_PLAN_SCOPE_KIND,
+  addMoneyAmounts,
   aggregateBudgetUsage,
   applyBudgetAmendment,
+  compareMoneyAmounts,
   budgetInputPolicyErrors,
   budgetUtilizationPercent,
   buildBudgetAmendment,
@@ -497,4 +500,59 @@ test("a regressing cumulative receipt is rejected before it can join the history
     () => evaluateBudgetUsage(budget, [first, regressed]),
     /regressed below previously recorded usage/,
   );
+});
+
+test("only a delivery meter plan may measure a metric without limiting it", () => {
+  const scope = { kind: DELIVERY_METER_PLAN_SCOPE_KIND, profile_id: "AUT-ONE", delivery_id: "LOCAL-ONE", delivery_kind: "local_release" };
+  const plan = normalizeExecutionBudget({
+    id: "DELIVERY-METER-AUT-ONE-USD",
+    scope,
+    completion_reserve_percent: 0,
+    limits: {
+      tokens: { unit: "tokens", metering: "estimated", measure_only: true },
+      cost: { unit: "money", currency: "usd", metering: "estimated", measure_only: true },
+    },
+  });
+  assert.equal(plan.limits.cost.measure_only, true);
+  assert.equal(plan.limits.cost.currency, "USD");
+  assert.equal(validateExecutionBudgetIntegrity(plan).valid, true);
+  const receipt = buildExecutionUsageReceipt({
+    id: "USAGE-1",
+    execution_id: "AUT-ONE",
+    budget: plan,
+    usage: { tokens: 10, cost: { amount: "0.25", currency: "USD" } },
+    ended_at: "2026-10-01T10:00:00.000Z",
+    source: { adapter: "manual-runtime-adapter", assurance: "manual_declared", aggregation: "delta", attestation_ref: null },
+  });
+  const decision = evaluateBudgetUsage(plan, [receipt]);
+  assert.equal(decision.status, "within_budget");
+  assert.deepEqual(decision.usage, { cost: "0.25", tokens: 10 });
+  assert.deepEqual(decision.hard_limits, []);
+
+  // An assessment budget, or any budget outside a delivery plan, always limits its metrics.
+  assert.throws(
+    () => normalizeExecutionBudget({ id: "b", limits: { tokens: { unit: "tokens", metering: "estimated", measure_only: true } } }),
+    /measure_only is allowed only in a delivery meter plan/u,
+  );
+  assert.throws(
+    () => normalizeExecutionBudget({ id: "b", scope, limits: { tokens: { unit: "tokens", metering: "estimated", soft: 5, measure_only: true } } }),
+    /measure-only and cannot set soft or hard/u,
+  );
+  assert.throws(
+    () => normalizeExecutionBudget({ id: "b", scope, limits: { tokens: { unit: "tokens", metering: "estimated", measure_only: false } } }),
+    /measure_only must be true when present/u,
+  );
+  assert.match(budgetInputPolicyErrors(plan).join("\n"), /limits\.cost is measure-only, which only a delivery meter plan may use/u);
+  // Budgets without measure-only metrics keep their shape and hash.
+  const assessment = normalizeExecutionBudget(budgetInput());
+  assert.equal(Object.values(assessment.limits).some((spec) => Object.hasOwn(spec, "measure_only")), false);
+  assert.equal(normalizeExecutionBudget(budgetInput()).budget_hash, assessment.budget_hash);
+});
+
+test("money amounts add and compare exactly", () => {
+  assert.equal(addMoneyAmounts("0.1", "0.2"), "0.3");
+  assert.equal(addMoneyAmounts("1.10", "2"), "3.1");
+  assert.equal(compareMoneyAmounts("2.20", "2.2"), 0);
+  assert.equal(compareMoneyAmounts("2.21", "2.2"), 1);
+  assert.equal(compareMoneyAmounts("0.05", "0.5"), -1);
 });
