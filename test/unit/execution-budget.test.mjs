@@ -9,6 +9,7 @@ import {
   buildBudgetAmendment,
   buildExecutionUsageReceipt,
   commitBudgetReservation,
+  completionBudgetStatus,
   evaluateBudgetUsage,
   formatBudgetQuantity,
   normalizeExecutionBudget,
@@ -443,6 +444,24 @@ test("stored history with an advisory cumulative receipt stays readable, but a n
     () => evaluateBudgetUsage(budget, [tampered]),
     (error) => /receipts\[0\] \(usage-stored-cumulative\) failed execution usage receipt validation: .*receipt_hash does not match/u.test(error.message),
   );
+});
+
+test("a completion records not_measured instead of a clean result for unmeasured metrics", () => {
+  const budget = normalizeExecutionBudget({
+    id: "budget-completion",
+    limits: {
+      tokens: { unit: "tokens", metering: "estimated", soft: 1000 },
+      steps: { unit: "steps", metering: "estimated", soft: 10 },
+    },
+  });
+  assert.equal(completionBudgetStatus(evaluateBudgetUsage(budget, [])), "not_measured");
+  const partial = evaluateBudgetUsage(budget, [{ usage: { tokens: 10 }, metering: { tokens: "estimated" } }]);
+  assert.equal(partial.status, "within_budget");
+  assert.equal(completionBudgetStatus(partial), "not_measured");
+  const full = evaluateBudgetUsage(budget, [{ usage: { tokens: 10, steps: 1 }, metering: { tokens: "estimated", steps: "estimated" } }]);
+  assert.equal(completionBudgetStatus(full), "within_budget");
+  const warned = evaluateBudgetUsage(budget, [{ usage: { tokens: 10, steps: 9 }, metering: { tokens: "estimated", steps: "estimated" } }]);
+  assert.equal(completionBudgetStatus(warned), warned.status);
 });
 
 test("a regressing cumulative receipt is rejected before it can join the history", () => {

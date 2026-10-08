@@ -434,10 +434,21 @@ test("the shipped default budget is soft-only, so a normal project can complete 
     "assessment", "proposal", "complete", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent", "--json",
   ]).stdout);
   assert.equal(completed.status, "completed");
+  // Steps and tokens were recorded, active time never was: the release must
+  // not claim the budget was checked for it.
+  assert.equal(completed.release_manifest.budget_decision.status, "not_measured");
+  assert.deepEqual(completed.release_manifest.budget_decision.unmeasured_metrics, ["active_time_seconds"]);
+  assert.equal(completed.budget_status, "not_measured");
+  assert.match(completed.budget_warning, /no usage was recorded for active_time_seconds, so the budget could not be checked/u);
+  const gated = JSON.parse(mustRun([
+    "gate", "check", "--root", project, "--scope", "release-manifest",
+    "--release-manifest", completed.release_manifest.id, "--strict", "--json",
+  ]).stdout);
+  assert.equal(gated.status, "passed");
 });
 
-test("an interrupted completion cannot be cancelled", () => {
-  const { project, prepared } = runningAssessment("budget-interrupted-completion", {
+test("a completion without usage records not_measured, and an interrupted completion cannot be cancelled", () => {
+  const { project, prepared } = runningAssessment("budget-not-measured", {
     limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10_000 } },
   });
   const artifact = ".sdlc/stories/ST-ASSESS-1/outputs/technical-assessment.md";
@@ -452,7 +463,14 @@ test("an interrupted completion cannot be cancelled", () => {
   ]);
   const runningWorkflow = readJson(workflowPath);
   const appliedApplication = readJson(applicationPath);
-  mustRun(["assessment", "proposal", "complete", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent"]);
+  const human = mustRun(["assessment", "proposal", "complete", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent"]).stdout;
+  assert.match(human, /Budget: not_measured\./u);
+  assert.match(human, /Warning: no usage was recorded for tokens, so the budget could not be checked for it\./u);
+  const manifestPath = path.join(project, readJson(applicationPath).release_manifest_ref.path);
+  const manifest = readJson(manifestPath);
+  assert.equal(manifest.budget_decision.status, "not_measured");
+  assert.equal(manifest.budget_decision.receipt_count, 0);
+  assert.deepEqual(manifest.budget_decision.unmeasured_metrics, ["tokens"]);
 
   // Simulate a crash after the release manifest was written but before the
   // workflow and application recorded the completion.
