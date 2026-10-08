@@ -412,6 +412,33 @@ test("a busy port is explained with the next step instead of an internal error",
   );
 });
 
+test("machine-mode browser-open failures do not repeat the access address on stderr", async () => {
+  for (const json of [true, false]) {
+    const stdout = createMemoryStream();
+    const stderr = createMemoryStream();
+    const running = await runObserveCommand({ projectRoot: ".", locale: "en", json }, {
+      registerSignals: false,
+      stdout,
+      stderr,
+      processRef: { platform: "test-platform" },
+      opener(_url, { onError }) {
+        onError(new Error("spawn EACCES"));
+      },
+      serverFactory: successfulServer,
+    });
+    assert.match(stdout.value, /access_token=secret/u, "the ready event always carries the address");
+    if (json) {
+      const event = JSON.parse(stderr.value.trim());
+      assert.equal(event.event, "observatory.browser_open_failed");
+      assert.equal(Object.hasOwn(event, "url"), false);
+      assert.doesNotMatch(stderr.value, /access_token|127\.0\.0\.1/u);
+    } else {
+      assert.match(stderr.value, /access_token=secret/u, "human mode keeps the address for copying");
+    }
+    await running.close();
+  }
+});
+
 test("browser opener passes URL as an argument with shell disabled", () => {
   const calls = [];
   const child = new EventEmitter();
