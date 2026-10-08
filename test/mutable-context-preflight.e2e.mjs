@@ -572,23 +572,30 @@ test("files created after baseline approval make the baseline stale until it is 
   ], project);
   assert.match(JSON.stringify(status), /src\/feature\.mjs/u);
 
-  mustRun([
+  // An approved baseline is never replaced in place; the refresh records the
+  // current state as its successor and asks for review of the manual change.
+  mustFail([
     "baseline", "propose",
     "--root", project,
     "--id", "BASELINE-INITIAL",
-    "--document", "README.md",
-    "--source", "src/app.mjs",
-    "--source", "src/config.mjs",
+    "--source", "src",
     "--force",
-    "--summary", "The project now includes the delivered feature module.",
+  ], project, /never replaced in place/u);
+  const refreshed = mustRunJson([
+    "baseline", "refresh",
+    "--root", project,
+    "--from", "BASELINE-INITIAL",
+    "--summary", "The project now includes the feature module.",
   ], project);
-  const refreshed = readJson(project, ".sdlc/baseline/BASELINE-INITIAL.json");
-  assert.ok(refreshed.source_paths.includes("src/feature.mjs"));
+  assert.equal(refreshed.status, "proposed");
+  assert.deepEqual(refreshed.unexplained, [{ path: "src/feature.mjs", change: "added" }]);
+  const successor = readJson(project, ".sdlc/baseline/BASELINE-INITIAL-R2.json");
+  assert.ok(successor.source_paths.includes("src/feature.mjs"));
   mustRun([
     "baseline", "approve",
     "--root", project,
-    "--id", "BASELINE-INITIAL",
-    ...humanApproval("The refreshed snapshot includes the delivered feature"),
+    "--id", "BASELINE-INITIAL-R2",
+    ...humanApproval("The refreshed snapshot includes the feature module"),
   ], project);
 });
 

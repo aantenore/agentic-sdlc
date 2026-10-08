@@ -117,25 +117,32 @@ function sharedBaselineProject(label) {
   return { first, second, remote };
 }
 
-test("two computers refreshing the same baseline at the same moment: exactly one successor exists", async () => {
+test("three computers refreshing the same baseline at the same moment: exactly one successor exists", async () => {
   const { first, second, remote } = sharedBaselineProject("race");
-  fs.writeFileSync(path.join(first, "src", "extra.mjs"), "export const extra = 1;\n", "utf8");
-  fs.writeFileSync(path.join(second, "src", "other.mjs"), "export const other = 2;\n", "utf8");
+  const third = temporaryDirectory("race-third");
+  fs.rmSync(third, { recursive: true, force: true });
+  assert.equal(spawnSync("git", ["clone", "--quiet", "--branch", "main", remote, third], { encoding: "utf8" }).status, 0);
+  const computers = [first, second, third];
+  computers.forEach((project, index) => {
+    fs.writeFileSync(path.join(project, "src", `change-${index}.mjs`), `export const change = ${index};\n`, "utf8");
+  });
 
-  const results = await Promise.all([first, second].map((project) =>
+  const results = await Promise.all(computers.map((project) =>
     runAsync(["baseline", "refresh", "--root", project, "--from", "BASELINE-INITIAL", "--json"], project)));
-  const winners = results.filter((result) => result.status === 0);
-  const losers = results.filter((result) => result.status !== 0);
+  const winners = computers.filter((project, index) => results[index].status === 0);
+  const losers = computers.filter((project, index) => results[index].status !== 0);
   assert.equal(winners.length, 1, results.map((result) => result.stdout + result.stderr).join("\n"));
-  assert.equal(losers.length, 1);
-  assert.match(losers[0].stdout + losers[0].stderr, /already refreshed as BASELINE-INITIAL-R2 on another computer/u);
+  assert.equal(losers.length, 2);
+  for (const result of results.filter((item) => item.status !== 0)) {
+    assert.match(result.stdout + result.stderr, /already refreshed as BASELINE-INITIAL-R2 on another computer/u);
+  }
   assert.deepEqual(remoteRefreshRefs(remote), ["refs/agentic-sdlc/baseline-refresh/BASELINE-INITIAL/successor"]);
-
-  const winner = winners[0] === results[0] ? first : second;
-  const loser = winner === first ? second : first;
-  assert.equal(fs.existsSync(path.join(winner, ".sdlc", "baseline", "BASELINE-INITIAL-R2.json")), true);
-  // The refused computer wrote nothing and keeps its approved baseline.
-  assert.equal(fs.existsSync(path.join(loser, ".sdlc", "baseline", "BASELINE-INITIAL-R2.json")), false);
+  assert.equal(fs.existsSync(path.join(winners[0], ".sdlc", "baseline", "BASELINE-INITIAL-R2.json")), true);
+  // Every refused computer wrote nothing and keeps its approved baseline.
+  for (const project of losers) {
+    assert.equal(fs.existsSync(path.join(project, ".sdlc", "baseline", "BASELINE-INITIAL-R2.json")), false);
+  }
+  const loser = losers[0];
 
   // A retry from the same baseline stays refused, whoever asks.
   const retry = run(["baseline", "refresh", "--root", loser, "--from", "BASELINE-INITIAL", "--json"], loser);
@@ -151,4 +158,44 @@ test("a refresh on a computer without a reachable remote writes nothing in a sha
   assert.notEqual(refused.status, 0);
   assert.match(refused.stdout + refused.stderr, /another computer may already have refreshed it/u);
   assert.equal(fs.existsSync(path.join(first, ".sdlc", "baseline", "BASELINE-INITIAL-R2.json")), false);
+});
+
+/** Changes the coordination setting the way a person would: edit, then confirm the configuration. */
+function setCoordination(project, coordination) {
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  config.orchestration_policy = {
+    ...config.orchestration_policy,
+    coordination: { ...config.orchestration_policy?.coordination, ...coordination },
+  };
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const preview = JSON.parse(mustRun(["config", "migrate", "--root", project, "--json"], project).stdout);
+  mustRun(["config", "migrate", "--root", project, "--apply", "--plan-hash", preview.plan.plan_hash, "--actor-type", "human"], project);
+}
+
+test("a successor made offline is an orphan once another computer recorded the refresh, and is never approved", () => {
+  const { first, second } = sharedBaselineProject("orphan");
+  setCoordination(second, { mode: "local_only" });
+  fs.writeFileSync(path.join(second, "src", "offline.mjs"), "export const offline = true;\n", "utf8");
+  mustRun(["baseline", "refresh", "--root", second, "--from", "BASELINE-INITIAL"], second);
+  assert.equal(fs.existsSync(path.join(second, ".sdlc", "baseline", "BASELINE-INITIAL-R2.json")), true);
+
+  fs.writeFileSync(path.join(first, "src", "online.mjs"), "export const online = true;\n", "utf8");
+  mustRun(["baseline", "refresh", "--root", first, "--from", "BASELINE-INITIAL"], first);
+
+  setCoordination(second, { mode: "auto" });
+  const refused = run([
+    "baseline", "approve", "--root", second, "--id", "BASELINE-INITIAL-R2",
+    ...humanApproval("Approve the offline snapshot"), "--json",
+  ], second);
+  assert.notEqual(refused.status, 0, refused.stdout);
+  assert.match(refused.stdout + refused.stderr, /BASELINE-INITIAL-R2 on this computer is an orphan and cannot be approved/u);
+  const orphan = JSON.parse(fs.readFileSync(path.join(second, ".sdlc", "baseline", "BASELINE-INITIAL-R2.json"), "utf8"));
+  assert.equal(orphan.status, "proposed");
+
+  // The computer that recorded the refresh approves its own successor.
+  mustRun([
+    "baseline", "approve", "--root", first, "--id", "BASELINE-INITIAL-R2",
+    ...humanApproval("Approve the recorded successor"),
+  ], first);
 });
