@@ -121,9 +121,11 @@ test("session context names each standing approval and whether it is shared", ()
       { id: "SA-A", status: "active", used: 1, max_deliveries: 3, expires_at: "2026-11-01T00:00:00.000Z", shared_state: { scope: "shared", remote: "origin", checked: true } },
       { id: "SA-B", status: "active", used: 0, max_deliveries: 1, expires_at: "2026-11-01T00:00:00.000Z", shared_state: { scope: "shared", remote: "origin", checked: false } },
       { id: "SA-C", status: "revoked", used: 0, max_deliveries: 1, expires_at: "2026-11-01T00:00:00.000Z", shared_state: { scope: "local" } },
+      { id: "SA-D", status: "active", used: 0, max_deliveries: 2, expires_at: "2026-11-01T00:00:00.000Z", shared_state: { scope: "local" }, assurance: "host_verified" },
     ],
   });
-  assert.match(context, /SA-A: active, 1 of 3 deliveries used.*shared through 'origin'/u);
+  assert.match(context, /SA-A: active, 1 of 3 deliveries used.*shared through 'origin'\.$/mu);
+  assert.match(context, /SA-D: active.*kept on this computer only; approval signed by the trusted host\./u);
   assert.match(context, /SA-B: .*unreachable, so it covers nothing right now/u);
   assert.match(context, /SA-C: revoked.*kept on this computer only/u);
   assert.match(context, /Only the user approves a standing approval/u);
