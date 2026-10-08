@@ -100,6 +100,11 @@
           "type": "string",
           "minLength": 1
         },
+        "owner_proof": {
+          "description": "Hash of a secret only the claiming worktree keeps; it proves ownership without revealing the secret.",
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
         "takeover_of": {
           "description": "The claim held elsewhere that a person took over to make this one.",
           "type": "object",

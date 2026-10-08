@@ -19,6 +19,7 @@ import {
 
 const NOW = Date.parse("2026-10-08T12:00:00.000Z");
 const HASH = "a".repeat(64);
+const PROOF = "b".repeat(64);
 
 function claimRecord(storyId, epoch, overrides = {}) {
   return {
@@ -34,6 +35,7 @@ function claimRecord(storyId, epoch, overrides = {}) {
       taskStart: { id: `START-${storyId}`, hash: HASH },
       claimedAt: "2026-10-08T10:00:00.000Z",
       expiresAt: "2026-10-09T10:00:00.000Z",
+      ownerProof: PROOF,
       ...overrides,
     })),
   };
@@ -161,8 +163,8 @@ test("a claim is stale once it expires or is older than the configured age", () 
 
 test("the view tells this computer whether it holds the story and when its claim was taken over", () => {
   const records = [claimRecord("ST-1", 1)];
-  const mine = { story_id: "ST-1", status: "active", shared_claim: { scope: "shared", epoch: 1, claimant_id: "CLM-1" } };
-  const owned = new Map([["ST-1/000001", "CLM-1"]]);
+  const mine = { story_id: "ST-1", status: "active", shared_claim: { scope: "shared", epoch: 1, claimant_id: "CLM-1", owner_proof: PROOF } };
+  const owned = new Map([["ST-1/000001", { claimant_id: "CLM-1", proof: PROOF, state: "confirmed" }]]);
   const here = sharedClaimView(stateOf(records, "ST-1"), mine, { nowMs: NOW, owned });
   assert.equal(here.state, "claimed");
   assert.equal(here.here, true);
@@ -170,6 +172,12 @@ test("the view tells this computer whether it holds the story and when its claim
   const copied = sharedClaimView(stateOf(records, "ST-1"), mine, { nowMs: NOW });
   assert.equal(copied.here, false);
   assert.equal(copied.ended_here, undefined);
+  // An ownership record without the secret behind the claim's proof proves nothing.
+  const forged = sharedClaimView(stateOf(records, "ST-1"), mine, {
+    nowMs: NOW,
+    owned: new Map([["ST-1/000001", { claimant_id: "CLM-1", proof: "c".repeat(64), state: "confirmed" }]]),
+  });
+  assert.equal(forged.here, false);
 
   const elsewhere = sharedClaimView(stateOf(records, "ST-1"), null, { nowMs: NOW, staleAfterSeconds: 60 });
   assert.equal(elsewhere.here, false);

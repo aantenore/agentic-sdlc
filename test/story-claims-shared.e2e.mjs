@@ -468,3 +468,52 @@ test("pointing the remote elsewhere starts a fresh view instead of reporting eve
   assert.equal(claimed.claim.shared_claim.epoch, 1);
   assert.deepEqual(remoteClaimRefs(replacement), ["refs/agentic-sdlc/claims/ST-1/000001/claim"]);
 });
+
+test("another worktree of the same clone, or a claim file gone after a branch switch, never cancels a recorded claim", () => {
+  const { first, remote } = sharedProject("worktrees");
+  const claimed = mustRunJson(claim(first, "ST-1", "alice"), first);
+  const worktree = temporaryDirectory("worktrees-second");
+  fs.rmSync(worktree, { recursive: true, force: true });
+  git(first, ["worktree", "add", "--quiet", "-b", "other-work", worktree, "main"]);
+  assert.equal(claimFile(worktree, "ST-1"), null, "the claim file is not committed, so the other worktree has none");
+  assert.equal(mustRefuseJson(claim(worktree, "ST-1", "bob"), worktree).error.code, "STORY_CLAIM_HELD_ELSEWHERE");
+  assert.match(mustRefuseJson(claim(worktree, "ST-1", "bob", ["--force", "--actor-type", "human"]), worktree).error.message, /requires --reason/u);
+  assert.equal(mustRunJson(["orchestrate", "status", "--root", worktree], worktree).stories[0].shared_claim.here, false);
+
+  // The claim file disappears in the claiming worktree itself (for example after switching branches).
+  const claimPath = path.join(first, ".sdlc", "stories", "ST-1", "claim.json");
+  const saved = fs.readFileSync(claimPath);
+  fs.rmSync(claimPath);
+  assert.equal(mustRefuseJson(claim(first, "ST-1", "alice"), first).error.code, "STORY_CLAIM_HELD_ELSEWHERE");
+  fs.writeFileSync(claimPath, saved);
+  assert.deepEqual(remoteClaimRefs(remote), ["refs/agentic-sdlc/claims/ST-1/000001/claim"], "the recorded claim was never cancelled");
+  assert.equal(mustRunJson(["orchestrate", "status", "--root", first], first).stories[0].shared_claim.here, true);
+  assert.equal(claimed.claim.shared_claim.epoch, 1);
+});
+
+test("ownership cannot be rebuilt from the public claim record", () => {
+  const { first, second, remote } = sharedProject("forged");
+  const claimed = mustRunJson(claim(first, "ST-1", "alice"), first);
+  const record = remoteRecord(remote, "refs/agentic-sdlc/claims/ST-1/000001/claim");
+  assert.match(record.owner_proof, /^[a-f0-9]{64}$/u);
+  assert.equal(claimed.claim.shared_claim.owner_proof, record.owner_proof);
+  assert.doesNotMatch(JSON.stringify(record), /secret/u);
+  assert.equal(spawnSync("git", ["ls-remote", remote, "refs/worktree/*", "refs/agentic-sdlc-local/*"], { encoding: "utf8" }).stdout, "");
+
+  // Another computer copies the claim file and plants the public record where ownership is kept.
+  mustRunJson(["orchestrate", "status", "--root", second], second);
+  const tracking = git(second, ["for-each-ref", "--format=%(refname)", "refs/agentic-sdlc-shared/claims/"]).split("\n")[0];
+  const fingerprint = tracking.split("/")[3];
+  for (const root of ["refs/worktree/agentic-sdlc/claims", "refs/agentic-sdlc-local/claims"]) {
+    git(second, ["fetch", "--quiet", "origin", `refs/agentic-sdlc/claims/ST-1/000001/claim:${root}/${fingerprint}/ST-1/000001`]);
+  }
+  const claimDirectory = path.join(second, ".sdlc", "stories", "ST-1");
+  fs.copyFileSync(path.join(first, ".sdlc", "stories", "ST-1", "claim.json"), path.join(claimDirectory, "claim.json"));
+  assert.equal(mustRunJson(["orchestrate", "status", "--root", second], second).stories[0].shared_claim.here, false);
+  for (const marker of SESSION_MARKERS) {
+    const refused = mustRefuseJson(["story", "release", "--root", second, "--id", "ST-1", "--reason", "Done", "--actor-type", "human"], second, { [marker]: "1" });
+    assert.equal(refused.error.code, "STORY_CLAIM_TAKEOVER_NEEDS_PERSON", marker);
+  }
+  assert.equal(mustRefuseJson(claim(second, "ST-1", "bob", ["--force", "--actor-type", "human"]), second).error.message.includes("requires --reason"), true);
+  assert.deepEqual(remoteClaimRefs(remote), ["refs/agentic-sdlc/claims/ST-1/000001/claim"]);
+});
