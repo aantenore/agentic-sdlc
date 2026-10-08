@@ -721,7 +721,8 @@ node bin/agentic-sdlc.mjs budget amend \
   --budget-json '{"limits":{"tokens":{"soft":350000}}}' \
   --reason "The approved analysis is complete, but verification needs approximately 120000 more estimated tokens" \
   --actor-type human \
-  --approval-source explicit-user
+  --approval-source explicit-user \
+  --summary "I approve raising only the token soft limit to 350000"
 ```
 
 | Option | What it asks for |
@@ -734,6 +735,9 @@ node bin/agentic-sdlc.mjs budget amend \
 | `--reason` | Why the approved tranche cannot finish within the old total and what the extra capacity is for |
 | `--actor-type` | Root approver type; only `human` or `ci` may extend a budget |
 | `--approval-source` | Direct `explicit-user` or `ci` authority; automation cannot extend itself |
+| `--summary` | The approver's own decision in their words (or `--approval-evidence <path>`); required for `explicit-user` and `ci`, separately from `--reason` |
+
+The approval checks are the same as for `assessment proposal approve`. Under the default `audit_only` authority mode the CLI records the declared human or CI identity but cannot prove who ran the command, so the output always carries `authority_assurance_label: audit_only` and the same `authority_note` warning as a proposal approval. Show that warning to the person; never present an audit-only amendment as verified approval.
 
 When `authority_policy.mode` is `host_verified`, also provide `--host-receipt-file <path.json>`. That receipt must approve action `budget.amend`, bind the exact proposal/base/result hashes and changes, and carry a valid Ed25519 signature from a configured trusted host key.
 

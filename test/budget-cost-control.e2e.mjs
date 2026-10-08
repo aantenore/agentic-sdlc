@@ -324,6 +324,41 @@ test("budget status shows limits, percentages, currency, and metrics the meter c
   assert.match(afterCost, /cost: used USD 1\.50 \/ soft USD 5\.00 \(30\.0%\); no hard limit\./u);
 });
 
+test("budget amend applies the formal approval checks and the audit-only warning of proposal approve", () => {
+  const { project } = runningAssessment("budget-amend-authority", {
+    limits: { tokens: { unit: "tokens", metering: "estimated", soft: 1000 } },
+  });
+  const paused = JSON.parse(mustRun([
+    "budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1",
+    "--input-tokens", "900", "--output-tokens", "100", "--json",
+  ]).stdout);
+  assert.equal(paused.status, "exception_pending");
+  const amend = (...flags) => [
+    "budget", "amend", "--root", project, "--proposal", "ASSESS-1", "--id", "BAMEND-1",
+    "--budget-json", JSON.stringify({ limits: { tokens: { soft: 2000 } } }),
+    "--reason", "Verification needs about 800 more estimated tokens",
+    ...flags,
+  ];
+  mustFail(amend("--actor-type", "agent", "--approval-source", "explicit-user", "--summary", "ok"), /requires --actor-type human or an approved CI actor/u);
+  mustFail(
+    amend("--actor-type", "agent", "--approval-source", "automation", "--summary", "I extend my own budget"),
+    /requires direct explicit-user or CI approval; automation cannot extend its own budget/u,
+  );
+  mustFail(
+    amend("--actor-type", "human", "--approval-source", "explicit-user"),
+    /requires --summary or --approval-evidence when --approval-source explicit-user is used/u,
+  );
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "budgets", "ASSESS-1", "amendments", "BAMEND-1.json")), false);
+
+  const approved = mustRun(amend(...humanApproval("I approve raising only the token soft limit to 2000")));
+  assert.match(approved.stdout, /Authority assurance: audit_only/u);
+  assert.match(approved.stdout, /cannot independently prove who invoked it/u);
+  const replay = JSON.parse(mustRun(amend(...humanApproval("I approve raising only the token soft limit to 2000"), "--json")).stdout);
+  assert.equal(replay.idempotent, true);
+  assert.equal(replay.authority_assurance_label, "audit_only");
+  assert.match(replay.authority_note, /must not be represented as host-verified security/u);
+});
+
 test("meter setup errors say how to continue", () => {
   const { project } = runningAssessment("budget-meter-errors", {
     limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10_000 } },
