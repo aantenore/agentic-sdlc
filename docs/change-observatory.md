@@ -2,9 +2,51 @@
 
 Change Observatory is the visual, local-first lineage reader bundled with Agentic SDLC. It turns canonical `.sdlc/` records into a presentation that a non-technical stakeholder can start with and a technical reviewer can drill through to raw evidence.
 
+## Your First Time
+
+Change Observatory is a small web page that runs on your own computer and only
+reads your project's recorded history. It never changes a file and sends
+nothing anywhere. This is what to expect the first time.
+
+1. **Start it.** Ask your agent to open the Change Observatory for this project,
+   or run the command yourself (see below). If your agent offers plugin
+   commands, `/agentic-sdlc:observe` does the same thing; agents that work
+   through skills start it from a plain request such as
+   `Open the Change Observatory for this project.`
+2. **Keep the terminal open.** The page is served by the command that is
+   running in your terminal. While it runs the page works; closing the
+   terminal, or pressing **Ctrl+C**, stops it and the page stops working.
+3. **Open the full link.** The terminal prints one link after *Next step*. Open
+   that whole link, including the long part after the `#` sign. That part is a
+   one-time access key for this run; without it the page shows "This page is not
+   allowed to read the local observatory" (HTTP 401). If you see that message,
+   copy the full link from the terminal again. The key is kept only for the
+   current browser tab (session storage), so a **new tab or window needs the
+   full link again**.
+4. **Press Refresh to see new records.** The page does not update by itself.
+   After your agent records something new, use the **Refresh** button at the top.
+5. **Find your way around.** Each view answers one question:
+
+   | View | What it is for |
+   | --- | --- |
+   | Overview | The short story: what was asked, what changed, and why it was decided, plus the lineage matrix. |
+   | Timeline | Each piece of work step by step, from the request to verification. |
+   | Contracts | The agreed boundaries and how they changed over time. |
+   | Decisions | Choices that were made, with the reasons and the alternatives that were rejected. |
+   | Changes | What was actually changed, grouped by the intent behind it. |
+   | Intent evidence | Optional, content-free notes about what an agent was asked to do. It is empty unless that recording is turned on, and an empty view is normal. |
+   | Verification | The checks and gates that were run, and what they showed. |
+
+6. **If something goes wrong.** A port that is already in use is reported with
+   the suggestion to use `--port 0`. `--host` accepts only `127.0.0.1`; other
+   addresses are refused on purpose so that the page is never reachable from
+   another computer. If the project settings file (`.sdlc/config.json`) is
+   changed while the page is running, the page asks you to stop the command
+   (Ctrl+C) and start it again; refreshing the page will not help.
+
 ## Launch After Installation
 
-In Codex, ask:
+Ask your agent:
 
 ```text
 Open the Change Observatory for this project.
@@ -69,12 +111,33 @@ agentic-sdlc portfolio status \
 ```
 
 It prints compact status JSON and exits. It does not start an HTTP server,
-create a bearer token, or emit absolute project paths.
+create a bearer token, or emit absolute project paths. Without `--json` it
+prints one line per project; every project that is not ready also shows a short
+plain reason, for example `gone: unavailable (This project's folder was not
+found. Check its path in the portfolio file.)`.
+
+By default the command only reports and exits `0`. Add `--fail-on-attention`
+to use it as a gate: it then exits `1` when any project is unavailable or needs
+attention, and `0` when every project is ready or only needs review. The JSON
+output carries `fail_on_attention` and, for each project, an `attention_reason`
+(`null` when the project is fine).
+
+Naming the family alone, `agentic-sdlc portfolio`, shows the help for that
+family instead of an error.
 
 The manifest and every project path must be explicit, portable paths relative
 to `--root`. Absolute paths, parent traversal, environment variables, globs,
 URI paths, symlinks, duplicate IDs, duplicate paths, and two paths to the same
 physical directory are rejected. A manifest may list from 1 to 64 projects.
+Write every path with forward slashes (`/`), also on Windows. Each error names
+the project (by its position and id) and quotes the value that was refused, so
+`Project #2 (id "win"): the path "projects\\beta" is not allowed: it must be a
+relative path written with forward slashes (/)` points straight at the line to
+fix. A missing manifest file is reported with the path that was looked up.
+
+A project whose folder does not exist does not stop the portfolio: it appears
+as an unavailable card ("This project's folder was not found") while the other
+projects stay usable, in the same way as a folder that has no `.sdlc` records.
 
 The first screen reads bounded summaries only. Summary collection is a separate
 projection and never builds a project's full Observatory model. It reads only
@@ -383,6 +446,20 @@ routes stop. Restart Change Observatory to review and apply the new settings;
 the existing process never mixes evidence produced under two privacy policies.
 
 ## Troubleshooting
+
+| What you see | What it means and what to do |
+| --- | --- |
+| The page says it is not allowed to read the local observatory (HTTP 401) | The page was opened without its access key. Open the full link printed in the terminal, including the part after `#`. A new tab needs the full link again. |
+| The page asks you to stop and start the command again | `.sdlc/config.json` changed while the page was running. Press Ctrl+C in the terminal, run `observe` again, and open the new link. |
+| The page says it lost its connection | The terminal that runs the observatory was closed or stopped. Start it again and open the new full link. |
+| "Port N on 127.0.0.1 is already in use" | Another program uses that port. Choose another with `--port <number>` or use `--port 0` for any free port. |
+| "Records are changing right now" | Something is writing to `.sdlc` continuously. The observatory already retried a few times; wait a few seconds and press **Refresh**. |
+| "No Agentic SDLC records were found in this folder" | The folder you opened has no `.sdlc` folder. Ask your agent to initialize Agentic SDLC, or run `agentic-sdlc init` in the project folder, then press **Refresh**. If it is the wrong folder, restart with `--root`. |
+| An error says `.sdlc/config.json is not valid JSON` or that `.sdlc` is a symbolic link | The error names the file and the kind of problem without printing its contents. Fix or restore the file, or replace the link with a real folder, then run the command again. |
+| The browser did not open | The terminal prints the full link again; copy it into your browser. Use `--no-open` to skip the attempt. |
+
+If you pipe the output (for example `observe --json | head -1`) and the reader
+closes early, the observatory stops cleanly instead of failing.
 
 Run the installed plugin-local doctor when launch fails:
 

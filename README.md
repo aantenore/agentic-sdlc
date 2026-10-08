@@ -280,6 +280,10 @@ an access token:
 agentic-sdlc portfolio status --root /path/to/workspace --manifest portfolio.json --json
 ```
 
+Add `--fail-on-attention` to make the command exit non-zero when any project is
+unavailable or needs attention (for example in a CI step); each such project
+is listed with a short plain reason.
+
 The portfolio starts with bounded summary cards and loads a project's detailed
 lineage only after it is selected. Its versioned summary reports bounded active
 workflows, blockers, risks, budgets, dependencies, and releases; an eight-entry
