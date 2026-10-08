@@ -975,6 +975,9 @@ import {
   showDeliveryAutonomy,
 } from "../lib/engine/delivery.mjs";
 import {
+  showDeliveryChecks,
+} from "../lib/engine/delivery-checks.mjs";
+import {
   showBaselineStatus,
   showBreakdownStatus,
   showCacheStatus,
@@ -1145,6 +1148,7 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.delivery.close": call(closeDeliveryAutonomy),
     "autonomy.delivery.status": call(showDeliveryAutonomy),
     "autonomy.delivery.explain": call(explainDeliveryAutonomy),
+    "autonomy.delivery.checks": call(showDeliveryChecks),
     "autonomy.standing.propose": call(proposeStandingApproval),
     "autonomy.standing.approve": call(approveStandingApproval),
     "autonomy.standing.revoke": call(revokeStandingApproval),
