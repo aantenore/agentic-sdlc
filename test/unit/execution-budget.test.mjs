@@ -417,6 +417,34 @@ test("cumulative aggregation is reserved for trusted attested sources", () => {
   }
 });
 
+test("stored history with an advisory cumulative receipt stays readable, but a new one is refused", () => {
+  const budget = normalizeExecutionBudget(budgetInput());
+  const delta = buildExecutionUsageReceipt({
+    id: "usage-stored-cumulative",
+    execution_id: "execution-001",
+    budget,
+    usage: { calls: 5 },
+    metering: { calls: "estimated" },
+    ended_at: "2026-07-14T09:00:00.000Z",
+    source: { adapter: "codeburn", assurance: "advisory_observed", aggregation: "delta", attestation_ref: null },
+  });
+  // A receipt recorded by an earlier version, before the rule existed.
+  const stored = { ...structuredClone(delta), source: { ...delta.source, aggregation: "cumulative" } };
+  stored.receipt_hash = computeStableHash(omitKeys(stored, ["receipt_hash", "hash_algorithm"]));
+
+  assert.equal(validateExecutionUsageReceipt(stored, budget).valid, true);
+  assert.equal(evaluateBudgetUsage(budget, [stored]).usage.calls, 5);
+  const incoming = validateExecutionUsageReceipt(stored, budget, { incoming: true });
+  assert.equal(incoming.valid, false);
+  assert.match(incoming.errors.join("\n"), /'cumulative' requires trusted_attested assurance/u);
+
+  const tampered = { ...structuredClone(stored), usage: { calls: 6 } };
+  assert.throws(
+    () => evaluateBudgetUsage(budget, [tampered]),
+    (error) => /receipts\[0\] \(usage-stored-cumulative\) failed execution usage receipt validation: .*receipt_hash does not match/u.test(error.message),
+  );
+});
+
 test("a regressing cumulative receipt is rejected before it can join the history", () => {
   const budget = normalizeExecutionBudget({
     id: "budget-cumulative",

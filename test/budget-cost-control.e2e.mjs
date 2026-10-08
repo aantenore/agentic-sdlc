@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { computeStableHash } from "../lib/canonical.mjs";
 import { buildExecutionUsageReceipt } from "../lib/execution-budget.mjs";
 import { buildMeteringAttestation } from "../lib/metering-attestations.mjs";
 
@@ -367,6 +368,48 @@ test("budget amend applies the formal approval checks and the audit-only warning
   assert.equal(replay.idempotent, true);
   assert.equal(replay.authority_assurance_label, "audit_only");
   assert.match(replay.authority_note, /must not be represented as host-verified security/u);
+});
+
+test("usage history recorded before the cumulative rule existed stays readable", () => {
+  const { project } = runningAssessment("budget-legacy-cumulative", {
+    limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10_000 } },
+  });
+  const application = readJson(path.join(project, ".sdlc", "assessments", "applications", "ASSESS-1.json"));
+  const delta = buildExecutionUsageReceipt({
+    id: "USAGE-LEGACY-CUMULATIVE",
+    execution_id: "ASSESS-1",
+    budget: application.effective_budget,
+    usage: { tokens: 2500 },
+    metering: { tokens: "estimated" },
+    ended_at: new Date().toISOString(),
+    source: { adapter: "codeburn", assurance: "advisory_observed", aggregation: "delta", attestation_ref: null },
+  });
+  const legacy = { ...structuredClone(delta), source: { ...delta.source, aggregation: "cumulative" } };
+  delete legacy.receipt_hash;
+  delete legacy.hash_algorithm;
+  legacy.receipt_hash = computeStableHash(legacy);
+  legacy.hash_algorithm = "sha256:stable-json:v1";
+  writeJson(path.join(project, ".sdlc", "budgets", "ASSESS-1", "usage", "USAGE-LEGACY-CUMULATIVE.json"), legacy);
+
+  const status = JSON.parse(mustRun(["budget", "status", "--root", project, "--proposal", "ASSESS-1", "--json"]).stdout);
+  assert.equal(status.aggregate.usage.tokens, 2500);
+  const recorded = JSON.parse(mustRun([
+    "budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1",
+    "--input-tokens", "100", "--output-tokens", "0", "--json",
+  ]).stdout);
+  assert.equal(recorded.aggregate.usage.tokens, 2600);
+
+  // The same shape is refused when it arrives as a new receipt.
+  const incoming = { ...structuredClone(legacy), id: "USAGE-NEW-CUMULATIVE" };
+  delete incoming.receipt_hash;
+  delete incoming.hash_algorithm;
+  incoming.receipt_hash = computeStableHash(incoming);
+  incoming.hash_algorithm = "sha256:stable-json:v1";
+  writeJson(path.join(project, ".sdlc", "receipts", "metering", "USAGE-NEW-CUMULATIVE.json"), incoming);
+  mustFail(
+    ["budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1", "--receipt-file", ".sdlc/receipts/metering/USAGE-NEW-CUMULATIVE.json"],
+    /USAGE-NEW-CUMULATIVE was not recorded: .*'cumulative' requires trusted_attested assurance/u,
+  );
 });
 
 test("the shipped default budget is soft-only, so a normal project can complete without signing keys", () => {
