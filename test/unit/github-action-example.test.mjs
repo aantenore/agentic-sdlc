@@ -188,11 +188,26 @@ test("every action is pinned to a full commit SHA, in the style this repository 
   }
 });
 
-test("the CLI is installed from a full commit SHA and verified after the fetch", () => {
-  assert.match(job.env.AGENTIC_SDLC_REF, /^[0-9a-f]{40}$/u);
+test("the CLI revision is a marked placeholder that must be set to a release with the checks command", () => {
+  // A SHA written here would silently pin a revision that may predate `autonomy delivery checks`.
+  assert.equal(job.env.AGENTIC_SDLC_REF, "REPLACE_WITH_RELEASE_TAG");
+  assert.match(source, /REQUIRED: replace the placeholder with a release tag/u);
+  assert.match(source, /v0\.20\.0 or later/u);
   const install = steps.find((step) => /Install the CLI/u.test(step.name));
-  assert.match(install.run, /fetch --quiet --depth 1 https:\/\/github\.com\/aantenore\/agentic-sdlc\.git "\$AGENTIC_SDLC_REF"/u);
+  assert.match(install.run, /REPLACE_WITH_\*\|""\)/u, "the run refuses to start while the placeholder is unchanged");
+  assert.match(install.run, /exit 1/u);
+  assert.match(install.run, /spec="refs\/tags\/\$AGENTIC_SDLC_REF"/u);
+  assert.match(install.run, /\^\[0-9a-f\]\{40\}\$/u, "a full commit SHA is accepted too");
+  assert.match(install.run, /fetch --quiet --depth 1 https:\/\/github\.com\/aantenore\/agentic-sdlc\.git "\$spec"/u);
   assert.match(install.run, /test "\$\(git -C "\$dir" rev-parse HEAD\)" = "\$AGENTIC_SDLC_REF"/u);
+  // A CLI without the command is reported explicitly, not hidden.
+  assert.match(install.run, /help autonomy delivery checks/u);
+  assert.match(install.run, /has no 'autonomy delivery checks' command; use v0\.20\.0 or later/u);
+  assert.match(readme, /v0\.20\.0/u);
+  assert.match(readme, /minimum/iu);
+  const checks = steps.find((step) => /Print the recorded checks/u.test(step.name));
+  assert.doesNotMatch(checks.run, /2>\s*\/dev\/null/u, "a failing checks command must not be silenced");
+  assert.match(checks.run, /could not be generated/u);
 });
 
 test("secrets appear only as placeholders in env, and no credential-shaped value is written down", () => {
@@ -225,7 +240,15 @@ test("issue text and expressions never reach a shell script", () => {
 test("the run is a shadow: nothing is approved, pushed, merged, or written to a branch", () => {
   const bodies = runBodies().join("\n");
   assert.doesNotMatch(bodies, /git\s+(?:push|commit|merge|tag|rebase|cherry-pick|remote\s+(?:add|set-url))/u);
-  assert.doesNotMatch(bodies, /\bgh\s+(?!issue\s+comment\b)\S+/u, "the only gh call is the issue comment");
+  const ghCalls = [...bodies.matchAll(/\bgh\s+(\S+)([^\n]*)/gu)];
+  assert.ok(ghCalls.length >= 2);
+  for (const [, subcommand, rest] of ghCalls) {
+    assert.ok(
+      subcommand === "issue" && /^\s+comment\b/u.test(rest) || subcommand === "api" && /repos\/\$GH_REPO\/issues\//u.test(rest),
+      `gh ${subcommand}${rest} is outside the issue-comment calls`,
+    );
+  }
+  assert.doesNotMatch(bodies, /gh api[^\n]*(?:-X|--method)\s+(?:DELETE|PUT|POST)/u);
   assert.doesNotMatch(bodies, /--force|--admin|--delete-branch/u);
   assert.doesNotMatch(
     bodies,
@@ -236,9 +259,13 @@ test("the run is a shadow: nothing is approved, pushed, merged, or written to a 
   assert.match(bodies, /jq -e '\.status == "proposed"'/u);
   // Only the step that posts the comment receives a token.
   const withToken = stepsWith((candidate) => Object.keys(candidate.env ?? {}).some((name) => /TOKEN/u.test(name)));
-  assert.deepEqual(withToken.map((candidate) => candidate.name), ["Post the comment"]);
+  assert.deepEqual(withToken.map((candidate) => candidate.name), ["Post or update the comment"]);
   assert.equal(withToken[0].env.GH_TOKEN, "${{ secrets.GITHUB_TOKEN }}");
   assert.match(withToken[0].run, /gh issue comment "\$ISSUE_NUMBER" --body-file/u);
+  // The earlier comment is found by its marker and edited, not duplicated.
+  assert.match(withToken[0].run, /startswith\("<!-- agentic-sdlc-shadow-delivery -->"\)/u);
+  assert.match(withToken[0].run, /gh api --method PATCH "repos\/\$GH_REPO\/issues\/comments\/\$existing"/u);
+  assert.match(steps.find((step) => /Assemble the comment/u.test(step.name)).run, /echo "<!-- agentic-sdlc-shadow-delivery -->"/u);
 });
 
 test("both agent host CLIs are offered as read-only alternatives chosen by one variable", () => {
@@ -250,6 +277,8 @@ test("both agent host CLIs are offered as read-only alternatives chosen by one v
   const [codex, claude] = agentSteps;
   assert.match(codex.run, /codex exec --sandbox read-only /u);
   assert.match(claude.run, /claude -p /u);
+  assert.match(claude.run, /--permission-mode dontAsk/u);
+  assert.match(claude.run, /--tools "Read,Grep,Glob"/u);
   assert.match(claude.run, /--allowedTools "Read,Grep,Glob"/u);
   assert.match(claude.run, /--disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"/u);
   for (const candidate of agentSteps) {
@@ -289,4 +318,16 @@ test("the guide documents every variable, secret, and label the example reads", 
   }
   assert.ok(readme.includes(exampleName));
   assert.ok(readme.includes(".github/workflows/"));
+});
+
+test("the comment is clipped at line boundaries, never mid-row or mid-character", () => {
+  const assemble = steps.find((step) => /Assemble the comment/u.test(step.name)).run;
+  assert.doesNotMatch(assemble, /head -c/u);
+  assert.match(assemble, /clip\(\) \{ awk -v max="\$1"/u);
+  assert.match(assemble, /clip 12000 < "\$out\/checks\.md"/u);
+});
+
+test("the guide warns that the agent must hold no secret beyond its own low-limit key", () => {
+  assert.match(readme, /no access to (?:any )?secrets? beyond its own/iu);
+  assert.match(readme, /low-limit|low spending limit/iu);
 });

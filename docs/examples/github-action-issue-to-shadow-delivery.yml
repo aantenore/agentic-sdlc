@@ -37,8 +37,11 @@ jobs:
       contents: read
       issues: write
     env:
-      # Review a newer revision of the CLI, then change this full commit SHA.
-      AGENTIC_SDLC_REF: 21396a41dff84c5b4b00841a4b1878bd73303d5e
+      # REQUIRED: replace the placeholder with a release tag of the CLI at or
+      # after the one that added "autonomy delivery checks" (v0.20.0 or later),
+      # or with the full commit SHA of a reviewed revision. The run refuses to
+      # start while it is unchanged.
+      AGENTIC_SDLC_REF: REPLACE_WITH_RELEASE_TAG
       ISSUE_NUMBER: ${{ github.event.issue.number }}
       REPOSITORY_NAME: ${{ github.event.repository.name }}
     steps:
@@ -56,13 +59,30 @@ jobs:
       - name: Install the CLI at the pinned revision
         run: |
           set -euo pipefail
+          case "$AGENTIC_SDLC_REF" in
+            REPLACE_WITH_*|"")
+              echo "::error::Set AGENTIC_SDLC_REF in this workflow to a release tag (v0.20.0 or later) or a full commit SHA of the CLI." >&2
+              exit 1
+              ;;
+          esac
           dir="$RUNNER_TEMP/agentic-sdlc"
+          if [[ "$AGENTIC_SDLC_REF" =~ ^[0-9a-f]{40}$ ]]; then
+            spec="$AGENTIC_SDLC_REF"
+          else
+            spec="refs/tags/$AGENTIC_SDLC_REF"
+          fi
           git init --quiet "$dir"
-          git -C "$dir" fetch --quiet --depth 1 https://github.com/aantenore/agentic-sdlc.git "$AGENTIC_SDLC_REF"
+          git -C "$dir" fetch --quiet --depth 1 https://github.com/aantenore/agentic-sdlc.git "$spec"
           git -C "$dir" checkout --quiet --detach FETCH_HEAD
-          test "$(git -C "$dir" rev-parse HEAD)" = "$AGENTIC_SDLC_REF"
+          if [[ "$spec" == "$AGENTIC_SDLC_REF" ]]; then
+            test "$(git -C "$dir" rev-parse HEAD)" = "$AGENTIC_SDLC_REF"
+          fi
           echo "AGENTIC_SDLC_CLI=$dir/bin/agentic-sdlc.mjs" >> "$GITHUB_ENV"
           node "$dir/bin/agentic-sdlc.mjs" --version
+          if ! node "$dir/bin/agentic-sdlc.mjs" help autonomy delivery checks > /dev/null 2>&1; then
+            echo "::error::The CLI at $AGENTIC_SDLC_REF has no 'autonomy delivery checks' command; use v0.20.0 or later." >&2
+            exit 1
+          fi
 
       # Optional: without an agent host the run falls back to a draft taken
       # directly from the issue title, and everything else works the same.
@@ -119,6 +139,8 @@ jobs:
           [[ "$AGENT_API_KEY_VARIABLE" =~ ^[A-Z][A-Z0-9_]*$ ]]
           export "$AGENT_API_KEY_VARIABLE=$AGENT_API_KEY"
           claude -p "$(cat "$RUNNER_TEMP/shadow/instructions.txt")" \
+            --permission-mode dontAsk \
+            --tools "Read,Grep,Glob" \
             --allowedTools "Read,Grep,Glob" \
             --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch" \
             --max-turns 8 > "$RUNNER_TEMP/shadow/draft.raw"
@@ -169,15 +191,21 @@ jobs:
           set -euo pipefail
           out="$RUNNER_TEMP/shadow"
           profile="AUT-ISSUE-$ISSUE_NUMBER"
-          if [ -f ".sdlc/autonomy/deliveries/$profile.json" ] \
-            && node "$AGENTIC_SDLC_CLI" autonomy delivery checks --root . --id "$profile" > "$out/checks.md" 2> /dev/null; then
-            :
-          else
+          if [ ! -f ".sdlc/autonomy/deliveries/$profile.json" ]; then
             {
               echo "## Delivery checks"
               echo
               echo "No pull-request delivery named \`$profile\` exists on this branch yet, so nothing has been recorded and there is no table to show."
               echo "After a person approves the requirement and a delivery, \`autonomy delivery checks --id <profile>\` prints each check as PASS, FAIL, or NOT RUN."
+            } > "$out/checks.md"
+          elif node "$AGENTIC_SDLC_CLI" autonomy delivery checks --root . --id "$profile" > "$out/checks.md" 2> "$out/checks.err"; then
+            :
+          else
+            cat "$out/checks.err" >&2
+            {
+              echo "## Delivery checks"
+              echo
+              echo "The checks table could not be generated for \`$profile\`: $(head -c 300 "$out/checks.err" | tr '\n`' '  ')"
             } > "$out/checks.md"
           fi
 
@@ -186,7 +214,9 @@ jobs:
           set -euo pipefail
           out="$RUNNER_TEMP/shadow"
           # Text that came from the issue is shown inside a fence, with every backtick removed so it cannot close the fence.
-          fence() { printf '````text\n'; head -c "$1" | tr '`' "'"; printf '\n````\n'; }
+          # clip stops at a line boundary, so a table row or a multibyte character is never cut in half.
+          clip() { awk -v max="$1" '{ used += length($0) + 1; if (used > max) { print "[truncated]"; exit } print }'; }
+          fence() { printf '````text\n'; clip "$1" | tr '`' "'"; printf '````\n'; }
           {
             echo "<!-- agentic-sdlc-shadow-delivery -->"
             echo "## Shadow run: proposed work brief for #$ISSUE_NUMBER"
@@ -210,18 +240,25 @@ jobs:
             echo
             echo "</details>"
             echo
-            head -c 12000 "$out/checks.md"
+            clip 12000 < "$out/checks.md"
             echo
             echo "_Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. CLI revision: \`${AGENTIC_SDLC_REF:0:12}\`._"
           } > "$out/comment.md"
 
-      - name: Post the comment
+      - name: Post or update the comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh issue comment "$ISSUE_NUMBER" --body-file "$RUNNER_TEMP/shadow/comment.md"
+          # Update the bot's earlier comment, found by its marker, instead of adding one per run.
+          existing="$(gh api "repos/$GH_REPO/issues/$ISSUE_NUMBER/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- agentic-sdlc-shadow-delivery -->"))) | .id' | tail -n 1)"
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$GH_REPO/issues/comments/$existing" -F "body=@$RUNNER_TEMP/shadow/comment.md" > /dev/null
+          else
+            gh issue comment "$ISSUE_NUMBER" --body-file "$RUNNER_TEMP/shadow/comment.md"
+          fi
 
       - name: Keep the proposal for audit
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4

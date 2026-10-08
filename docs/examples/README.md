@@ -12,15 +12,19 @@ To use it, copy the file into your project as `.github/workflows/issue-to-shadow
 
 The run observes and proposes; it never decides. It has no approval, no write access to any branch, and no way to merge. A person reads the comment and then approves, changes, or ignores it in their own session. The proposed requirement is recorded only in the runner's throwaway workspace (and kept for seven days as a workflow artifact), so approving it means asking your agent to propose the same requirement in your own checkout and approving it there.
 
+### Minimum CLI version
+
+The example uses `autonomy delivery checks`, so the CLI revision it installs must be v0.20.0 or later, the first release that has it (the minimum; any later release tag also works). Edit `AGENTIC_SDLC_REF` in the copied workflow from `REPLACE_WITH_RELEASE_TAG` to that tag, or to the full commit SHA of a revision you reviewed. The example deliberately ships a placeholder instead of a SHA: a SHA written here would pin one revision forever, and an older one would fail at the checks step.
+
 ### What happens, in order
 
 1. A maintainer adds the `agentic-sdlc-shadow` label to an issue. Adding any other label does nothing, and adding it never cancels a run in progress for another label.
-2. The default branch is checked out without credentials, and the CLI is fetched at the full commit SHA in `AGENTIC_SDLC_REF`, verified after the fetch, and run with `node`.
+2. The default branch is checked out without credentials, and the CLI is fetched at the release tag or full commit SHA in `AGENTIC_SDLC_REF` (a SHA is verified after the fetch) and run with `node`. The workflow refuses to start while `AGENTIC_SDLC_REF` is still the placeholder, and stops with a clear message if that revision has no `autonomy delivery checks` command.
 3. The issue title and body are saved as a data file. They reach the job only through `env:` and are never interpolated into a script.
 4. If `AGENT_HOST` is set, one read-only agent turn drafts a JSON brief (title, summary, observable acceptance criteria) from the issue and the repository. Without it, or if the draft is missing or invalid, the brief falls back to the issue title and a single placeholder criterion, so the run always ends with a comment.
 5. `requirement propose` records the brief as a `proposed` requirement with the lowest independence ceiling (`supervised`). The step fails if the record is not `proposed`.
 6. `status` and `approval requests` read the project state and the decisions that wait for a person. Both only read.
-7. A comment is posted with the proposed work brief, the waiting decisions, the status, and the delivery checks (below). Text that came from the issue is shown inside a code fence with every backtick removed, so it cannot close the fence or ping anyone.
+7. A comment is posted, or the bot's earlier comment on the issue is updated in place (it is found by its `<!-- agentic-sdlc-shadow-delivery -->` marker), with the proposed work brief, the waiting decisions, the status, and the delivery checks (below). Text that came from the issue is shown inside a code fence with every backtick removed, so it cannot close the fence or ping anyone.
 
 ### Choose a host CLI
 
@@ -29,9 +33,9 @@ The example offers two alternatives and picks one with the repository variable `
 | `AGENT_HOST` | Command in the workflow | Read-only because |
 |---|---|---|
 | `codex` | `codex exec --sandbox read-only --skip-git-repo-check --output-last-message <file> <prompt>` | the sandbox is read-only |
-| `claude-code` | `claude -p <prompt> --allowedTools "Read,Grep,Glob" --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"` | only read tools are allowed and every other tool is refused |
+| `claude-code` | `claude -p <prompt> --permission-mode dontAsk --tools "Read,Grep,Glob" --allowedTools "Read,Grep,Glob" --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"` | only read tools exist, anything not pre-approved is denied instead of asked, and every other tool is refused |
 
-Both agent steps use `continue-on-error`, so a failed or slow draft falls back instead of failing the run. The flags above are those the example was written against; check them against `--help` of the exact release you pin, because host CLIs change their options between releases.
+The `claude` alternative lists its tools with `--tools`, which older releases may not have; it then fails and falls back. Both agent steps use `continue-on-error`, so a failed or slow draft falls back instead of failing the run. The flags above are those the example was written against; check them against `--help` of the exact release you pin, because host CLIs change their options between releases.
 
 ### Variables and secrets
 
@@ -52,7 +56,7 @@ Set these in the repository (Settings, then Secrets and variables, then Actions)
 | Minimal permissions | The workflow and the job both declare exactly `contents: read` and `issues: write`. |
 | No write to the default branch | The token cannot write contents, the checkout keeps no credentials, and no `git push`, `git commit`, `git merge`, or `gh pr` call exists. |
 | No merge, no approval | The only lifecycle command that changes a record is `requirement propose`. There is no `approve`, no `autonomy delivery action`, and no `--actor-type`. |
-| Pinned supply chain | Every action is pinned to a full commit SHA, in the same style as this repository's own workflows, and so is the CLI. |
+| Pinned supply chain | Every action is pinned to a full commit SHA, in the same style as this repository's own workflows, and the CLI is pinned to a release tag or SHA you set. |
 | The agent holds no GitHub token | `GITHUB_TOKEN` is passed to the posting step alone; the agent steps receive only the agent credential. |
 | Untrusted input stays data | Issue text enters through `env:`, is written to a file, and is read by the agent as data with an instruction to ignore instructions inside it. |
 | Bounded | `timeout-minutes: 20`, one run per issue at a time. |
@@ -69,8 +73,8 @@ A first run has no delivery yet, because a delivery can only be proposed after a
 
 - **Who can start it.** Only people who may label issues can add `agentic-sdlc-shadow`. Keep that permission narrow.
 - **Untrusted text.** An issue is written by anyone who can open one. The example treats it as data end to end; keep it that way when you adapt the file, and never move the trigger to `pull_request_target` or `issue_comment`.
-- **The agent's reach.** The agent runs with the runner's network access and the one credential you give it, so use a dedicated key with a low spending limit, and prefer a runner with restricted egress if your policy needs it.
-- **Reviewing the pin.** `AGENTIC_SDLC_REF` is a full commit SHA. Review a newer revision before changing it.
+- **The agent's reach.** The agent runs with the runner's network access and the one credential you give it. It must have no access to secrets beyond its own low-limit key: use a dedicated key with a low spending limit, do not expose other repository or organization secrets to the job, and prefer a runner with restricted egress if your policy needs it.
+- **Reviewing the pin.** Review a newer CLI release before changing `AGENTIC_SDLC_REF`; a release tag is mutable on the remote, so use a full commit SHA if you need it immutable.
 - **What the artifact holds.** The audit artifact contains the issue-derived brief, which is already visible in the issue and the comment.
 
 ### Adapting it
