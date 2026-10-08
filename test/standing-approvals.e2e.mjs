@@ -1320,7 +1320,50 @@ function trustHostSigner(project, { mode = "host_verified" } = {}) {
       }],
     },
   }));
-  return { keyId: TRUSTED_KEY_ID, privateKey: keys.privateKey };
+  return {
+    keyId: TRUSTED_KEY_ID,
+    privateKey: keys.privateKey,
+    trustedKey: { key_id: TRUSTED_KEY_ID, algorithm: "Ed25519", public_key: keys.publicKey.export({ type: "spki", format: "pem" }).toString() },
+  };
+}
+
+/** A further signer whose public key is returned, for rotating the trusted keys. */
+function newHostSigner(keyId) {
+  const keys = generateKeyPairSync("ed25519");
+  return {
+    keyId,
+    privateKey: keys.privateKey,
+    trustedKey: { key_id: keyId, algorithm: "Ed25519", public_key: keys.publicKey.export({ type: "spki", format: "pem" }).toString() },
+  };
+}
+
+function setTrustedKeys(project, trustedKeys) {
+  updateConfig(project, (config) => ({
+    ...config,
+    authority_policy: { ...config.authority_policy, trusted_host_keys: trustedKeys },
+  }));
+}
+
+/** Writes approval.json directly, the way a separate script could, with a chosen record time and receipt. */
+function writeApprovalDirectly(project, standingId, { createdAt, hostReceipt = null }) {
+  const record = standingProposal(project, standingId);
+  const decision = buildStandingApprovalDecision({
+    id: `${standingId}-APPROVAL`,
+    decision: "approved",
+    proposal: record,
+    approval: {
+      status: "approved",
+      approval_source: "explicit-user",
+      approved_content_hash: hashApprovalSubject(record),
+      approved_by: { id: "someone", type: "human" },
+      created_at: createdAt,
+    },
+    createdAt,
+    actor: { id: "someone", type: "human" },
+    hostReceipt,
+  });
+  writeProjectFile(project, `.sdlc/autonomy/standing/${standingId}/approval.json`, `${JSON.stringify(decision, null, 2)}\n`);
+  return decision;
 }
 
 /** A signer whose key the project does not trust, claiming the trusted key id. */
@@ -1458,11 +1501,28 @@ test("signed approvals: only the trusted host's receipt for the exact record app
   assert.deepEqual(contractApproval.standing_approval_ref.host_receipt_ref, summary.host_receipt_ref);
   const approvedDelivery = approveDelivery(project, delivery, "SA-SIGNED");
   assert.deepEqual(approvedDelivery.approval.approval.standing_approval_ref.host_receipt_ref, summary.host_receipt_ref);
+  // The delivery records the signed standing approval as its authority, so
+  // every later action must carry the same host-verified authority.
+  const signedAuthority = {
+    mode: "host_verified",
+    source: "standing_approval_receipt",
+    verified: true,
+    receipt_ref: { id: receipt.id, path: ".sdlc/autonomy/standing/SA-SIGNED/approval.json", hash: receipt.receipt_hash },
+  };
+  assert.deepEqual(approvedDelivery.delivery_profile.authority_assurance, signedAuthority);
   startTask(project, delivery);
   writeProjectFile(project, "src/flag-one.mjs", "export const one = false;\n");
   const build = mustAuthorize(project, delivery.profileId, "build.local");
   assert.equal(build.action_receipt.approval.approval_source, "standing-approval");
   assert.deepEqual(build.action_receipt.approval.standing_approval_ref.host_receipt_ref, summary.host_receipt_ref);
+  assert.deepEqual(build.action_receipt.approval.authority_assurance, signedAuthority);
+  // Completing the action re-checks that host-verified authority.
+  fs.mkdirSync(delivery.releaseOutput, { recursive: true });
+  const buildEvidence = writeProjectFile(project, "docs/build-one.json", "{\"built\":true}\n");
+  mustRun([
+    "autonomy", "delivery", "action", "--root", project, "--id", delivery.profileId, "--action", "build.local",
+    "--outcome", "passed", "--authorization-receipt", build.action_receipt.id, "--evidence", buildEvidence,
+  ], project);
 
   const model = await buildObservatoryViewModel(project);
   const standingItem = model.decisions.find((item) => item.type === "standing-approval" && /SA-SIGNED/u.test(JSON.stringify(item)));
@@ -1504,7 +1564,7 @@ test("signed approvals: only the trusted host's receipt for the exact record app
   writeProjectFile(project, ".sdlc/autonomy/standing/SA-OTHER/approval.json", `${JSON.stringify(forgedApproval, null, 2)}\n`);
   const forged = standingSummary(project, "SA-OTHER");
   assert.equal(forged.status, "invalid");
-  assert.match(forged.reasons.join("\n"), /no trusted signed host receipt, which this project requires/u);
+  assert.match(forged.reasons.join("\n"), /no trusted signed host receipt, which it requires because it was proposed under authority_policy\.mode host_verified/u);
   forge((approval) => {
     approval.standing_approval_ref = {
       id: "SA-OTHER",
@@ -1553,7 +1613,7 @@ test("signed approvals: revocation works with a verified receipt or a person's e
   assert.equal(plainSummary.assurance, "host_verified");
 });
 
-test("audit-only projects may record a verified host receipt, and nothing else changes", () => {
+test("audit-only projects may record a verified host receipt, and nothing else changes", async () => {
   const project = initializeProject("audit-signed");
   const signer = trustHostSigner(project, { mode: "audit_only" });
   const proposed = proposeStanding(project, { id: "SA-AUDIT-SIGNED" });
@@ -1584,9 +1644,83 @@ test("audit-only projects may record a verified host receipt, and nothing else c
   assert.equal(signedBrief.standing_approval_ref.host_receipt_ref.id, summaries[1].host_receipt_ref.id);
   const plainBrief = prepareBriefApproval(project, "PLN", "REQ-TOIL-2", "SA-AUDIT-PLAIN");
   assert.equal(plainBrief.standing_approval_ref.host_receipt_ref, undefined);
+  // The observatory says "signed" only when the signature verifies with the project's keys.
+  const summaryOf = async (id) => (await buildObservatoryViewModel(project)).decisions
+    .find((item) => item.type === "standing-approval" && item.title.includes("Remove one retired") && JSON.stringify(item).includes(id))?.summary || "";
+  assert.match(await summaryOf("SA-AUDIT-SIGNED"), /The approval is signed by the trusted host\./u);
+  assert.doesNotMatch(await summaryOf("SA-AUDIT-PLAIN"), /signed|signature/u);
+  setTrustedKeys(project, [newHostSigner(TRUSTED_KEY_ID).trustedKey]);
+  const unverified = await summaryOf("SA-AUDIT-SIGNED");
+  assert.match(unverified, /carries a host signature that could not be verified here/u);
+  assert.doesNotMatch(unverified, /is signed by the trusted host/u);
 });
 
 function prepareBriefApproval(project, suffix, requirementId, standingId) {
   createBrief(project, suffix, requirementId);
   return mustRunJson(["contract", "approve", "--root", project, "--id", `CONTRACT-${suffix}`, "--standing-approval", standingId], project).approval;
 }
+
+test("signed approvals: a record time written by hand never stretches coverage past the signed receipt", () => {
+  const project = initializeProject("signed-backdated");
+  const signer = trustHostSigner(project);
+  const proposedMs = Date.parse(proposeStanding(project, { id: "SA-LATE" }).standing_approval.created_at);
+  const at = (offset) => new Date(proposedMs + offset).toISOString();
+  // Signed after the proposal, and expired by the time anyone records it.
+  const expiredPath = writeStandingReceipt(project, signer, {
+    standingId: "SA-LATE",
+    overrides: { decided_at: at(500), expires_at: at(1_500) },
+  });
+  sleep(Math.max(0, proposedMs + 2_500 - Date.now()));
+  mustFail(standingDecisionArgs(project, "approve", "SA-LATE", expiredPath), project, /had expired/u);
+  // A script records the approval with a record time before the receipt expired.
+  writeApprovalDirectly(project, "SA-LATE", { createdAt: at(1_000), hostReceipt: readJson(project, expiredPath) });
+  const late = standingSummary(project, "SA-LATE");
+  assert.equal(late.status, "expired", JSON.stringify(late));
+  assert.match(late.reasons.join("\n"), /signed approval stopped covering work at/u);
+  createBrief(project, "LATE", "REQ-TOIL");
+  mustFail(["contract", "approve", "--root", project, "--id", "CONTRACT-LATE", "--standing-approval", "SA-LATE"], project, /it is expired/u);
+  // A record time in the future is refused outright.
+  const freshPath = writeStandingReceipt(project, signer, { standingId: "SA-LATE" });
+  writeApprovalDirectly(project, "SA-LATE", { createdAt: new Date(Date.now() + 3_600_000).toISOString(), hostReceipt: readJson(project, freshPath) });
+  const future = standingSummary(project, "SA-LATE");
+  assert.equal(future.status, "invalid");
+  assert.match(future.reasons.join("\n"), /record time in the future/u);
+});
+
+test("signed approvals: switching to them or rotating keys keeps earlier approvals valid history", () => {
+  const project = initializeProject("signed-switch");
+  // An audit-only standing approval confirms a work brief before the switch.
+  const standingId = grantStanding(project, { id: "SA-HIST" });
+  const delivery = prepareDelivery(project, "ONE", standingId);
+  const standingErrors = () => strictGateErrors(project, delivery.storyId).filter((error) => /standing approval/iu.test(error));
+  assert.deepEqual(standingErrors(), []);
+  const first = trustHostSigner(project);
+  const history = standingSummary(project, standingId);
+  assert.equal(history.status, "stale", JSON.stringify(history));
+  assert.doesNotMatch(history.reasons.join("\n"), /receipt/u);
+  // The derived approval made before the switch stays valid in the strict gate...
+  assert.deepEqual(standingErrors(), []);
+  // ...but it covers no new work.
+  createBrief(project, "TWO", "REQ-TOIL-2");
+  mustFail(["contract", "approve", "--root", project, "--id", "CONTRACT-TWO", "--standing-approval", standingId], project, /it is stale/u);
+
+  // A standing approval signed with the first key...
+  proposeStanding(project, { id: "SA-ROTATE" });
+  mustRunJson(standingDecisionArgs(project, "approve", "SA-ROTATE", writeStandingReceipt(project, first, { standingId: "SA-ROTATE" })), project);
+  // ...stays verifiable after that key is retired in favour of a new one.
+  const second = newHostSigner("trusted-host-e2e-2");
+  setTrustedKeys(project, [{ ...first.trustedKey, retired: true, not_after: new Date().toISOString() }, second.trustedKey]);
+  const rotated = standingSummary(project, "SA-ROTATE");
+  assert.equal(rotated.status, "stale", JSON.stringify(rotated));
+  assert.equal(rotated.assurance, "host_verified");
+  assert.doesNotMatch(rotated.reasons.join("\n"), /receipt/u);
+  // New decisions need the active key.
+  proposeStanding(project, { id: "SA-NEXT" });
+  mustFail(
+    standingDecisionArgs(project, "approve", "SA-NEXT", writeStandingReceipt(project, first, { standingId: "SA-NEXT" })),
+    project,
+    /is retired|was not valid when the receipt was decided/u,
+  );
+  const next = mustRunJson(standingDecisionArgs(project, "approve", "SA-NEXT", writeStandingReceipt(project, second, { standingId: "SA-NEXT" })), project);
+  assert.equal(next.approval.assurance.receipt_ref.key_id, "trusted-host-e2e-2");
+});
