@@ -249,6 +249,22 @@ agentic-sdlc baseline propose --id BASELINE-INITIAL --force \
 
 The only exception is a file created by the task currently running, inside every write scope its approved requirements allow. Baselines prepared before this record existed keep the previous behavior until their next refresh.
 
+#### Keeping the baseline current after delivered work
+
+When a pull request is merged or a local release completes, the result names the next step: record the delivered state as the successor of the current baseline.
+
+```bash
+agentic-sdlc baseline refresh --from BASELINE-INITIAL
+```
+
+The refresh never rewrites the approved baseline. It creates a new revision (`BASELINE-INITIAL-R2`, then `-R3`, …) that records every added, changed, and removed file compared with its predecessor, and the story that produced each change. Work that started from the previous revision keeps its own reference; new work starts from the successor.
+
+A change counts as delivered when a merged pull-request delivery started from the previous baseline, the path lies inside every write scope its requirements approved, and the merged commit holds exactly the bytes the new snapshot records. When every change is delivered and `baseline_policy.auto_approve_explained_refresh` is `true`, the successor is approved by that project policy and nothing is asked. Any other change (a manual edit, a file outside the approved scopes, a local release, a commit missing from this clone) leaves the successor proposed, lists those files under "Needs Review" in its report, and waits for a normal `baseline approve`.
+
+The strict gate re-verifies a policy approval from the records every time: the delta must match the two snapshots, every change must still be attributed to a merged delivery, the predecessor must rest on a person's or CI approval, and, when the merged commit is in the clone, its bytes must match. Projects created before this setting existed keep asking for every refresh until they opt in through `config migrate`.
+
+Several computers can deliver and refresh at the same time. Before writing anything, a refresh claims the single successor of its baseline as a create-only ref on the git remote (`refs/agentic-sdlc/baseline-refresh/<baseline>/successor`), under the same `orchestration_policy.coordination` setting as shared story claims. Of two computers refreshing the same baseline at once, exactly one push is accepted; the other writes nothing and is told which successor won. After pulling, it runs the same refresh again: a refresh asked from a baseline that already has a successor continues from the newest one in the line and re-reads the current files, so the next revision holds the changes of both computers instead of replaying the older delta. Stories that started from any baseline of the same lineage still explain their merged changes. A story already running against an older baseline keeps working while other stories merge around it: bytes that another story's merged delivery produced inside its own write scope are not treated as drift for the running story. When sharing is on but the remote cannot be reached, the refresh stops without writing. A successor written while sharing was off is checked again when it is approved: if the remote already records another successor for the same baseline, it is an orphan and is never approved. An approved baseline is never replaced in place either: `baseline propose --force` on it is refused and points to `baseline refresh`.
+
 The directories read by default are listed in `baseline_policy.source_roots` and `baseline_policy.test_roots` when the project sets them, and otherwise in the shared defaults (`src`, `app`, `lib`, `packages`, `services`, `cmd`, `internal`, `pkg`, `test`, `tests`, and similar). File types come from `baseline_policy.source_extensions`.
 
 ### Checkpoint 2: approve one complete tranche

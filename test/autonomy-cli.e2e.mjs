@@ -8,6 +8,8 @@ import { spawn, spawnSync } from "node:child_process";
 import { createServer as createNetServer } from "node:net";
 import { fileURLToPath } from "node:url";
 
+import { hashApprovalSubject } from "../lib/lifecycle/authorization.mjs";
+
 import {
   buildDeliveryExecutionProfile,
   computeDeliveryExecutionProfileHash,
@@ -7289,4 +7291,152 @@ test("explicit story authorizations are consumed and an identical claim retry re
     "--story", "ST-OPTIONAL-AUTH",
     "--strict",
   ], /story step ST-OPTIONAL-AUTH\/implementation references missing authorization use receipt/u);
+});
+
+test("a merged delivery refreshes its baseline without a new approval while other changes wait for review", () => {
+  const project = tmpProject("baseline-refresh-delivered");
+  const readJson = (relativePath) => JSON.parse(fs.readFileSync(path.join(project, relativePath), "utf8"));
+  initializeAutonomyProject(project);
+  fs.mkdirSync(path.join(project, "src"), { recursive: true });
+  fs.writeFileSync(path.join(project, "src", "app.mjs"), "export const status = \"legacy\";\n", "utf8");
+  fs.writeFileSync(path.join(project, "README.md"), "# Autonomy E2E\n\nLegacy status service.\n", "utf8");
+  mustGit(project, ["add", "--", "src/app.mjs", "README.md"]);
+  mustGit(project, ["commit", "-m", "test: establish the reviewed project state"]);
+  mustGit(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
+  mustRunJson([
+    "baseline", "propose",
+    "--root", project,
+    "--id", "BASELINE-INITIAL",
+    "--document", "README.md",
+    "--source", "src",
+    "--summary", "Legacy status service",
+  ]);
+  mustRunJson([
+    "baseline", "approve",
+    "--root", project,
+    "--id", "BASELINE-INITIAL",
+    ...humanApproval("The legacy status service snapshot is accurate"),
+  ]);
+
+  createApprovedImplementationContract(project, {
+    storyId: "ST-PR-MERGE",
+    contractId: "CONTRACT-PR-MERGE",
+    profileId: "AUT-PR-MERGE",
+  });
+  mustRunJson([
+    "autonomy", "delivery", "propose",
+    "--root", project,
+    "--id", "AUT-PR-MERGE",
+    "--delivery", "PR-MERGE",
+    "--kind", "pull_request", "--code-review", "not-required", "--code-review-actor-type", "human", "--code-review-approval-source", "explicit-user", "--code-review-summary", "No review needed for this story",
+    "--story", "ST-PR-MERGE",
+    "--contract", "CONTRACT-PR-MERGE",
+    "--requirement", "REQ-AUTONOMY",
+    "--level", "checkpointed",
+    "--repository", "aantenore/agentic-sdlc",
+    "--base", "main",
+    "--head", "codex/pr-1",
+    "--write-path", "src",
+    "--allow-action", "pull_request.merge",
+    "--merge-allowed",
+  ]);
+  mustRunJson([
+    "autonomy", "delivery", "approve",
+    "--root", project,
+    "--id", "AUT-PR-MERGE",
+    ...humanApproval("Approve checkpointed autonomy for this exact merge delivery"),
+  ]);
+  const baseSha = mustGit(project, ["rev-parse", "refs/remotes/origin/main"]);
+  const started = mustRunJson([
+    "task", "start",
+    "--root", project,
+    "--intent-json", taskIntent("ST-PR-MERGE"),
+    "--delivery-profile", "AUT-PR-MERGE",
+  ]);
+  assert.equal(started.execution_allowed, true);
+  mustRun([
+    "story", "claim",
+    "--root", project,
+    "--id", "ST-PR-MERGE",
+    "--agent", "codex",
+    "--branch", "codex/ST-PR-MERGE",
+  ]);
+
+  // The story changes a reviewed file and adds new ones inside its scope.
+  fs.writeFileSync(path.join(project, "src", "app.mjs"), "export const status = \"ready\";\n", "utf8");
+  fs.writeFileSync(path.join(project, "src", "merge-proof.txt"), "exact merge head\n", "utf8");
+  fs.writeFileSync(path.join(project, "src", "merge-approval.txt"), "exact human merge approval evidence\n", "utf8");
+  fs.writeFileSync(
+    path.join(project, "src", "implementation-summary.md"),
+    "# Implementation summary\n\nThe status is ready.\n",
+    "utf8",
+  );
+  mustGit(project, ["add", "--", "src"]);
+  mustGit(project, ["commit", "-m", "test: deliver the ready status"]);
+  const headSha = mustGit(project, ["rev-parse", "HEAD"]);
+  mustRun([
+    "output", "link",
+    "--root", project,
+    "--story", "ST-PR-MERGE",
+    "--type", "implementation-summary",
+    "--artifact", "src/implementation-summary.md",
+    "--template", "implementation-summary-v1",
+    "--mode", "new",
+    "--requirement", "REQ-AUTONOMY",
+  ]);
+
+  const prUrl = "https://github.com/aantenore/agentic-sdlc/pull/999999";
+  const openState = { state: "OPEN", url: prUrl, headSha, headBranch: "codex/pr-1", baseBranch: "main", baseSha };
+  recordIndependentReview(project, "AUT-PR-MERGE");
+  const authorization = mustRunJson([
+    "autonomy", "delivery", "action",
+    "--root", project,
+    "--id", "AUT-PR-MERGE",
+    "--action", "pull_request.merge",
+    "--pr-url", prUrl,
+    "--confirm-action",
+    "--approval-evidence", "src/merge-approval.txt",
+    ...humanApproval("Approve this exact open PR merge checkpoint"),
+  ], { env: fakeGitHubEnv(project, openState) });
+  mustGit(project, ["update-ref", "refs/remotes/origin/main", headSha]);
+  const completion = completeAuthorizedPullRequestMerge({ project, authorization, openState }, headSha);
+  assert.equal(completion.lifecycle_status, "terminal");
+  assert.deepEqual(completion.baseline_refresh, {
+    from: "BASELINE-INITIAL",
+    command: "agentic-sdlc baseline refresh --from BASELINE-INITIAL",
+  });
+
+  const refreshed = mustRunJson(["baseline", "refresh", "--root", project, "--from", "BASELINE-INITIAL"]);
+  assert.equal(refreshed.status, "approved", JSON.stringify(refreshed.unexplained));
+  assert.equal(refreshed.auto_approved, true);
+  assert.deepEqual(refreshed.delta, { added: 3, changed: 1, removed: 0 });
+  assert.equal(refreshed.explained, 4);
+  const successor = readJson(".sdlc/baseline/BASELINE-INITIAL-R2.json");
+  assert.equal(successor.approvals.at(-1).approval_source, "delivered-work");
+  assert.ok(successor.refresh.explanations.every((item) => item.story_id === "ST-PR-MERGE"));
+
+  const status = mustRunJson(["baseline", "status", "--root", project]);
+  assert.equal(status.baselines.find((item) => item.id === "BASELINE-INITIAL").effective_status, "superseded");
+  assert.equal(status.baselines.find((item) => item.id === "BASELINE-INITIAL-R2").effective_status, "approved");
+  assertMergeReceiptGateIntegrity(project);
+
+  // A change no delivered story produced is proposed for a person's review.
+  fs.writeFileSync(path.join(project, "README.md"), "# Autonomy E2E\n\nEdited by hand.\n", "utf8");
+  const manual = mustRunJson(["baseline", "refresh", "--root", project, "--from", "BASELINE-INITIAL-R2"]);
+  assert.equal(manual.status, "proposed");
+  assert.equal(manual.auto_approved, false);
+  assert.deepEqual(manual.unexplained, [{ path: "README.md", change: "changed" }]);
+  assert.equal(manual.approval_request.type, "baseline_approval");
+
+  // A hand-edited refresh record cannot carry the policy approval.
+  const successorPath = path.join(project, ".sdlc", "baseline", "BASELINE-INITIAL-R2.json");
+  const tampered = readJson(".sdlc/baseline/BASELINE-INITIAL-R2.json");
+  fs.rmSync(path.join(project, ".sdlc", "baseline", "BASELINE-INITIAL-R3.json"));
+  fs.writeFileSync(path.join(project, "README.md"), "# Autonomy E2E\n\nLegacy status service.\n", "utf8");
+  tampered.refresh.explanations[0].story_id = "ST-ELSEWHERE";
+  tampered.approvals.at(-1).approved_content_hash = hashApprovalSubject(tampered);
+  fs.writeFileSync(successorPath, `${JSON.stringify(tampered, null, 2)}\n`, "utf8");
+  const gate = run(["gate", "check", "--root", project, "--scope", "story", "--story", "ST-PR-MERGE", "--strict", "--json"]);
+  assert.notEqual(gate.status, 0, gate.stdout);
+  assert.match(gate.stdout, /which no longer proves it/u);
 });
