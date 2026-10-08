@@ -215,3 +215,29 @@ test("a regressing cumulative receipt is refused without wedging the budget hist
   ]).stdout);
   assert.equal(next.aggregate.usage.tokens, 120);
 });
+
+test("manual metric flags are strict whole numbers or decimals and must belong to the budget", () => {
+  const { project } = runningAssessment("budget-flags", {
+    limits: {
+      tokens: { unit: "tokens", metering: "estimated", soft: 10_000 },
+      cost: { unit: "money", currency: "USD", metering: "estimated", soft: "5" },
+    },
+  });
+  const record = (...flags) => ["budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1", ...flags];
+  for (const [flag, value] of [["--input-tokens", "1e3"], ["--output-tokens", "0x10"], ["--input-tokens", "1.5"]]) {
+    mustFail(record(flag, value), new RegExp(`${flag} must be a whole number such as 120 \\(got '${value.replace(".", "\\.")}'\\)`, "u"));
+  }
+  mustFail(record("--cost-amount", "1e-3"), /--cost-amount must be a plain decimal amount/u);
+  mustFail(record("--input-tokens", "-5"), /--input-tokens cannot be negative \(got -5\)/u);
+  mustFail(record("--input-tokens", ""), /--input-tokens needs a value, for example --input-tokens 120/u);
+  mustFail(
+    record("--input-tokens", "10", "--steps", "3"),
+    /--steps: metric steps is not in this budget \(accepts: cost \(--cost-amount\), tokens \(--input-tokens \/ --output-tokens\)\)/u,
+  );
+  mustFail(record("--cost-amount", "1", "--currency", "EUR"), /--currency EUR does not match the budget currency USD/u);
+  assert.deepEqual(usageFiles(project), []);
+
+  const recorded = JSON.parse(mustRun(record("--input-tokens", "100", "--output-tokens", "16", "--cost-amount", "1.50", "--json")).stdout);
+  assert.equal(recorded.receipt.usage.tokens, 116);
+  assert.equal(recorded.receipt.usage.cost, "1.5");
+});
