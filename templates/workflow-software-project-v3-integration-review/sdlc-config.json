@@ -922,6 +922,244 @@
     "require_approval_for_external_access": true,
     "require_approval_for_write_access": true,
     "require_approval_for_production": true,
+    "inventory": {
+      "enabled": true,
+      "limits": {
+        "max_entries": 500,
+        "max_directories": 500,
+        "max_depth": 4,
+        "max_frontmatter_bytes": 16384,
+        "max_config_bytes": 8388608,
+        "max_description_chars": 200
+      },
+      "matching": {
+        "max_suggestions": 5,
+        "min_tag_length": 3,
+        "ignored_tags": [
+          "automation",
+          "browser",
+          "build",
+          "compose",
+          "config",
+          "container",
+          "core",
+          "dependency",
+          "file",
+          "files",
+          "framework",
+          "infrastructure",
+          "json",
+          "language",
+          "library",
+          "npm",
+          "package",
+          "requirements",
+          "runner",
+          "script",
+          "scripts",
+          "test",
+          "tool",
+          "tools",
+          "unreadable",
+          "warning",
+          "web"
+        ],
+        "ambiguous_tags": [
+          "go",
+          "next"
+        ],
+        "aliases": {
+          "go": [
+            "golang"
+          ],
+          "next": [
+            "nextjs",
+            "next js"
+          ],
+          "node": [
+            "nodejs",
+            "node js"
+          ],
+          "typescript": [
+            "ts"
+          ]
+        },
+        "exclude_names": [
+          "agentic-sdlc"
+        ],
+        "phase_tags": {
+          "analysis": [
+            "analysis",
+            "architecture"
+          ],
+          "design": [
+            "design",
+            "architecture"
+          ],
+          "implementation": [
+            "implementation"
+          ],
+          "validation": [
+            "test",
+            "testing",
+            "review",
+            "quality"
+          ],
+          "release": [
+            "release",
+            "deploy",
+            "deployment"
+          ],
+          "operations": [
+            "operations",
+            "monitoring",
+            "incident"
+          ]
+        }
+      },
+      "sources": [
+        {
+          "id": "project-claude-skills",
+          "kind": "skills",
+          "scope": "project",
+          "path": ".claude/skills"
+        },
+        {
+          "id": "project-agents-skills",
+          "kind": "skills",
+          "scope": "project",
+          "path": ".agents/skills"
+        },
+        {
+          "id": "user-claude-skills",
+          "kind": "skills",
+          "scope": "user",
+          "path": "${CLAUDE_CONFIG_DIR:-~/.claude}/skills"
+        },
+        {
+          "id": "user-codex-skills",
+          "kind": "skills",
+          "scope": "user",
+          "path": "${CODEX_HOME:-~/.codex}/skills"
+        },
+        {
+          "id": "user-agents-skills",
+          "kind": "skills",
+          "scope": "user",
+          "path": "~/.agents/skills"
+        },
+        {
+          "id": "project-claude-commands",
+          "kind": "commands",
+          "scope": "project",
+          "path": ".claude/commands"
+        },
+        {
+          "id": "user-claude-commands",
+          "kind": "commands",
+          "scope": "user",
+          "path": "${CLAUDE_CONFIG_DIR:-~/.claude}/commands"
+        },
+        {
+          "id": "user-claude-plugins",
+          "kind": "plugins",
+          "scope": "user",
+          "path": "${CLAUDE_CONFIG_DIR:-~/.claude}/plugins/cache",
+          "manifests": [
+            ".claude-plugin/plugin.json",
+            "plugin.json"
+          ],
+          "skills_dir": "skills",
+          "commands_dir": "commands"
+        },
+        {
+          "id": "user-codex-plugins",
+          "kind": "plugins",
+          "scope": "user",
+          "path": "${CODEX_HOME:-~/.codex}/plugins/cache",
+          "manifests": [
+            ".codex-plugin/plugin.json",
+            "plugin.json"
+          ],
+          "skills_dir": "skills",
+          "commands_dir": "commands"
+        },
+        {
+          "id": "project-mcp-json",
+          "kind": "mcp-json",
+          "scope": "project",
+          "path": ".mcp.json",
+          "keys": [
+            [
+              "mcpServers"
+            ]
+          ]
+        },
+        {
+          "id": "project-claude-settings",
+          "kind": "mcp-json",
+          "scope": "project",
+          "path": ".claude/settings.json",
+          "keys": [
+            [
+              "mcpServers"
+            ]
+          ]
+        },
+        {
+          "id": "project-claude-local-settings",
+          "kind": "mcp-json",
+          "scope": "project",
+          "path": ".claude/settings.local.json",
+          "keys": [
+            [
+              "mcpServers"
+            ]
+          ]
+        },
+        {
+          "id": "user-claude-settings",
+          "kind": "mcp-json",
+          "scope": "user",
+          "path": "${CLAUDE_CONFIG_DIR:-~/.claude}/settings.json",
+          "keys": [
+            [
+              "mcpServers"
+            ]
+          ]
+        },
+        {
+          "id": "user-claude-json",
+          "kind": "mcp-json",
+          "scope": "user",
+          "path": "${CLAUDE_CONFIG_DIR:-~}/.claude.json",
+          "keys": [
+            [
+              "mcpServers"
+            ],
+            [
+              "projects",
+              "{project_root}",
+              "mcpServers"
+            ]
+          ]
+        },
+        {
+          "id": "project-codex-config",
+          "kind": "mcp-toml",
+          "scope": "project",
+          "path": ".codex/config.toml",
+          "table": "mcp_servers"
+        },
+        {
+          "id": "user-codex-config",
+          "kind": "mcp-toml",
+          "scope": "user",
+          "path": "${CODEX_HOME:-~/.codex}/config.toml",
+          "table": "mcp_servers"
+        }
+      ]
+    },
     "source_priorities": [
       "project repository files",
       ".sdlc canonical knowledge base",
@@ -932,6 +1170,7 @@
     "agent_rules": [
       "Profile the project or story before technical analysis when the stack, integrations, or useful capabilities are unclear.",
       "Recommend skills, MCPs, tools, models, and bindings from evidence, not from language keywords.",
+      "Run `capability inventory` to learn which skills, commands, plugins, and MCP servers are already installed, and `capability recommend --from-inventory` to propose the ones that match the declared stack, instead of asking the user to list them.",
       "Ask for approval before installing missing capabilities or using external/write/production targets.",
       "Apply approved recommendations to contracts instead of duplicating capability decisions in chat."
     ]
