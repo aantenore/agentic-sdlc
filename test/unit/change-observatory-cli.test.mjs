@@ -322,6 +322,96 @@ test("run command routes asynchronous opener and shutdown errors through human g
   assert.match(shutdownTechnical, /test-platform[\s\S]*EBUSY/u);
 });
 
+test("browser-open failure repeats the full access address in the primary next step", async () => {
+  const stderr = createMemoryStream();
+  const running = await runObserveCommand({ projectRoot: ".", locale: "en" }, {
+    registerSignals: false,
+    stdout: createMemoryStream(),
+    stderr,
+    processRef: { platform: "test-platform" },
+    opener(_url, { onError }) {
+      const error = new Error("spawn xdg-open ENOENT");
+      error.code = "ENOENT";
+      onError(error);
+    },
+    serverFactory: successfulServer,
+  });
+  const [human, technical] = stderr.value.split("Technical details (optional):");
+  assert.match(human, /Next step:[\s\S]*http:\/\/127\.0\.0\.1:43127\/#access_token=secret/u);
+  assert.doesNotMatch(human, /ENOENT|xdg-open/u);
+  assert.match(technical, /could not open a browser automatically/iu);
+  assert.doesNotMatch(technical, /xdg-open/u);
+  await running.close();
+});
+
+test("ready and shutdown guidance keeps the address in the next step and localizes labels", () => {
+  const ready = createMemoryStream();
+  writeObserveEvent(ready, {
+    event: "observatory.ready",
+    locale: "en",
+    url: "http://127.0.0.1:43127/?mode=portfolio#access_token=secret",
+    project_root: "/tmp/project",
+  });
+  const [readyHuman] = ready.value.split("Technical details (optional):");
+  assert.match(readyHuman, /Next step:[\s\S]*#access_token=secret/u);
+  assert.match(readyHuman, /keep this terminal open/iu);
+
+  const stopped = createMemoryStream();
+  writeObserveEvent(stopped, { event: "observatory.stopped", locale: "it", signal: "SIGTERM" });
+  assert.match(stopped.value, /- Segnale: SIGTERM/u);
+  assert.doesNotMatch(stopped.value, /Signal:/u);
+});
+
+test("a closed output pipe stops the viewer cleanly instead of crashing", async () => {
+  const stdout = new EventEmitter();
+  stdout.write = () => true;
+  let closeCalls = 0;
+  const running = await runObserveCommand({ projectRoot: ".", openBrowser: false, json: true }, {
+    registerSignals: false,
+    stdout,
+    stderr: createMemoryStream(),
+    async serverFactory() {
+      return {
+        ...(await successfulServer()),
+        async close() {
+          closeCalls += 1;
+        },
+      };
+    },
+  });
+  const pipeError = Object.assign(new Error("write EPIPE"), { code: "EPIPE" });
+  assert.doesNotThrow(() => stdout.emit("error", pipeError));
+  await waitFor(() => closeCalls === 1);
+  assert.doesNotThrow(() => stdout.emit("error", pipeError), "later pipe errors stay handled");
+  await running.close();
+  assert.equal(closeCalls, 1);
+  assert.throws(
+    () => stdout.emit("error", Object.assign(new Error("disk"), { code: "EIO" })),
+    /disk/u,
+    "unrelated stream failures are not swallowed",
+  );
+});
+
+test("a busy port is explained with the next step instead of an internal error", async () => {
+  await assert.rejects(
+    runObserveCommand({ projectRoot: ".", port: 43127, openBrowser: false }, {
+      registerSignals: false,
+      stdout: createMemoryStream(),
+      async serverFactory() {
+        throw Object.assign(new Error("listen EADDRINUSE: address already in use 127.0.0.1:43127"), {
+          code: "EADDRINUSE",
+        });
+      },
+    }),
+    (error) => {
+      assert.match(error.message, /Port 43127 on 127\.0\.0\.1 is already in use/u);
+      assert.match(error.message, /--port 0/u);
+      assert.doesNotMatch(error.message, /EADDRINUSE/u);
+      return true;
+    },
+  );
+});
+
 test("browser opener passes URL as an argument with shell disabled", () => {
   const calls = [];
   const child = new EventEmitter();
