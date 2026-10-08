@@ -746,9 +746,13 @@ remote after this computer saw it, refuses claims of that story
 (`STORY_CLAIM_SHARED_RECORDS_INVALID`). Never push, delete, or rewrite these
 refs by hand.
 
-Ownership is decided by `refs/agentic-sdlc-local/claims/<remote>/...`, a ref
-only the claiming repository has; `claim.json` is committed evidence, not
-proof. Releasing a claim made on another computer (for example after checking
+Ownership is decided by `refs/worktree/agentic-sdlc/claims/<remote>/...`, a
+per-worktree record holding a secret whose hash is the claim's `owner_proof`;
+`claim.json` is committed evidence, not proof. A pending record (push made, file
+not yet written) is cleaned up on retry; a confirmed claim whose file is missing
+in this worktree is treated as held. The plugin's hooks refuse fetching into,
+or batch-writing (`update-ref --stdin` from a pipe or file), the refs the CLI
+keeps for itself. Releasing a claim made on another computer (for example after checking
 out its branch) needs `--reason` and a human or CI actor, outside any agent
 session, and the release records who released it. Seen records are tracked
 per remote under `refs/agentic-sdlc-shared/claims/<remote>/`. A claim push
