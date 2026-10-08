@@ -37,7 +37,7 @@ async function main(argv, env) {
     total,
     requireExecuted,
   });
-  process.stdout.write(`All ${checked} test shards for ${platform} on Node ${node} ${requireExecuted ? "ran the suite and " : ""}succeeded.\n`);
+  process.stdout.write(`All ${checked} test shards and the checks job for ${platform} on Node ${node} ${requireExecuted ? "ran their steps and " : ""}succeeded.\n`);
 }
 
 

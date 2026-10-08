@@ -9,11 +9,13 @@ export const TEST_CONCURRENCY_ENV = "AGENTIC_SDLC_TEST_CONCURRENCY";
 export const DEFAULT_TEST_CONCURRENCY = 2;
 export const MAX_TEST_CONCURRENCY = 8;
 export const TEST_SHARD_ENV = "AGENTIC_SDLC_TEST_SHARD";
+export const SHARD_WEIGHTS_SCHEMA = "agentic-sdlc.test-shard-weights.v1";
 const PROJECT_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
 const TEST_ROOT = path.join(PROJECT_ROOT, "test");
+export const SHARD_WEIGHTS_FILE = path.join(TEST_ROOT, "shard-weights.json");
 
 export function parseTestConcurrency(value) {
   if (value === undefined) return DEFAULT_TEST_CONCURRENCY;
@@ -43,33 +45,85 @@ export function parseTestShard(value) {
   return { index: Number(match[1]), total: Number(match[2]) };
 }
 
-function defaultFileSize(file) {
-  return fs.statSync(file).size;
+// Path of a test file relative to the project root, always with "/" separators,
+// so the weights table reads the same on every platform.
+export function projectRelativePath(file) {
+  return path.relative(PROJECT_ROOT, file).split(path.sep).join("/");
 }
 
-// Deterministic, balanced split: files are placed largest first (ties by path)
+export function medianWeight(values) {
+  const sorted = [...values].sort((left, right) => left - right);
+  if (sorted.length === 0) return 1;
+  return Math.max(1, Math.round(sorted[Math.floor((sorted.length - 1) / 2)]));
+}
+
+// Expected cost of each test file, in milliseconds measured by
+// scripts/measure-test-durations.mjs. Only ratios matter.
+export function parseShardWeights(text) {
+  let table;
+  try {
+    table = JSON.parse(text);
+  } catch {
+    throw new TypeError("The test shard weights are not valid JSON.");
+  }
+  const isWeight = (value) => Number.isSafeInteger(value) && value > 0;
+  if (table === null || typeof table !== "object" || table.schema !== SHARD_WEIGHTS_SCHEMA
+    || !isWeight(table.defaultWeight)
+    || table.files === null || typeof table.files !== "object" || Array.isArray(table.files)
+    || !Object.values(table.files).every(isWeight)) {
+    throw new TypeError(
+      `The test shard weights must declare schema ${SHARD_WEIGHTS_SCHEMA}, a positive integer defaultWeight, and positive integer weights per file.`,
+    );
+  }
+  return { defaultWeight: table.defaultWeight, files: new Map(Object.entries(table.files)) };
+}
+
+// Without a weights table, shards fall back to balancing by file size.
+export function loadShardWeights(file = SHARD_WEIGHTS_FILE) {
+  let text;
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+  return parseShardWeights(text);
+}
+
+let cachedShardWeights;
+
+// Weight of one file: its measured duration; files the table does not know
+// (added since the last measurement) count as the median measured file. Every
+// shard reads the same checked-out table, so they all derive the same split.
+function defaultFileWeight(file) {
+  if (cachedShardWeights === undefined) cachedShardWeights = loadShardWeights();
+  if (cachedShardWeights === null) return fs.statSync(file).size;
+  return cachedShardWeights.files.get(projectRelativePath(file)) ?? cachedShardWeights.defaultWeight;
+}
+
+// Deterministic, balanced split: files are placed heaviest first (ties by path)
 // on the currently lightest shard (ties by lowest shard index), so the result
-// depends only on the file set and its sizes. Every file lands in exactly one
+// depends only on the file set and its weights. Every file lands in exactly one
 // shard; each shard is returned in sorted path order.
-export function partitionTestFiles(files, total, fileSize = defaultFileSize) {
+export function partitionTestFiles(files, total, fileWeight = defaultFileWeight) {
   const ordered = [...new Set(files)].sort();
-  const sized = ordered
-    .map((file) => ({ file, size: fileSize(file) }))
-    .sort((left, right) => right.size - left.size || (left.file < right.file ? -1 : 1));
+  const weighted = ordered
+    .map((file) => ({ file, weight: fileWeight(file) }))
+    .sort((left, right) => right.weight - left.weight || (left.file < right.file ? -1 : 1));
   const shards = Array.from({ length: total }, () => ({ load: 0, files: [] }));
-  for (const { file, size } of sized) {
+  for (const { file, weight } of weighted) {
     let target = shards[0];
     for (const shard of shards) {
       if (shard.load < target.load) target = shard;
     }
     target.files.push(file);
-    target.load += size;
+    target.load += weight;
   }
   return shards.map((shard) => shard.files.sort());
 }
 
-export function selectShardFiles(files, { index, total }, fileSize = defaultFileSize) {
-  const selected = partitionTestFiles(files, total, fileSize)[index - 1];
+export function selectShardFiles(files, { index, total }, fileWeight = defaultFileWeight) {
+  const selected = partitionTestFiles(files, total, fileWeight)[index - 1];
   if (selected.length === 0) {
     throw new Error(
       `Test shard ${index}/${total} has no files; ${files.length} test files cannot fill ${total} shards.`,
@@ -113,7 +167,7 @@ export async function main({
   runTests = run,
   reporter = tap,
   findTestFiles = discoverTestFiles,
-  fileSize = defaultFileSize,
+  fileWeight = defaultFileWeight,
 } = {}) {
   let testStream;
   let streamError;
@@ -127,7 +181,7 @@ export async function main({
     // An explicit, non-empty file list keeps discovery stable across Node 18/20/24.
     const shard = parseTestShard(env[TEST_SHARD_ENV]);
     const discovered = findTestFiles();
-    const files = shard === null ? discovered : selectShardFiles(discovered, shard, fileSize);
+    const files = shard === null ? discovered : selectShardFiles(discovered, shard, fileWeight);
     if (shard !== null) {
       stdout.write(
         `# test shard ${shard.index}/${shard.total}: ${files.length} of ${discovered.length} test files\n`,
