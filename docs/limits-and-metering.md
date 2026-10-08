@@ -41,6 +41,27 @@ You do not need keys or extra tools for this. A **soft limit** is a checkpoint: 
 
 In the default `audit_only` mode the tool records who you said you are but cannot prove it; extension and stop outputs say so. Recorded usage cannot be quietly removed: deleting a usage record stops the budget until it is restored. If no usage is recorded for a metric, the finished work is marked `not_measured` rather than “within budget”.
 
+## Quick start: see what one delivery cost and how long it took
+
+1. **Lead time needs nothing.** `agentic-sdlc autonomy delivery status --id <profile-id>` and `agentic-sdlc status` show it from the records the lifecycle already wrote: proposed → approved → work started → first action → released, ready for review, or closed, with the time spent waiting for a person.
+2. **Record cost against the delivery** once it is approved, with a meter or by hand:
+
+   ```bash
+   agentic-sdlc budget meter start --delivery AUT-PR-184 --adapter codeburn    # once, before the work
+   agentic-sdlc budget meter record --delivery AUT-PR-184 --adapter codeburn   # whenever you want a reading
+   agentic-sdlc budget usage record --delivery AUT-PR-184 --input-tokens 1200 --output-tokens 300 --cost-amount 0.42 --currency USD
+   ```
+
+3. **Read it** with `agentic-sdlc budget status --delivery AUT-PR-184`:
+
+   ```text
+   Lead time: proposed → approved 4m 10s; approved → work started 2m 00s; work started → first action 31m 05s; first action → released 1h 02m; total 1h 39m.
+   Waiting for a person: 4m 10s over 1 confirmation.
+   Cost: USD 0.42 (measured by codeburn); 1500 tokens; 2 receipts.
+   ```
+
+   A delivery with nothing recorded reads `Cost: not measured`, never zero. A delivery records cost in one currency; amounts are never converted. See [Delivery cost and lead time](#delivery-cost-and-lead-time) for the rules and for cost budgets on standing approvals.
+
 ## What “blank cheque” means here
 
 A user may say, for example:
@@ -510,6 +531,62 @@ Hard limits are optional. The shipped defaults use soft limits only, because a h
 6. **Have the signer write cumulative receipts.** For each observation it builds a signed attestation with `buildMeteringAttestation` from `lib/metering-attestations.mjs` (measurement: `execution_id` = proposal id, the effective `budget_id` and `budget_hash`, `adapter`, cumulative `usage` and `metering: "exact"` per metric, `cumulative: true`, start/end and coverage timestamps, and `signing: { key_id, private_key }`), then a usage receipt with `buildExecutionUsageReceipt` from `lib/execution-budget.mjs` whose `source` is `{ adapter, assurance: "trusted_attested", aggregation: "cumulative", attestation_ref: { id, path, hash } }`, where `hash` is the SHA-256 of the attestation file's bytes.
 7. **Import each receipt** with `agentic-sdlc budget usage record --proposal <id> --receipt-file <receipt.json>`. Cumulative values may never decrease; a regressing receipt is refused and nothing is written.
 8. **Finish with a fresh observation.** At completion the latest exact receipt must cover the whole execution and be no older than `completion_freshness_seconds`.
+
+## Delivery cost and lead time
+
+Assessment budgets limit an assessment. A delivery (one pull request or local release) has no budget of its own, but its cost and lead time are measured with the same records and rules, and a standing approval may limit the cost of the deliveries it covers.
+
+### Lead time
+
+Lead time is derived only from records the lifecycle already writes; nothing extra is recorded to measure it:
+
+| Milestone | Recorded by |
+|---|---|
+| proposed | the delivery choice (`autonomy delivery propose`) |
+| approved | its approval record (`autonomy delivery approve`) |
+| work started | the delivery start receipt (`task start`) |
+| first action | the earliest delivery action receipt |
+| released, ready for review, or closed | a passing `release.local` completion, or the close receipt |
+
+Each stage is the time between two recorded milestones, and the total runs from the proposal to the release or close. A delivery still in progress has stages but no total. **Waiting for a person** adds up the time from a confirmation request to the person's confirmation: from the proposal to the approval when a person approved the delivery directly, and from a recorded request (a standing approval that did not cover a step) to the person's confirmation of that same step. A person's confirmation whose request time was never recorded is counted and reported, not guessed.
+
+### Recording a delivery's usage
+
+`budget usage record`, `budget meter start`, `budget meter record`, and `budget status` take `--delivery <profile-id>` instead of `--proposal <proposal-id>`; assessments keep working exactly as before. New usage is accepted once the delivery is approved and until it is closed or revoked; an identical existing receipt can always be replayed safely.
+
+- **Meter plan.** Receipts are bound to the delivery's meter plan, an execution budget whose metrics (time, steps, tokens, calls, and cost) are measured and never limited (`measure_only`). Only a delivery plan may contain measure-only metrics; an assessment budget is refused if it tries.
+- **One currency.** Cost is recorded in the currency of the standing approval budget the delivery relies on, otherwise in the first `--currency` given (or the currency the meter reports). A cost in another currency is refused; amounts are never converted and are added as exact decimals.
+- **Same fail-closed rules as an assessment.** A new receipt is validated against the recorded history in memory before anything is written. Receipts are append-only and chained into the delivery's usage ledger, so a deleted or edited receipt stops `budget status --delivery`, recording, and every cost check until it is restored. Exact values need a receipt signed by a trusted source and imported with `--receipt-file`; manual input is estimated.
+- **Meter evidence.** An adapter observation is recorded only by `budget meter record`, which runs the meter itself and stores the baseline, snapshot, and delta; an imported receipt that claims to be one is refused. Each time the history is read, an adapter receipt must match its stored delta and a signed receipt must still verify against the configured key, or the delivery's cost is reported as untrusted.
+- **Not measured.** A delivery with no cost recorded reads "not measured". A cost declared by hand is shown as declared, not as measured by a meter.
+
+### Where it shows
+
+`budget status --delivery <profile-id>` lists the meter plans, receipts, cost, tokens, and lead time, and the plan new receipts bind to (`next_receipt_plan`, for a signer that builds exact receipts). `autonomy delivery status` adds `lead_time` and `usage` to each delivery, `status` adds a one-line summary (deliveries finished and in progress, median lead time, time waiting for a person, cost per currency and how many deliveries are not measured; `--full` lists each delivery), and the Change Observatory shows the same figures on each delivery and standing approval. Human output is in English or Italian with `--locale`.
+
+### Cost budgets on standing approvals
+
+`autonomy standing propose` accepts `--budget-per-delivery`, `--budget-total`, and `--currency` only when the project has a source that reports delivery cost: the CodeBurn adapter enabled with its `cost` mapping, or a trusted signed source whose metrics include `cost` (`budget_policy.exact_metering.trusted_sources`). Otherwise it is refused and nothing is recorded, because every step would fall back to a normal confirmation. Amounts are kept as exact decimal strings.
+
+At each delivery step the CLI measures the cost from the delivery's recorded usage, and the standing approval covers the step only when all of these hold; otherwise the step falls back to the normal confirmation with the reason:
+
+1. A meter (an adapter observation or a trusted signed reading) has reported this delivery's cost. A cost declared by hand still counts toward the amounts, but on its own it leaves the delivery not measured.
+2. The latest meter reading is newer than the delivery's last recorded step (its start or any action), so each covered step rests on a fresh reading: run `budget meter record --delivery <profile-id>` before the step.
+3. The delivery's cost is within `--budget-per-delivery`.
+4. The cost of every delivery that used the standing approval, here or in another copy of the project, plus this one, is within `--budget-total`. A delivery among them whose records are not on this computer, or whose cost no meter recorded, makes the total unmeasurable, so the step is not covered.
+
+Before a delivery starts (its proposal and approval under the standing approval) its own cost so far counts, which may be nothing yet, and the total so far must fit. `autonomy standing status` and `status` show what was spent against the budget. A standing approval recorded with numeric amounts by an earlier version is compared exactly too.
+
+### Storage
+
+```text
+.sdlc/autonomy/metering/<profile-id>/plans/DELIVERY-METER-<profile-id>[-<CURRENCY>].json
+.sdlc/autonomy/metering/<profile-id>/usage/<receipt-id>.json
+.sdlc/autonomy/metering/<profile-id>/ledger.json
+.sdlc/autonomy/metering/<profile-id>/meters/<adapter>/{baselines,snapshots,deltas}/
+```
+
+The ledger is the same unkeyed hash chain as an assessment's: it detects removed or edited receipts, not someone who rewrites every file under `.sdlc/`. Rely on a trusted signed source when a delivery's cost must be provable.
 
 ## RTK optimization and the cost gate
 

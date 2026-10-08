@@ -609,7 +609,12 @@ Examples:
 .sdlc/autonomy/standing/SA-FLAGS/approval.json
 .sdlc/autonomy/standing/SA-FLAGS/revocation.json
 .sdlc/autonomy/standing/SA-FLAGS/uses/0001.json
+.sdlc/autonomy/metering/AUT-PR-184/plans/DELIVERY-METER-AUT-PR-184-USD.json
+.sdlc/autonomy/metering/AUT-PR-184/usage/USAGE-AUT-PR-184-....json
+.sdlc/autonomy/metering/AUT-PR-184/ledger.json
 ```
+
+`metering/<profile>/` holds one delivery's usage: its measure-only meter plans (one without cost, and one with the delivery's single cost currency), append-only usage receipts, the hash-chained usage ledger, and meter baselines, snapshots, and deltas under `meters/<adapter>/`. See [Delivery cost and lead time](limits-and-metering.md#delivery-cost-and-lead-time).
 
 `requirement-execution-profile:v1` binds one immutable requirement revision and stores its maximum level, optional phase levels, material scope hash, tools, capabilities, environments, write paths, forbidden actions, checkpoints, exception actions, budget reference, validity, and authority assurance. It is a ceiling, not an executable authorization.
 

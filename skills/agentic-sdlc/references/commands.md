@@ -380,7 +380,7 @@ A standing approval lets similar deliveries proceed without a confirmation for e
 
 For `--destination pull_request`, `--repository <owner/repository>` is required and pushes are confined to head branches under `--head-branch-prefix` (default `standing/<id>/`). The base branch and shared, release, or production branches (`main`, `master`, `develop`, `release/*`, `prod*`, ...) are never covered. A work brief approved under a standing approval must be for a non-release phase, must not allow infrastructure tools (`kubectl`, `terraform`, cloud CLIs, ...), must name a delivery that is new or proposed under the same standing approval, and the briefs it approves never name more deliveries than `--max-deliveries`.
 
-Delivery cost is not measurable yet, so `autonomy standing propose` refuses `--budget-per-delivery` and `--budget-total`: such a standing approval would send every step back to the normal confirmation and never cover anything. A standing approval recorded with a budget by an earlier version still fails closed at every step.
+`--budget-per-delivery`, `--budget-total`, and `--currency` set an optional cost budget, accepted only when a source that reports delivery cost is configured (the CodeBurn adapter with its `cost` mapping, or a trusted signed source whose metrics include `cost`); otherwise propose is refused and nothing is recorded. Amounts are exact decimals. A step is covered only when a meter has reported the delivery's cost after its last recorded step (run `budget meter record --delivery <profile-id>` before each step), the delivery's cost is within the per-delivery budget, and the cost of every delivery that used the standing approval is within the total; a hand-declared cost counts toward the amounts but never makes a delivery measured, and a total that includes a delivery without a metered cost here is not measurable. Otherwise the normal confirmation applies.
 
 ```bash
 node bin/agentic-sdlc.mjs autonomy standing propose \
@@ -416,7 +416,7 @@ node bin/agentic-sdlc.mjs autonomy standing revoke \
   --actor-type human --approval-source explicit-user --summary "Stop the standing approval"
 ```
 
-A delivery proposed with `--standing-approval` turns every allowed delivery action into a confirmation point. Approving the delivery consumes one delivery slot atomically. At each action the CLI re-checks that the standing approval is approved, unexpired, unrevoked, bound to the same project, configuration, policy, and requirement hashes, and that the changes since task start stay inside its paths, file and line limits, and destination; a set budget that cannot be measured is never covered. When everything fits, the action receipt carries a derived approval with `approval_source: standing-approval` and the standing approval id, hash, and slot. Otherwise the command answers `checkpoint_required` with `standing_approval.reasons`, and the normal confirmation applies. A revocation or expiry also stops completing an action authorized under it; confirm the action directly and complete the new authorization with `--authorization-receipt`.
+A delivery proposed with `--standing-approval` turns every allowed delivery action into a confirmation point. Approving the delivery consumes one delivery slot atomically. At each action the CLI re-checks that the standing approval is approved, unexpired, unrevoked, bound to the same project, configuration, policy, and requirement hashes, and that the changes since task start stay inside its paths, file and line limits, and destination, and any cost budget as described above. When everything fits, the action receipt carries a derived approval with `approval_source: standing-approval` and the standing approval id, hash, and slot. Otherwise the command answers `checkpoint_required` with `standing_approval.reasons`, and the normal confirmation applies. A revocation or expiry also stops completing an action authorized under it; confirm the action directly and complete the new authorization with `--authorization-receipt`.
 
 Used slots and revocations are shared through the git remote named by `standing_approval_policy.coordination.remote` (default `origin`) as refs under `refs/agentic-sdlc/standing/<id>/<hash>/`: a slot is claimed on the remote with a create-only push before it is recorded locally, and every covered step fetches those refs first. With `mode: auto` (default) sharing applies when the remote exists; `required` refuses without it; `local_only` never shares. An unreachable remote, a remote other than the one recorded at proposal (renamed, re-pointed, or a fork), a malformed shared record, a record that disappeared from or changed on the remote, a shared revocation, or all slots used elsewhere means the step is not covered and the normal confirmation applies. `autonomy standing approve` is refused inside an agent session (`CLAUDECODE`, `CODEX_THREAD_ID`, or `CODEX_AGENT_NAME` set); the user runs it in their own terminal. Records are pushed to the remote's fetch address, and revocations and used slots are also kept in `refs/agentic-sdlc-local/`, so cleaning or deleting record files never undoes them. `standing revoke` publishes the revocation and reports `shared_revocation.status` (`shared`, `local`, or `failed`); after `failed`, run `standing sync` once the remote is reachable. Never delete or rewrite these refs by hand.
 
@@ -1285,6 +1285,35 @@ as verified. Usage receipts are append-only and bound into a ledger; a deleted o
 edited receipt stops budget status, recording, and completion until it is
 restored. Shipped default limits are soft-only; hard limits need the exact
 metering setup in `docs/limits-and-metering.md`.
+
+## Delivery Cost And Lead Time
+
+```bash
+# Once the delivery is approved: record usage against it, with a meter or by hand.
+node bin/agentic-sdlc.mjs budget meter start --root <project> --delivery AUT-FLAG-12 --adapter codeburn
+node bin/agentic-sdlc.mjs budget meter record --root <project> --delivery AUT-FLAG-12 --adapter codeburn
+node bin/agentic-sdlc.mjs budget usage record --root <project> --delivery AUT-FLAG-12 --input-tokens 1200 --output-tokens 300 --cost-amount 0.42 --currency USD
+# Cost, tokens, and lead time of one delivery; status and autonomy delivery status show them too.
+node bin/agentic-sdlc.mjs budget status --root <project> --delivery AUT-FLAG-12
+```
+
+`--delivery <profile-id>` replaces `--proposal` for a delivery; assessments are
+unchanged. Usage is accepted from approval until close or revocation. Receipts
+bind to the delivery's measure-only meter plan, are validated against the
+recorded history before they are written, and are chained into the delivery's
+ledger; a deleted or edited receipt makes its cost unreadable until restored. A
+delivery records cost in one currency (the standing approval budget's, else the
+first `--currency`, else the meter's); a different currency is refused. Exact
+values need a trusted signed receipt imported with `--receipt-file`; an adapter
+observation is recorded only by `budget meter record`. A delivery with nothing
+recorded reads `not measured`, and a hand-declared cost is shown as declared.
+
+Lead time comes only from existing records: proposed, approved, work started,
+first action, and released, ready for review, or closed, with the time between
+each; waiting for a person runs from a direct-approval proposal to its approval
+and from a recorded standing-approval fallback to the person's confirmation of
+that step. Present these figures in plain language and keep receipt ids as
+technical detail.
 
 ## Activity Reports
 
