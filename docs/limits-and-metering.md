@@ -39,7 +39,7 @@ You do not need keys or extra tools for this. A **soft limit** is a checkpoint: 
    - **Stop:** “Stop now.” Also `assessment proposal cancel`.
 4. **Figures are estimates.** Token counts come from local logs and money from price lists, so treat them as close guides, not invoices. A limit that must be enforced exactly (a **hard limit**) needs a separately run, signed meter; see [Exact metering setup](#exact-metering-setup).
 
-In the default `audit_only` mode the tool records who you said you are but cannot prove it; extension and stop outputs say so. Recorded usage cannot be quietly removed: deleting a usage record stops the budget until it is restored.
+In the default `audit_only` mode the tool records who you said you are but cannot prove it; extension and stop outputs say so. Recorded usage cannot be quietly removed: deleting a usage record stops the budget until it is restored. If no usage is recorded for a metric, the finished work is marked `not_measured` rather than “within budget”.
 
 ## What “blank cheque” means here
 
@@ -233,7 +233,7 @@ Where each setting comes from, highest precedence first:
 3. the `budget_policy.defaults` template (used for the limits when no budget is passed);
 4. the built-in defaults (`[70, 90]` and `15`).
 
-`budget_policy.maxima` caps every new proposal and amendment, for example `{"tokens": 500000, "cost": "20.00"}`: a soft or hard limit above the maximum is refused. `limit_policy.on_warning` must be `notify`, `on_soft_limit` must be `checkpoint`, `on_hard_limit` and `on_metering_violation` must be `stop`, `extensions.automatic_extension` must be `false`, and `extensions.on_limit` must be `request_extension`: these are the only behaviors implemented, so other values are refused instead of being silently ignored.
+`budget_policy.maxima` caps every new proposal and amendment, for example `{"tokens": 500000, "cost": "20.00"}` (a money maximum may also be written as `{"amount": "20.00", "currency": "USD"}`): a soft or hard limit above the maximum is refused. `limit_policy.on_warning` must be `notify`, `on_soft_limit` must be `checkpoint`, `on_hard_limit` and `on_metering_violation` must be `stop`, `extensions.automatic_extension` must be `false`, and `extensions.on_limit` must be `request_extension`: these are the only behaviors implemented, so other values are refused instead of being silently ignored. These rules, and the ranges of the project-wide `warning_thresholds_percent` (1–99) and `completion_reserve_percent` (0–50), are checked when a new proposal or amendment is prepared, not when the configuration is loaded: an older pinned configuration with other values keeps working for existing proposals, and `assessment proposal prepare` names each value to correct before a new budget can use it.
 
 ### Common and custom metrics
 
@@ -401,7 +401,13 @@ steps: used 12 / soft 40 steps (30.0%), hard 60 steps (20.0%); 48 steps left bef
 cost: not measured (soft USD 5.00); no usage receipt has reported this metric, so its limits are not being checked yet.
 ```
 
-`not measured` means no usage receipt has reported the metric yet, so its limit is not being checked. For example, the Codex-session meter measures tokens and calls but not cost; `budget meter start` warns about such metrics when it captures the baseline, and `--json` output lists them as `unmeasured_metrics`.
+`not measured` means no usage receipt has reported the metric yet, so its limit is not being checked. At completion, a budget that is within its limits only because some metrics were never measured is recorded in the release manifest as `not_measured`, with those metrics under `unmeasured_metrics`, and the completion output warns that no usage was recorded so the budget could not be checked. It is never reported as `within_budget`; hard-limited metrics still fail closed without exact coverage. For example, the Codex-session meter measures tokens and calls but not cost; `budget meter start` warns about such metrics when it captures the baseline, and `--json` output lists them as `unmeasured_metrics`.
+
+### Usage ledger and its limit
+
+Usage receipts are append-only. Each recorded receipt is also chained into a usage ledger (count, head hash, and ordered receipt ids and hashes) inside the hash-sealed assessment application record. If a receipt the ledger lists is deleted or edited, `budget status`, `budget usage record`, and `assessment proposal complete` stop with a message that names the receipt, until the original file is restored. A receipt file that exists but is not yet listed (left by an interrupted record) only adds usage; it is counted and registered by the next record.
+
+The seal is a plain hash chain, not a keyed signature: it detects accidental or uncoordinated deletion and editing, but anyone who can rewrite files under `.sdlc/` can recompute it. Protect `.sdlc/` with version control and review, and rely on signed exact metering when usage must be provable.
 
 ## Exact, estimated, and unavailable
 
@@ -772,7 +778,7 @@ node bin/agentic-sdlc.mjs assessment proposal cancel \
   --summary "Stop here; do not extend the budget"
 ```
 
-Cancelling needs the same direct human or CI decision as the approval it ends (`--summary` or `--approval-evidence`; automation cannot cancel on its own). It moves the workflow to `cancelled`, closes the proposal's authorization, and releases nothing. Outputs already linked stay on disk and are listed as `partial_outputs`; recorded usage stays in the budget history. Repeating the command is a no-op. A completed assessment cannot be cancelled, and new work needs a new proposal.
+Cancelling needs the same direct human or CI decision as the approval it ends (`--summary` or `--approval-evidence`; automation cannot cancel on its own). It moves the workflow to `cancelled`, closes the proposal's authorization, and releases nothing. Outputs already linked stay on disk and are listed as `partial_outputs`; recorded usage stays in the budget history. Repeating the command is a no-op. A completed assessment cannot be cancelled, and neither can one whose completion was interrupted after its release manifest was written: run `assessment proposal complete` again to finish that recovery. New work needs a new proposal.
 
 ```mermaid
 stateDiagram-v2
@@ -811,7 +817,7 @@ node bin/agentic-sdlc.mjs budget amend \
 | `--approval-source` | Direct `explicit-user` or `ci` authority; automation cannot extend itself |
 | `--summary` | The approver's own decision in their words (or `--approval-evidence <path>`); required for `explicit-user` and `ci`, separately from `--reason` |
 
-The approval checks are the same as for `assessment proposal approve`. Under the default `audit_only` authority mode the CLI records the declared human or CI identity but cannot prove who ran the command, so the output always carries `authority_assurance_label: audit_only` and the same `authority_note` warning as a proposal approval. Show that warning to the person; never present an audit-only amendment as verified approval.
+The approval checks are the same as for `assessment proposal approve`. Under the default `audit_only` authority mode the CLI records the declared human or CI identity but cannot prove who ran the command, so the output always carries `authority_assurance_label: audit_only` and the same `authority_note` warning as a proposal approval. Show that warning to the person; never present an audit-only amendment as verified approval. New amendments also store the approver's `--summary` as `approval_summary`; replaying an amendment keeps the decision text it was recorded with.
 
 When `authority_policy.mode` is `host_verified`, also provide `--host-receipt-file <path.json>`. That receipt must approve action `budget.amend`, bind the exact proposal/base/result hashes and changes, and carry a valid Ed25519 signature from a configured trusted host key.
 
