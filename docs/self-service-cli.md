@@ -64,9 +64,10 @@ proceed safely until they are resolved:
 
 The JSON view also reports `history_integrity` and `configuration.status`.
 Status uses a cheap consistency check of the history (`check: "quick"`) with
-the status `verified`, `recovery_needed` (an interrupted recording that the
-next event repairs automatically), or `violated`; `trace verify` runs the full
-check. Proposals that wait for a
+the status `consistent`, `recovery_needed` (an interrupted recording that the
+next event repairs automatically), or `violated`. A sealed history whose
+checkpoint was deleted is `violated`. Only the full check of `trace verify`,
+`doctor`, and reports reports `verified`. Proposals that wait for a
 person, such as a proposed requirement, breakdown, dependency order, delivery
 autonomy profile, workflow definition or overlay, or standing approval, count
 as pending decisions and appear in `approval requests` with the exact approve

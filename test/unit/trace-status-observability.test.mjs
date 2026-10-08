@@ -199,11 +199,14 @@ test("status, doctor, and activity reports surface a tampered history prominentl
   assert.match(reportHuman.stdout, /WARNING: history changed unexpectedly/u);
 });
 
-test("an intact history is reported as verified by status and doctor", () => {
+test("an intact history is consistent for status and verified by doctor and trace verify", () => {
   const project = initializedProject("intact");
   appendDecision(project, "Intact decision");
   const status = json(mustRun(["status", "--root", project, "--json"]));
-  assert.equal(status.history_integrity.status, "verified");
+  // status runs only a quick check, so it never claims a full verification.
+  assert.equal(status.history_integrity.status, "consistent");
+  assert.equal(status.history_integrity.check, "quick");
+  assert.equal(json(mustRun(["trace", "verify", "--root", project, "--json"])).status, "verified");
   assert.notEqual(status.next_action.kind, "repair_history");
   const doctor = json(mustRun(["doctor", "--root", project, "--json"]));
   assert.equal(doctor.checks.find((check) => check.id === "trace-integrity").status, "passed");
@@ -631,6 +634,35 @@ test("evidence URLs are kept as references and dotted names inside the project a
   ]));
   assert.deepEqual(appended.event.evidence, ["https://ci.example.test/runs/42", "..reports/r.txt"]);
   assert.deepEqual(appended.evidence_unverified, []);
+
+  for (const reference of ["file:///etc/passwd", "ftp://files.example.test/report.txt", "data:text/plain,hello"]) {
+    const refused = mustFail([
+      "trace", "append", "--root", project, "--type", "decision", "--summary", "other scheme",
+      "--evidence", reference, "--json",
+    ]);
+    assert.match(json(refused).error.message, /inside this project or an http\(s\) URL/u, reference);
+  }
+});
+
+test("status reports a sealed history whose checkpoint was deleted as changed", () => {
+  const project = initializedProject("checkpoint-deleted");
+  appendDecision(project, "Original wording");
+  tamperProjectTrace(project, "Original wording", "Changed wording!");
+  fs.rmSync(path.join(project, ".sdlc", "traces", ".integrity"), { recursive: true, force: true });
+
+  const status = json(mustRun(["status", "--root", project, "--json"]));
+  assert.equal(status.history_integrity.status, "violated");
+  assert.equal(status.next_action.kind, "repair_history");
+  assert.deepEqual(status.history_integrity.files[0].errors, [{ code: "checkpoint_missing", scope: "checkpoint" }]);
+  const verify = json(mustFail(["trace", "verify", "--root", project, "--json"]));
+  assert.equal(verify.status, "violated");
+});
+
+test("status keeps an unsealed legacy history without a checkpoint consistent", () => {
+  const project = initializedProject("legacy-unsealed");
+  fs.writeFileSync(projectTrace(project), `${JSON.stringify(fixtureEvent(1, "Legacy event"))}\n`);
+  const status = json(mustRun(["status", "--root", project, "--json"]));
+  assert.equal(status.history_integrity.status, "consistent");
 });
 
 test("a project with many custom patterns can still record history", () => {
