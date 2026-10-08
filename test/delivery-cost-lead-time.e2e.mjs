@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,9 +8,12 @@ import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { AGENT_HOSTS, AGENT_HOST_OVERRIDE_ENV } from "../lib/agent-host.mjs";
+import { buildExecutionUsageReceipt } from "../lib/execution-budget.mjs";
+import { buildMeteringAttestation } from "../lib/metering-attestations.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = path.join(REPOSITORY_ROOT, "bin", "agentic-sdlc.mjs");
+const CODEBURN_FIXTURE = path.join(REPOSITORY_ROOT, "test", "fixtures", "codeburn", "report-v0.9.15.json");
 const TEMPORARY_PROJECTS = new Set();
 // Every host marker is removed, so the CLI never treats the test as running inside an agent session.
 const ISOLATED_ENVIRONMENT_KEYS = [
@@ -22,6 +26,8 @@ const ISOLATED_ENVIRONMENT_KEYS = [
 const SMOKE = '["node","--version"]';
 const ROLLBACK = "Restore the previous governed local release snapshot.";
 const REQUIREMENTS = ["REQ-TOIL", "REQ-TOIL-2"];
+const METER_PERIOD = ["--project", "DeliveryMetrics", "--from", "2026-07-14", "--to", "2026-07-14"];
+const DAY = 24 * 60 * 60 * 1000;
 
 after(() => {
   if (process.env.AGENTIC_SDLC_KEEP_TEST_TMP === "1") return;
@@ -89,6 +95,14 @@ function humanApproval(summary) {
   return ["--actor-type", "human", "--approval-source", "explicit-user", "--summary", summary];
 }
 
+function isoAfter(milliseconds) {
+  return new Date(Date.now() + milliseconds).toISOString();
+}
+
+function sleep(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
 function implementationIntent(storyId) {
   return JSON.stringify({
     requested_action: "implement_story",
@@ -111,7 +125,7 @@ function initializeProject(label) {
   git(project, ["config", "user.name", "Delivery Metrics E2E"]);
   git(project, ["config", "user.email", "delivery-metrics-e2e@example.invalid"]);
   writeProjectFile(project, "src/index.mjs", "export const ready = true;\n");
-  writeProjectFile(project, ".gitignore", "docs/local-release-*/\n");
+  writeProjectFile(project, ".gitignore", "docs/local-release-*/\nfake-codeburn/\n");
   git(project, ["add", "-A"]);
   git(project, ["commit", "-m", "test: establish base"]);
   for (const requirementId of REQUIREMENTS) {
@@ -133,6 +147,73 @@ function initializeProject(label) {
     ...humanApproval("Approve implementation-summary output format"),
   ], project);
   return project;
+}
+
+/** Re-pins an edited configuration the way a person would. */
+function migrateConfig(project, edit) {
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  edit(config);
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const preview = mustRunJson(["config", "migrate", "--root", project], project);
+  mustRunJson([
+    "config", "migrate", "--root", project, "--apply", "--plan-hash", preview.plan.plan_hash, "--actor-type", "human",
+  ], project);
+}
+
+/**
+ * A stand-in CodeBurn 0.9 executable whose report the test controls: each
+ * reading is a new report generated now, with a cumulative cost in USD.
+ */
+function configureFakeCodeBurn(project) {
+  const toolRoot = path.join(project, "fake-codeburn");
+  fs.mkdirSync(toolRoot, { recursive: true });
+  const reportPath = path.join(toolRoot, "report.json");
+  const runnerPath = path.join(toolRoot, "runner.mjs");
+  fs.writeFileSync(runnerPath, [
+    "import fs from 'node:fs';",
+    `const reportPath = ${JSON.stringify(reportPath)};`,
+    "if (process.argv.includes('--version')) process.stdout.write('codeburn 0.9.15\\n');",
+    "else process.stdout.write(fs.readFileSync(reportPath, 'utf8'));",
+  ].join("\n"));
+  const fixture = JSON.parse(fs.readFileSync(CODEBURN_FIXTURE, "utf8"));
+  let calls = fixture.overview.calls;
+  const setReading = (cost) => {
+    calls += 1;
+    const report = structuredClone(fixture);
+    report.generated = new Date().toISOString();
+    report.overview.cost = cost;
+    report.overview.netCost = cost;
+    report.overview.calls = calls;
+    report.overview.tokens.input += calls * 10;
+    report.overview.tokens.output += calls * 5;
+    report.projects[0].cost = cost;
+    report.projects[0].calls = calls;
+    report.models[0].cost = cost;
+    report.models[0].calls = calls;
+    report.models[0].inputTokens = report.overview.tokens.input;
+    report.models[0].outputTokens = report.overview.tokens.output;
+    fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    // Readings must be strictly later than the step before them.
+    sleep(20);
+  };
+  setReading(1);
+  migrateConfig(project, (config) => {
+    config.budget_policy.metering_adapters.codeburn.enabled = true;
+    config.budget_policy.metering_adapters.codeburn.command = { executable: process.execPath, arguments: [runnerPath] };
+  });
+  return { setReading };
+}
+
+function standingArgs(project, extra = []) {
+  return [
+    "autonomy", "standing", "propose", "--root", project, "--id", "SA-COST",
+    "--recipe", "flag-cleanup", "--description", "Remove one retired feature flag and release it locally",
+    ...REQUIREMENTS.flatMap((item) => ["--requirement", item]),
+    "--write-path", "src", "--write-path", "docs", "--max-changed-files", "10", "--max-changed-lines", "200",
+    "--destination", "local_release", "--max-deliveries", "2", "--expires-at", isoAfter(7 * DAY),
+    ...extra,
+  ];
 }
 
 function createBrief(project, suffix, requirementId) {
@@ -182,6 +263,24 @@ function startTask(project, delivery) {
     "--delivery-profile", delivery.profileId,
   ], project);
   assert.equal(taskStart.execution_allowed, true, JSON.stringify(taskStart, null, 2));
+}
+
+function deliveryAction(project, profileId, action, extra = []) {
+  const result = run(["autonomy", "delivery", "action", "--root", project, "--id", profileId, "--action", action, ...extra, "--json"], project);
+  assert.equal(result.status, 0, `${action}\n${result.stdout}\n${result.stderr}`);
+  return JSON.parse(result.stdout);
+}
+
+function expectFallback(project, profileId, action, pattern) {
+  const payload = deliveryAction(project, profileId, action);
+  assert.equal(payload.status, "checkpoint_required", JSON.stringify(payload));
+  assert.equal(payload.standing_approval?.covered, false, JSON.stringify(payload));
+  assert.match(payload.standing_approval.reasons.join("\n"), pattern);
+  return payload;
+}
+
+function meterRecord(project, profileId) {
+  return mustRunJson(["budget", "meter", "record", "--root", project, "--delivery", profileId, "--adapter", "codeburn", ...METER_PERIOD], project);
 }
 
 test("a delivery records usage, shows its lead time and cost, and keeps its history append-only", () => {
@@ -255,4 +354,207 @@ test("a delivery records usage, shows its lead time and cost, and keeps its hist
   mustFail(["budget", "status", "--root", project, "--delivery", delivery.profileId], project, /does not match its ledger[\s\S]*Missing: USAGE-ONE-COST/u);
   fs.writeFileSync(receiptPath, saved);
   assert.equal(mustRunJson(["budget", "status", "--root", project, "--delivery", delivery.profileId], project).receipts.length, 3);
+});
+
+test("a standing approval budget is refused until delivery cost can be measured", () => {
+  const project = initializeProject("refused");
+  mustFail(
+    standingArgs(project, ["--budget-per-delivery", "1.50", "--budget-total", "2", "--currency", "USD"]),
+    project,
+    /only when this project has a meter that reports delivery cost, and none is configured[\s\S]*metering_adapters\.codeburn\.enabled[\s\S]*Nothing was recorded/u,
+  );
+  mustFail(standingArgs(project, ["--currency", "USD"]), project, /--currency names the currency of a cost budget/u);
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "autonomy", "standing", "SA-COST")), false);
+  configureFakeCodeBurn(project);
+  const proposed = mustRunJson(standingArgs(project, ["--budget-per-delivery", "1.50", "--budget-total", "2", "--currency", "USD"]), project);
+  // Amounts are kept as exact decimal strings.
+  assert.deepEqual(proposed.standing_approval.budget, { currency: "USD", per_delivery_amount: "1.5", total_amount: "2" });
+  assert.match(proposed.plain_language, /The cost measured by a meter stays within USD 1\.50 per delivery and USD 2\.00 in total/u);
+});
+
+test("a standing approval budget covers a step only with a fresh metered cost inside the budget", () => {
+  const project = initializeProject("budget");
+  const meter = configureFakeCodeBurn(project);
+  mustRunJson(standingArgs(project, ["--budget-per-delivery", "1.50", "--budget-total", "2", "--currency", "USD"]), project);
+  mustRunJson(["autonomy", "standing", "approve", "--root", project, "--id", "SA-COST", ...humanApproval("Approve SA-COST")], project);
+
+  const one = prepareDelivery(project, "ONE", { standingId: "SA-COST" });
+  approveDelivery(project, one, "SA-COST");
+  startTask(project, one);
+  writeProjectFile(project, "src/flag-one.mjs", "export const one = false;\n");
+  expectFallback(project, one.profileId, "build.local", /no meter has reported this delivery's cost yet; record it with budget meter record --delivery AUT-ONE/u);
+  const started = mustRunJson(["budget", "meter", "start", "--root", project, "--delivery", one.profileId, "--adapter", "codeburn", ...METER_PERIOD], project);
+  assert.equal(started.status, "created");
+  assert.ok(started.measured_metrics.includes("cost"));
+  meter.setReading(2);
+  const recorded = meterRecord(project, one.profileId);
+  assert.deepEqual(recorded.usage.cost, { amount: "1", currency: "USD" });
+  assert.equal(recorded.usage.cost_status, "metered");
+  const covered = deliveryAction(project, one.profileId, "build.local");
+  assert.equal(covered.status, "authorized", JSON.stringify(covered));
+  assert.equal(covered.action_receipt.approval.approval_source, "standing-approval");
+
+  // Only the meter itself records an adapter observation: an imported one is refused.
+  const plan = mustRunJson(["budget", "status", "--root", project, "--delivery", one.profileId], project).next_receipt_plan.plan;
+  const forged = buildExecutionUsageReceipt({
+    id: "USAGE-FORGED",
+    execution_id: one.profileId,
+    budget: plan,
+    usage: { cost: "0.01" },
+    metering: { cost: "estimated" },
+    ended_at: new Date().toISOString(),
+    source: { adapter: "codeburn", assurance: "advisory_observed", aggregation: "delta", attestation_ref: null },
+  });
+  mustFail(
+    ["budget", "usage", "record", "--root", project, "--delivery", one.profileId, "--receipt-json", JSON.stringify(forged)],
+    project,
+    /claims a meter observation, which only budget meter record --delivery AUT-ONE records/u,
+  );
+  // An edited meter reading makes the delivery's cost untrusted until it is restored.
+  const deltaRoot = path.join(project, ".sdlc", "autonomy", "metering", "AUT-ONE", "meters", "codeburn", "deltas");
+  const deltaFile = path.join(deltaRoot, fs.readdirSync(deltaRoot)[0]);
+  const originalDelta = fs.readFileSync(deltaFile, "utf8");
+  const editedDelta = JSON.parse(originalDelta);
+  editedDelta.usage.cost.amount = "0.01";
+  fs.writeFileSync(deltaFile, JSON.stringify(editedDelta));
+  mustFail(["budget", "status", "--root", project, "--delivery", one.profileId], project, /USAGE-AUT-ONE-codeburn-[a-f0-9]+ of delivery AUT-ONE cannot be trusted: its snapshot or delta failed integrity validation/u);
+  fs.writeFileSync(deltaFile, originalDelta);
+
+  // The second delivery: its own reading is older than its start, then the total is above budget.
+  const two = prepareDelivery(project, "TWO", { requirementId: "REQ-TOIL-2", standingId: "SA-COST" });
+  approveDelivery(project, two, "SA-COST");
+  mustRunJson(["budget", "meter", "start", "--root", project, "--delivery", two.profileId, "--adapter", "codeburn", ...METER_PERIOD], project);
+  meter.setReading(2.1);
+  meterRecord(project, two.profileId);
+  startTask(project, two);
+  writeProjectFile(project, "src/flag-two.mjs", "export const two = false;\n");
+  expectFallback(project, two.profileId, "build.local", /latest meter reading \([^)]+\) is older than the delivery's last recorded step/u);
+  meter.setReading(3.2);
+  meterRecord(project, two.profileId);
+  const total = expectFallback(project, two.profileId, "build.local", /deliveries under this standing approval cost USD 2\.20, above the total budget of USD 2\.00/u);
+  assert.doesNotMatch(total.standing_approval.reasons.join("\n"), /per-delivery budget/u);
+  meter.setReading(3.6);
+  meterRecord(project, two.profileId);
+  expectFallback(project, two.profileId, "build.local", /this delivery cost USD 1\.60, above the per-delivery budget of USD 1\.50/u);
+
+  const standing = mustRunJson(["autonomy", "standing", "status", "--root", project, "--id", "SA-COST"], project);
+  const usage = standing.standing_approvals[0].budget_usage;
+  assert.equal(usage.spent, "2.6");
+  assert.equal(usage.measured, 2);
+  assert.match(mustRun(["autonomy", "standing", "status", "--root", project, "--id", "SA-COST"], project).stdout, /budget USD 1\.50 per delivery, USD 2\.00 total; spent USD 2\.60 over 2 deliveries/u);
+});
+
+const SIGNED_METER = "signed-cost-meter";
+
+function trustSignedCostMeter(project) {
+  const keyPair = generateKeyPairSync("ed25519");
+  migrateConfig(project, (config) => {
+    config.budget_policy.exact_metering = {
+      default_trust: "deny",
+      completion_freshness_seconds: 60,
+      trusted_sources: [{
+        adapter: SIGNED_METER,
+        metrics: ["cost"],
+        trusted_keys: [{
+          key_id: `${SIGNED_METER}-key-1`,
+          algorithm: "Ed25519",
+          public_key: keyPair.publicKey.export({ type: "spki", format: "pem" }).toString(),
+        }],
+      }],
+    };
+  });
+  return keyPair;
+}
+
+/** A signed cumulative cost reading for one delivery, as a trusted meter would write it. */
+function writeSignedCostReceipt(project, keyPair, { id, profileId, plan, amount, startedAt }) {
+  const endedAt = new Date().toISOString();
+  const usage = { cost: amount };
+  const metering = { cost: "exact" };
+  const attestation = buildMeteringAttestation({
+    id: `${id}-ATTESTATION`,
+    measurement: {
+      execution_id: profileId,
+      budget_id: plan.id,
+      budget_hash: plan.budget_hash,
+      adapter: SIGNED_METER,
+      usage,
+      metering,
+      cumulative: true,
+      started_at: startedAt,
+      ended_at: endedAt,
+      coverage_started_at: startedAt,
+      coverage_ended_at: endedAt,
+      final_observation_at: endedAt,
+      enforcement_hook_receipt_ref: null,
+      pricing_ref: null,
+      evidence: [],
+    },
+    issued_at: new Date(Date.parse(endedAt) + 1).toISOString(),
+    valid_from: startedAt,
+    expires_at: null,
+    signing: { key_id: `${SIGNED_METER}-key-1`, private_key: keyPair.privateKey },
+  });
+  const attestationPath = `.sdlc/receipts/metering/${id}.attestation.json`;
+  writeProjectFile(project, attestationPath, `${JSON.stringify(attestation, null, 2)}\n`);
+  const receipt = buildExecutionUsageReceipt({
+    id,
+    execution_id: profileId,
+    budget: plan,
+    usage,
+    metering,
+    started_at: startedAt,
+    ended_at: endedAt,
+    source: {
+      adapter: SIGNED_METER,
+      assurance: "trusted_attested",
+      aggregation: "cumulative",
+      attestation_ref: {
+        id: attestation.id,
+        path: attestationPath,
+        hash: createHash("sha256").update(fs.readFileSync(path.join(project, attestationPath))).digest("hex"),
+      },
+    },
+  });
+  const receiptPath = `.sdlc/receipts/metering/${id}.receipt.json`;
+  writeProjectFile(project, receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+  return { receiptPath, receipt };
+}
+
+test("a trusted signed cost source measures a delivery exactly, and an untrusted reading is refused", () => {
+  const project = initializeProject("signed");
+  const keyPair = trustSignedCostMeter(project);
+  mustRunJson(standingArgs(project, ["--budget-per-delivery", "1", "--currency", "USD"]), project);
+  mustRunJson(["autonomy", "standing", "approve", "--root", project, "--id", "SA-COST", ...humanApproval("Approve SA-COST")], project);
+  const one = prepareDelivery(project, "ONE", { standingId: "SA-COST" });
+  approveDelivery(project, one, "SA-COST");
+  const startedAt = new Date().toISOString();
+  sleep(20);
+  startTask(project, one);
+  writeProjectFile(project, "src/flag-one.mjs", "export const one = false;\n");
+  const status = mustRunJson(["budget", "status", "--root", project, "--delivery", one.profileId], project);
+  // The plan new receipts bind to follows the standing approval's currency.
+  assert.equal(status.next_receipt_plan.currency, "USD");
+  const plan = status.next_receipt_plan.plan;
+  sleep(20);
+  const signed = writeSignedCostReceipt(project, keyPair, { id: "USAGE-SIGNED-1", profileId: one.profileId, plan, amount: "0.5", startedAt });
+  mustFail(
+    ["budget", "usage", "record", "--root", project, "--delivery", one.profileId, "--receipt-json", JSON.stringify(signed.receipt)],
+    project,
+    /exact values cannot be declared manually or supplied inline/u,
+  );
+  const otherKey = generateKeyPairSync("ed25519");
+  const forged = writeSignedCostReceipt(project, otherKey, { id: "USAGE-FORGED-1", profileId: one.profileId, plan, amount: "0.01", startedAt });
+  mustFail(
+    ["budget", "usage", "record", "--root", project, "--delivery", one.profileId, "--receipt-file", forged.receiptPath],
+    project,
+    /is not trusted by this project \(fail-closed\)/u,
+  );
+  const recorded = mustRunJson(["budget", "usage", "record", "--root", project, "--delivery", one.profileId, "--receipt-file", signed.receiptPath], project);
+  assert.equal(recorded.usage.cost_status, "metered");
+  assert.deepEqual(recorded.usage.cost, { amount: "0.5", currency: "USD" });
+  assert.deepEqual(recorded.usage.metered_sources, [SIGNED_METER]);
+  const covered = deliveryAction(project, one.profileId, "build.local");
+  assert.equal(covered.status, "authorized", JSON.stringify(covered));
+  assert.equal(covered.action_receipt.approval.approval_source, "standing-approval");
 });

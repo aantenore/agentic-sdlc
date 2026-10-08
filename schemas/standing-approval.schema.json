@@ -113,8 +113,8 @@
           "required": ["currency", "per_delivery_amount", "total_amount"],
           "properties": {
             "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
-            "per_delivery_amount": { "type": ["number", "null"], "exclusiveMinimum": 0 },
-            "total_amount": { "type": ["number", "null"], "exclusiveMinimum": 0 }
+            "per_delivery_amount": { "$ref": "#/$defs/budget_amount" },
+            "total_amount": { "$ref": "#/$defs/budget_amount" }
           },
           "additionalProperties": false
         }
@@ -153,7 +153,15 @@
     "hash_algorithm": { "const": "sha256:stable-json:v1" }
   },
   "$defs": {
-    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "budget_amount": {
+      "description": "A positive amount: an exact decimal string, or a number recorded by an earlier version.",
+      "oneOf": [
+        { "type": "null" },
+        { "type": "number", "exclusiveMinimum": 0 },
+        { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,6})?$" }
+      ]
+    }
   },
   "additionalProperties": false
 }
