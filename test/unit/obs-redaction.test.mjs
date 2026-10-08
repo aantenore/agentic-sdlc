@@ -536,3 +536,88 @@ test("the bounded URL userinfo detector completes on maximum-size ambiguous inpu
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, "completed");
 });
+
+test("operational policy redacts extended vendor tokens and command-line credentials", () => {
+  const policy = createOperationalRedactionPolicy();
+  // Credential-shaped values are assembled at runtime so the source tree never
+  // contains a literal that a secret scanner would flag.
+  const vendorTokens = [
+    ["ASIA", "Q".repeat(16)].join(""),
+    ["AIza", "Sy", "k".repeat(33)].join(""),
+    ["npm", "_", "n".repeat(36)].join(""),
+    ["hf", "_", "h".repeat(34)].join(""),
+    ["rk", "_live_", "r".repeat(24)].join(""),
+    ["rk", "_test_", "t".repeat(24)].join(""),
+    ["SG", ".", "s".repeat(22), ".", "g".repeat(43)].join(""),
+    ["gldt", "-", "d".repeat(24)].join(""),
+    ["https://hooks.slack.com/", "services/", "T0000/B0000/", "w".repeat(24)].join(""),
+  ];
+  for (const token of vendorTokens) {
+    assert.equal(redactText(token, policy), REDACTION_PLACEHOLDER, token.slice(0, 6));
+    assert.equal(redactText(`value ${token} end`, policy), `value ${REDACTION_PLACEHOLDER} end`);
+  }
+  const spaced = ["mysql --password ", "hunter", "22 --host db"].join("");
+  assert.equal(redactText(spaced, policy), `mysql --password ${REDACTION_PLACEHOLDER} --host db`);
+  assert.equal(
+    redactText(['cli --token "two ', 'words"'].join(""), policy),
+    `cli --token ${REDACTION_PLACEHOLDER}`,
+  );
+  const curl = ["curl -u admin", ":", "s3cret https://example.test/"].join("");
+  assert.equal(redactText(curl, policy), `curl -u ${REDACTION_PLACEHOLDER} https://example.test/`);
+  const registryAuth = Buffer.from(["user", "pass"].join(":")).toString("base64");
+  const dockerConfig = JSON.stringify({ auths: { "registry.test": { auth: registryAuth } } });
+  assert.equal(
+    redactText(dockerConfig, policy),
+    `{"auths":{"registry.test":{"auth":"${REDACTION_PLACEHOLDER}"}}}`,
+  );
+});
+
+test("extended detectors keep look-alike identifiers and options readable", () => {
+  const policy = createOperationalRedactionPolicy();
+  for (const benign of [
+    "hf_hub_download",
+    "ASIA trip report",
+    "SG.config loaded",
+    "npm_config_cache",
+    "npm run test -- --pass",
+    "--password-file secrets.txt",
+    "--user alice",
+    "tool -u origin",
+    '{"auth":"required"}',
+    "https://hooks.example.test/services/abcdefgh",
+  ]) {
+    assert.equal(redactText(benign, policy), benign, benign);
+  }
+});
+
+test("previously written operational_v2 policy sources stay verifiable after detector additions", async () => {
+  const { assertTraceEvidencePolicySourceSafety } = await import("../../lib/lifecycle/output.mjs");
+  const { createOperationalBaselineRedactionPolicy } = await import("../../lib/observability/redaction.mjs");
+  const stored = JSON.parse(JSON.stringify(describeRedactionPolicy(createOperationalBaselineRedactionPolicy())));
+  assert.doesNotThrow(() => assertTraceEvidencePolicySourceSafety(stored));
+  const current = JSON.parse(JSON.stringify(describeRedactionPolicy(createOperationalRedactionPolicy())));
+  assert.doesNotThrow(() => assertTraceEvidencePolicySourceSafety(current));
+  assert.equal(current.detectors.length > stored.detectors.length, true);
+  const historical = describeRedactionPolicy(createHistoricalOperationalEvidenceV1RedactionPolicy());
+  assert.deepEqual(historical.detectors, stored.detectors);
+});
+
+test("extended detectors complete on maximum-size adversarial input", () => {
+  const moduleUrl = new URL("../../lib/observability/redaction.mjs", import.meta.url).href;
+  const script = [
+    `import { createOperationalRedactionPolicy, redactText } from ${JSON.stringify(moduleUrl)};`,
+    "const policy = createOperationalRedactionPolicy();",
+    "redactText(' --password'.repeat(23_000), policy);",
+    "redactText(' -u '.repeat(60_000), policy);",
+    "redactText('\"auth\": \"'.repeat(25_000), policy);",
+    "redactText('SG.' + 'a'.repeat(262_000), policy);",
+    "process.stdout.write('completed');",
+  ].join("\n");
+  const result = spawnSync(process.execPath, ["--input-type=module", "--eval", script], {
+    encoding: "utf8",
+    timeout: 4_000,
+  });
+  assert.equal(result.error, undefined, "extended detection exceeded the safety deadline");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, "completed");
+});
