@@ -833,6 +833,15 @@ The dedicated assessment journey remains the exception described above: it packa
 
    When `gate_policy.merge_requires_code_review` is `true`, `pull_request.merge` is refused (exit `1`) until an approved review exists for the exact head being merged by a reviewer whose actor and Git email differ from every commit author of the pull request. Any new commit on the head branch needs a new review. Never record a review on behalf of someone who did not read the diff, and never record an approval as the author of the change.
 
+   Put the recorded checks in the pull-request description. The host writes that description, so before it creates or updates the pull request, print the table and include it unchanged:
+
+   ```bash
+   node <plugin-root>/bin/agentic-sdlc.mjs autonomy delivery checks \
+     --root <target-project> --id AUT-PR-001
+   ```
+
+   The table lists the test and smoke runs, the secret scan, the code review gate, the strict and lifecycle-complete gate receipts, the standing approval the delivery used, and its budget decision, each as `[PASS]`, `[FAIL]`, or `[NOT RUN]` with project-relative evidence links. It only reports what was recorded and re-runs nothing, so record the test, scan, and review evidence first, print it again after any later change, and never edit a status by hand. `autonomy delivery action` returns the exact command as `pull_request_body_checks.command` when it authorizes `pull_request.create` or `pull_request.update`.
+
    Keep `actor` as the executor. When an agent acts because a human or another system requested it, record `requested_by`; when execution was explicitly authorized, record `authorized_by`. This lets reports answer both "what did Codex execute?" and "what was done on Antonio's request?" without rewriting attribution. Narrative flags are optional; when used, store only shareable summaries derived from recorded evidence. Never put private chain-of-thought, hidden scratch reasoning, or secrets in a trace narrative.
 
 16. When a phase lane is complete, record the step with hashed evidence. `story complete-step` requires the story contract to be approved and fresh unless `--allow-unapproved-contract-output` is being used for explicit migration/recovery. If the step produced a durable artifact, pass `--type` so the CLI verifies the output is linked in the registry:

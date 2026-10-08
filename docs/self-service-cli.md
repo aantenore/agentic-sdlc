@@ -341,6 +341,31 @@ configuration never declared it keeps the merge gate it agreed to, and adopts
 the check by initializing from the current template or migrating through
 `config migrate`.
 
+## Print the recorded checks of a pull request
+
+`autonomy delivery checks` (effect: read) prints the table of checks recorded
+for one pull-request delivery, ready to paste into the pull-request
+description. It never runs or repairs anything.
+
+```bash
+node "$PLUGIN_CLI" autonomy delivery checks --root /path/to/project \
+  --id AUT-PR-BOOKING > checks.md
+node "$PLUGIN_CLI" autonomy delivery checks --root /path/to/project \
+  --id AUT-PR-BOOKING --format json
+```
+
+| Input | Purpose |
+|---|---|
+| `--id` | The pull-request delivery profile. A local release is refused. |
+| `--format` | `markdown` (default) or `json`. `--json` selects JSON; combining it with `--format markdown` is refused. |
+| `--locale` | `en` or `it` for the Markdown table. JSON is language neutral. |
+
+The output is the table alone, with no envelope or correlation ID, so the same
+records always give the same bytes. Rows are `[PASS]`, `[FAIL]`, or
+`[NOT RUN]`; a check with no record is never a pass. See
+[How it works](how-it-works.md#the-pull-request-description-lists-what-was-recorded)
+for what each row reads.
+
 ## Verify the project history
 
 Each history file under `.sdlc/traces` is sealed into a local hash chain with a

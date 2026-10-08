@@ -756,6 +756,7 @@ node bin/agentic-sdlc.mjs assessment proposal status --root /path/to/project --i
 node bin/agentic-sdlc.mjs budget meter start --root /path/to/project --proposal ASSESSMENT-001
 node bin/agentic-sdlc.mjs budget meter record --root /path/to/project --proposal ASSESSMENT-001
 node bin/agentic-sdlc.mjs budget status --root /path/to/project --proposal ASSESSMENT-001 --json
+node bin/agentic-sdlc.mjs autonomy delivery checks --root /path/to/project --id AUT-PR-184
 node bin/agentic-sdlc.mjs gate check --root /path/to/project --scope release-manifest --release-manifest RELEASE-ASSESSMENT-001 --strict --json
 node bin/agentic-sdlc.mjs migration active --root /path/to/project --release-manifest RELEASE-ASSESSMENT-001
 node bin/agentic-sdlc.mjs migration active --root /path/to/project --release-manifest RELEASE-ASSESSMENT-001 --apply
@@ -765,6 +766,8 @@ node bin/agentic-sdlc.mjs migration identity --root /path/to/project --recover -
 ```
 
 Natural-language interpretation stays in Codex. The CLI accepts canonical structured intent and performs deterministic state, format, authorization, and evidence checks.
+
+`autonomy delivery checks` prints the checks that were actually recorded for one pull-request delivery as a Markdown table for the pull-request description: test and smoke runs, the secret scan, the code review gate, the strict and lifecycle-complete gate receipts, the standing approval the delivery used, and its budget decision. Each row is `[PASS]`, `[FAIL]`, or `[NOT RUN]`; nothing is re-run, a check nobody recorded is never shown as a pass, and recorded commands go through the privacy redaction before printing. `--format json` prints the same facts as deterministic JSON. See [How It Works](docs/how-it-works.md#the-pull-request-description-lists-what-was-recorded).
 
 The default budget meter is bundled. It reads cumulative `token_count` events
 from the exact local Codex task, selected by `CODEX_THREAD_ID`, and advances an
