@@ -371,5 +371,11 @@ test("commands are shown as recorded and quoted only where a shell would need it
   assert.equal(displayCommand(["npm", "run", "test:unit"]), "npm run test:unit");
   assert.equal(displayCommand(["node", "-e", "console.log('x y')"]), "node -e 'console.log('\\''x y'\\'')'");
   assert.equal(displayCommand(["echo", ""]), "echo ''");
-  assert.ok(displayCommand(["x".repeat(500)]).length <= 200);
+  // The model keeps the whole command; only the rendered table shortens it.
+  assert.equal(displayCommand(["x".repeat(500)]).length, 500);
+  const long = buildPullRequestChecks({ delivery: delivery(), tests: [testRun({ argv: ["x".repeat(500)] })] });
+  assert.equal(rowFor(long, "tests")[0].subject.length, 500);
+  const row = renderPullRequestChecksMarkdown(long).split("\n").find((line) => line.startsWith("| Tests |"));
+  assert.match(row, /`x{199}…`/u);
+  assert.ok(!row.includes("x".repeat(200)));
 });
