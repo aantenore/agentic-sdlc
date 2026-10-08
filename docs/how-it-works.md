@@ -240,6 +240,17 @@ agentic-sdlc baseline approve \
 
 If a hashed baseline source changes after approval, proposal application fails. Codex must refresh the baseline and ask for checkpoint 1 again; an old approval cannot authorize a new context.
 
+The baseline also records the directories it was discovered from and the discovery policy in force (`source_discovery`). Every freshness check rediscovers those directories, so a file created after approval, for example by a delivered story, makes the baseline stale in the same way as a changed file. The next task cannot start until the baseline is refreshed:
+
+```bash
+agentic-sdlc baseline propose --id BASELINE-INITIAL --force \
+  --summary "Current state after the delivered work"
+```
+
+The only exception is a file created by the task currently running, inside every write scope its approved requirements allow. Baselines prepared before this record existed keep the previous behavior until their next refresh.
+
+The directories read by default are listed in `baseline_policy.source_roots` and `baseline_policy.test_roots` when the project sets them, and otherwise in the shared defaults (`src`, `app`, `lib`, `packages`, `services`, `cmd`, `internal`, `pkg`, `test`, `tests`, and similar). File types come from `baseline_policy.source_extensions`.
+
 ### Checkpoint 2: approve one complete tranche
 
 The proposal includes the exact:

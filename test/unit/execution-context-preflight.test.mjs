@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildExecutionContextPreflightReceipt,
   computeExecutionContextPreflightHash,
+  executionContextNewSourceDecision,
   executionContextSnapshotRevalidationDecision,
   executionContextSourceEvolutionDecision,
   validateExecutionContextPreflightReceipt,
@@ -123,6 +124,45 @@ test("preflight authorizes evolution only inside every approved requirement scop
   });
   assert.equal(wrongBinding.allowed, false);
   assert.equal(wrongBinding.reason, "source_binding_mismatch");
+});
+
+test("a file absent from the sealed snapshot is accepted only as a new file inside every write scope", () => {
+  const receipt = buildExecutionContextPreflightReceipt(receiptInput());
+  const decide = (filePath) => executionContextNewSourceDecision(receipt, {
+    story_ref: receipt.story_ref,
+    contract_ref: receipt.contract_ref,
+    delivery_profile_ref: receipt.delivery_profile_ref,
+    path: filePath,
+  });
+  // docs/ is in the first scope only; src/ is in the second scope only.
+  assert.deepEqual(
+    [decide("docs/new.md").reason, decide("src/new.mjs").reason],
+    ["outside_requirement_write_scope", "outside_requirement_write_scope"],
+  );
+  assert.equal(decide("src/app.mjs").reason, "source_was_snapshotted");
+  assert.equal(decide("src/config.mjs").reason, "source_predates_start");
+
+  const singleScope = buildExecutionContextPreflightReceipt({
+    ...receiptInput(),
+    requirement_scopes: [receiptInput().requirement_scopes[1]],
+  });
+  const created = executionContextNewSourceDecision(singleScope, {
+    story_ref: singleScope.story_ref,
+    contract_ref: singleScope.contract_ref,
+    delivery_profile_ref: singleScope.delivery_profile_ref,
+    path: "./src/new.mjs",
+  });
+  assert.equal(created.allowed, true);
+  assert.equal(created.reason, "authorized_post_start_creation");
+
+  const tampered = structuredClone(singleScope);
+  tampered.requirement_scopes[0].allowed_write_paths = ["."];
+  assert.equal(executionContextNewSourceDecision(tampered, {
+    story_ref: tampered.story_ref,
+    contract_ref: tampered.contract_ref,
+    delivery_profile_ref: tampered.delivery_profile_ref,
+    path: "src/new.mjs",
+  }).reason, "preflight_invalid");
 });
 
 test("preflight rejects pre-start source drift and detects receipt tampering", () => {

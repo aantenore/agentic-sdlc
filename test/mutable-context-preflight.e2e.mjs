@@ -542,3 +542,88 @@ test("a dirty submodule cannot be exempted as unchanged pre-existing workspace s
   assert.equal(fs.existsSync(path.join(project, fixture.preflightPath)), false);
   assert.equal(fs.existsSync(path.join(project, fixture.taskStartPath)), false);
 });
+
+test("files created after baseline approval make the baseline stale until it is refreshed", () => {
+  const project = temporaryProject("uncovered-new-file");
+  const fixture = establishBrownfieldGovernance(project);
+  const baseline = readJson(project, ".sdlc/baseline/BASELINE-INITIAL.json");
+  assert.deepEqual(baseline.source_discovery.requested_paths, ["src"]);
+  assert.ok(baseline.source_discovery.policy.source_extensions.includes(".mjs"));
+
+  // A file the earlier work added under a discovered root is invisible to the
+  // hashed source list, so the next task must not start from the old snapshot.
+  writeProjectFile(project, "src/feature.mjs", "export const feature = true;\n");
+  const failed = mustFail([
+    "task", "preflight",
+    ...taskContextArgs(project),
+    "--json",
+  ], project, /baseline_not_ready/u);
+  const blocked = JSON.parse(failed.stdout);
+  assert.equal(blocked.execution_allowed, false);
+  const refreshRequest = blocked.task_start.approval_requests
+    .find((request) => request.type === "baseline_refresh_required");
+  assert.match(JSON.stringify(refreshRequest), /src\/feature\.mjs/u);
+  assert.equal(fs.existsSync(path.join(project, fixture.preflightPath)), false);
+
+  const status = mustRunJson([
+    "baseline", "status",
+    "--root", project,
+    "--id", "BASELINE-INITIAL",
+  ], project);
+  assert.match(JSON.stringify(status), /src\/feature\.mjs/u);
+
+  mustRun([
+    "baseline", "propose",
+    "--root", project,
+    "--id", "BASELINE-INITIAL",
+    "--document", "README.md",
+    "--source", "src/app.mjs",
+    "--source", "src/config.mjs",
+    "--force",
+    "--summary", "The project now includes the delivered feature module.",
+  ], project);
+  const refreshed = readJson(project, ".sdlc/baseline/BASELINE-INITIAL.json");
+  assert.ok(refreshed.source_paths.includes("src/feature.mjs"));
+  mustRun([
+    "baseline", "approve",
+    "--root", project,
+    "--id", "BASELINE-INITIAL",
+    ...humanApproval("The refreshed snapshot includes the delivered feature"),
+  ], project);
+});
+
+test("a file created by the started task inside its write scope keeps the baseline usable", () => {
+  const project = temporaryProject("authorized-new-file");
+  establishBrownfieldGovernance(project);
+  mustRun([
+    "task", "start",
+    ...taskContextArgs(project),
+    "--confirm-start",
+    "--actor-type", "human",
+  ], project);
+  mustRun([
+    "story", "claim",
+    "--root", project,
+    "--id", "ST-BROWNFIELD",
+    "--agent", "codex",
+  ], project);
+  writeProjectFile(project, "src/app.mjs", "export function status() {\n  return { status: \"ready\" };\n}\n");
+  writeProjectFile(project, "docs/implementation-summary.md", "# Implementation summary\n\nReady.\n");
+  mustRun([
+    "output", "link",
+    "--root", project,
+    "--story", "ST-BROWNFIELD",
+    "--type", "implementation-summary",
+    "--artifact", "docs/implementation-summary.md",
+    "--template", "implementation-summary-v1",
+    "--mode", "new",
+    "--requirement", "REQ-BROWNFIELD",
+  ], project);
+  const gateArgs = ["gate", "check", "--root", project, "--scope", "story", "--story", "ST-BROWNFIELD", "--strict"];
+  assert.equal(mustRunJson(gateArgs, project).status, "passed");
+
+  // src/config.mjs is outside the requirement write scope, so a sibling file
+  // created there by the task is still reported against the baseline.
+  writeProjectFile(project, "src/extra.mjs", "export const extra = 1;\n");
+  mustFail([...gateArgs, "--json"], project, /does not describe src\/extra\.mjs/u);
+});

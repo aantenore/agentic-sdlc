@@ -144,3 +144,29 @@ test("symlinks are excluded from recursive discovery", { skip: process.platform 
   assert.deepEqual(result.paths, ["src/real.mjs"]);
   assert.deepEqual(result.excluded, [{ path: "src/alias.mjs", reason: "symlink" }]);
 });
+
+test("baseline roots come from the project policy and fall back to the shared defaults", async (t) => {
+  const project = fixture();
+  t.after(() => fs.rmSync(project.root, { recursive: true, force: true }));
+  project.write("src/a.mjs");
+  project.write("services/billing/b.cs");
+  project.write("checks/c.mjs");
+  const { inferSourceRoots, inferTestRoots } = await import("../../lib/engine/project.mjs");
+
+  const defaults = { root: project.root, config: { baseline_policy: {} } };
+  assert.deepEqual(inferSourceRoots(defaults), ["src", "services"]);
+  assert.deepEqual(inferTestRoots(defaults), []);
+
+  const configured = {
+    root: project.root,
+    config: { baseline_policy: { source_roots: ["services", "missing"], test_roots: ["checks"] } },
+  };
+  assert.deepEqual(inferSourceRoots(configured), ["services"]);
+  assert.deepEqual(inferTestRoots(configured), ["checks"]);
+
+  const discovered = discoverBaselineSourcePaths({
+    projectRoot: project.root,
+    requestedPaths: inferSourceRoots(defaults),
+  });
+  assert.deepEqual(discovered.paths, ["services/billing/b.cs", "src/a.mjs"]);
+});
