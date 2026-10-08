@@ -434,3 +434,31 @@ test("trace append refuses evidence outside the project and flags missing eviden
   assert.deepEqual(present.event.evidence, ["notes.txt"]);
   assert.deepEqual(present.evidence_unverified, []);
 });
+
+test("status and approval requests list a proposed requirement waiting for approval", () => {
+  const project = initializedProject("proposed-requirement");
+  mustRun([
+    "requirement", "propose", "--root", project,
+    "--id", "REQ-BOOKING-001",
+    "--title", "Reliable booking confirmation",
+    "--summary", "Confirm a booking once",
+    "--acceptance", "One confirmation reference",
+    "--autonomy-ceiling", "checkpointed",
+    "--write-path", "src",
+    "--json",
+  ]);
+  const status = json(mustRun(["status", "--root", project, "--json"]));
+  assert.equal(status.summary.pending_decisions, 1);
+  assert.equal(status.next_action.kind, "review_decision");
+
+  const requests = json(mustRun(["approval", "requests", "--root", project, "--json", "--full"]));
+  assert.equal(requests.status, "needs_user_input");
+  const request = requests.requests.find((item) => item.type === "requirement_approval");
+  assert.ok(request, JSON.stringify(requests));
+  assert.equal(request.subject_id, "REQ-BOOKING-001");
+  assert.match(request.suggested_command, /^agentic-sdlc requirement approve --id REQ-BOOKING-001 /u);
+  const human = mustRun(["approval", "requests", "--root", project]);
+  assert.match(human.stdout, /1\. Proposed requirement/u);
+  const italian = mustRun(["approval", "requests", "--root", project, "--locale", "it"]);
+  assert.match(italian.stdout, /1\. Requisito proposto/u);
+});
