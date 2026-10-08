@@ -161,7 +161,7 @@ budget status
 assessment proposal complete
 ```
 
-Supporting commands are `requirement propose|approve|revise|supersede|status` and, for an approved exceptional change, `budget amend`. `requirement create` remains only a compatibility alias for proposal creation; it must not bypass approval.
+Supporting commands are `requirement propose|approve|revise|supersede|status`, for an approved exceptional change `budget amend`, and, when the person decides to stop at an exception (with or without a partial result), `assessment proposal cancel`. `requirement create` remains only a compatibility alias for proposal creation; it must not bypass approval.
 
 - `assessment proposal approve` validates the unchanged proposal hash, records the host approval, and creates a proposal-bound content authorization.
 - `assessment proposal apply` applies the displayed write-set idempotently. A partial failure is resumed through workflow state, not a new normal checkpoint.

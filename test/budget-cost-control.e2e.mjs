@@ -518,6 +518,66 @@ test("a deleted usage receipt is detected through the ledger and blocks budget d
   assert.deepEqual(readJson(applicationPath).usage_ledger.receipts.map((entry) => entry.id), ["USAGE-A", "USAGE-B", "USAGE-ORPHAN", "USAGE-C"]);
 });
 
+test("an assessment paused at a budget checkpoint can be stopped with a partial result", () => {
+  const { project, prepared } = runningAssessment("budget-cancel", {
+    limits: { tokens: { unit: "tokens", metering: "estimated", soft: 1000 } },
+  });
+  const artifact = ".sdlc/stories/ST-ASSESS-1/outputs/technical-assessment.md";
+  fs.mkdirSync(path.dirname(path.join(project, artifact)), { recursive: true });
+  fs.writeFileSync(path.join(project, artifact), "# Technical assessment\n\n## Evidence\nVerified findings so far.\n");
+  const authorization = readJson(path.join(project, ".sdlc", "assessments", "workflows", "ASSESS-1.json")).authorization_ref;
+  mustRun([
+    "output", "link", "--root", project, "--story", "ST-ASSESS-1", "--type", "technical-analysis",
+    "--artifact", artifact, "--template", prepared.proposal.deliverable.template_id, "--mode", "new",
+    "--requirement", "REQ-ASSESS-1", "--authorization", authorization,
+  ]);
+  const paused = JSON.parse(mustRun([
+    "budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1",
+    "--input-tokens", "1000", "--output-tokens", "0", "--json",
+  ]).stdout);
+  assert.equal(paused.status, "exception_pending");
+  assert.match(paused.assistant_message, /assessment proposal cancel --id ASSESS-1/u);
+  const status = JSON.parse(mustRun(["assessment", "proposal", "status", "--root", project, "--id", "ASSESS-1", "--json"]).stdout);
+  assert.match(JSON.stringify(status), /assessment proposal cancel --id ASSESS-1/u);
+
+  const cancel = (...flags) => ["assessment", "proposal", "cancel", "--root", project, "--id", "ASSESS-1", ...flags];
+  const reason = ["--reason", "Stop at the budget checkpoint and keep the verified findings"];
+  mustFail(cancel(...humanApproval("Stop here")), /needs --reason/u);
+  mustFail(cancel(...reason, "--actor-type", "agent", "--approval-source", "explicit-user", "--summary", "Stop"), /requires --actor-type human or an approved CI actor/u);
+  mustFail(
+    cancel(...reason, "--actor-type", "agent", "--approval-source", "automation", "--summary", "I stop myself"),
+    /requires direct explicit-user or CI approval/u,
+  );
+  mustFail(cancel(...reason, "--actor-type", "human", "--approval-source", "explicit-user"), /requires --summary or --approval-evidence/u);
+  assert.equal(readJson(path.join(project, ".sdlc", "assessments", "workflows", "ASSESS-1.json")).state, "exception_pending");
+
+  const cancelled = JSON.parse(mustRun(cancel(...reason, ...humanApproval("Stop here; do not extend the budget"), "--json")).stdout);
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal(cancelled.previous_state, "exception_pending");
+  assert.equal(cancelled.released, false);
+  assert.deepEqual(cancelled.partial_outputs, [artifact]);
+  assert.equal(cancelled.authorization_ref, authorization);
+  assert.equal(cancelled.authorization_status, "closed");
+  assert.match(cancelled.authority_note, /cannot independently prove/u);
+  assert.equal(cancelled.workflow.state, "cancelled");
+  assert.match(cancelled.workflow.history.at(-1).reason, /explicit-user decision \(Stop here; do not extend the budget\)/u);
+  assert.equal(JSON.parse(mustRun(cancel(...reason, ...humanApproval("Stop here; do not extend the budget"), "--json")).stdout).idempotent, true);
+
+  mustFail(
+    ["budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1", "--input-tokens", "1", "--output-tokens", "0"],
+    /ASSESS-1 is cancelled/u,
+  );
+  mustFail([
+    "budget", "amend", "--root", project, "--proposal", "ASSESS-1", "--id", "BAMEND-AFTER-CANCEL",
+    "--budget-json", JSON.stringify({ limits: { tokens: { soft: 2000 } } }),
+    "--reason", "Too late", ...humanApproval("Extend"),
+  ], /current state is cancelled/u);
+  mustFail(
+    ["assessment", "proposal", "complete", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent"],
+    /cancelled/u,
+  );
+});
+
 test("meter setup errors say how to continue", () => {
   const { project } = runningAssessment("budget-meter-errors", {
     limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10_000 } },

@@ -720,7 +720,7 @@ flowchart TD
   A --> RE{"Re-evaluate all cumulative usage"}
   RE -->|"allowed"| C
   RE -->|"still blocked"| E
-  Q -->|"no extension"| P["Stop or report a clearly non-released partial result"]
+  Q -->|"no extension"| P["assessment proposal cancel:<br/>stop, keeping any linked output as a<br/>non-released partial result"]
 
   B -->|"new scope, tool, path, access,<br/>secret, production, or destructive action"| NP["Prepare a new proposal or explicit boundary decision"]
   I["Invalid hash, signature, receipt,<br/>schema, or stale source"] --> F["Fail closed; do not advance state"]
@@ -737,6 +737,8 @@ Approve 20 additional active minutes for ASSESS-001, changing the total from 60 
 ```text
 Do not extend the budget. Stop and report the evidence collected so far as a non-released partial result, including every unmet acceptance criterion.
 ```
+
+The "no extension" answer is recorded with `agentic-sdlc assessment proposal cancel --id <proposal> --reason <text>` and the same direct human or CI approval flags as the proposal approval. It moves the workflow to `cancelled`, closes the proposal authorization, releases nothing, and lists already linked outputs as the non-released partial result.
 
 A budget amendment changes only the displayed limits. It cannot authorize a new artifact, path, tool, external system, secret, production action, destructive operation, or wider scope. If the amended budget is still exceeded, the workflow remains `exception_pending`.
 

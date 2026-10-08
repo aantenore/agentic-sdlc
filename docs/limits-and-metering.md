@@ -716,9 +716,21 @@ The workflow enters `exception_pending` when a soft limit, hard limit, metering 
 
 The user then chooses one of three outcomes:
 
-- **Amend:** approve a new, versioned, extension-only budget.
-- **Partial delivery:** stop new work and return only the evidence or artifact portions already completed and verified, clearly marked as a non-released partial result.
-- **Stop:** cancel the tranche and perform no further work.
+- **Amend:** approve a new, versioned, extension-only budget with `budget amend`.
+- **Partial delivery:** stop new work and keep only the evidence or artifact portions already linked and verified, clearly marked as a non-released partial result. Record it with `assessment proposal cancel`.
+- **Stop:** cancel the tranche and perform no further work, also with `assessment proposal cancel`.
+
+```bash
+node bin/agentic-sdlc.mjs assessment proposal cancel \
+  --root /path/to/project \
+  --id ASSESS-001 \
+  --reason "Stop at the budget checkpoint and keep the verified findings as a partial result" \
+  --actor-type human \
+  --approval-source explicit-user \
+  --summary "Stop here; do not extend the budget"
+```
+
+Cancelling needs the same direct human or CI decision as the approval it ends (`--summary` or `--approval-evidence`; automation cannot cancel on its own). It moves the workflow to `cancelled`, closes the proposal's authorization, and releases nothing. Outputs already linked stay on disk and are listed as `partial_outputs`; recorded usage stays in the budget history. Repeating the command is a no-op. A completed assessment cannot be cancelled, and new work needs a new proposal.
 
 ```mermaid
 stateDiagram-v2

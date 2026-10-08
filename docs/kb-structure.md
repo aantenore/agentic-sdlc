@@ -277,7 +277,7 @@ Assessment proposal and workflow control records. Paths are configured in `.sdlc
 
 The proposal is the immutable checkpoint 2 approval payload (`assessment-proposal:v1`). Its hash binds the approved baseline, scope/requirement, story reservation, deliverable, capabilities, contract draft, route intent, write-set, budget, security, and application plan. Mutable progress, failure, retry, exception, and receipt references live in `assessment-workflow:v1`. Storage roots are configured through `assessment_workflow.storage_root` and `budget_policy.storage_root`; the paths above are defaults.
 
-`execution-budget:v1` aggregates the full proposal execution tree, including subagents. The shipped defaults are exact active time (soft 2,700 seconds, hard 3,600), exact steps (soft 40, hard 60), and estimated tokens (soft 200,000, no hard limit). It records exact/estimated/unavailable metering, configurable warnings, verification reserve, and limit behavior. No default cost limit exists: cost remains unavailable and non-binding until a trustworthy metering/pricing adapter, pricing reference, and currency are configured. `budget-amendment:v1` is append-only and references the base hashes; `execution-usage-receipt:v1` records actual or estimated usage and source.
+`execution-budget:v1` aggregates the full proposal execution tree, including subagents. The shipped defaults are soft-only estimates: active time (soft 2,700 seconds), steps (soft 40), and tokens (soft 200,000); hard limits are opt-in and need a trusted signed exact meter. It records exact/estimated/unavailable metering, configurable warnings, verification reserve, and limit behavior. No default cost limit exists: cost remains unavailable and non-binding until a trustworthy metering/pricing adapter, pricing reference, and currency are configured. `budget-amendment:v1` is append-only and references the base hashes; `execution-usage-receipt:v1` records actual or estimated usage and source.
 
 ```text
 assessment proposal prepare
@@ -287,6 +287,7 @@ assessment proposal status
 budget usage record
 budget status
 budget amend
+assessment proposal cancel
 assessment proposal complete
 ```
 
