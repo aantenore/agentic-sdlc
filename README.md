@@ -41,6 +41,7 @@ You talk to Codex in normal language. Codex turns that request into structured i
 - [Self-service CLI](docs/self-service-cli.md) — focused help, one-step status, safe presentation presets, shell completion, and machine output.
 - [Change Observatory](docs/change-observatory.md) — launch the local visual lineage app and understand its evidence and security model.
 - [Configurable Workflows](docs/configurable-workflows.md) — select a governed process, customize labels safely, and keep running history pinned and append-only.
+- [Examples](docs/examples/README.md) — a copy-paste GitHub Action that turns a labelled issue into a proposed work brief and posts it as a comment, without approving, pushing, or merging anything.
 
 ## Quick Start
 

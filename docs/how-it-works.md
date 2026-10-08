@@ -770,6 +770,8 @@ a credential-shaped argument in a recorded command appears as `[REDACTED]`, and
 evidence is linked only as a project-relative path. The table is a report, not
 a gate: the strict and lifecycle-complete gates remain the authority.
 
+The [issue-to-shadow-delivery example](examples/README.md#github-action-issue-to-shadow-delivery) shows the same table in a CI comment: it records an issue as a proposed requirement, approves nothing, and prints the table for the delivery that a person later approves.
+
 ### Output verification is layered
 
 Codex creates the approved artifact, and the CLI links it to the approved story, requirement, template, and proposal authorization. The link stores the artifact fingerprint and a separate verification receipt.
