@@ -133,7 +133,11 @@ Write every path with forward slashes (`/`), also on Windows. Each error names
 the project (by its position and id) and quotes the value that was refused, so
 `Project #2 (id "win"): the path "projects\\beta" is not allowed: it must be a
 relative path written with forward slashes (/)` points straight at the line to
-fix. A missing manifest file is reported with the path that was looked up.
+fix. A value that would reveal a location on your computer (an absolute path,
+a home folder, a drive letter, a variable, or a URL) is described instead of
+repeated, for example `(an absolute path; value not shown)`, so these messages
+are safe to paste into a ticket. A missing manifest file is reported with the
+path that was looked up.
 
 A project whose folder does not exist does not stop the portfolio: it appears
 as an unavailable card ("This project's folder was not found") while the other
@@ -246,8 +250,9 @@ The SLO endpoint is advisory: the default availability and readiness targets
 are `0.99`, with `20` samples required before it reports `met` or `breached`.
 It does not block a delivery or claim provider-grade monitoring.
 
-The support bundle includes only numeric limits, schema/runtime versions,
-readiness state, metric/SLO snapshots, and a bounded recent-request list with
+The support bundle includes only numeric limits, schema and runtime versions
+(the Agentic SDLC package version, Node.js version, platform, and CPU
+architecture, but no host name or path), readiness state, metric/SLO snapshots, and a bounded recent-request list with
 time, correlation ID, route, safe code, and status. Redaction is applied before
 the bundle is returned. Its SHA-256 digest covers the canonical **redacted**
 payload, so it can reveal later content changes without retaining a fingerprint
