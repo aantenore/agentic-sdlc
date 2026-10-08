@@ -605,10 +605,11 @@ restore it from version control. A damaged `.sdlc/project.json` is handled the
 same way (`PROJECT_RECORD_INVALID`).
 
 Evidence passed to `trace append --evidence` must name a file inside the
-project or an external URL. Absolute paths elsewhere, `../` escapes, and
-symlinks that leave the project are refused before anything is written;
-accepted paths are stored project-relative. A URL is kept exactly as given as a
-reference; it is never fetched or fingerprinted. A path to a file that does not
+project or an `http`/`https` URL. Absolute paths elsewhere, `../` escapes,
+symlinks that leave the project, and other URI schemes such as `file:` are
+refused before anything is written; accepted paths are stored
+project-relative. An `http(s)` URL is kept exactly as given as a reference; it
+is never fetched or fingerprinted. A path to a file that does not
 exist yet is recorded as a path only and reported as "evidence not verified",
 because no fingerprint of its content can be sealed.
 

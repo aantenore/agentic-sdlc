@@ -1040,7 +1040,7 @@ node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type im
 ```
 
 Valid trace types: `assumption`, `decision`, `gate`, `claim`, `handoff`, `implementation`, `lock`, `release`, `risk`, `sync`, `test`.
-`--evidence` must name a file inside the project or an external URL: absolute paths elsewhere, `../` escapes, and symlinks that leave the project are refused, accepted paths are stored project-relative, URLs are kept unchanged as references (never fetched or fingerprinted), and a path to a file that does not exist yet is recorded as a path only with an "evidence not verified" notice (`evidence_unverified` in JSON).
+`--evidence` must name a file inside the project or an `http(s)` URL: absolute paths elsewhere, `../` escapes, symlinks that leave the project, and other URI schemes such as `file:` are refused, accepted paths are stored project-relative, `http(s)` URLs are kept unchanged as references (never fetched or fingerprinted), and a path to a file that does not exist yet is recorded as a path only with an "evidence not verified" notice (`evidence_unverified` in JSON).
 
 Verify the sealed history (read-only; exits `1` and explains recovery when a file changed):
 
