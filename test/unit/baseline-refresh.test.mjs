@@ -58,3 +58,22 @@ test("a change is explained only by a delivery whose commit holds the exact byte
   const unavailable = { ...evidence, contentSha256: () => undefined };
   assert.equal(explainBaselineDelta(delta, current, [unavailable]).explanations.length, 0);
 });
+
+test("a started story accepts bytes that another story's merged delivery produced", async () => {
+  const { deliveredWorkExplainsSource } = await import("../../lib/engine/baseline-refresh.mjs");
+  const evidences = [{
+    story_id: "ST-OTHER",
+    delivery_profile_id: "AUT-OTHER",
+    merge_commit_sha: "2".repeat(40),
+    write_scopes: [["src/billing"]],
+    contentSha256: (sourcePath) => ({ "src/billing/a.mjs": A })[sourcePath] ?? null,
+  }];
+  const explains = (storyId, sourcePath, sha256) =>
+    deliveredWorkExplainsSource(null, "BASELINE-INITIAL", { storyId, sourcePath, sha256, evidences });
+  assert.equal(explains("ST-MINE", "src/billing/a.mjs", A), true);
+  assert.equal(explains("ST-MINE", "src/billing/gone.mjs", null), true);
+  // Edited after the merge, outside the other story's scope, or its own work.
+  assert.equal(explains("ST-MINE", "src/billing/a.mjs", B), false);
+  assert.equal(explains("ST-MINE", "src/app.mjs", null), false);
+  assert.equal(explains("ST-OTHER", "src/billing/a.mjs", A), false);
+});
