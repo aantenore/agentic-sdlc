@@ -227,6 +227,7 @@
           "properties": {
             "max_entries": { "type": "integer", "minimum": 1, "maximum": 5000 },
             "max_directories": { "type": "integer", "minimum": 1, "maximum": 5000 },
+            "max_listing_names": { "type": "integer", "minimum": 1, "maximum": 100000 },
             "max_depth": { "type": "integer", "minimum": 1, "maximum": 8 },
             "max_frontmatter_bytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },
             "max_config_bytes": { "type": "integer", "minimum": 1, "maximum": 67108864 },
@@ -272,7 +273,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 512,
-          "pattern": "^(?!/)(?!(?:.*/)?\\.\\.(?:/|$))[^\\u0000\\\\]+$"
+          "pattern": "^(?!/)(?!(?:.*/)?\\.\\.(?:/|$))(?!.*\\$\\{(?!(?:CLAUDE_CONFIG_DIR|CODEX_HOME|HOME|USERPROFILE|XDG_CONFIG_HOME|APPDATA)(?::-[^}]*)?\\}))[^\\u0000\\\\]+$"
         },
         "enabled": { "type": "boolean" },
         "manifests": {

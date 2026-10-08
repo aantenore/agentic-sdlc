@@ -203,10 +203,11 @@ test("matching follows the configured aliases and ignored words", () => {
   );
 });
 
-test("available capabilities keep every installed name but leave only the chosen ones eligible", () => {
+test("available capabilities keep chosen entries, project names, and only a count of user-scoped extras", () => {
   const inventory = inventoryOf(
-    entry("skill", "react-review", "Review React components.", { source: "project-skills", path: ".claude/skills/react-review/SKILL.md" }),
+    entry("skill", "react-review", "Review React components.", { scope: "project", source: "project-skills", path: ".claude/skills/react-review/SKILL.md" }),
     entry("skill", "react-review", "Duplicate in another place."),
+    entry("skill", "team-notes", "Project-scoped, not chosen.", { scope: "project", source: "project-skills" }),
     entry("skill", "pdf-forms", "Fill in PDF forms."),
     entry("plugin", "widgets", "Widget helpers.", { version: "1.0.0" }),
     entry("mcp", "docs", null, { transport: "http", enabled: true }),
@@ -219,7 +220,7 @@ test("available capabilities keep every installed name but leave only the chosen
     recommend: new Set(matches.map((item) => `${item.type}:${item.name}`)),
     matches,
   });
-  assert.deepEqual(Object.keys(available).sort(), ["mcp", "plugins", "skills"], "commands are not a recommendation type");
+  assert.deepEqual(Object.keys(available).sort(), ["omitted_user_scope", "skills"], "commands are not a recommendation type");
   assert.deepEqual(available.skills, [
     {
       name: "react-review",
@@ -228,10 +229,11 @@ test("available capabilities keep every installed name but leave only the chosen
       description: "Review React components.",
       rationale: "Installed (project-skills); its name or description mentions the declared technology: react.",
     },
-    { name: "pdf-forms", source: "user-skills", recommended: false },
+    { name: "team-notes", source: "project-skills", recommended: false },
   ]);
-  assert.deepEqual(available.plugins, [{ name: "widgets", source: "user-skills", recommended: false }]);
-  assert.deepEqual(available.mcp, [{ name: "docs", source: "user-skills", recommended: false }]);
+  assert.deepEqual(available.omitted_user_scope, { skills: 1, plugins: 1, mcp: 1 });
+  const serialized = JSON.stringify(available);
+  for (const unrelated of ["pdf-forms", "widgets", "docs", "parked"]) assert.equal(serialized.includes(unrelated), false, unrelated);
   assert.deepEqual(inventoryToAvailableCapabilities({}), {});
 });
 

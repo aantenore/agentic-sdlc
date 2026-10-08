@@ -344,11 +344,13 @@ test("capability recommend --from-inventory proposes only installed tools that n
 
   const available = proposed.recommendation.available_capabilities;
   assert.equal(available.origin, "capability-inventory:v1");
-  assert.deepEqual(available.skills.find((item) => item.name === "pdf-forms"), {
-    name: "pdf-forms",
-    source: "user-codex-skills",
-    recommended: false,
-  });
+  // The record is committed with the project: unrelated tools from the user's
+  // home are not written into it, only how many were left out.
+  assert.equal(available.skills.some((item) => item.name === "pdf-forms"), false);
+  assert.deepEqual(available.omitted_user_scope, { skills: 1, plugins: 0, mcp: 0 });
+  assert.equal(JSON.stringify(proposed.recommendation).includes("pdf-forms"), false);
+  const stored = fs.readFileSync(path.join(project, ".sdlc", "capability-discovery", "recommendations", "CAP-REC-ST-001.json"), "utf8");
+  assert.equal(stored.includes("pdf-forms"), false, "nothing unrelated from the home directory reaches the stored record");
   assert.deepEqual(available.mcp.find((item) => item.name === "calendar-sync"), {
     name: "calendar-sync",
     source: "project-mcp-json",
@@ -571,6 +573,11 @@ test("the task start suggestion reads in plain language first and keeps commands
     assert.match(details, /capability recommend --id CAP-REC-ST-001 --profile CAP-PROFILE-ST-001 --from-inventory/u);
     assert.match(details, /capability profile propose --id CAP-PROFILE-ST-001 --story ST-001 --phase implementation --context-file package\.json/u);
     assert.match(details, /schema-react-helper/u);
+    assert.equal(
+      text.split(/Installed tools that look relevant to this work|Strumenti già installati che sembrano utili per questo lavoro/u).length - 1,
+      1,
+      "the suggestion sentence is shown once",
+    );
     assert.match(details, /~\/\.claude\/skills\/react-review\/SKILL\.md/u);
   }
 });

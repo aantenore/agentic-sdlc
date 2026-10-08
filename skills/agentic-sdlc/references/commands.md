@@ -829,7 +829,7 @@ capabilities, so the list is never built by hand. Only installed skills,
 plugins, and servers whose name or description names a technology declared by
 the approved profile (detected stack and integrations) are proposed, at most
 `matching.max_suggestions`; the wording of a request is never matched, and the
-other installed entries are recorded as available but not recommended. The
+other project-level entries are recorded by name as not recommended, and user-level ones are only counted (the record is committed with the project). The
 output reports what was examined (`inventory_match`). The recommendation is
 still `proposed` and needs approval. `--from-inventory` cannot be combined with
 `--available-capabilities-json` or `--available-capabilities-file`, which stay

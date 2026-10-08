@@ -928,6 +928,7 @@
       "limits": {
         "max_entries": 500,
         "max_directories": 500,
+        "max_listing_names": 2000,
         "max_depth": 4,
         "max_frontmatter_bytes": 16384,
         "max_config_bytes": 8388608,

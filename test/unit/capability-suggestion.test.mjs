@@ -111,3 +111,48 @@ test("suggestions can be switched off independently of the inventory", () => {
   assert.equal(normalizeCapabilityInventoryPolicy({ suggest: false }).enabled, true);
   assert.throws(() => normalizeCapabilityInventoryPolicy({ suggest: "no" }), /suggest must be a boolean/u);
 });
+
+test("capability records are read once per run however many stories are examined", async () => {
+  const { default: fs } = await import("node:fs");
+  const { default: os } = await import("node:os");
+  const { default: path } = await import("node:path");
+  const { collectCapabilitySuggestion } = await import("../../lib/engine/capability-suggestion.mjs");
+  const { currentHost, setHost } = await import("../../lib/runtime/host.mjs");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentic-sdlc-suggestion-reads-"));
+  try {
+    fs.mkdirSync(path.join(root, ".sdlc", "capability-discovery", "profiles"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".sdlc", "capability-discovery", "recommendations"), { recursive: true });
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ dependencies: { react: "1" } }));
+    const config = JSON.parse(fs.readFileSync(new URL("../../templates/sdlc-config.json", import.meta.url), "utf8"));
+    config.capability_discovery_policy.inventory.sources = [];
+    const context = { root, sdlcRoot: path.join(root, ".sdlc"), config };
+    const real = currentHost();
+    const listed = [];
+    const restore = setHost({
+      fs: new Proxy(real.fs, {
+        get(target, property) {
+          const value = Reflect.get(target, property, target);
+          if (property === "readdirSync") {
+            return (...args) => {
+              listed.push(String(args[0]));
+              return value.apply(target, args);
+            };
+          }
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      }),
+    });
+    try {
+      for (const storyId of ["ST-001", "ST-002", "ST-003", "ST-004"]) {
+        collectCapabilitySuggestion(context, { storyId, phase: "implementation", locale: "en" });
+      }
+    } finally {
+      restore();
+    }
+    const discovery = path.join(root, ".sdlc", "capability-discovery");
+    assert.equal(listed.filter((entry) => entry === path.join(discovery, "profiles")).length, 1);
+    assert.equal(listed.filter((entry) => entry === path.join(discovery, "recommendations")).length, 1);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

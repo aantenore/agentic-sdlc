@@ -188,7 +188,7 @@ test("the configuration schema accepts the shipped inventory policy and rejects 
     return validateAgainstSchema(config, "sdlc-config.schema.json", { schemaDir });
   };
   assert.equal(check(() => {}).valid, true);
-  for (const good of [".claude/skills", "~/.claude/skills", "${EXAMPLE_HOME:-~/.example}/skills", "tools/skills"]) {
+  for (const good of [".claude/skills", "~/.claude/skills", "${XDG_CONFIG_HOME:-~/.config}/skills", "tools/skills"]) {
     assert.equal(check((inventory) => { inventory.sources[0].path = good; }).valid, true, good);
   }
   const bad = {
@@ -203,6 +203,8 @@ test("the configuration schema accepts the shipped inventory policy and rejects 
     "a missing path": (inventory) => { delete inventory.sources[0].path; },
     "an empty key list": (inventory) => { inventory.sources.find((source) => source.kind === "mcp-json").keys = []; },
     "an unsafe manifest": (inventory) => { inventory.sources.find((source) => source.kind === "plugins").manifests = ["../plugin.json"]; },
+    "a variable outside the allowlist": (inventory) => { inventory.sources[0].path = "${FAKE_SECRET_VALUE}.json"; },
+    "a variable outside the allowlist in a default": (inventory) => { inventory.sources[0].path = "${HOME:-${FAKE_SECRET_VALUE}}/x"; },
     "a zero limit": (inventory) => { inventory.limits.max_entries = 0; },
     "an unknown limit": (inventory) => { inventory.limits.surprise = 1; },
     "an unknown inventory property": (inventory) => { inventory.network = true; },
@@ -591,7 +593,7 @@ test("a project location cannot reach outside the project through a link", (t) =
 
 test("an unset environment reference skips the location instead of guessing", () => {
   const project = temporaryDirectory("unset-project");
-  const policy = { sources: [{ id: "needs-env", kind: "skills", scope: "user", path: "${EXAMPLE_SKILLS_HOME}/skills" }] };
+  const policy = { sources: [{ id: "needs-env", kind: "skills", scope: "user", path: "${XDG_CONFIG_HOME}/skills" }] };
   const withoutVariable = collectCapabilityInventory({ projectRoot: project, home: project, env: {}, policy });
   assert.equal(withoutVariable.sources[0].status, "unset");
   const root = temporaryDirectory("env-root");
@@ -599,7 +601,7 @@ test("an unset environment reference skips the location instead of guessing", ()
   const withVariable = collectCapabilityInventory({
     projectRoot: project,
     home: project,
-    env: { EXAMPLE_SKILLS_HOME: root },
+    env: { XDG_CONFIG_HOME: root },
     policy,
   });
   assert.deepEqual(names(withVariable.skills), ["env-skill"]);
@@ -661,4 +663,90 @@ test("display paths are project-relative, home-relative, or a short external mar
   const nested = { projectRoot: "/home/person/project", home: "/home/person" };
   assert.equal(displayInventoryPath("/home/person/project/.mcp.json", nested), ".mcp.json");
   assert.equal(displayInventoryPath("/home/person/.claude.json", nested), "~/.claude.json");
+});
+
+test("only allowlisted environment variables can appear in a source path", () => {
+  const source = (template) => ({ sources: [{ id: "one", kind: "skills", scope: "user", path: template }] });
+  for (const name of ["CLAUDE_CONFIG_DIR", "CODEX_HOME", "HOME", "USERPROFILE", "XDG_CONFIG_HOME", "APPDATA"]) {
+    assert.doesNotThrow(() => normalizeCapabilityInventoryPolicy(source(`\${${name}:-~/x}/skills`)), name);
+  }
+  assert.throws(() => normalizeCapabilityInventoryPolicy(source("${FAKE_SECRET_VALUE}.json")), /using only the variables/u);
+  assert.throws(() => normalizeCapabilityInventoryPolicy(source("a/${lower}/b")), /using only the variables/u);
+
+  // Defence in depth: a policy that bypassed validation still never expands the variable.
+  const project = temporaryDirectory("env-project");
+  const secret = ["sentinel", "env", "path"].join("_");
+  const inventory = collectCapabilityInventory({
+    projectRoot: project,
+    home: project,
+    env: { FAKE_SECRET_VALUE: secret },
+    policy: { sources: [{ id: "one", kind: "skills", scope: "user", path: "~/skills" }] },
+  });
+  assert.equal(JSON.stringify(inventory).includes(secret), false);
+});
+
+test("a symbolic link to SKILL.md cannot pull in a file from outside the project", (t) => {
+  const project = temporaryDirectory("skill-link-project");
+  const outside = temporaryDirectory("skill-link-outside");
+  skill(outside, "elsewhere", "stolen-skill", "Description that must not be read.");
+  fs.mkdirSync(path.join(project, ".claude", "skills", "linked"), { recursive: true });
+  fs.mkdirSync(path.join(project, ".claude", "plugins-root"), { recursive: true });
+  try {
+    fs.symlinkSync(path.join(outside, "elsewhere", "SKILL.md"), path.join(project, ".claude", "skills", "linked", "SKILL.md"));
+  } catch {
+    t.skip("symbolic links are not available");
+    return;
+  }
+  skill(project, ".claude/skills/honest", "honest", "Inside the project.");
+  const inventory = collectCapabilityInventory({ projectRoot: project, home: temporaryDirectory("skill-link-home"), env: {} });
+  assert.deepEqual(names(inventory.skills), ["honest"]);
+  assert.equal(JSON.stringify(inventory).includes("must not be read"), false);
+});
+
+test("a very large directory is examined only up to the listing cap and reported as truncated", () => {
+  const project = temporaryDirectory("many-project");
+  const root = path.join(project, ".claude", "skills");
+  fs.mkdirSync(root, { recursive: true });
+  for (let index = 0; index < 60; index += 1) fs.mkdirSync(path.join(root, `empty-${String(index).padStart(3, "0")}`));
+  skill(project, ".claude/skills/zzz-late", "zzz-late", "Sorts after the cap.");
+  const capped = collectCapabilityInventory({
+    projectRoot: project,
+    home: temporaryDirectory("many-home"),
+    env: {},
+    policy: { limits: { max_listing_names: 50 } },
+  });
+  assert.equal(capped.truncated, true);
+  assert.deepEqual(capped.skills, [], "names beyond the cap are never reached");
+  assert.ok(capped.warnings.some((warning) => /only the first 50 names were examined/u.test(warning)));
+
+  const uncapped = collectCapabilityInventory({ projectRoot: project, home: temporaryDirectory("many-home"), env: {} });
+  assert.equal(uncapped.truncated, false);
+  assert.deepEqual(names(uncapped.skills), ["zzz-late"]);
+  assert.throws(() => normalizeCapabilityInventoryPolicy({ limits: { max_listing_names: 0 } }), /between 1 and/u);
+});
+
+test("descriptions lose bidirectional and zero-width characters", () => {
+  const hostile = "safe\u202Etext\u200B hidden\u2066 \uFEFFmarks\u200F";
+  assert.equal(sanitizeInlineText(hostile, 100), "safetext hidden marks");
+});
+
+test("the project key of a user settings file is found in either path separator form", () => {
+  const home = temporaryDirectory("slash-home");
+  const project = temporaryDirectory("slash-project");
+  const windowsStyle = project.split("/").join("\\");
+  write(home, ".claude.json", JSON.stringify({
+    projects: { [windowsStyle]: { mcpServers: { "backslash-tool": { command: "node" } } } },
+  }));
+  // The project root as the host would see it on a platform with backslashes.
+  const servers = parseMcpJsonServers(
+    fs.readFileSync(path.join(home, ".claude.json"), "utf8"),
+    [["projects", "{project_root}", "mcpServers"]],
+    { project_roots: [project, windowsStyle.split("\\").join("/"), windowsStyle] },
+  );
+  assert.deepEqual(servers.map((server) => server.name), ["backslash-tool"]);
+  write(home, ".claude.json", JSON.stringify({
+    projects: { [project]: { mcpServers: { "slash-tool": { command: "node" } } } },
+  }));
+  const found = collectCapabilityInventory({ projectRoot: project, home, env: {} });
+  assert.deepEqual(found.mcp.map((server) => server.name), ["slash-tool"]);
 });
