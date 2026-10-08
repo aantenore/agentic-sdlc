@@ -87,7 +87,9 @@ test("requires an explicit existing JSON manifest without fallback discovery", a
 
   await assert.rejects(
     () => loadPortfolioManifest(root, "portfolio.json"),
-    (error) => error.code === "source_not_found",
+    (error) => error.code === "portfolio_manifest_not_found"
+      && error.statusCode === 404
+      && error.message.includes('"portfolio.json"'),
   );
   await assert.rejects(
     () => loadPortfolioManifest(root, "nested/portfolio.txt"),
@@ -402,3 +404,68 @@ function statsWithIdentity(stats, identity, bigint) {
   });
   return clone;
 }
+
+test("keeps a project whose folder is missing and marks it unavailable", async (t) => {
+  const root = await fixture(t, "missing-folder");
+  await writeManifest(root, manifest([
+    { id: "alpha", path: "projects/alpha" },
+    { id: "gone", path: "projects/gone" },
+  ]));
+
+  const loaded = await loadPortfolioManifest(root, "portfolio.json");
+
+  assert.deepEqual(loaded.projects.map((project) => [project.id, project.root === null]), [
+    ["alpha", false],
+    ["gone", true],
+  ]);
+  assert.equal(loaded.projects[1].unavailableCode, "project_folder_missing");
+  await assertPortfolioManifestBoundaries(loaded);
+});
+
+test("manifest errors name the project, the offending value, and forward slashes", async (t) => {
+  const root = await fixture(t, "messages");
+
+  await writeManifest(root, manifest([
+    { id: "alpha", path: "projects/alpha" },
+    { id: "win", path: "projects\\beta" },
+  ]));
+  await assert.rejects(
+    () => loadPortfolioManifest(root, "portfolio.json"),
+    (error) => error.code === "invalid_project_path"
+      && /Project #2 \(id "win"\)/u.test(error.message)
+      && error.message.includes('"projects\\\\beta"')
+      && /forward slashes \(\/\)/u.test(error.message),
+  );
+
+  await writeManifest(root, manifest([{ id: "bad id!", path: "projects/alpha" }]));
+  await assert.rejects(
+    () => loadPortfolioManifest(root, "portfolio.json"),
+    (error) => error.code === "invalid_project_id"
+      && error.message.includes("Project #1")
+      && error.message.includes('"bad id!"'),
+  );
+
+  await writeManifest(root, manifest([
+    { id: "same", path: "projects/alpha" },
+    { id: "same", path: "projects/beta" },
+  ]));
+  await assert.rejects(
+    () => loadPortfolioManifest(root, "portfolio.json"),
+    (error) => /Project #2 \(id "same"\) repeats an id already used by project #1/u.test(error.message),
+  );
+
+  await writeManifest(root, {
+    schema_version: PORTFOLIO_MANIFEST_SCHEMA_VERSION,
+    projects: [{ id: "alpha", path: "projects/alpha", extra: true }],
+  });
+  await assert.rejects(
+    () => loadPortfolioManifest(root, "portfolio.json"),
+    (error) => /Project #1 \(id "alpha"\) has unsupported "extra"/u.test(error.message),
+  );
+
+  await writeManifest(root, { schema_version: "portfolio-manifest:v0", projects: [] });
+  await assert.rejects(
+    () => loadPortfolioManifest(root, "portfolio.json"),
+    (error) => error.message.includes('found "portfolio-manifest:v0"'),
+  );
+});

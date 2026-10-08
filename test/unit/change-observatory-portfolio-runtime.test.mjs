@@ -473,3 +473,35 @@ async function createLargePortfolioFixture(t, count) {
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
+
+test("a project folder that does not exist becomes an unavailable card without aborting the portfolio", async (t) => {
+  const fixture = await createPortfolioFixture(t);
+  await fs.writeFile(
+    path.join(fixture.root, "portfolio.json"),
+    JSON.stringify({
+      schema_version: "portfolio-manifest:v1",
+      projects: [
+        { id: "alpha", path: "projects/alpha" },
+        { id: "gone", path: "projects/does-not-exist" },
+      ],
+    }),
+  );
+  const runtime = await createPortfolioRuntime({
+    portfolioRoot: fixture.root,
+    manifestPath: "portfolio.json",
+  });
+  t.after(() => runtime.dispose());
+
+  const summary = JSON.parse((await runtime.getSummaryRepresentation()).body);
+  assert.deepEqual(summary.projects.map((project) => [project.id, project.status]), [
+    ["alpha", "available"],
+    ["gone", "unavailable"],
+  ]);
+  assert.equal(summary.projects[1].errorCode, "project_folder_missing");
+  assert.match(summary.projects[1].message, /folder was not found/u);
+  assert.doesNotMatch(JSON.stringify(summary), new RegExp(escapeRegExp(fixture.root), "u"));
+  await assert.rejects(
+    () => runtime.getProjectDetailRepresentation("gone"),
+    (error) => error.code === "project_folder_missing" && error.statusCode === 404,
+  );
+});
