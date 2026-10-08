@@ -75,7 +75,7 @@ Claude Code loads a skill when the conversation matches its description, so the 
 
 ## Hooks
 
-The plugin ships one `hooks/hooks.json`, read by both Claude Code and Codex. It adds three guard rails around standing approvals; the CLI enforces the same rules on its own, so the hooks are a second line of defence, not the only one:
+The plugin ships one `hooks/hooks.json`, read by both Claude Code and Codex. It adds three guard rails around standing approvals. They are a second line of defence, not the only one: the CLI itself refuses `autonomy standing approve` inside an agent's session, standing-approval records are hash-sealed, and the shared state on the git remote is checked before every covered step. Neither the hooks nor those checks are a cryptographic guarantee; a project that needs one uses signed approvals (`host_verified`), which turns standing approvals off.
 
 - **Only you approve a standing approval.** If the agent tries to run `autonomy standing approve` itself, the call is blocked and the agent hands you the exact command to run in your own terminal.
 - **Standing approval records stay untouched.** Direct edits, deletions, or overwrites of `.sdlc/autonomy/standing/` and of the shared `refs/agentic-sdlc/` refs on the git remote are blocked; reading, staging, and committing the records stay allowed.

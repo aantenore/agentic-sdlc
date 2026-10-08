@@ -27,6 +27,8 @@ test("only the user can approve a standing approval", () => {
     "node bin/agentic-sdlc.mjs autonomy standing approve --id SA-X --actor-type human --approval-source explicit-user --summary ok",
     "npx agentic-sdlc autonomy standing approve --id SA-X",
     "cd /work && node \"/plugins/agentic sdlc/bin/agentic-sdlc.mjs\"   autonomy  standing approve --id SA-X",
+    "node bin/agentic-sdlc.mjs autonomy standing \"approve\" --id SA-1 --actor-type human",
+    "node bin/agentic-sdlc.mjs autonomy standing \\\n  approve --id SA-1",
   ]) {
     const verdict = evaluatePreToolUse(shell(command));
     assert.equal(verdict?.decision, "deny", command);
@@ -54,6 +56,13 @@ test("standing approval records change only through the CLI, in either host's ed
     shell("git checkout HEAD~1 -- .sdlc/autonomy/standing/SA-X"),
     shell("node -e \"require('fs').unlinkSync('.sdlc/autonomy/standing/SA-X/revocation.json')\""),
     { tool_name: "PowerShell", tool_input: { command: "Remove-Item .sdlc\\autonomy\\standing\\SA-X\\revocation.json" } },
+    shell("rm -rf .sdlc/autonomy/standing*"),
+    shell("cd .sdlc/autonomy && rm standing/SA-X/revocation.json"),
+    shell("find .sdlc -name revocation.json -delete"),
+    shell("git checkout HEAD~1 -- .sdlc"),
+    shell("node bin/agentic-sdlc.mjs status && rm -rf .sdlc/autonomy/standing/SA-X"),
+    { tool_name: "Write", tool_input: { file_path: "/work/p/.sdlc/autonomy/x/../standing/SA-X/approval.json" } },
+    { tool_name: "Write", tool_input: { file_path: "/work/p/.SDLC/Autonomy/Standing/SA-X/approval.json" } },
   ]) {
     assert.equal(evaluatePreToolUse(payload)?.decision, "deny", JSON.stringify(payload));
   }
@@ -66,6 +75,10 @@ test("standing approval records change only through the CLI, in either host's ed
     shell("cat .sdlc/autonomy/standing/SA-X/approval.json"),
     shell("git add .sdlc/autonomy/standing && git commit -m 'chore: record standing approval'"),
     shell("git diff -- .sdlc/autonomy/standing"),
+    shell("ls .sdlc/autonomy/standing 2>/dev/null || echo none"),
+    shell("cat .sdlc/autonomy/standing/SA-1/proposal.json 2>&1 | head"),
+    shell("git add .sdlc && git commit -m 'chore: record decisions'"),
+    shell("node bin/agentic-sdlc.mjs autonomy standing status --json > status.json"),
   ]) {
     assert.equal(evaluatePreToolUse(payload), null, JSON.stringify(payload));
   }
@@ -77,13 +90,19 @@ test("the shared refs of standing approvals are never rewritten by hand", () => 
     "git update-ref -d refs/agentic-sdlc-shared/standing/SA-X/abc/slots/0001",
     "git push --mirror origin",
     "git push --prune origin 'refs/*:refs/*'",
+    "git push origin \":refs/agentic\"\"-sdlc/standing/SA-X/abc/revoked\"",
+    "git -C . update-ref -d refs/agentic-sdlc-shared/standing/SA-X/abc/revoked",
+    "git fetch --prune origin 'refs/agentic-sdlc/standing/*:refs/agentic-sdlc-shared/standing/*'",
+    "git fetch origin '+refs/agentic-sdlc/standing/*:refs/agentic-sdlc-shared/standing/*'",
   ]) {
     assert.equal(evaluatePreToolUse(shell(command))?.decision, "deny", command);
   }
   for (const command of [
-    "git fetch origin '+refs/agentic-sdlc/standing/*:refs/agentic-sdlc-shared/standing/*'",
+    "git fetch origin 'refs/agentic-sdlc/standing/*:refs/agentic-sdlc-shared/standing/*'",
     "git ls-remote origin 'refs/agentic-sdlc/*'",
     "git push origin feature/x",
+    "git log -1 refs/agentic-sdlc-shared/standing/SA-tag-cleanup/abc/slots/0001",
+    "git for-each-ref refs/agentic-sdlc-shared/ && git branch -a",
   ]) {
     assert.equal(evaluatePreToolUse(shell(command)), null, command);
   }

@@ -13,7 +13,8 @@ import { evaluatePreToolUse, sessionStartContext } from "../lib/host-hooks/guard
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = path.join(PLUGIN_ROOT, "bin", "agentic-sdlc.mjs");
-const STATUS_TIMEOUT_MS = 20_000;
+// Below the 30-second hook timeout, so a slow remote still yields the local summary.
+const STATUS_TIMEOUT_MS = 25_000;
 
 function readPayload() {
   try {

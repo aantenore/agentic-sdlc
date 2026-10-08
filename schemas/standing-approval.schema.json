@@ -120,6 +120,16 @@
         }
       ]
     },
+    "coordination": {
+      "type": "object",
+      "required": ["scope", "remote", "remote_fingerprint"],
+      "properties": {
+        "scope": { "enum": ["shared", "local"] },
+        "remote": { "type": ["string", "null"], "maxLength": 64 },
+        "remote_fingerprint": { "type": ["string", "null"], "maxLength": 128 }
+      },
+      "additionalProperties": false
+    },
     "bindings": {
       "type": "object",
       "required": ["config_hash", "policy_hash", "project_hash"],
