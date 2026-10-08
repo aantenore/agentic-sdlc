@@ -50,6 +50,26 @@ node "$PLUGIN_CLI" status --json
 The human view gives one recommended next action. The JSON view preserves the
 existing project and count fields, adds `schema_version: cli-status:v1`, and
 includes the same summary and next action in a stable machine-readable shape.
+The human view labels each counter in plain words (for example "Decisions
+waiting for you"); the JSON keys below are unchanged.
+
+Two conditions come before any other next action, because nothing else can
+proceed safely until they are resolved:
+
+- a history file that no longer matches its recorded fingerprints
+  (`next_action.kind: repair_history`, suggested command `trace verify`);
+- configuration edited after it was last confirmed
+  (`next_action.kind: migrate_config`, suggested command `config migrate`),
+  or a configuration that cannot be verified (`repair_config`).
+
+The JSON view also reports `history_integrity` (`verified` or `violated`, with
+the affected files) and `configuration.status`. Proposals that wait for a
+person, such as a proposed requirement, breakdown, dependency order, delivery
+autonomy profile, workflow definition or overlay, or standing approval, count
+as pending decisions and appear in `approval requests` with the exact approve
+command. Status presents stored records under the project's privacy rules, so
+the Git email recorded at initialization is shown as `[REDACTED]`; the stored
+files themselves are not rewritten.
 
 The summary counts `available_work`, `active_work`, `blocked_work`,
 `stale_claims`, `completed_work` (stories with a valid or historical final
@@ -317,6 +337,41 @@ configuration never declared it keeps the merge gate it agreed to, and adopts
 the check by initializing from the current template or migrating through
 `config migrate`.
 
+## Verify the project history
+
+Each history file under `.sdlc/traces` is sealed into a local hash chain with a
+checkpoint. Check it at any time:
+
+```bash
+node "$PLUGIN_CLI" trace verify
+node "$PLUGIN_CLI" trace verify --json
+```
+
+The command only reads. It exits `0` when every file matches its recorded
+fingerprints and `1` when any file changed, was truncated, or lost its
+checkpoint, naming the file and the stable error codes. `status`, `doctor`
+(check `trace-integrity`), `report activity`, and `report query` run the same
+check and lead with a "history changed unexpectedly" warning when it fails, and
+`trace append` refuses to add to a changed history with the error code
+`TRACE_INTEGRITY_VIOLATION`.
+
+Do not edit history files by hand. If the change was not intended, restore the
+history from version control and verify again:
+
+```bash
+git checkout -- .sdlc/traces
+node "$PLUGIN_CLI" trace verify
+```
+
+This is local tamper evidence, not proof of who wrote the history: someone who
+can replace both a trace and its checkpoint can create another consistent pair.
+
+Status and reports read a history file only up to 8 MiB (and 64 MiB across all
+history files). `status` and `doctor` (check `trace-size`) warn from 80% of that
+limit. Above it, read commands stop with `TRACE_HISTORY_TOO_LARGE`, naming the
+file and the limit; see
+[the history size limit](how-it-works.md#history-size-limit) for what to do.
+
 ## Read the exit code in a pipeline
 
 A script that gates on this CLI usually does not parse its output. The exit
@@ -339,6 +394,16 @@ malformed boolean or `--locale`, and an argument given to a command that takes
 only options. With `--json` they report the error code `USAGE_ERROR`, while
 refusals on the merits report `USER_ERROR`. An unsupported Node.js runtime
 reports `UNSUPPORTED_NODE_RUNTIME` with exit code `4`.
+
+A few refusals on the merits report a more specific code, still with exit code
+`1`, so automation can react without parsing the message:
+
+| Code | Meaning |
+|---|---|
+| `CONFIG_MISSING` | `.sdlc/config.json` is missing in an initialized project. Every project command stops instead of silently using the default privacy rules; restore the file from version control. |
+| `PROJECT_RECORD_INVALID` | `.sdlc/project.json` is not valid JSON or does not match its schema; restore it from version control. |
+| `TRACE_INTEGRITY_VIOLATION` | A history file changed unexpectedly, so nothing was appended; run `trace verify`. |
+| `TRACE_HISTORY_TOO_LARGE` | A history file is above the read limit; the message names the file and the limit. |
 
 A command killed by a signal keeps the conventional `128 + signal` form, so a
 subprocess interrupted with `SIGINT` exits `130`.
@@ -363,6 +428,17 @@ case $? in
   *) echo "report it with the correlation ID" ;;
 esac
 ```
+
+## Open the Change Observatory from a script
+
+`observe --json` prints a machine-readable start record to standard output.
+That record includes the local URL **with the per-run access token**. The token
+is created for that one run and stops working when the process exits, but while
+the process runs it grants read access to the project's lineage. Treat the
+output like a password: do not paste it into bug reports, issues, chat, or
+shared logs, and do not store it in CI artifacts. When reporting a problem,
+share the correlation ID or a support bundle instead, and stop the process with
+`SIGINT` or `SIGTERM` when you are done.
 
 ## Install or update locally
 

@@ -312,6 +312,15 @@ internally consistent history. Evidence fingerprints are calculated from the
 redacted representation, so a digest does not preserve a hidden fingerprint of
 the original secret.
 
+Check the history at any time with the read-only `agentic-sdlc trace verify`;
+it exits non-zero and explains how to restore `.sdlc/traces` from version
+control when a file changed. `status`, `doctor`, and the activity and query
+reports run the same check and lead with a warning when it fails. Reports
+apply the project's privacy rules again when they are presented or saved with
+`--out`. If `.sdlc/config.json` goes missing in an initialized project, every
+project command stops (`CONFIG_MISSING`) instead of silently falling back to
+the default privacy rules. See [Self-service CLI](docs/self-service-cli.md#verify-the-project-history).
+
 Random-looking text is not treated as a secret by itself. Redaction happens
 when a value has a known credential format, appears in credential context, is
 explicitly configured as sensitive, or matches a configured secret/PII rule.

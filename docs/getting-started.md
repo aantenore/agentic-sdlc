@@ -390,7 +390,7 @@ node <plugin-root>/bin/agentic-sdlc.mjs doctor --root /path/to/project
 node <plugin-root>/bin/agentic-sdlc.mjs config status --root /path/to/project
 ```
 
-`status`, `doctor`, and `config status` inspect and explain; they do not approve work or widen permissions.
+`status`, `doctor`, and `config status` inspect and explain; they do not approve work or widen permissions. `status` also checks that the project history still matches its recorded fingerprints and lists proposals, such as a proposed requirement, that wait for your approval. In a folder that is not set up yet, its next step tells you to initialize the project: ask your coding agent to initialize it, or run `agentic-sdlc init`. After `init`, the next step is to propose your first requirement.
 
 Common pauses are handled as follows:
 
@@ -402,7 +402,10 @@ Common pauses are handled as follows:
 | A push, merge, release, install, production, or secret boundary was reached | Decide only the exact action and target shown |
 | A budget boundary was reached | Approve only the displayed extension, request a verified partial result, or stop |
 | An application was interrupted | Repeat the exact same operation so idempotent recovery can repair only missing state |
-| Configuration drifted | Preview the configuration migration, review the diff, and apply only the displayed plan hash |
+| Configuration drifted | Preview the configuration migration, review the listed edits since the last confirmation, and apply only the displayed plan hash |
+| The project history changed unexpectedly | Run `trace verify`; if the change was not intended, restore `.sdlc/traces` from version control and verify again |
+| `.sdlc/config.json` or `.sdlc/project.json` is missing or damaged | Restore the file from version control; commands stay blocked so the agreed privacy rules are never replaced by defaults |
+| History is near or above its read limit | Follow [the history size limit](how-it-works.md#history-size-limit); never delete or edit history files |
 
 For installation failure, use the exact `restore` command returned by the installer transaction. Do not manually delete or overwrite an uncertain destination. See [Portable Installation](portable-install.md) for install-specific recovery.
 

@@ -521,8 +521,12 @@ tokens, secret-bearing paths, and raw internal details are not returned; a safe
 project-relative path may remain when it identifies the file to correct.
 
 Before a trace event is saved, the CLI applies the operational redaction policy.
-It removes sensitive keys, known token forms, configured secret/PII patterns,
-emails, bearer credentials, credential assignments, and private-key blocks.
+It removes sensitive keys, known token forms (including AWS temporary keys,
+Google API keys, npm, Hugging Face, Stripe restricted, SendGrid, and GitLab
+tokens, and Slack webhook URLs), configured secret/PII patterns, emails, bearer
+credentials, credential assignments, secrets passed as a separate command-line
+value (`--password <value>`, `--token <value>`) or as `-u user:password`,
+container registry `"auth"` values, and private-key blocks.
 Entropy alone never makes a value a secret. Exact `AUT-ACT-...` action IDs, SHA
 digests, UUIDs, correlation IDs, and other opaque audit data remain readable
 unless a known credential detector or explicit privacy rule matches them.
@@ -560,6 +564,60 @@ This answers “has this local trace changed unexpectedly?” It does not answer
 “who originally wrote it?” A party that can replace both trace and checkpoint
 can make another consistent pair, so the mechanism is tamper-evident local
 integrity, not a signature, authenticity proof, or tamper-proof archive.
+
+Anyone can ask that question directly with the read-only `trace verify`
+command. It checks every history file, exits non-zero when one changed, and
+explains the recovery: do not edit the files, restore `.sdlc/traces` from
+version control if the change was not intended, then verify again. `status`,
+`doctor`, and both reports run the same check; a report built from a changed
+history opens with a "history changed unexpectedly" warning, and new trace
+events are refused (`TRACE_INTEGRITY_VIOLATION`) until the history is valid.
+
+The privacy rules come from `.sdlc/config.json`. If that file disappears from
+an initialized project (one with `.sdlc/project.json` or `.sdlc/config.lock.json`),
+the CLI does not fall back to the bundled defaults, which would silently drop
+custom redaction: every project command stops with `CONFIG_MISSING`, `doctor`
+fails its `effective-config` check, and `config migrate` refuses to rebuild the
+file. Restore it from version control. A damaged `.sdlc/project.json` is
+handled the same way (`PROJECT_RECORD_INVALID`).
+
+Evidence passed to `trace append --evidence` must name a file inside the
+project. Absolute paths elsewhere, `../` escapes, and symlinks that leave the
+project are refused before anything is written; accepted paths are stored
+project-relative. A path to a file that does not exist yet is recorded as a
+path only and reported as "evidence not verified", because no fingerprint of
+its content can be sealed.
+
+#### History size limit
+
+To stay fast and bounded, `status`, `report activity`, `report query`, and the
+other read commands read at most 8 MiB from one history file and 64 MiB across
+all history files. `status` and `doctor` warn when a file reaches 80% of the
+per-file limit, and `trace verify --json` reports each file's `size_bytes` and
+`size_state`. Above the limit, read commands stop with
+`TRACE_HISTORY_TOO_LARGE`, naming the file and the limit, instead of failing
+with an internal error. The history itself is unchanged and remains verifiable
+with `trace verify` (which reads up to 64 MiB per file).
+
+There is no automatic rotation yet, because the sealed hash chain must stay
+intact. Until one exists:
+
+- do not delete, truncate, or edit a history file: the integrity check will
+  report it, and new events will be refused;
+- record story work with `--story` so it goes to that story's own history file
+  instead of `.sdlc/traces/project.jsonl`;
+- keep large evidence in files referenced by path (or by a
+  `trace-evidence-manifest:v1`), not in long summaries;
+- use `trace compact` for a readable summary; it never shrinks or replaces the
+  canonical history.
+
+`report activity` and `report query` apply the project's operational redaction
+policy again when they present a report, on standard output, in JSON, and in
+files written with `--out`, so a pattern added after an event was recorded is
+honored. Human and Markdown output also neutralize terminal control characters
+in recorded text (escape sequences are removed, line breaks become spaces, other
+control characters are shown as visible `\xNN` escapes) and state how many
+history lines could not be read instead of dropping them silently.
 
 For visual operations, Change Observatory applies redaction again before
 presentation, distinguishes shallow liveness from project readiness, keeps

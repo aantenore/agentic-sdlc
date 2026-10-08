@@ -1040,6 +1040,16 @@ node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type im
 ```
 
 Valid trace types: `assumption`, `decision`, `gate`, `claim`, `handoff`, `implementation`, `lock`, `release`, `risk`, `sync`, `test`.
+`--evidence` must name a file inside the project: absolute paths elsewhere, `../` escapes, and symlinks that leave the project are refused, accepted paths are stored project-relative, and a path to a file that does not exist yet is recorded as a path only with an "evidence not verified" notice (`evidence_unverified` in JSON).
+
+Verify the sealed history (read-only; exits `1` and explains recovery when a file changed):
+
+```bash
+node bin/agentic-sdlc.mjs trace verify --root <project>
+node bin/agentic-sdlc.mjs trace verify --root <project> --json
+```
+
+When `trace append` reports `TRACE_INTEGRITY_VIOLATION`, run `trace verify`, tell the user which file changed, and, if the change was not intended, restore `.sdlc/traces` from version control before retrying. Never edit history files by hand. `TRACE_HISTORY_TOO_LARGE` means a history file exceeds the 8 MiB read limit; see `docs/how-it-works.md#history-size-limit`. `CONFIG_MISSING` and `PROJECT_RECORD_INVALID` mean `.sdlc/config.json` or `.sdlc/project.json` must be restored from version control; do not recreate them from defaults.
 Valid trace outcomes are `passed`, `failed`, `blocked`, `skipped`, and `ready`. Strict validation requires a `test` trace with `passed`; strict release requires `ready` or `passed`.
 
 Narrative flags are optional and repeatable where applicable. `--explanation-kind` accepts `codex-generated`, `deterministic`, or `human-authored` and requires `--explanation`. The stored scope is always `recorded-evidence-only`; never record private chain-of-thought or hidden reasoning.
@@ -1059,7 +1069,7 @@ agentic-sdlc observe --root <project>
 agentic-sdlc observe --root <project> --host 127.0.0.1 --port 0 --no-open --json
 ```
 
-From a Codex plugin installation, use the `change-observatory` skill so it resolves `<plugin-root>/bin/agentic-sdlc.mjs` directly. The returned URL contains an ephemeral token in the fragment. Keep the process alive while viewing the app and stop it with `SIGINT` or `SIGTERM`.
+From a Codex plugin installation, use the `change-observatory` skill so it resolves `<plugin-root>/bin/agentic-sdlc.mjs` directly. The returned URL contains an ephemeral token in the fragment. Keep the process alive while viewing the app and stop it with `SIGINT` or `SIGTERM`. With `--json`, standard output contains that URL and its per-run access token: do not paste it into bug reports, issues, or shared logs.
 
 ## Gate Check
 
@@ -1278,13 +1288,17 @@ node bin/agentic-sdlc.mjs report activity --root <project> --since 3d --view bus
 node bin/agentic-sdlc.mjs report activity --root <project> --since 3d --view dev --json
 node bin/agentic-sdlc.mjs report activity --root <project> --since 12h --view agent-verbose --story ST-001
 node bin/agentic-sdlc.mjs approval requests --root <project> --story ST-001 --json
-node bin/agentic-sdlc.mjs report query --root <project> --text "show all changes made by me" --json
+node bin/agentic-sdlc.mjs report query --root <project> --query-json '{"intent":"find_records","subjects":["activity"],"filters":{"event_type":["decision"]},"time":{"since":"30d"}}' --json
 node bin/agentic-sdlc.mjs report query --root <project> --query-json '<canonical-report-query-json>' --json
 ```
 
+Free text passed with `--query` or `--text` is not searched: the command answers "No answer: this question needs a structured query" and shows a working `--query-json` example. Normalize the question into a structured query first.
+
+Both reports verify history integrity and open with a "history changed unexpectedly" warning when it fails, apply the project's redaction rules when presenting or writing `--out` files, neutralize terminal control characters in recorded text, and report how many history lines could not be read. A `--since` later than now needs an explicit later `--until`, because `--until` defaults to now.
+
 Activity reports reconstruct what happened from canonical trace files only. Business view focuses on decisions, validation, risk, handoffs, implementation, and release. Dev view includes evidence, branch/SHA, related IDs, and source lines. Agent-verbose view includes raw trace, git, and run metadata for audit.
 
-Use `approval requests` before continuing when a baseline, capability profile, capability recommendation, output template, contract clarification, contract approval, or canonical output link needs human agreement. Proposal commands for those artifact types return an `assistant_message` and `approval_request` too; show those when available instead of saying only that artifacts were prepared. The command is intentionally user-facing and returns `assistant_message` plus `assistant_message_presentation`. Agents should translate and contextualize `assistant_message` in the active chat language when `translate_to_chat_language` is true. Present plain-language meaning first: baseline means trusted project context, capability profile means tools-and-permissions boundaries, capability recommendation means concrete tool choices, output template means assessment/output format, and contract means the work brief. Preserve IDs, paths, commands, status codes, and schema keys only as technical detail when needed. Present what must be reviewed, why it matters, what approval means, whether more information is needed, and what will happen next. Do not reduce approval to a bare question, a file link, or a list of artifact IDs; summarize relevant baseline report, capability records, template, contract, and source-list contents directly in chat. For output-template approvals, show the sections, template content when useful, delivery/presentation options, recommended delivery, and delivery question before asking. Approval scope is exact: a user response approves only the displayed request, not later artifacts. Then stop until the user approves, answers, or asks for changes.
+Use `approval requests` before continuing when a baseline, capability profile, capability recommendation, output template, contract clarification, contract approval, or canonical output link needs human agreement. It also lists proposals that wait for a person (proposed requirements, breakdowns, dependency orders, delivery autonomy profiles, workflow definitions and overlays, and standing approvals) with the exact approve command; `status` counts them as pending decisions. Proposal commands for those artifact types return an `assistant_message` and `approval_request` too; show those when available instead of saying only that artifacts were prepared. The command is intentionally user-facing and returns `assistant_message` plus `assistant_message_presentation`. Agents should translate and contextualize `assistant_message` in the active chat language when `translate_to_chat_language` is true. Present plain-language meaning first: baseline means trusted project context, capability profile means tools-and-permissions boundaries, capability recommendation means concrete tool choices, output template means assessment/output format, and contract means the work brief. Preserve IDs, paths, commands, status codes, and schema keys only as technical detail when needed. Present what must be reviewed, why it matters, what approval means, whether more information is needed, and what will happen next. Do not reduce approval to a bare question, a file link, or a list of artifact IDs; summarize relevant baseline report, capability records, template, contract, and source-list contents directly in chat. For output-template approvals, show the sections, template content when useful, delivery/presentation options, recommended delivery, and delivery question before asking. Approval scope is exact: a user response approves only the displayed request, not later artifacts. Then stop until the user approves, answers, or asks for changes.
 
 Use `report query` for broader natural-language history questions. Codex or another LLM should normalize the user request into `schemas/report-query.schema.json`; the CLI then filters canonical KB records deterministically. Supported subjects are `activity`, `stories`, `story_steps`, `outputs`, `contracts`, `handoffs`, `work_items`, `approvals`, `tests`, and `all`.
 
