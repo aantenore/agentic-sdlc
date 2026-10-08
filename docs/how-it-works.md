@@ -170,7 +170,7 @@ Default locations are shown below. Their roots are configurable, but the same se
 | Materialized plan | `.sdlc/requirements/`, `.sdlc/stories/`, `.sdlc/contracts/`, `.sdlc/output-contracts/` | The requirement, story, contract, template, task start, and output link created from the proposal |
 | Autonomy policy | `.sdlc/autonomy/` | Requirement execution profiles, per-delivery profiles, and deterministic effective-level decisions |
 | Authority | `.sdlc/authorizations/`, `.sdlc/authorization-uses/` | Exact grants and historical validity-at-use receipts |
-| Limits and usage | `.sdlc/budgets/<proposal>/` | Effective budget, amendments, metering snapshots, and usage receipts |
+| Limits and usage | `.sdlc/budgets/<proposal>/` | Effective budget, amendments, metering snapshots, and append-only usage receipts; the assessment application keeps a hash-chained usage ledger so a deleted or edited receipt is detected |
 | Context optimization | `.sdlc/context-optimization/<proposal>/observations/` | Hash-bound RTK lifecycle observations; advisory evidence with zero budget credit |
 | Verification | `.sdlc/receipts/generation/`, `.sdlc/receipts/verification/` | Generator identity, artifact hash, semantic checks, and render evidence |
 | Release | `.sdlc/releases/gates/`, `.sdlc/releases/manifests/`, `.sdlc/archive/` | Gate decision, released lineage, rollback information, and logical history classification |
@@ -445,7 +445,7 @@ The authorization ID returned by approval may also be supplied explicitly with `
 
 ### Execution is measured as one tree
 
-Main-agent and subagent usage is aggregated into the proposal budget. Manual values are estimated or unavailable. Exact hard-limit evidence must come from a configured trusted adapter with a valid signed attestation.
+Main-agent and subagent usage is aggregated into the proposal budget. Manual values are estimated or unavailable, must be plain whole numbers (decimals only for `--cost-amount`), and must name a metric the budget tracks. Exact hard-limit evidence must come from a configured trusted adapter with a valid signed attestation; the shipped default budget uses soft limits only, so a normal project completes without one. A receipt that would make the history inconsistent (for example a cumulative counter that decreases) is refused before anything is written.
 
 An exact runtime receipt is imported like this:
 

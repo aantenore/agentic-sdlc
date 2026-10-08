@@ -87,7 +87,9 @@ closed.
 
 The source is local and direct, but it is not provider-signed. Token and call
 measurements therefore remain `estimated` with `advisory_observed` assurance;
-cost is `unavailable`. They support warnings and soft limits, but cannot satisfy
+cost is `unavailable`. `budget meter start` warns about every budget metric
+this adapter cannot measure (such as `cost`), and `budget status` shows those
+metrics as `not measured` rather than as zero usage. They support warnings and soft limits, but cannot satisfy
 an exact hard limit.
 
 RTK and Caveman reduce real context before this meter observes the next
