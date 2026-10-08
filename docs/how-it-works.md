@@ -170,7 +170,7 @@ Default locations are shown below. Their roots are configurable, but the same se
 | Materialized plan | `.sdlc/requirements/`, `.sdlc/stories/`, `.sdlc/contracts/`, `.sdlc/output-contracts/` | The requirement, story, contract, template, task start, and output link created from the proposal |
 | Autonomy policy | `.sdlc/autonomy/` | Requirement execution profiles, per-delivery profiles, and deterministic effective-level decisions |
 | Authority | `.sdlc/authorizations/`, `.sdlc/authorization-uses/` | Exact grants and historical validity-at-use receipts |
-| Limits and usage | `.sdlc/budgets/<proposal>/` | Effective budget, amendments, metering snapshots, and usage receipts |
+| Limits and usage | `.sdlc/budgets/<proposal>/` | Effective budget, amendments, metering snapshots, and append-only usage receipts; the assessment application keeps a hash-chained usage ledger so a deleted or edited receipt is detected (an unkeyed seal, not a signature) |
 | Context optimization | `.sdlc/context-optimization/<proposal>/observations/` | Hash-bound RTK lifecycle observations; advisory evidence with zero budget credit |
 | Verification | `.sdlc/receipts/generation/`, `.sdlc/receipts/verification/` | Generator identity, artifact hash, semantic checks, and render evidence |
 | Release | `.sdlc/releases/gates/`, `.sdlc/releases/manifests/`, `.sdlc/archive/` | Gate decision, released lineage, rollback information, and logical history classification |
@@ -314,7 +314,7 @@ The approval screen should lead with a readable summary: what will be delivered,
 
 ### Standing approvals: the one bounded exception
 
-A user may approve once that similar low-risk deliveries proceed without asking each time, for example dependency bumps or retired-flag cleanup. A standing approval names the kind of work, its requirements, project-relative paths, files and lines per delivery, one destination (a local release, or a pull request created or updated but never merged, bound to one repository and pushed only to branches under the standing approval's own prefix, never to the base, shared, release, or production branches), a number of deliveries, a mandatory expiry, and an optional budget (delivery cost cannot be measured yet, so a budget makes every step fall back to a normal confirmation). It covers only the middle working mode, and it never covers merge, production, deploy, data migrations, force-push, or deletions outside its paths.
+A user may approve once that similar low-risk deliveries proceed without asking each time, for example dependency bumps or retired-flag cleanup. A standing approval names the kind of work, its requirements, project-relative paths, files and lines per delivery, one destination (a local release, or a pull request created or updated but never merged, bound to one repository and pushed only to branches under the standing approval's own prefix, never to the base, shared, release, or production branches), a number of deliveries, a mandatory expiry, and no cost budget (delivery cost cannot be measured yet, so `autonomy standing propose` refuses `--budget-per-delivery` and `--budget-total` instead of recording a standing approval that could never cover a step). It covers only the middle working mode, and it never covers merge, production, deploy, data migrations, force-push, or deletions outside its paths.
 
 A delivery proposed under a standing approval treats every delivery action as a confirmation point. The work brief approval, the working-mode choice, and each action confirmation are then satisfied by a derived approval that references the standing approval and the delivery slot it consumed, but only while the standing approval is approved, unexpired, unrevoked, and bound to unchanged project, configuration, policy, and requirement hashes, and while the files changed since task start stay inside its bounds. Otherwise the normal confirmation applies, with the reason shown. Revocation takes effect at the next step of every delivery in progress. All other checks run unchanged.
 
@@ -445,7 +445,7 @@ The authorization ID returned by approval may also be supplied explicitly with `
 
 ### Execution is measured as one tree
 
-Main-agent and subagent usage is aggregated into the proposal budget. Manual values are estimated or unavailable. Exact hard-limit evidence must come from a configured trusted adapter with a valid signed attestation.
+Main-agent and subagent usage is aggregated into the proposal budget. Manual values are estimated or unavailable, must be plain whole numbers (decimals only for `--cost-amount`), and must name a metric the budget tracks. Exact hard-limit evidence must come from a configured trusted adapter with a valid signed attestation; the shipped default budget uses soft limits only, so a normal project completes without one. A receipt that would make the history inconsistent (for example a cumulative counter that decreases) is refused before anything is written.
 
 An exact runtime receipt is imported like this:
 
@@ -720,7 +720,7 @@ flowchart TD
   A --> RE{"Re-evaluate all cumulative usage"}
   RE -->|"allowed"| C
   RE -->|"still blocked"| E
-  Q -->|"no extension"| P["Stop or report a clearly non-released partial result"]
+  Q -->|"no extension"| P["assessment proposal cancel:<br/>stop, keeping any linked output as a<br/>non-released partial result"]
 
   B -->|"new scope, tool, path, access,<br/>secret, production, or destructive action"| NP["Prepare a new proposal or explicit boundary decision"]
   I["Invalid hash, signature, receipt,<br/>schema, or stale source"] --> F["Fail closed; do not advance state"]
@@ -737,6 +737,8 @@ Approve 20 additional active minutes for ASSESS-001, changing the total from 60 
 ```text
 Do not extend the budget. Stop and report the evidence collected so far as a non-released partial result, including every unmet acceptance criterion.
 ```
+
+The "no extension" answer is recorded with `agentic-sdlc assessment proposal cancel --id <proposal> --reason <text>` and the same direct human or CI approval flags as the proposal approval. It moves the workflow to `cancelled`, closes the proposal authorization, releases nothing, and lists already linked outputs as the non-released partial result.
 
 A budget amendment changes only the displayed limits. It cannot authorize a new artifact, path, tool, external system, secret, production action, destructive operation, or wider scope. If the amended budget is still exceeded, the workflow remains `exception_pending`.
 

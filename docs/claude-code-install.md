@@ -99,7 +99,7 @@ This removes the plugin only. Every `.sdlc/` record stays in the project reposit
 
 - `scripts/install-personal-marketplace-v2.py` is the Codex transactional installer. It stages into `~/plugins` and registers in `~/.agents/plugins/marketplace.json`, and it is not used by Claude Code.
 - `scripts/autoconfigure-token-efficiency.py` writes global Codex instructions for RTK. It is optional and Codex-specific.
-- The native session meter in `docs/codex-session-metering.md` reads Codex session logs. On Claude Code, use explicit limits from [Limits and metering](limits-and-metering.md) instead; the budget model itself is host-independent.
+- The native session meter in `docs/codex-session-metering.md` reads Codex session logs. On Claude Code, use explicit limits from [Limits and metering](limits-and-metering.md) instead; the budget model itself is host-independent. Record usage with `agentic-sdlc budget usage record --proposal <id> --input-tokens <n> --output-tokens <n>`, or enable the CodeBurn adapter with this host's log provider and pin the configuration with `config migrate`. `budget meter start` without a Codex task explains the same options.
 
 ## Troubleshooting
 

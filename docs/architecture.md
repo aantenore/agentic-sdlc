@@ -253,7 +253,7 @@ flowchart LR
   Artifact --> Release
 ```
 
-Budget policy is data-driven. Project configuration supplies metric templates, maxima, warning thresholds, completion reserve, and stop/extension rules. A hard limit is valid only for exactly metered usage. Amendments reference the approved base budget and proposal hashes; they never mutate the base tranche or widen scope.
+Budget policy is data-driven. Project configuration supplies the default budget template (`budget_policy.defaults`, soft limits only as shipped), project-wide warning thresholds and completion reserve (which take precedence over the template; a proposal's own `--budget-json` values take precedence over both), and `budget_policy.maxima`, the largest soft or hard limit a proposal or amendment may set per metric. A new budget is refused when a metric name is not a simple lowercase identifier, a limit is 0, a unit is unknown or inconsistent with its currency, a limit action has no implemented effect, or a limit exceeds its maximum. A hard limit is valid only for exactly metered usage. Amendments reference the approved base budget and proposal hashes; they never mutate the base tranche or widen scope.
 
 ## Configurable Workflow Plane
 

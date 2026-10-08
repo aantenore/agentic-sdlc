@@ -110,13 +110,13 @@ The technical appendix must show at least the proposal ID/hash, baseline hash, r
 
 Show concrete values and the source/accuracy for each enabled metric:
 
-- target and maximum active execution time; user and approved external waiting are excluded. The configured default is exact, soft at 2,700 seconds and hard at 3,600 seconds;
-- aggregate steps across the execution tree. The configured default is exact, soft at 40 and hard at 60;
+- target active execution time; user and approved external waiting are excluded. The configured default is an estimated soft limit of 2,700 seconds with no hard limit;
+- aggregate steps across the execution tree. The configured default is an estimated soft limit of 40 with no hard limit;
 - aggregate tokens across the execution tree. The configured default is an estimated soft threshold of 200,000 and has no hard limit;
 - cost cap and currency only with a named, reliable metering/pricing adapter, pricing reference, and currency;
 - warning thresholds, normally 70% and 90% from configuration;
 - completion/verification reserve, normally 15% from configuration;
-- action at the limit: `request_extension`, `partial_delivery`, or `stop`;
+- action at the limit: always `request_extension`; at the pause the person extends (`budget amend`), takes a partial result, or stops (`assessment proposal cancel`);
 - whether any bounded automatic extension exists. Default is none.
 
 Use `exact`, `estimated`, or `unavailable` honestly. Never present an estimated or unavailable metric as a hard enforced cap. If a reliable metering/pricing adapter, pricing reference, or currency is missing, explicitly show cost as `unavailable` and non-binding in checkpoint 2; do not construct a default cost limit. The approved tranche includes analysis, subagents, artifact generation, verification, KB linking, gate checks, and final delivery; do not spend the completion reserve on optional analysis.

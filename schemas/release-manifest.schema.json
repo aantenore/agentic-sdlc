@@ -163,7 +163,14 @@
       "properties": {
         "budget_ref": { "$ref": "#/$defs/hashed_ref" },
         "status": {
-          "enum": ["within_budget", "warning", "completion_reserve", "soft_limit", "hard_limit", "metering_violation"]
+          "description": "not_measured: within budget only because no usage receipt reported some metrics, so the budget could not be checked for them.",
+          "enum": ["within_budget", "warning", "completion_reserve", "soft_limit", "hard_limit", "metering_violation", "not_measured"]
+        },
+        "unmeasured_metrics": {
+          "description": "Budget metrics no usage receipt reported. Absent from manifests written before it existed.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
         },
         "receipt_count": { "type": "integer", "minimum": 0 },
         "usage": {

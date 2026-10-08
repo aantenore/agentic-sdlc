@@ -376,11 +376,11 @@ The evaluator chooses the most restrictive host, project, requirement, delivery,
 
 ## Standing Approvals For Repeated Low-Risk Deliveries
 
-A standing approval lets similar deliveries proceed without a confirmation for each one. It never exists without the user's explicit approval, covers only the `checkpointed` level, and never covers merge, production, deploy, data migrations, force-push, or deletions of tracked files outside its paths. Every bound is mandatory except the optional budget; the expiry is capped by `standing_approval_policy.max_validity_days`.
+A standing approval lets similar deliveries proceed without a confirmation for each one. It never exists without the user's explicit approval, covers only the `checkpointed` level, and never covers merge, production, deploy, data migrations, force-push, or deletions of tracked files outside its paths. Every bound is mandatory; the expiry is capped by `standing_approval_policy.max_validity_days`.
 
 For `--destination pull_request`, `--repository <owner/repository>` is required and pushes are confined to head branches under `--head-branch-prefix` (default `standing/<id>/`). The base branch and shared, release, or production branches (`main`, `master`, `develop`, `release/*`, `prod*`, ...) are never covered. A work brief approved under a standing approval must be for a non-release phase, must not allow infrastructure tools (`kubectl`, `terraform`, cloud CLIs, ...), must name a delivery that is new or proposed under the same standing approval, and the briefs it approves never name more deliveries than `--max-deliveries`.
 
-Delivery cost is not measurable yet, so a standing approval with a budget sends every step back to the normal confirmation; leave the budget out until delivery metering exists.
+Delivery cost is not measurable yet, so `autonomy standing propose` refuses `--budget-per-delivery` and `--budget-total`: such a standing approval would send every step back to the normal confirmation and never cover anything. A standing approval recorded with a budget by an earlier version still fails closed at every step.
 
 ```bash
 node bin/agentic-sdlc.mjs autonomy standing propose \
@@ -1238,6 +1238,38 @@ unavailable. They never satisfy exact/hard enforcement or emit an attestation;
 mapped hard metrics deliberately produce `metering_violation` after evidence is
 recorded. CodeBurn remains disabled-by-default legacy compatibility and must
 never be installed or enabled automatically.
+
+`budget meter start` lists the budget metrics the adapter cannot measure (for
+example cost under the Codex-session meter); `budget status` shows those as
+`not measured` instead of zero. Without `CODEX_THREAD_ID` (a host that does not
+run Codex tasks), pass `--thread-id`, use an enabled `codeburn` adapter, or
+record usage manually.
+
+## Budget Usage, Exceptions, And Stopping
+
+```bash
+# Manual usage: plain whole numbers (decimals only for --cost-amount), only for metrics in the budget.
+node bin/agentic-sdlc.mjs budget usage record --root <project> --proposal ASSESS-001 --input-tokens 1200 --output-tokens 300
+node bin/agentic-sdlc.mjs budget status --root <project> --proposal ASSESS-001
+
+# At exception_pending: extend (approver's own --summary is required) ...
+node bin/agentic-sdlc.mjs budget amend --root <project> --proposal ASSESS-001 \
+  --budget-json '{"limits":{"tokens":{"soft":350000}}}' --reason "<why more is needed>" \
+  --actor-type human --approval-source explicit-user --summary "<the person's decision>"
+
+# ... or stop, keeping already linked output as a non-released partial result.
+node bin/agentic-sdlc.mjs assessment proposal cancel --root <project> --id ASSESS-001 \
+  --reason "<why the work stops>" --actor-type human --approval-source explicit-user --summary "<the person's decision>"
+```
+
+`budget status` prints `used / soft (x%), hard (y%)` per metric with its unit or
+currency, warnings at the configured percentages of soft and hard limits, and
+`not measured` for metrics no receipt has reported. Under `audit_only`, amend and
+cancel outputs carry `authority_note`: show it, and never present the decision
+as verified. Usage receipts are append-only and bound into a ledger; a deleted or
+edited receipt stops budget status, recording, and completion until it is
+restored. Shipped default limits are soft-only; hard limits need the exact
+metering setup in `docs/limits-and-metering.md`.
 
 ## Activity Reports
 

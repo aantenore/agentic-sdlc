@@ -4,10 +4,14 @@ import assert from "node:assert/strict";
 import {
   aggregateBudgetUsage,
   applyBudgetAmendment,
+  budgetInputPolicyErrors,
+  budgetUtilizationPercent,
   buildBudgetAmendment,
   buildExecutionUsageReceipt,
   commitBudgetReservation,
+  completionBudgetStatus,
   evaluateBudgetUsage,
+  formatBudgetQuantity,
   normalizeExecutionBudget,
   normalizeMoneyDecimal,
   reserveBudget,
@@ -333,5 +337,164 @@ test("budget amendments bind base and result without mutating the original", () 
       },
     ),
     /cannot lower completion_reserve_percent/,
+  );
+});
+
+test("soft limits get advance warnings and unreported metrics are marked unmeasured", () => {
+  const budget = normalizeExecutionBudget({
+    id: "budget-soft",
+    limits: {
+      tokens: { unit: "tokens", metering: "estimated", soft: 1000 },
+      cost: { unit: "money", currency: "USD", metering: "estimated", soft: "5" },
+    },
+  });
+  const empty = evaluateBudgetUsage(budget, []);
+  assert.deepEqual(empty.unmeasured_metrics, ["cost", "tokens"]);
+
+  const decision = evaluateBudgetUsage(budget, [{ usage: { tokens: 750 }, metering: { tokens: "estimated" } }]);
+  assert.equal(decision.status, "within_budget", "soft warnings never change the recorded decision status");
+  assert.deepEqual(decision.unmeasured_metrics, ["cost"]);
+  assert.deepEqual(decision.soft_warnings, [{ metric: "tokens", thresholds_reached_percent: [70], used: 750, soft: 1000 }]);
+  assert.deepEqual(decision.warnings, []);
+
+  assert.equal(formatBudgetQuantity(budget.limits.cost, "5"), "USD 5.00");
+  assert.equal(formatBudgetQuantity(budget.limits.cost, "0.125"), "USD 0.125");
+  assert.equal(formatBudgetQuantity(budget.limits.tokens, 1000), "1000 tokens");
+  assert.equal(budgetUtilizationPercent(budget.limits.tokens, 750, 1000), "75.0");
+  assert.equal(budgetUtilizationPercent(budget.limits.cost, "1.5", "5"), "30.0");
+  assert.equal(budgetUtilizationPercent(budget.limits.tokens, 1, null), null);
+});
+
+test("budget input policy rejects unusable metrics, units, limits, actions, and maxima", () => {
+  const valid = normalizeExecutionBudget({
+    id: "budget-valid",
+    limits: {
+      tokens: { unit: "tokens", metering: "estimated", soft: 1000 },
+      cost: { unit: "money", currency: "USD", metering: "estimated", soft: "5" },
+      quality_checks: { unit: "checks", metering: "estimated", soft: 20 },
+    },
+  });
+  assert.deepEqual(budgetInputPolicyErrors(valid, { maxima: { tokens: 1000, cost: "5.00" } }), []);
+  assert.match(
+    budgetInputPolicyErrors(valid, { maxima: { cost: "4.99" } }).join("\n"),
+    /limits\.cost\.soft 5 exceeds the project maximum 4\.99/u,
+  );
+  const invalid = normalizeExecutionBudget({
+    id: "budget-invalid",
+    limits: {
+      hasOwnProperty: { unit: "tokens", metering: "estimated", soft: 1 },
+      steps: { unit: "steps", metering: "estimated", soft: 0 },
+      cost: { unit: "money", metering: "estimated", currency: "EUR", soft: "0" },
+      calls: { unit: "currency", currency: "EUR", metering: "estimated", soft: "1" },
+    },
+    limit_policy: { on_warning: "page" },
+    extensions: { on_limit: "auto_raise" },
+  });
+  const problems = budgetInputPolicyErrors(invalid).join("\n");
+  assert.match(problems, /metric 'hasOwnProperty' must be a simple lowercase identifier/u);
+  assert.match(problems, /limits\.steps\.soft must be greater than 0/u);
+  assert.match(problems, /limits\.cost\.soft must be greater than 0/u);
+  assert.match(problems, /unit 'currency' is not a known unit/u);
+  assert.match(problems, /limits\.calls declares currency EUR, so its unit must be 'money'/u);
+  assert.match(problems, /limit_policy\.on_warning must be 'notify'/u);
+  assert.match(problems, /extensions\.on_limit must be 'request_extension'/u);
+});
+
+test("cumulative aggregation is reserved for trusted attested sources", () => {
+  const budget = normalizeExecutionBudget(budgetInput());
+  for (const assurance of ["manual_declared", "advisory_observed"]) {
+    assert.throws(
+      () => buildExecutionUsageReceipt({
+        id: `usage-${assurance}-cumulative`,
+        execution_id: "execution-001",
+        budget,
+        usage: { calls: 5 },
+        metering: { calls: "estimated" },
+        ended_at: "2026-07-14T09:00:00.000Z",
+        source: { adapter: "manual", assurance, aggregation: "cumulative", attestation_ref: null },
+      }),
+      /'cumulative' requires trusted_attested assurance/,
+    );
+  }
+});
+
+test("stored history with an advisory cumulative receipt stays readable, but a new one is refused", () => {
+  const budget = normalizeExecutionBudget(budgetInput());
+  const delta = buildExecutionUsageReceipt({
+    id: "usage-stored-cumulative",
+    execution_id: "execution-001",
+    budget,
+    usage: { calls: 5 },
+    metering: { calls: "estimated" },
+    ended_at: "2026-07-14T09:00:00.000Z",
+    source: { adapter: "codeburn", assurance: "advisory_observed", aggregation: "delta", attestation_ref: null },
+  });
+  // A receipt recorded by an earlier version, before the rule existed.
+  const stored = { ...structuredClone(delta), source: { ...delta.source, aggregation: "cumulative" } };
+  stored.receipt_hash = computeStableHash(omitKeys(stored, ["receipt_hash", "hash_algorithm"]));
+
+  assert.equal(validateExecutionUsageReceipt(stored, budget).valid, true);
+  assert.equal(evaluateBudgetUsage(budget, [stored]).usage.calls, 5);
+  const incoming = validateExecutionUsageReceipt(stored, budget, { incoming: true });
+  assert.equal(incoming.valid, false);
+  assert.match(incoming.errors.join("\n"), /'cumulative' requires trusted_attested assurance/u);
+
+  const tampered = { ...structuredClone(stored), usage: { calls: 6 } };
+  assert.throws(
+    () => evaluateBudgetUsage(budget, [tampered]),
+    (error) => /receipts\[0\] \(usage-stored-cumulative\) failed execution usage receipt validation: .*receipt_hash does not match/u.test(error.message),
+  );
+});
+
+test("a completion records not_measured instead of a clean result for unmeasured metrics", () => {
+  const budget = normalizeExecutionBudget({
+    id: "budget-completion",
+    limits: {
+      tokens: { unit: "tokens", metering: "estimated", soft: 1000 },
+      steps: { unit: "steps", metering: "estimated", soft: 10 },
+    },
+  });
+  assert.equal(completionBudgetStatus(evaluateBudgetUsage(budget, [])), "not_measured");
+  const partial = evaluateBudgetUsage(budget, [{ usage: { tokens: 10 }, metering: { tokens: "estimated" } }]);
+  assert.equal(partial.status, "within_budget");
+  assert.equal(completionBudgetStatus(partial), "not_measured");
+  const full = evaluateBudgetUsage(budget, [{ usage: { tokens: 10, steps: 1 }, metering: { tokens: "estimated", steps: "estimated" } }]);
+  assert.equal(completionBudgetStatus(full), "within_budget");
+  const warned = evaluateBudgetUsage(budget, [{ usage: { tokens: 10, steps: 9 }, metering: { tokens: "estimated", steps: "estimated" } }]);
+  assert.equal(completionBudgetStatus(warned), warned.status);
+});
+
+test("an amendment records the approver's decision only when one is given", () => {
+  const budget = normalizeExecutionBudget(budgetInput());
+  const base = { id: "amendment-summary", reason: "More calls are needed", created_at: "2026-07-14T09:31:00.000Z" };
+  const withSummary = buildBudgetAmendment(budget, { limits: { calls: { soft: 200 } } }, { ...base, approval_summary: "I approve 200 calls" });
+  assert.equal(withSummary.approval_summary, "I approve 200 calls");
+  const legacy = buildBudgetAmendment(budget, { limits: { calls: { soft: 200 } } }, base);
+  assert.equal(Object.hasOwn(legacy, "approval_summary"), false);
+  assert.notEqual(withSummary.amendment_hash, legacy.amendment_hash);
+  assert.equal(applyBudgetAmendment(budget, withSummary).budget_hash, applyBudgetAmendment(budget, legacy).budget_hash);
+});
+
+test("a regressing cumulative receipt is rejected before it can join the history", () => {
+  const budget = normalizeExecutionBudget({
+    id: "budget-cumulative",
+    limits: { steps: { unit: "steps", metering: "exact", soft: 10, hard: 20 } },
+  });
+  const cumulative = (id, steps, endedAt) => buildExecutionUsageReceipt({
+    id,
+    execution_id: "execution-001",
+    budget,
+    usage: { steps },
+    metering: { steps: "exact" },
+    started_at: "2026-07-14T08:00:00.000Z",
+    ended_at: endedAt,
+    source: trustedMeterSource(),
+  });
+  const first = cumulative("usage-first", 6, "2026-07-14T09:00:00.000Z");
+  const regressed = cumulative("usage-regressed", 4, "2026-07-14T09:10:00.000Z");
+  assert.equal(evaluateBudgetUsage(budget, [first]).usage.steps, 6);
+  assert.throws(
+    () => evaluateBudgetUsage(budget, [first, regressed]),
+    /regressed below previously recorded usage/,
   );
 });

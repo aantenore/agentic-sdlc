@@ -10,6 +10,37 @@ If any part does not allow an operation, the operation is not authorized. A larg
 
 See [How it works](how-it-works.md) for the complete lifecycle, [the documentation map](README.md) for related topics, and the [project overview](../README.md) for installation and quick-start commands.
 
+## Quick start: set a cost or token limit
+
+You do not need keys or extra tools for this. A **soft limit** is a checkpoint: when usage reaches it, work pauses and you are asked what to do. Nothing is spent past it without your answer.
+
+1. **Say the limit when you approve the work.** For example: “Approve this assessment with a soft limit of 200,000 tokens and USD 5.00.” The agent prepares the proposal with:
+
+   ```json
+   {"limits": {
+     "tokens": {"unit": "tokens", "metering": "estimated", "soft": 200000},
+     "cost": {"unit": "money", "currency": "USD", "metering": "estimated", "soft": "5.00"}
+   }}
+   ```
+
+   Without your own limits, the project defaults apply: soft limits of 45 minutes of active time, 40 steps, and 200,000 tokens.
+2. **Read the budget status** at any time with `agentic-sdlc budget status --proposal <id>`:
+
+   ```text
+   tokens: used 140000 / soft 200000 tokens (70.0%); no hard limit.
+   cost: not measured (soft USD 5.00); no usage receipt has reported this metric, so its limits are not being checked yet.
+   Warning: tokens reached 70% of its soft limit 200000 tokens; at the soft limit work pauses for your decision.
+   ```
+
+   `used / soft (70.0%)` is how much of the limit is gone. `not measured` means nothing has reported that figure yet (the built-in meter counts tokens, not money), so that limit cannot trigger. Warnings appear at 70% and 90%.
+3. **At the limit**, the work stops starting anything new and you get one question with three possible answers:
+   - **Extend:** “Raise the token limit to 300,000.” The agent records exactly that with `budget amend`; nothing else changes.
+   - **Partial result:** “Stop and keep what is already verified.” Recorded with `assessment proposal cancel`; nothing is released.
+   - **Stop:** “Stop now.” Also `assessment proposal cancel`.
+4. **Figures are estimates.** Token counts come from local logs and money from price lists, so treat them as close guides, not invoices. A limit that must be enforced exactly (a **hard limit**) needs a separately run, signed meter; see [Exact metering setup](#exact-metering-setup).
+
+In the default `audit_only` mode the tool records who you said you are but cannot prove it; extension and stop outputs say so. Recorded usage cannot be quietly removed: deleting a usage record stops the budget until it is restored. If no usage is recorded for a metric, the finished work is marked `not_measured` rather than “within budget”.
+
 ## What “blank cheque” means here
 
 A user may say, for example:
@@ -185,13 +216,24 @@ The record now shows `status: "revoked"`. Any later attempt to consume it fails 
 
 An execution budget belongs to one proposal execution tree, including subagents. Each metric defines:
 
-- a `unit` such as `seconds`, `steps`, `tokens`, `calls`, `money`, or a custom unit;
+- a `unit`: one of `seconds`, `steps`, `tokens`, `calls`, `checks`, `requests`, `items`, or `money`;
 - a metering level: `exact`, `estimated`, or `unavailable`;
 - an optional `soft` limit;
 - an optional `hard` limit;
 - a `currency` for monetary values, otherwise `null`.
 
-At least one of `soft` or `hard` is required for every metric. When both exist, `soft` must be lower than `hard`. A hard limit is accepted only with `metering: "exact"`.
+At least one of `soft` or `hard` is required for every metric, and each limit must be greater than 0 (omit a limit instead of setting 0). When both exist, `soft` must be lower than `hard`. A hard limit is accepted only with `metering: "exact"`. A money metric uses unit `money` and a currency; a currency on any other unit is refused. Standard metrics must use their standard unit (`active_time_seconds` → `seconds`, `steps` → `steps`, token metrics → `tokens`, call metrics → `calls`, `cost` → `money`).
+
+The shipped `budget_policy.defaults` use soft limits only (2,700 active seconds, 40 steps, 200,000 tokens, all estimated). Hard limits are opt-in; see [Exact metering setup](#exact-metering-setup).
+
+Where each setting comes from, highest precedence first:
+
+1. the proposal's own `--budget-json` / `--budget-file`;
+2. the project-wide `budget_policy.warning_thresholds_percent` and `budget_policy.completion_reserve_percent`;
+3. the `budget_policy.defaults` template (used for the limits when no budget is passed);
+4. the built-in defaults (`[70, 90]` and `15`).
+
+`budget_policy.maxima` caps every new proposal and amendment, for example `{"tokens": 500000, "cost": "20.00"}` (a money maximum may also be written as `{"amount": "20.00", "currency": "USD"}`): a soft or hard limit above the maximum is refused. `limit_policy.on_warning` must be `notify`, `on_soft_limit` must be `checkpoint`, `on_hard_limit` and `on_metering_violation` must be `stop`, `extensions.automatic_extension` must be `false`, and `extensions.on_limit` must be `request_extension`: these are the only behaviors implemented, so other values are refused instead of being silently ignored. These rules, and the ranges of the project-wide `warning_thresholds_percent` (1–99) and `completion_reserve_percent` (0–50), are checked when a new proposal or amendment is prepared, not when the configuration is loaded: an older pinned configuration with other values keeps working for existing proposals, and `assessment proposal prepare` names each value to correct before a new budget can use it.
 
 ### Common and custom metrics
 
@@ -207,7 +249,7 @@ At least one of `soft` or `hard` is required for every metric. When both exist, 
 | `cost` | Decimal monetary amount | Currency must match every receipt and estimate |
 | `quality_checks` | Example custom counter | The evaluator is generic, but an adapter or manual observation must emit the same metric name |
 
-Custom metric names may use letters, numbers, `.`, `_`, and `-`, starting with a letter. The core budget evaluator needs no custom branch, but measurement still matters: the native adapter maps only token and estimated-call sources; legacy CodeBurn can also map estimated cost. A different metric needs a different adapter or a manual advisory observation.
+Custom metric names are simple lowercase identifiers: a lowercase letter followed by lowercase letters, digits, or `_` (for example `quality_checks`). Names such as `Tokens` or `constructor` are refused. The core budget evaluator needs no custom branch, but measurement still matters: the native adapter maps only token and estimated-call sources; legacy CodeBurn can also map estimated cost. A different metric needs a different adapter or a manual advisory observation.
 
 ### Complete budget input example
 
@@ -290,16 +332,16 @@ Field meanings:
 | `limits.<name>.soft` | Pause/checkpoint threshold; `null` means no soft threshold |
 | `limits.<name>.hard` | Absolute stop threshold; `null` means no hard ceiling |
 | `limits.<name>.currency` | Currency or billing unit for money; otherwise `null` |
-| `limit_policy.on_warning` | Notify without stopping new work |
-| `limit_policy.on_soft_limit` | Record the intended checkpoint, partial-delivery, or stop behavior |
+| `limit_policy.on_warning` | `notify`: report without stopping new work |
+| `limit_policy.on_soft_limit` | `checkpoint`: pause at `exception_pending`, where the person extends, takes a partial result, or stops |
 | `limit_policy.on_hard_limit` | Always `stop` |
 | `limit_policy.on_metering_violation` | Always `stop` because evidence is insufficient for the promised hard control |
 | `extensions.active_time_excludes_*` | Define which waits do not consume active time |
 | `extensions.aggregation` | Define the execution tree whose usage is combined |
 | `extensions.automatic_extension` | `false`: limits never raise themselves |
-| `extensions.on_limit` | Ask for an explicit extension decision |
+| `extensions.on_limit` | `request_extension`: ask for an explicit decision |
 
-The CLI derives the canonical budget ID as `BUDGET-<proposal-id>`, so the input file does not need an `id`. The two hard metrics in this example are usable only when a trusted exact-metering adapter is configured before proposal approval. Without signed exact coverage, completion fails closed.
+The CLI derives the canonical budget ID as `BUDGET-<proposal-id>`, so the input file does not need an `id`. The two hard metrics in this example are usable only when a trusted exact-metering adapter is configured before proposal approval (see [Exact metering setup](#exact-metering-setup)); the checkpoint warns when one is missing. Without signed exact coverage, completion fails closed. Without such a meter, drop the `hard` values and keep the soft ones.
 
 Use the file when preparing a proposal:
 
@@ -348,7 +390,24 @@ flowchart TD
 - **Hard limit:** usage has reached the absolute ceiling. Work stops.
 - **Metering violation:** a hard control was promised but the available evidence is not exact and trusted. The system stops instead of pretending the limit was enforced.
 
-Warning percentages and the completion reserve are calculated only for metrics with a hard ceiling. A soft-only token or cost estimate still triggers its soft checkpoint, but it has no percentage-based reserve because there is no hard total from which to calculate one.
+The decision status uses warning percentages and the completion reserve only for metrics with a hard ceiling. A soft-only token or cost estimate still triggers its soft checkpoint, but it has no percentage-based reserve because there is no hard total from which to calculate one. Soft limits get their own advance notice: when usage reaches a `warning_thresholds_percent` value of a soft limit (70% and 90% by default), `budget status` and `budget usage record` print a warning and list it under `soft_warnings`. This notice never changes the decision status.
+
+`budget status` prints one line per metric, for example:
+
+```text
+tokens: used 700 / soft 1000 tokens (70.0%); no hard limit.
+cost: used USD 1.50 / soft USD 5.00 (30.0%); no hard limit.
+steps: used 12 / soft 40 steps (30.0%), hard 60 steps (20.0%); 48 steps left before the hard stop.
+cost: not measured (soft USD 5.00); no usage receipt has reported this metric, so its limits are not being checked yet.
+```
+
+`not measured` means no usage receipt has reported the metric yet, so its limit is not being checked. At completion, a budget that is within its limits only because some metrics were never measured is recorded in the release manifest as `not_measured`, with those metrics under `unmeasured_metrics`, and the completion output warns that no usage was recorded so the budget could not be checked. It is never reported as `within_budget`; hard-limited metrics still fail closed without exact coverage. For example, the Codex-session meter measures tokens and calls but not cost; `budget meter start` warns about such metrics when it captures the baseline, and `--json` output lists them as `unmeasured_metrics`.
+
+### Usage ledger and its limit
+
+Usage receipts are append-only. Each recorded receipt is also chained into a usage ledger (count, head hash, and ordered receipt ids and hashes) inside the hash-sealed assessment application record. If a receipt the ledger lists is deleted or edited, `budget status`, `budget usage record`, and `assessment proposal complete` stop with a message that names the receipt, until the original file is restored. A receipt file that exists but is not yet listed (left by an interrupted record) only adds usage; it is counted and registered by the next record.
+
+The seal is a plain hash chain, not a keyed signature: it detects accidental or uncoordinated deletion and editing, but anyone who can rewrite files under `.sdlc/` can recompute it. Protect `.sdlc/` with version control and review, and rely on signed exact metering when usage must be provable.
 
 ## Exact, estimated, and unavailable
 
@@ -431,6 +490,26 @@ This is a syntactically valid example; replace the illustrative public key with 
 | `public_key` | Reviewed public key; never put the private key in project configuration |
 
 The complete exact-metering policy is hashed into the approved budget. Changing adapters, metrics, keys, or freshness after approval invalidates the binding and requires a new proposal; it cannot be smuggled through a budget amendment.
+
+### Exact metering setup
+
+Hard limits are optional. The shipped defaults use soft limits only, because a hard limit can be satisfied only by a signed, exact measurement that the agent itself cannot produce. Set one up end to end like this:
+
+1. **Run a signer outside the agent's control.** It must observe the real usage (a gateway in front of model calls, a CI job, or a runtime supervisor) and hold the private key. The plugin deliberately ships no signing command: an agent that could sign its own usage could forge it.
+2. **Create an Ed25519 key pair on the signer host**, for example with OpenSSL:
+
+   ```bash
+   openssl genpkey -algorithm ed25519 -out meter-private.pem
+   openssl pkey -in meter-private.pem -pubout -out meter-public.pem
+   ```
+
+   `meter-public.pem` is the PEM-encoded SPKI public key the project trusts. Never copy the private key into the repository or `.sdlc/`.
+3. **Trust the signer in `.sdlc/config.json`.** Add an entry to `budget_policy.exact_metering.trusted_sources` with your adapter id, the metrics it may assert as exact, and `trusted_keys: [{"key_id": "<stable id>", "algorithm": "Ed25519", "public_key": "<contents of meter-public.pem, newlines as \n>"}]` (see the example above).
+4. **Pin the edited configuration.** Run `agentic-sdlc config migrate`, review the plan, and apply it with `agentic-sdlc config migrate --apply --plan-hash <hash>`. Until then the project keeps its previous configuration.
+5. **Prepare the proposal with the hard limits** only after pinning, for example `{"limits":{"steps":{"unit":"steps","metering":"exact","soft":40,"hard":60}}}`. The checkpoint warns when a hard metric has no trusted source.
+6. **Have the signer write cumulative receipts.** For each observation it builds a signed attestation with `buildMeteringAttestation` from `lib/metering-attestations.mjs` (measurement: `execution_id` = proposal id, the effective `budget_id` and `budget_hash`, `adapter`, cumulative `usage` and `metering: "exact"` per metric, `cumulative: true`, start/end and coverage timestamps, and `signing: { key_id, private_key }`), then a usage receipt with `buildExecutionUsageReceipt` from `lib/execution-budget.mjs` whose `source` is `{ adapter, assurance: "trusted_attested", aggregation: "cumulative", attestation_ref: { id, path, hash } }`, where `hash` is the SHA-256 of the attestation file's bytes.
+7. **Import each receipt** with `agentic-sdlc budget usage record --proposal <id> --receipt-file <receipt.json>`. Cumulative values may never decrease; a regressing receipt is refused and nothing is written.
+8. **Finish with a fresh observation.** At completion the latest exact receipt must cover the whole execution and be no older than `completion_freshness_seconds`.
 
 ## RTK optimization and the cost gate
 
@@ -685,9 +764,21 @@ The workflow enters `exception_pending` when a soft limit, hard limit, metering 
 
 The user then chooses one of three outcomes:
 
-- **Amend:** approve a new, versioned, extension-only budget.
-- **Partial delivery:** stop new work and return only the evidence or artifact portions already completed and verified, clearly marked as a non-released partial result.
-- **Stop:** cancel the tranche and perform no further work.
+- **Amend:** approve a new, versioned, extension-only budget with `budget amend`.
+- **Partial delivery:** stop new work and keep only the evidence or artifact portions already linked and verified, clearly marked as a non-released partial result. Record it with `assessment proposal cancel`.
+- **Stop:** cancel the tranche and perform no further work, also with `assessment proposal cancel`.
+
+```bash
+node bin/agentic-sdlc.mjs assessment proposal cancel \
+  --root /path/to/project \
+  --id ASSESS-001 \
+  --reason "Stop at the budget checkpoint and keep the verified findings as a partial result" \
+  --actor-type human \
+  --approval-source explicit-user \
+  --summary "Stop here; do not extend the budget"
+```
+
+Cancelling needs the same direct human or CI decision as the approval it ends (`--summary` or `--approval-evidence`; automation cannot cancel on its own). It moves the workflow to `cancelled`, closes the proposal's authorization, and releases nothing. Outputs already linked stay on disk and are listed as `partial_outputs`; recorded usage stays in the budget history. Repeating the command is a no-op. A completed assessment cannot be cancelled, and neither can one whose completion was interrupted after its release manifest was written: run `assessment proposal complete` again to finish that recovery. New work needs a new proposal.
 
 ```mermaid
 stateDiagram-v2
@@ -710,7 +801,8 @@ node bin/agentic-sdlc.mjs budget amend \
   --budget-json '{"limits":{"tokens":{"soft":350000}}}' \
   --reason "The approved analysis is complete, but verification needs approximately 120000 more estimated tokens" \
   --actor-type human \
-  --approval-source explicit-user
+  --approval-source explicit-user \
+  --summary "I approve raising only the token soft limit to 350000"
 ```
 
 | Option | What it asks for |
@@ -723,6 +815,9 @@ node bin/agentic-sdlc.mjs budget amend \
 | `--reason` | Why the approved tranche cannot finish within the old total and what the extra capacity is for |
 | `--actor-type` | Root approver type; only `human` or `ci` may extend a budget |
 | `--approval-source` | Direct `explicit-user` or `ci` authority; automation cannot extend itself |
+| `--summary` | The approver's own decision in their words (or `--approval-evidence <path>`); required for `explicit-user` and `ci`, separately from `--reason` |
+
+The approval checks are the same as for `assessment proposal approve`. Under the default `audit_only` authority mode the CLI records the declared human or CI identity but cannot prove who ran the command, so the output always carries `authority_assurance_label: audit_only` and the same `authority_note` warning as a proposal approval. Show that warning to the person; never present an audit-only amendment as verified approval. New amendments also store the approver's `--summary` as `approval_summary`; replaying an amendment keeps the decision text it was recorded with.
 
 When `authority_policy.mode` is `host_verified`, also provide `--host-receipt-file <path.json>`. That receipt must approve action `budget.amend`, bind the exact proposal/base/result hashes and changes, and carry a valid Ed25519 signature from a configured trusted host key.
 
@@ -753,7 +848,7 @@ Use delivery kind `local_release` and record the exact local target root, canoni
 
 ### One hour and 60 steps, enforced
 
-Use `active_time_seconds` hard `3600` and `steps` hard `60`, both `exact`, plus a trusted runtime adapter that signs cumulative measurements. With a 15% reserve, new work stops at 3,060 seconds or 51 steps so the remaining capacity is protected for completion. The absolute hard stops remain 3,600 seconds and 60 steps.
+Use `active_time_seconds` hard `3600` and `steps` hard `60`, both `exact`, plus a trusted runtime adapter that signs cumulative measurements (see [Exact metering setup](#exact-metering-setup)). With a 15% reserve, new work stops at 3,060 seconds or 51 steps so the remaining capacity is protected for completion. The absolute hard stops remain 3,600 seconds and 60 steps.
 
 ### Tokens observed from the exact local task
 

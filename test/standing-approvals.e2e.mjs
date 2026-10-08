@@ -677,29 +677,27 @@ test("the delivery count is enforced and exhaustion falls back", () => {
   assert.equal(build.action_receipt.approval.approval_source, "standing-approval");
 });
 
-test("a set budget that cannot be measured stops the delegated delivery", () => {
+test("a standing approval with a cost budget is refused because delivery cost cannot be measured", () => {
   const project = initializeProject("budget");
-  const standingId = grantStanding(project, {
-    extra: ["--budget-per-delivery", "5", "--budget-total", "20", "--currency", "EUR"],
-  });
-  mustRun([
-    "story", "create", "--root", project, "--id", "ST-BUDGET", "--title", "Budget", "--phase", "implementation",
-    "--status", "ready", "--requirement", "REQ-TOIL", "--acceptance", "Observable.",
-  ], project);
-  mustRun([
-    "contract", "create", "--root", project, "--id", "CONTRACT-BUDGET", "--story", "ST-BUDGET", "--phase", "implementation",
-    "--delivery-profile", "AUT-BUDGET", "--level", "checkpointed", "--context-summary", "Budget check.",
-    "--qa", "Who confirms?|The standing approval", "--tool", "node",
-    "--output-ref", "implementation-summary:implementation-summary-v1:new",
-  ], project);
-  mustRun(["contract", "approve", "--root", project, "--id", "CONTRACT-BUDGET", "--standing-approval", standingId], project);
-  mustFail([
-    "autonomy", "delivery", "propose", "--root", project, "--id", "AUT-BUDGET", "--delivery", "LOCAL-BUDGET",
-    "--kind", "local_release", "--story", "ST-BUDGET", "--contract", "CONTRACT-BUDGET", "--requirement", "REQ-TOIL",
-    "--level", "checkpointed", "--target-root", path.join(project, "docs", "local-release-budget"),
-    "--write-path", path.join(project, "docs", "local-release-budget", "app"), "--smoke-test", SMOKE,
-    "--rollback", ROLLBACK, "--standing-approval", standingId,
-  ], project, /cost budget is set, but this delivery's cost cannot be measured/u);
+  for (const extra of [
+    ["--budget-per-delivery", "5", "--budget-total", "20", "--currency", "EUR"],
+    ["--budget-total", "20", "--currency", "EUR"],
+  ]) {
+    const result = run([
+      "autonomy", "standing", "propose", "--root", project, "--id", "SA-BUDGET",
+      "--recipe", "flag-cleanup", "--description", "Remove one retired feature flag",
+      ...REQUIREMENTS.flatMap((item) => ["--requirement", item]),
+      "--write-path", "src", "--max-changed-files", "10", "--max-changed-lines", "200",
+      "--destination", "local_release", "--max-deliveries", "2", "--expires-at", isoAfter(7 * DAY),
+      ...extra,
+    ], project);
+    assert.notEqual(result.status, 0, result.stdout);
+    assert.match(`${result.stdout}\n${result.stderr}`, /cannot carry a cost budget yet[\s\S]*would never cover anything[\s\S]*Nothing was recorded/u);
+  }
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "autonomy", "standing", "SA-BUDGET")), false);
+  // Without the budget options the same bounds are accepted.
+  assert.equal(proposeStanding(project, { id: "SA-BUDGET" }).standing_approval.budget, null);
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "autonomy", "standing", "SA-BUDGET")), true);
 });
 
 test("a configuration change after approval suspends the standing approval", () => {

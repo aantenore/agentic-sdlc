@@ -374,7 +374,7 @@
     }
   },
   "budget_policy": {
-    "principle": "Checkpoint 2 approves the complete execution tranche. Active time and steps use hard limits, but exact values are accepted only from an explicitly configured trusted adapter with verified attestation; no adapter is trusted by default. Tokens are estimated and advisory. Cost is unavailable and non-binding unless a reliable metering/pricing adapter and currency are configured.",
+    "principle": "Checkpoint 2 approves the work together with its budget. The shipped limits are soft: when usage reaches one, work pauses and you decide whether to extend the budget or stop. Token and cost figures are estimates. Hard limits are optional and need a trusted, signed exact meter (see docs/limits-and-metering.md).",
     "schema": "schemas/execution-budget.schema.json",
     "amendment_schema": "schemas/budget-amendment.schema.json",
     "usage_receipt_schema": "schemas/execution-usage-receipt.schema.json",
@@ -432,15 +432,15 @@
       "limits": {
         "active_time_seconds": {
           "unit": "seconds",
-          "metering": "exact",
+          "metering": "estimated",
           "soft": 2700,
-          "hard": 3600
+          "hard": null
         },
         "steps": {
           "unit": "steps",
-          "metering": "exact",
+          "metering": "estimated",
           "soft": 40,
-          "hard": 60
+          "hard": null
         },
         "tokens": {
           "unit": "tokens",

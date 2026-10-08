@@ -67,6 +67,11 @@
     "requested_by": { "type": ["object", "null"], "additionalProperties": true },
     "approved_by": { "type": ["object", "null"], "additionalProperties": true },
     "approval_source": { "type": ["string", "null"], "minLength": 1 },
+    "approval_summary": {
+      "description": "The approver's own decision text (--summary). Absent from amendments written before it was recorded.",
+      "type": "string",
+      "minLength": 1
+    },
     "approval_evidence": { "type": "array" },
     "host_approval_receipt_ref": { "$ref": "#/$defs/nullable_hashed_ref" },
     "extensions": { "type": "object" },

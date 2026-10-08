@@ -17,6 +17,10 @@ Codex supplies cumulative `total_token_usage` counters. The adapter validates:
 - `total_tokens = input_tokens + output_tokens`;
 - cache-read plus cache-write input does not exceed input;
 - counters never regress within the selected task;
+- every `token_count` event that carries counters has a valid timestamp and
+  non-negative whole-number counters; an invalid event fails the collection
+  with `malformed_codex_session_event` instead of being skipped (an event
+  without `info` carries only rate-limit context and is ignored);
 - the task metadata `cwd` equals the target project;
 - the session file remains inside `CODEX_HOME` and is not a symlink;
 - baseline and current snapshots keep the same task identity.
@@ -60,6 +64,20 @@ exact task identifier with `--thread-id`. `--session-file` exists for bounded
 tests and recovery; the file must resolve inside `CODEX_HOME`, must not be a
 link, and must contain matching `session_meta`.
 
+### When the meter cannot start
+
+| Message | What to do |
+|---|---|
+| `requires CODEX_THREAD_ID` | Inside a Codex task the host sets it. Outside one, pass `--thread-id <id>`. On a host that does not run Codex tasks there is no session to read: enable the `codeburn` adapter with that host's log provider, or record usage manually with `agentic-sdlc budget usage record --proposal <id> --input-tokens <n> --output-tokens <n>`. |
+| `cwd does not match the target project root` | The message names both directories (your home directory is shown as `~`). Meter the task that worked in this project, or pass the `--root` of the project the task used. |
+| `adapter '<id>' is disabled` | Set `budget_policy.metering_adapters.<id>.enabled` to `true` in `.sdlc/config.json`, then pin the edit (below). |
+| `CodeBurn is not installed or not on PATH` | Install CodeBurn 0.9.x separately or point `budget_policy.metering_adapters.codeburn.command.executable` at it, then pin the edit (below). |
+
+Editing `.sdlc/config.json` by hand does not take effect on its own: the
+project keeps using its pinned configuration until you run
+`agentic-sdlc config migrate`, review the plan, and apply it with
+`agentic-sdlc config migrate --apply --plan-hash <hash>`.
+
 The baseline, snapshots, deltas, and usage receipts are hash-bound and
 append-only. Repeating an unchanged observation is idempotent. File truncation,
 scope drift, identity drift, malformed target events, or counter resets fail
@@ -69,7 +87,9 @@ closed.
 
 The source is local and direct, but it is not provider-signed. Token and call
 measurements therefore remain `estimated` with `advisory_observed` assurance;
-cost is `unavailable`. They support warnings and soft limits, but cannot satisfy
+cost is `unavailable`. `budget meter start` warns about every budget metric
+this adapter cannot measure (such as `cost`), and `budget status` shows those
+metrics as `not measured` rather than as zero usage. They support warnings and soft limits, but cannot satisfy
 an exact hard limit.
 
 RTK and Caveman reduce real context before this meter observes the next

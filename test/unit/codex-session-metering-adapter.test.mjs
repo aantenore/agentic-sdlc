@@ -77,6 +77,13 @@ function tokenCount({
   };
 }
 
+function homeAbbreviated(value) {
+  const relative = path.relative(os.homedir(), path.resolve(value));
+  return relative && !relative.startsWith("..") && !path.isAbsolute(relative)
+    ? ["~", ...relative.split(path.sep)].join("/")
+    : path.resolve(value);
+}
+
 function writeJsonl(file, entries, newline = "\n") {
   fs.writeFileSync(file, `${entries.map((entry) => JSON.stringify(entry)).join(newline)}${newline}`);
 }
@@ -235,7 +242,11 @@ test("Codex session selection rejects project drift, linked files, and counter r
       { id: "WRONG-PROJECT", query: { thread_id: THREAD_ID } },
       { codex_home: current.codexHome, project_root: path.join(current.root, "other") },
     ),
-    /cwd does not match/u,
+    // Both paths are named so the person can see which project the task ran in.
+    (error) => error.code === "codex_session_project_mismatch"
+      && /cwd does not match/u.test(error.message)
+      && error.message.includes(`the session ran in ${homeAbbreviated(current.projectRoot)}`)
+      && error.message.includes(`but the project root is ${homeAbbreviated(path.join(current.root, "other"))}`),
   );
 
   if (process.platform !== "win32") {
@@ -251,6 +262,40 @@ test("Codex session selection rejects project drift, linked files, and counter r
         },
       ),
       /Refusing linked/u,
+    );
+  }
+});
+
+test("an invalid token_count event fails closed instead of being skipped", async (t) => {
+  const current = fixture();
+  t.after(() => removeFixture(current.root));
+  const valid = tokenCount({ timestamp: "2026-07-28T08:01:00.000Z", input: 100, output: 20 });
+  const rateLimitOnly = {
+    timestamp: "2026-07-28T08:00:30.000Z",
+    type: "event_msg",
+    payload: { type: "token_count", info: null, rate_limits: null },
+  };
+  writeJsonl(current.sessionFile, [sessionMeta(current.projectRoot), rateLimitOnly, valid]);
+  const snapshot = await collectCodexSessionMeteringSnapshot(
+    { id: "RATE-LIMIT-ONLY", query: { thread_id: THREAD_ID } },
+    { codex_home: current.codexHome, project_root: current.projectRoot },
+  );
+  assert.equal(snapshot.cumulative.tokens.total, 120);
+
+  const negative = tokenCount({ timestamp: "2026-07-28T08:02:00.000Z", input: 100, output: 20 });
+  negative.payload.info.total_token_usage.output_tokens = -1;
+  const fractional = tokenCount({ timestamp: "2026-07-28T08:02:00.000Z", input: 100, output: 20 });
+  fractional.payload.info.total_token_usage.input_tokens = 100.5;
+  const badTimestamp = tokenCount({ timestamp: "yesterday", input: 150, output: 20 });
+  for (const [label, invalid] of [["negative", negative], ["fractional", fractional], ["timestamp", badTimestamp]]) {
+    writeJsonl(current.sessionFile, [sessionMeta(current.projectRoot), valid, invalid]);
+    await assert.rejects(
+      collectCodexSessionMeteringSnapshot(
+        { id: `INVALID-${label.toUpperCase()}`, query: { thread_id: THREAD_ID } },
+        { codex_home: current.codexHome, project_root: current.projectRoot },
+      ),
+      (error) => error.code === "malformed_codex_session_event" && /invalid token_count event/u.test(error.message),
+      label,
     );
   }
 });
