@@ -24,7 +24,24 @@ function readPayload() {
   }
 }
 
+/** True when the working directory is inside a project that uses agentic-sdlc (a `.sdlc` folder up the tree). */
+function insideGovernedProject(start) {
+  let current = path.resolve(String(start || process.cwd()));
+  for (;;) {
+    try {
+      if (fs.statSync(path.join(current, ".sdlc")).isDirectory()) return true;
+    } catch {
+      // keep walking up
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return false;
+    current = parent;
+  }
+}
+
 function preToolUse(payload) {
+  // Every rule protects agentic-sdlc records, so other projects are never touched.
+  if (!insideGovernedProject(payload.cwd)) return;
   const verdict = evaluatePreToolUse(payload);
   if (verdict?.decision === "deny") {
     process.stderr.write(`${verdict.reason}\n`);
