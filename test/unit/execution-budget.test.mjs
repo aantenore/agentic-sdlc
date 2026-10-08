@@ -6,8 +6,10 @@ import {
   applyBudgetAmendment,
   buildBudgetAmendment,
   buildExecutionUsageReceipt,
+  budgetUtilizationPercent,
   commitBudgetReservation,
   evaluateBudgetUsage,
+  formatBudgetQuantity,
   normalizeExecutionBudget,
   normalizeMoneyDecimal,
   reserveBudget,
@@ -334,6 +336,31 @@ test("budget amendments bind base and result without mutating the original", () 
     ),
     /cannot lower completion_reserve_percent/,
   );
+});
+
+test("soft limits get advance warnings and unreported metrics are marked unmeasured", () => {
+  const budget = normalizeExecutionBudget({
+    id: "budget-soft",
+    limits: {
+      tokens: { unit: "tokens", metering: "estimated", soft: 1000 },
+      cost: { unit: "money", currency: "USD", metering: "estimated", soft: "5" },
+    },
+  });
+  const empty = evaluateBudgetUsage(budget, []);
+  assert.deepEqual(empty.unmeasured_metrics, ["cost", "tokens"]);
+
+  const decision = evaluateBudgetUsage(budget, [{ usage: { tokens: 750 }, metering: { tokens: "estimated" } }]);
+  assert.equal(decision.status, "within_budget", "soft warnings never change the recorded decision status");
+  assert.deepEqual(decision.unmeasured_metrics, ["cost"]);
+  assert.deepEqual(decision.soft_warnings, [{ metric: "tokens", thresholds_reached_percent: [70], used: 750, soft: 1000 }]);
+  assert.deepEqual(decision.warnings, []);
+
+  assert.equal(formatBudgetQuantity(budget.limits.cost, "5"), "USD 5.00");
+  assert.equal(formatBudgetQuantity(budget.limits.cost, "0.125"), "USD 0.125");
+  assert.equal(formatBudgetQuantity(budget.limits.tokens, 1000), "1000 tokens");
+  assert.equal(budgetUtilizationPercent(budget.limits.tokens, 750, 1000), "75.0");
+  assert.equal(budgetUtilizationPercent(budget.limits.cost, "1.5", "5"), "30.0");
+  assert.equal(budgetUtilizationPercent(budget.limits.tokens, 1, null), null);
 });
 
 test("cumulative aggregation is reserved for trusted attested sources", () => {

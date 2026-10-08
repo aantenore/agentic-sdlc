@@ -348,7 +348,18 @@ flowchart TD
 - **Hard limit:** usage has reached the absolute ceiling. Work stops.
 - **Metering violation:** a hard control was promised but the available evidence is not exact and trusted. The system stops instead of pretending the limit was enforced.
 
-Warning percentages and the completion reserve are calculated only for metrics with a hard ceiling. A soft-only token or cost estimate still triggers its soft checkpoint, but it has no percentage-based reserve because there is no hard total from which to calculate one.
+The decision status uses warning percentages and the completion reserve only for metrics with a hard ceiling. A soft-only token or cost estimate still triggers its soft checkpoint, but it has no percentage-based reserve because there is no hard total from which to calculate one. Soft limits get their own advance notice: when usage reaches a `warning_thresholds_percent` value of a soft limit (70% and 90% by default), `budget status` and `budget usage record` print a warning and list it under `soft_warnings`. This notice never changes the decision status.
+
+`budget status` prints one line per metric, for example:
+
+```text
+tokens: used 700 / soft 1000 tokens (70.0%); no hard limit.
+cost: used USD 1.50 / soft USD 5.00 (30.0%); no hard limit.
+steps: used 12 / soft 40 steps (30.0%), hard 60 steps (20.0%); 48 steps left before the hard stop.
+cost: not measured (soft USD 5.00); no usage receipt has reported this metric, so its limits are not being checked yet.
+```
+
+`not measured` means no usage receipt has reported the metric yet, so its limit is not being checked. For example, the Codex-session meter measures tokens and calls but not cost; `budget meter start` warns about such metrics when it captures the baseline, and `--json` output lists them as `unmeasured_metrics`.
 
 ## Exact, estimated, and unavailable
 

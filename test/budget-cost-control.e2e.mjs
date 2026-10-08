@@ -256,6 +256,74 @@ test("manual metric flags are strict whole numbers or decimals and must belong t
   assert.equal(recorded.receipt.usage.cost, "1.5");
 });
 
+function codexSession(project, threadId) {
+  const codexHome = path.join(project, "fake-codex-home");
+  const directory = path.join(codexHome, "sessions", "2026", "07", "28");
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, `rollout-2026-07-28-${threadId}.jsonl`);
+  const tokenCount = (timestamp, input, output) => JSON.stringify({
+    timestamp,
+    type: "event_msg",
+    payload: {
+      type: "token_count",
+      info: {
+        total_token_usage: {
+          input_tokens: input,
+          cached_input_tokens: 0,
+          cache_write_input_tokens: 0,
+          output_tokens: output,
+          reasoning_output_tokens: 0,
+          total_tokens: input + output,
+        },
+      },
+      rate_limits: null,
+    },
+  });
+  fs.writeFileSync(file, [
+    JSON.stringify({ timestamp: "2026-07-28T08:00:00.000Z", type: "session_meta", payload: { id: threadId, cwd: project, source: "codex_desktop" } }),
+    tokenCount("2026-07-28T08:01:00.000Z", 100, 20),
+    "",
+  ].join("\n"));
+  return {
+    env: { CODEX_HOME: codexHome, CODEX_THREAD_ID: threadId },
+    append: (timestamp, input, output) => fs.appendFileSync(file, `${tokenCount(timestamp, input, output)}\n`),
+  };
+}
+
+test("budget status shows limits, percentages, currency, and metrics the meter cannot measure", () => {
+  const { project } = runningAssessment("budget-status-display", {
+    limits: {
+      tokens: { unit: "tokens", metering: "estimated", soft: 1000 },
+      cost: { unit: "money", currency: "USD", metering: "estimated", soft: "5" },
+    },
+  }, { apply: false });
+  const session = codexSession(project, "019fa7f0-d150-7fb1-aad8-d10a2243521b");
+  const started = run(["budget", "meter", "start", "--root", project, "--proposal", "ASSESS-1"], { env: session.env });
+  assert.equal(started.status, 0, started.stderr);
+  assert.match(started.stdout, /This meter measures: tokens\./u);
+  assert.match(started.stdout, /Warning: the Codex session adapter cannot measure cost\. Budget status shows it as not measured/u);
+  const startedJson = JSON.parse(mustRun([
+    "budget", "meter", "start", "--root", project, "--proposal", "ASSESS-1", "--id", "METER-SECOND", "--json",
+  ], { env: session.env }).stdout);
+  assert.deepEqual(startedJson.unmeasured_metrics, ["cost"]);
+  mustRun(["assessment", "proposal", "apply", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent"]);
+
+  session.append("2026-07-28T08:02:00.000Z", 700, 120);
+  mustRun(["budget", "meter", "record", "--root", project, "--proposal", "ASSESS-1"], { env: session.env });
+  const human = mustRun(["budget", "status", "--root", project, "--proposal", "ASSESS-1"]).stdout;
+  assert.match(human, /tokens: used 700 \/ soft 1000 tokens \(70\.0%\); no hard limit\./u);
+  assert.match(human, /cost: not measured \(soft USD 5\.00\); no usage receipt has reported this metric/u);
+  assert.match(human, /Warning: tokens reached 70% of its soft limit 1000 tokens/u);
+  assert.doesNotMatch(human, /cost: used/u);
+  const status = JSON.parse(mustRun(["budget", "status", "--root", project, "--proposal", "ASSESS-1", "--json"]).stdout);
+  assert.equal(status.aggregate.status, "within_budget");
+  assert.deepEqual(status.aggregate.unmeasured_metrics, ["cost"]);
+
+  mustRun(["budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1", "--cost-amount", "1.5"]);
+  const afterCost = mustRun(["budget", "status", "--root", project, "--proposal", "ASSESS-1"]).stdout;
+  assert.match(afterCost, /cost: used USD 1\.50 \/ soft USD 5\.00 \(30\.0%\); no hard limit\./u);
+});
+
 test("meter setup errors say how to continue", () => {
   const { project } = runningAssessment("budget-meter-errors", {
     limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10_000 } },
