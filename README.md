@@ -20,7 +20,7 @@ One source tree, two host packagings: **OpenAI Codex** (`.codex-plugin/`) and **
 
 ## Technical summary
 
-Agentic SDLC 0.18.0 gives a coding agent a guided way to understand an existing software project, deliver verified work, and explain its recorded lineage visually. The normal experience is intentionally simple: Codex explains what it inferred, proposes the work in plain language, creates the requested real file, verifies it, and returns an auditable result.
+Agentic SDLC 0.19.0 gives a coding agent a guided way to understand an existing software project, deliver verified work, and explain its recorded lineage visually. The normal experience is intentionally simple: Codex explains what it inferred, proposes the work in plain language, creates the requested real file, verifies it, and returns an auditable result.
 
 Project state stays in the target repository under `.sdlc/`. The plugin installation contains reusable skills, templates, schemas, the cross-platform Node.js CLI, and the build-free Change Observatory UI.
 
@@ -468,11 +468,13 @@ The default stays the same: every delivery asks for its own work brief approval,
 | Kind of work | recipe `flag-cleanup` with a plain-language description, tied to approved requirements |
 | Paths | project-relative prefixes or globs, such as `src/flags` and `docs` |
 | Size per delivery | at most 10 changed files and 200 added plus removed lines |
-| Destination | local release only, or a pull request created or updated but never merged |
+| Destination | local release only, or a pull request created or updated but never merged, on one repository and only from branches under the standing approval's own prefix (never the base, shared, release, or production branches) |
 | Count and expiry | 5 deliveries until 1 November (capped by `standing_approval_policy.max_validity_days`) |
-| Budget (optional) | per delivery and total; a set budget that cannot be measured stops the delivery |
+| Budget | not accepted yet: delivery cost cannot be measured, so a standing approval with a cost budget is refused at proposal |
 
 Merge, production, deploy, data migrations, force-push, and deletions of tracked files outside the paths are never covered. A matching delivery passes `--standing-approval <id>` on `contract approve`, `autonomy delivery propose`, and `autonomy delivery approve`; approving it consumes one delivery slot atomically. Each delivery action is then confirmed by a derived approval that names the standing approval and its slot, but only after the CLI re-checks the expiry, revocation, delivery count, the bound project, configuration, policy, and requirement hashes, and the files changed since task start. Anything outside the bounds answers `checkpoint_required` with the reason, so the normal confirmation applies. Tests, secret scanning, review, smoke tests, gates, and the lifecycle-complete certificate all still run. `autonomy standing revoke` takes effect at once, including for deliveries in progress at their next step. `status`, `autonomy standing status`, and the Change Observatory list standing approvals, the deliveries that used them, the deliveries left, and the expiry, and `status` warns before expiry.
+
+Only the user approves a standing approval, in their own terminal: the CLI refuses `autonomy standing approve` inside an agent's session, and the plugin's hooks (`hooks/hooks.json`, read by both Claude Code and Codex) stop the agent from running it or from changing the records directly. Used deliveries and revocations are also shared through the project's git remote, so every copy of the project, such as CI runners or containers, counts the same deliveries and sees a revocation at its next step; if the remote cannot be reached, nothing is covered and the normal confirmation applies (`standing_approval_policy.coordination`).
 
 ## Native Codex Metering Versus Exact Metering
 
