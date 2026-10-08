@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import test from "node:test";
 
-import { buildHostApprovalReceipt, trustedHostKeyWindowErrors } from "../../lib/authorization-receipts.mjs";
+import { buildHostApprovalReceipt, trustedHostKeyActiveErrors, trustedHostKeyWindowErrors } from "../../lib/authorization-receipts.mjs";
 import { computeStableHash } from "../../lib/canonical.mjs";
 import {
   STANDING_APPROVAL_POLICY_DEFAULTS,
@@ -633,4 +633,40 @@ test("a standing approval needs a signature only if it was proposed where approv
   // ...unless it is bound to the current policy, which then was its mode.
   assert.equal(standingProposalAuthorityMode(legacy, { currentPolicyHash: BINDINGS.policy_hash, currentMode: "host_verified" }), "host_verified");
   assert.equal(standingProposalAuthorityMode(signedMode, { currentPolicyHash: "e".repeat(64), currentMode: "audit_only" }), "host_verified");
+});
+
+test("a receipt decided before the proposal, or a key that grants no new authority, never covers new work", () => {
+  const record = proposal();
+  // Signed before the standing approval existed: invalid, whatever the record time says.
+  const backdated = hostReceipt(record, "approved", { decided_at: "2026-10-06T09:00:00.000Z" });
+  assert.match(
+    standingDecisionAssuranceErrors({ proposal: record, record: signedDecision(record, backdated, "2026-10-06T10:40:00.000Z"), trustedHostKeys: SIGNER.trustedKeys }).join(),
+    /host receipt was decided before the standing approval was proposed/u,
+  );
+  // A signing key that grants no new authority makes it stale, not invalid.
+  const approval = signedDecision(record, hostReceipt(record, "approved"));
+  const state = deriveStandingApprovalState({
+    proposal: record,
+    approval,
+    nowMs: Date.parse(RECORDED_AT),
+    currentBindings: BINDINGS,
+    authorityReasons: ["the key that signed its approval no longer grants new authority"],
+  });
+  assert.equal(state.status, "stale");
+  assert.equal(state.covers, false);
+  assert.match(state.reasons.join(), /no longer grants new authority/u);
+  const drifted = deriveStandingApprovalState({
+    proposal: record,
+    approval,
+    nowMs: Date.parse(RECORDED_AT),
+    currentBindings: { ...BINDINGS, policy_hash: "f".repeat(64) },
+    authorityReasons: ["the key that signed its approval no longer grants new authority"],
+  });
+  assert.match(drifted.reasons.join("\n"), /policy changed[\s\S]*no longer grants new authority/u);
+  // Only an unretired key inside its window grants new authority.
+  const key = SIGNER.trustedKeys[0];
+  assert.deepEqual(trustedHostKeyActiveErrors([key], key.key_id, RECORDED_AT), []);
+  assert.match(trustedHostKeyActiveErrors([{ ...key, retired: true }], key.key_id, RECORDED_AT).join(), /retired and grants no new authority/u);
+  assert.match(trustedHostKeyActiveErrors([{ ...key, not_after: DECIDED_AT }], key.key_id, RECORDED_AT).join(), /not active now/u);
+  assert.match(trustedHostKeyActiveErrors([], key.key_id, RECORDED_AT).join(), /does not resolve/u);
 });

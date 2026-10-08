@@ -1398,7 +1398,8 @@ function writeStandingReceipt(project, signer, { standingId, decision = "approve
       examples: { en: [`I ${verb} ${proposal.id}.`], it: [`Confermo per ${proposal.id}.`] },
     },
     decision: "approved",
-    decided_at: new Date(Date.now() - 2_000).toISOString(),
+    // Signed after the proposal existed and a little before it is recorded.
+    decided_at: new Date(Math.max(Date.now() - 2_000, Date.parse(proposal.created_at))).toISOString(),
     decided_by: { id: "standing-e2e-user", type: "human" },
     issued_by: { id: "trusted-host", type: "system" },
     host: {
@@ -1707,20 +1708,61 @@ test("signed approvals: switching to them or rotating keys keeps earlier approva
   // A standing approval signed with the first key...
   proposeStanding(project, { id: "SA-ROTATE" });
   mustRunJson(standingDecisionArgs(project, "approve", "SA-ROTATE", writeStandingReceipt(project, first, { standingId: "SA-ROTATE" })), project);
-  // ...stays verifiable after that key is retired in favour of a new one.
+  const signedDelivery = prepareDelivery(project, "THREE", "SA-ROTATE", { requirementId: "REQ-TOIL-3" });
+  approveDelivery(project, signedDelivery, "SA-ROTATE");
+  startTask(project, signedDelivery);
+  writeProjectFile(project, "src/flag-three.mjs", "export const three = false;\n");
+  const pending = mustAuthorize(project, signedDelivery.profileId, "build.local");
+  assert.equal(pending.action_receipt.approval.authority_assurance.source, "standing_approval_receipt");
+  // ...stays verifiable after that key is retired in favour of a new one,
+  // but a retired key grants no new authority, from that moment on.
   const second = newHostSigner("trusted-host-e2e-2");
-  setTrustedKeys(project, [{ ...first.trustedKey, retired: true, not_after: new Date().toISOString() }, second.trustedKey]);
+  setTrustedKeys(project, [{ ...first.trustedKey, retired: true }, second.trustedKey]);
   const rotated = standingSummary(project, "SA-ROTATE");
   assert.equal(rotated.status, "stale", JSON.stringify(rotated));
   assert.equal(rotated.assurance, "host_verified");
-  assert.doesNotMatch(rotated.reasons.join("\n"), /receipt/u);
+  assert.match(rotated.reasons.join("\n"), /the key that signed its approval no longer grants new authority/u);
+  const gateErrors = strictGateErrors(project, signedDelivery.storyId).filter((error) => /standing approval|host/iu.test(error));
+  assert.deepEqual(gateErrors, [], "history signed by the retired key stays valid");
+  // Neither a new authorization nor completing one granted before the
+  // retirement relies on the retired key.
+  const blocked = deliveryAction(project, signedDelivery.profileId, "build.local");
+  assert.notEqual(blocked.status, 0, blocked.stdout);
+  assert.match(`${blocked.stdout}${blocked.stderr}`, /retired and grants no new authority/u);
+  fs.mkdirSync(signedDelivery.releaseOutput, { recursive: true });
+  const evidence = writeProjectFile(project, "docs/build-three.json", "{\"built\":true}\n");
+  mustFail([
+    "autonomy", "delivery", "action", "--root", project, "--id", signedDelivery.profileId, "--action", "build.local",
+    "--outcome", "passed", "--authorization-receipt", pending.action_receipt.id, "--evidence", evidence,
+  ], project, /retired and grants no new authority/u);
   // New decisions need the active key.
   proposeStanding(project, { id: "SA-NEXT" });
   mustFail(
     standingDecisionArgs(project, "approve", "SA-NEXT", writeStandingReceipt(project, first, { standingId: "SA-NEXT" })),
     project,
-    /is retired|was not valid when the receipt was decided/u,
+    /is retired/u,
   );
+  // A script cannot use the retired key for a new standing approval either:
+  // signed after the proposal it covers nothing; backdated before it, it is invalid.
+  const sneakProposedMs = Date.parse(proposeStanding(project, { id: "SA-SNEAK" }).standing_approval.created_at);
+  const sneakReceipt = readJson(project, writeStandingReceipt(project, first, {
+    standingId: "SA-SNEAK",
+    overrides: { decided_at: new Date(sneakProposedMs + 1).toISOString() },
+  }));
+  writeApprovalDirectly(project, "SA-SNEAK", { createdAt: new Date(sneakProposedMs + 2).toISOString(), hostReceipt: sneakReceipt });
+  const sneak = standingSummary(project, "SA-SNEAK");
+  assert.equal(sneak.status, "stale", JSON.stringify(sneak));
+  assert.match(sneak.reasons.join("\n"), /retired and grants no new authority/u);
+  createBrief(project, "SNEAK", "REQ-TOIL");
+  mustFail(["contract", "approve", "--root", project, "--id", "CONTRACT-SNEAK", "--standing-approval", "SA-SNEAK"], project, /it is stale/u);
+  const backdatedReceipt = readJson(project, writeStandingReceipt(project, first, {
+    standingId: "SA-SNEAK",
+    overrides: { decided_at: new Date(sneakProposedMs - 60_000).toISOString() },
+  }));
+  writeApprovalDirectly(project, "SA-SNEAK", { createdAt: new Date(sneakProposedMs + 2).toISOString(), hostReceipt: backdatedReceipt });
+  const backdated = standingSummary(project, "SA-SNEAK");
+  assert.equal(backdated.status, "invalid");
+  assert.match(backdated.reasons.join("\n"), /host receipt was decided before the standing approval was proposed/u);
   const next = mustRunJson(standingDecisionArgs(project, "approve", "SA-NEXT", writeStandingReceipt(project, second, { standingId: "SA-NEXT" })), project);
   assert.equal(next.approval.assurance.receipt_ref.key_id, "trusted-host-e2e-2");
 });
