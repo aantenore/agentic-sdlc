@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import test from "node:test";
 
-import { buildHostApprovalReceipt } from "../../lib/authorization-receipts.mjs";
+import { buildHostApprovalReceipt, trustedHostKeyWindowErrors } from "../../lib/authorization-receipts.mjs";
 import { computeStableHash } from "../../lib/canonical.mjs";
 import {
   STANDING_APPROVAL_POLICY_DEFAULTS,
@@ -22,6 +22,7 @@ import {
   standingBranchReasons,
   standingChangeReasons,
   standingContractBoundReasons,
+  standingCoverageExpiry,
   standingDecisionAssurance,
   standingDecisionAssuranceErrors,
   standingDeliveryBoundReasons,
@@ -31,6 +32,7 @@ import {
   standingHostReceiptRef,
   standingHostReceiptRequest,
   standingPathAllowed,
+  standingProposalAuthorityMode,
   standingRecordHash,
   standingWriteRootAllowed,
 } from "../../lib/standing-approvals.mjs";
@@ -402,8 +404,8 @@ function hostReceipt(record, decision, overrides = {}, signer = SIGNER) {
   });
 }
 
-function receiptErrors(record, decision, receipt, { decidedAt = RECORDED_AT, trustedHostKeys = SIGNER.trustedKeys } = {}) {
-  return standingHostReceiptErrors({ proposal: record, decision, receipt, decidedAt, trustedHostKeys }).join("\n");
+function receiptErrors(record, decision, receipt, { usedAt = RECORDED_AT, activeAt = null, trustedHostKeys = SIGNER.trustedKeys } = {}) {
+  return standingHostReceiptErrors({ proposal: record, decision, receipt, usedAt, activeAt, trustedHostKeys }).join("\n");
 }
 
 test("a host receipt request binds the record, the decision, and the expiry", () => {
@@ -440,7 +442,7 @@ test("a host receipt is accepted only for the exact decision of the exact standi
   assert.match(receiptErrors(record, "approved", receipt, { trustedHostKeys: [] }), /no configured trusted_host_keys/u);
   assert.match(receiptErrors(record, "approved", hostReceipt(record, "approved", {}, hostSigner("other-key"))), /does not resolve to exactly one trusted host key/u);
   // It must be valid when the decision is recorded.
-  assert.match(receiptErrors(record, "approved", receipt, { decidedAt: "2026-10-06T10:00:00.000Z" }), /not issued yet/u);
+  assert.match(receiptErrors(record, "approved", receipt, { usedAt: "2026-10-06T10:00:00.000Z" }), /not issued yet/u);
   const shortLived = hostReceipt(record, "approved", { expires_at: "2026-10-06T10:45:00.000Z" });
   assert.match(receiptErrors(record, "approved", shortLived), /had expired at used_at/u);
   // A person or approved CI decided it, never an agent.
@@ -489,14 +491,14 @@ test("a signed decision embeds its receipt and is verified again as of its decis
   // The summary must describe the embedded receipt.
   assert.match(check({ ...signed, assurance: { ...signed.assurance, receipt_ref: { ...signed.assurance.receipt_ref, hash: HASH } } }), /describes a different signed host receipt/u);
   assert.match(check({ ...signed, host_receipt: null }), /incomplete signed host receipt/u);
-  // A decision recorded outside the receipt's validity is refused.
-  assert.match(check({ ...signed, created_at: "2026-10-06T09:00:00.000Z" }), /not issued yet/u);
+  // A record time before the signed decision is refused.
+  assert.match(check({ ...signed, created_at: "2026-10-06T10:20:00.000Z" }), /recorded before its host receipt was decided/u);
   // An unsigned approval is fine unless signed approvals are required.
   const unsigned = approvalOf(record);
   assert.equal(standingDecisionAssurance(unsigned), "audit_only");
   assert.equal(standingDecisionAssurance(null), null);
   assert.equal(check(unsigned), "");
-  assert.match(check(unsigned, { required: true }), /no trusted signed host receipt, which this project requires/u);
+  assert.match(check(unsigned, { required: true }), /no trusted signed host receipt, which it requires because it was proposed under authority_policy\.mode host_verified/u);
   assert.equal(unsigned.assurance, undefined, "an unsigned decision record keeps its previous shape");
 });
 
@@ -548,4 +550,87 @@ test("a project that requires signed approvals accepts a delivery only under a s
   };
   assert.match(standingDeliveryBoundReasons(record, delivery).join(), /trusted signed approval/u);
   assert.deepEqual(standingDeliveryBoundReasons(record, delivery, { signed: true }), []);
+});
+
+function signedDecision(record, receipt, createdAt = RECORDED_AT) {
+  return buildStandingApprovalDecision({
+    id: `${record.id}-APPROVAL`,
+    decision: "approved",
+    proposal: record,
+    approval: { status: "approved", approval_source: "explicit-user" },
+    createdAt,
+    hostReceipt: receipt,
+  });
+}
+
+test("an edited record time cannot stretch a signed approval past its receipt", () => {
+  const record = proposal();
+  const check = (decision, nowMs = null) => standingDecisionAssuranceErrors({
+    proposal: record,
+    record: decision,
+    trustedHostKeys: SIGNER.trustedKeys,
+    nowMs,
+  }).join("\n");
+  // The receipt expired at 10:45. A script that writes the approval with a
+  // record time before that (10:40) still verifies, but coverage ends at the
+  // signed expiry, measured against the current time.
+  const shortLived = hostReceipt(record, "approved", { expires_at: "2026-10-06T10:45:00.000Z" });
+  const backdated = signedDecision(record, shortLived, "2026-10-06T10:40:00.000Z");
+  assert.equal(check(backdated), "");
+  assert.equal(standingCoverageExpiry(record, backdated), "2026-10-06T10:45:00.000Z");
+  const state = deriveStandingApprovalState({ proposal: record, approval: backdated, nowMs: Date.parse(RECORDED_AT), currentBindings: BINDINGS });
+  assert.equal(state.status, "expired");
+  assert.match(state.reasons.join(), /signed approval stopped covering work at 2026-10-06T10:45:00\.000Z/u);
+  assert.equal(deriveStandingApprovalState({ proposal: record, approval: backdated, nowMs: Date.parse("2026-10-06T10:41:00.000Z"), currentBindings: BINDINGS }).status, "active");
+  // A derived approval made after the signed expiry is not valid history.
+  const ref = { id: record.id, record_hash: record.record_hash, approval_hash: backdated.record_hash, host_receipt_ref: standingHostReceiptRef(backdated) };
+  assert.match(
+    standingDerivedApprovalErrors({ derived: { standing_approval_ref: ref, created_at: RECORDED_AT }, proposal: record, approval: backdated }).join(),
+    /created after the standing approval expired/u,
+  );
+  // Record times after the receipt expired, before the proposal, or in the future are refused.
+  assert.match(check(signedDecision(record, shortLived, "2026-10-06T10:50:00.000Z")), /recorded after its host receipt expired/u);
+  const early = hostReceipt(record, "approved", { decided_at: "2026-10-06T09:00:00.000Z" });
+  assert.match(check(signedDecision(record, early, "2026-10-06T09:30:00.000Z")), /recorded before the standing approval was proposed/u);
+  assert.match(check(signedDecision(record, hostReceipt(record, "approved")), Date.parse("2026-10-06T10:50:00.000Z")), /record time in the future/u);
+  // A maximum lifetime counts from the signed decision time, whatever the record says.
+  const request = standingHostReceiptRequest(record, "approved");
+  const limited = hostReceipt(record, "approved", { constraints: { subject_hash: request.subject_hash, max_authorization_ttl_seconds: 3600 } });
+  assert.match(check(signedDecision(record, limited, "2026-10-09T10:00:00.000Z")), /allows at most 3600 seconds of validity from 2026-10-06T10:30:00\.000Z/u);
+});
+
+test("a retired or windowed trusted key verifies only what it signed while valid", () => {
+  const record = proposal();
+  const receipt = hostReceipt(record, "approved");
+  const keyWith = (window) => [{ ...SIGNER.trustedKeys[0], ...window }];
+  // Retired after signing: history still verifies, a new decision does not.
+  const retired = keyWith({ retired: true, not_after: "2026-10-06T12:00:00.000Z" });
+  assert.equal(receiptErrors(record, "approved", receipt, { trustedHostKeys: retired }), "");
+  assert.match(receiptErrors(record, "approved", receipt, { trustedHostKeys: retired, activeAt: RECORDED_AT }), /is retired/u);
+  assert.equal(standingDecisionAssuranceErrors({ proposal: record, record: signedDecision(record, receipt), trustedHostKeys: retired }).join(), "");
+  // A receipt decided outside the key's window never verifies.
+  assert.match(receiptErrors(record, "approved", receipt, { trustedHostKeys: keyWith({ not_after: "2026-10-06T10:00:00.000Z" }) }), /was not valid when the receipt was decided/u);
+  assert.match(receiptErrors(record, "approved", receipt, { trustedHostKeys: keyWith({ not_before: "2026-10-06T10:45:00.000Z" }) }), /was not valid when the receipt was decided/u);
+  // A new decision needs the key to be active now.
+  assert.match(
+    receiptErrors(record, "approved", receipt, { trustedHostKeys: keyWith({ not_after: "2026-10-06T10:50:00.000Z" }), activeAt: RECORDED_AT }),
+    /not active for new decisions now/u,
+  );
+  assert.equal(receiptErrors(record, "approved", receipt, { trustedHostKeys: keyWith({ not_before: "2026-10-01T00:00:00.000Z" }), activeAt: RECORDED_AT }), "");
+  assert.deepEqual(trustedHostKeyWindowErrors({ key_id: "k" }, DECIDED_AT, RECORDED_AT), []);
+  assert.match(trustedHostKeyWindowErrors({ key_id: "k", not_after: "soon" }, DECIDED_AT).join(), /invalid not_before or not_after/u);
+});
+
+test("a standing approval needs a signature only if it was proposed where approvals must be signed", () => {
+  assert.equal(proposal().authority_mode, "audit_only");
+  const signedMode = proposal({ authority_mode: "host_verified" });
+  assert.equal(signedMode.authority_mode, "host_verified");
+  assert.throws(() => proposal({ authority_mode: "trust_me" }), /authority mode/u);
+  const legacy = { ...proposal() };
+  delete legacy.authority_mode;
+  // A record from before the field existed was proposed under audit_only...
+  assert.equal(standingProposalAuthorityMode(legacy, { currentPolicyHash: "e".repeat(64), currentMode: "host_verified" }), "audit_only");
+  // ...unless it is bound to the current policy, which then was its mode.
+  assert.equal(standingProposalAuthorityMode(legacy, { currentPolicyHash: BINDINGS.policy_hash, currentMode: "host_verified" }), "host_verified");
+  assert.equal(standingProposalAuthorityMode(signedMode, { currentPolicyHash: "e".repeat(64), currentMode: "audit_only" }), "host_verified");
 });
