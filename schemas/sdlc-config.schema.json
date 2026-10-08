@@ -171,6 +171,19 @@
     },
     "observability": {
       "$ref": "#/$defs/observability_policy"
+    },
+    "standing_approval_policy": {
+      "type": "object",
+      "properties": {
+        "principle": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "max_validity_days": { "type": "integer", "minimum": 1 },
+        "max_deliveries": { "type": "integer", "minimum": 1 },
+        "max_changed_files": { "type": "integer", "minimum": 1 },
+        "max_changed_lines": { "type": "integer", "minimum": 1 },
+        "expiry_warning_hours": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
     }
   },
   "$defs": {

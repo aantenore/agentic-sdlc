@@ -73,7 +73,7 @@ test("direct focused help exposes the exact inputs for the core work sequence", 
     { command: ["story", "acceptance", "add"], required: ["--id", "--acceptance"], present: ["--summary"] },
     { command: ["story", "claim"], required: ["--id", "--agent"], present: ["--branch"] },
     { command: ["output", "resolve"], required: ["--story", "--type"], present: [] },
-    { command: ["contract", "approve"], required: ["--id", "--actor-type"], present: ["--approval-source", "--approval-evidence"] },
+    { command: ["contract", "approve"], required: ["--id"], present: ["--actor-type", "--approval-source", "--approval-evidence", "--standing-approval"] },
     {
       command: ["requirement", "supersede"],
       required: ["--id", "--new-id", "--reason", "--actor-type"],

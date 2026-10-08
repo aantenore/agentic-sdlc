@@ -1019,6 +1019,13 @@ import {
   releasePhaseLock,
 } from "../lib/engine/storage.mjs";
 import {
+  approveStandingApproval,
+  explainStandingApproval,
+  proposeStandingApproval,
+  revokeStandingApproval,
+  showStandingApprovals,
+} from "../lib/engine/standing.mjs";
+import {
   addStoryAcceptance,
   appendTrace,
   approveBaseline,
@@ -1131,6 +1138,11 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.delivery.close": call(closeDeliveryAutonomy),
     "autonomy.delivery.status": call(showDeliveryAutonomy),
     "autonomy.delivery.explain": call(explainDeliveryAutonomy),
+    "autonomy.standing.propose": call(proposeStandingApproval),
+    "autonomy.standing.approve": call(approveStandingApproval),
+    "autonomy.standing.revoke": call(revokeStandingApproval),
+    "autonomy.standing.status": call(showStandingApprovals),
+    "autonomy.standing.explain": call(explainStandingApproval),
     "contract.create": call(createContract),
     "contract.approve": call(approveContract),
     "story.create": call(createStory),

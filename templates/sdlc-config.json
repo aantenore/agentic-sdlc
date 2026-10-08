@@ -1414,5 +1414,14 @@
       "exclude_paths": []
     },
     "merge_requires_code_review": true
+  },
+  "standing_approval_policy": {
+    "principle": "A standing approval is a user-approved, bounded, revocable delegation that lets repeated low-risk deliveries proceed without a confirmation for each one. enabled, max_validity_days, max_deliveries, max_changed_files, max_changed_lines, and expiry_warning_hours are read from this file and a project may change them; they cap what any standing approval may request. What a standing approval may never cover (merge, production, deploy, data migrations, force-push, deletions of tracked files outside its paths) and that it covers only the middle working level are fixed by the CLI and recorded on every standing approval.",
+    "enabled": true,
+    "max_validity_days": 30,
+    "max_deliveries": 20,
+    "max_changed_files": 200,
+    "max_changed_lines": 5000,
+    "expiry_warning_hours": 72
   }
 }

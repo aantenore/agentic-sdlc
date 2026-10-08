@@ -374,6 +374,51 @@ node bin/agentic-sdlc.mjs task start \
 
 The evaluator chooses the most restrictive host, project, requirement, delivery, contract, capability, environment, and budget boundary. A contract may narrow but never widen the result. Pull-request merge to `main` or another protected branch and remote or production deployment remain explicit exceptions. A local release must name its target, writes/actions, shell-free JSON-argv smoke tests, and rollback, and does not imply machine-global, external, production, or destructive access.
 
+## Standing Approvals For Repeated Low-Risk Deliveries
+
+A standing approval lets similar deliveries proceed without a confirmation for each one. It never exists without the user's explicit approval, covers only the `checkpointed` level, and never covers merge, production, deploy, data migrations, force-push, or deletions of tracked files outside its paths. Every bound is mandatory except the optional budget; the expiry is capped by `standing_approval_policy.max_validity_days`.
+
+For `--destination pull_request`, `--repository <owner/repository>` is required and pushes are confined to head branches under `--head-branch-prefix` (default `standing/<id>/`). The base branch and shared, release, or production branches (`main`, `master`, `develop`, `release/*`, `prod*`, ...) are never covered. A work brief approved under a standing approval must be for a non-release phase, must not allow infrastructure tools (`kubectl`, `terraform`, cloud CLIs, ...), must name a delivery that is new or proposed under the same standing approval, and the briefs it approves never name more deliveries than `--max-deliveries`.
+
+Delivery cost is not measurable yet, so a standing approval with a budget sends every step back to the normal confirmation; leave the budget out until delivery metering exists.
+
+```bash
+node bin/agentic-sdlc.mjs autonomy standing propose \
+  --root <project> \
+  --id SA-FLAGS \
+  --recipe flag-cleanup \
+  --description "Remove one retired feature flag and release it locally" \
+  --requirement REQ-FLAGS \
+  --write-path src/flags --write-path docs \
+  --max-changed-files 10 --max-changed-lines 200 \
+  --destination local_release \
+  --max-deliveries 5 \
+  --expires-at 2026-11-01T00:00:00Z
+
+# Only after the user explicitly approves the displayed limits.
+node bin/agentic-sdlc.mjs autonomy standing approve \
+  --root <project> --id SA-FLAGS \
+  --actor-type human --approval-source explicit-user \
+  --summary "Approve up to 5 flag cleanups released locally until November"
+
+# A matching delivery: no approver options, no --confirm-action.
+node bin/agentic-sdlc.mjs contract approve --root <project> --id CONTRACT-FLAG-12 --standing-approval SA-FLAGS
+node bin/agentic-sdlc.mjs autonomy delivery propose --root <project> --id AUT-FLAG-12 ... --level checkpointed --standing-approval SA-FLAGS
+node bin/agentic-sdlc.mjs autonomy delivery approve --root <project> --id AUT-FLAG-12 --standing-approval SA-FLAGS
+node bin/agentic-sdlc.mjs autonomy delivery action --root <project> --id AUT-FLAG-12 --action build.local
+
+node bin/agentic-sdlc.mjs autonomy standing status --root <project> --json
+node bin/agentic-sdlc.mjs autonomy standing explain --root <project> --id SA-FLAGS
+node bin/agentic-sdlc.mjs autonomy standing revoke \
+  --root <project> --id SA-FLAGS \
+  --reason "Flag cleanups need a review again" \
+  --actor-type human --approval-source explicit-user --summary "Stop the standing approval"
+```
+
+A delivery proposed with `--standing-approval` turns every allowed delivery action into a confirmation point. Approving the delivery consumes one delivery slot atomically. At each action the CLI re-checks that the standing approval is approved, unexpired, unrevoked, bound to the same project, configuration, policy, and requirement hashes, and that the changes since task start stay inside its paths, file and line limits, and destination; a set budget that cannot be measured is never covered. When everything fits, the action receipt carries a derived approval with `approval_source: standing-approval` and the standing approval id, hash, and slot. Otherwise the command answers `checkpoint_required` with `standing_approval.reasons`, and the normal confirmation applies. A revocation or expiry also stops completing an action authorized under it; confirm the action directly and complete the new authorization with `--authorization-receipt`.
+
+Limits of the measurement: changes are compared as the net difference between the delivery's task-start base and the current working tree, plus untracked files; files Git ignores are not counted, so keep generated or ignored output inside the agreed paths. A work brief that requires a direct approval for a capability boundary, and any project in `host_verified` authority mode, always need the person. Approving a work brief under a standing approval consumes no delivery slot; only the delivery approval does, and only for a delivery proposed under that standing approval.
+
 ## Authorize, Execute, And Complete Delivery Actions
 
 The action command creates a single-use authorization receipt; it does not perform the Git, provider, or local-write operation. Use canonical actions only:

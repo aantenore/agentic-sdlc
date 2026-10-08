@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "standing-approval-decision.schema.json",
+  "title": "Standing approval decision: the formal approval or revocation of one standing approval",
+  "type": "object",
+  "required": [
+    "kind",
+    "schema_version",
+    "id",
+    "decision",
+    "standing_approval_ref",
+    "reason",
+    "approval",
+    "created_at",
+    "audit",
+    "record_hash",
+    "hash_algorithm"
+  ],
+  "properties": {
+    "kind": { "const": "standing_approval_decision" },
+    "schema_version": { "const": "standing-approval-decision:v1" },
+    "id": { "type": "string", "minLength": 1 },
+    "decision": { "enum": ["approved", "revoked"] },
+    "standing_approval_ref": {
+      "type": "object",
+      "required": ["id", "record_hash"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "record_hash": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "reason": { "type": ["string", "null"] },
+    "approval": {
+      "type": "object",
+      "required": ["status", "approval_source", "approved_content_hash", "approved_by", "created_at"],
+      "properties": {
+        "status": { "const": "approved" },
+        "approval_source": { "enum": ["explicit-user", "ci"] }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "audit": {
+      "type": "object",
+      "required": ["actor"],
+      "properties": {
+        "actor": { "oneOf": [{ "type": "null" }, { "$ref": "common.schema.json#/$defs/actor" }] }
+      },
+      "additionalProperties": false
+    },
+    "record_hash": { "$ref": "#/$defs/sha256" },
+    "hash_algorithm": { "const": "sha256:stable-json:v1" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "decision": { "const": "revoked" } } },
+      "then": { "properties": { "reason": { "type": "string", "minLength": 1 } } },
+      "else": { "properties": { "reason": { "type": "null" } } }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "additionalProperties": false
+}

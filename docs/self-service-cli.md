@@ -36,6 +36,7 @@ node "$PLUGIN_CLI" help
 node "$PLUGIN_CLI" help autonomy
 node "$PLUGIN_CLI" help autonomy delivery
 node "$PLUGIN_CLI" help autonomy delivery approve --locale it
+node "$PLUGIN_CLI" help autonomy standing
 ```
 
 Use `status` when you only want to know what needs attention now:

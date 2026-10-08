@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.17.7 Works
+# How Agentic SDLC 0.18.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -150,7 +150,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.17.7` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.18.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -311,6 +311,12 @@ The choice belongs to one delivery and one approved requirement contract. It can
 The system always applies the safest limit among the user’s choice, the project rules, the requirement, its contract, the available tools, the environment, and the budget. Any one of those may reduce what can happen; none may silently increase it. Missing, expired, revoked, or changed inputs stop the delivery safely.
 
 The approval screen should lead with a readable summary: what will be delivered, where, which files and actions are allowed, where work will pause, what remains excluded, when the choice expires, and how rollback works. Machine JSON and internal identifiers remain available as optional audit details; understanding the JSON is not a prerequisite for informed approval.
+
+### Standing approvals: the one bounded exception
+
+A user may approve once that similar low-risk deliveries proceed without asking each time, for example dependency bumps or retired-flag cleanup. A standing approval names the kind of work, its requirements, project-relative paths, files and lines per delivery, one destination (a local release, or a pull request created or updated but never merged, bound to one repository and pushed only to branches under the standing approval's own prefix, never to the base, shared, release, or production branches), a number of deliveries, a mandatory expiry, and an optional budget (delivery cost cannot be measured yet, so a budget makes every step fall back to a normal confirmation). It covers only the middle working mode, and it never covers merge, production, deploy, data migrations, force-push, or deletions outside its paths.
+
+A delivery proposed under a standing approval treats every delivery action as a confirmation point. The work brief approval, the working-mode choice, and each action confirmation are then satisfied by a derived approval that references the standing approval and the delivery slot it consumed, but only while the standing approval is approved, unexpired, unrevoked, and bound to unchanged project, configuration, policy, and requirement hashes, and while the files changed since task start stay inside its bounds. Otherwise the normal confirmation applies, with the reason shown. Revocation takes effect at the next step of every delivery in progress. All other checks run unchanged.
 
 ### Optional technical mapping
 
