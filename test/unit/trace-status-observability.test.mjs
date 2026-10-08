@@ -6,6 +6,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { AGENT_HOSTS, AGENT_HOST_OVERRIDE_ENV } from "../../lib/agent-host.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const cliPath = path.join(repoRoot, "bin", "agentic-sdlc.mjs");
 const tempProjects = new Set();
@@ -18,18 +20,16 @@ after(() => {
   tempProjects.clear();
 });
 
+// Attribution must not depend on the host that runs the tests, so every
+// variable the agent-host registry reads is removed from the child process.
+const HOST_ENVIRONMENT_KEYS = [
+  AGENT_HOST_OVERRIDE_ENV,
+  ...AGENT_HOSTS.flatMap((host) => [...host.markers, ...Object.values(host.env).filter(Boolean)]),
+];
+
 function runCli(args, options = {}) {
   const env = { ...process.env };
-  for (const key of [
-    "CI",
-    "GITHUB_ACTIONS",
-    "GITHUB_ACTOR",
-    "CODEX_AGENT_NAME",
-    "CODEX_USER_ID",
-    "CLAUDECODE",
-    "AGENTIC_SDLC_AGENT_HOST",
-    "NODE_OPTIONS",
-  ]) {
+  for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "NODE_OPTIONS", ...HOST_ENVIRONMENT_KEYS]) {
     delete env[key];
   }
   Object.assign(env, options.env || {});

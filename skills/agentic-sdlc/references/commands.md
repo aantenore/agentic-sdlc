@@ -1069,7 +1069,9 @@ agentic-sdlc observe --root <project>
 agentic-sdlc observe --root <project> --host 127.0.0.1 --port 0 --no-open --json
 ```
 
-From a Codex plugin installation, use the `change-observatory` skill so it resolves `<plugin-root>/bin/agentic-sdlc.mjs` directly. The returned URL contains an ephemeral token in the fragment. Keep the process alive while viewing the app and stop it with `SIGINT` or `SIGTERM`. With `--json`, standard output contains that URL and its per-run access token: do not paste it into bug reports, issues, or shared logs.
+From a Codex plugin installation, use the `change-observatory` skill so it resolves `<plugin-root>/bin/agentic-sdlc.mjs` directly. The returned URL contains an ephemeral token in the fragment. Keep the process alive while viewing the app and stop it with `SIGINT` or `SIGTERM`.
+
+With `--json`, standard output contains that URL and its per-run access token: do not paste it into bug reports, issues, or shared logs.
 
 ## Gate Check
 
