@@ -1,5 +1,6 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { AGENT_HOSTS, AGENT_HOST_OVERRIDE_ENV } from "../../lib/agent-host.mjs";
+import { sealTraceEvent } from "../../lib/trace-integrity.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const cliPath = path.join(repoRoot, "bin", "agentic-sdlc.mjs");
@@ -77,6 +79,8 @@ const projectTrace = (project) => path.join(project, ".sdlc", "traces", "project
 
 test("a missing project configuration fails closed instead of dropping custom redaction", () => {
   const project = initializedProject("missing-config");
+  addConfiguredPiiPattern(project, "EMP-[0-9]{6}");
+  confirmConfiguration(project);
   appendDecision(project, "before the configuration disappeared");
   const configPath = path.join(project, ".sdlc", "config.json");
   fs.rmSync(configPath);
@@ -105,6 +109,23 @@ test("a missing project configuration fails closed instead of dropping custom re
 
   const migrate = mustFail(["config", "migrate", "--root", project, "--json"]);
   assert.equal(json(migrate).error.code, "CONFIG_MISSING");
+
+  const verify = json(mustRun(["trace", "verify", "--root", project, "--json"]));
+  assert.equal(verify.status, "verified");
+  assert.doesNotMatch(JSON.stringify(verify), /before the configuration disappeared/u);
+});
+
+test("a missing configuration that held only the defaults names the exact restore copy", () => {
+  const project = initializedProject("missing-default-config");
+  fs.rmSync(path.join(project, ".sdlc", "config.json"));
+  const failure = json(mustFail(["status", "--root", project, "--json"]));
+  assert.equal(failure.error.code, "CONFIG_MISSING");
+  const match = /restore it by copying "([^"]+)" to \.sdlc\/config\.json/u.exec(failure.error.message);
+  assert.ok(match, failure.error.message);
+  assert.equal(path.basename(match[1]), "sdlc-config.json");
+  fs.copyFileSync(match[1], path.join(project, ".sdlc", "config.json"));
+  mustRun(["doctor", "--root", project, "--json"]);
+  mustRun(["status", "--root", project, "--json"]);
 });
 
 function tamperProjectTrace(project, from, to) {
@@ -134,6 +155,7 @@ test("trace verify reports intact and tampered history with a non-zero exit and 
   assert.equal(payload.files[0].valid, false);
   assert.ok(payload.files[0].errors.length > 0);
   assert.match(payload.recovery, /restore \.sdlc\/traces from version control/u);
+  assert.match(payload.recovery, /first back up the history files \(events recorded since your last commit would be lost\)/u);
   assert.doesNotMatch(tampered.stdout, /Rewritten decision wording/u);
 
   const human = mustFail(["trace", "verify", "--root", project]);
@@ -470,4 +492,203 @@ test("init ends with a concrete first step instead of the generic result text", 
   assert.match(result.stdout, /^Outcome: The project is ready for guided delivery\./u);
   assert.match(result.stdout, /Next step: Propose your first requirement/u);
   assert.doesNotMatch(result.stdout, /The requested result is ready/u);
+});
+
+function sealDirectly(project, events, traceName = "project.jsonl") {
+  const tracesRoot = path.join(project, ".sdlc", "traces");
+  for (const event of events) {
+    sealTraceEvent({
+      boundaryRoot: tracesRoot,
+      tracePath: path.join(tracesRoot, traceName),
+      checkpointPath: path.join(tracesRoot, ".integrity", `${traceName}.checkpoint.json`),
+      event,
+    });
+  }
+}
+
+function fixtureEvent(index, summary = `Decision ${index}`) {
+  return {
+    id: `TR-FIXTURE-${index}`,
+    type: "decision",
+    summary,
+    created_at: new Date().toISOString(),
+    action: "decision",
+    actor: { type: "human", id: "fixture" },
+    evidence: [],
+    related: [],
+    git: {},
+    run: {},
+    story_id: null,
+  };
+}
+
+test("evidence snapshots below .sdlc/traces are not verified as sealed histories", () => {
+  const project = initializedProject("evidence-snapshot");
+  fs.writeFileSync(path.join(project, "results.jsonl"), "{\"case\":1}\n\n{\"case\":2}");
+  const append = json(mustRun([
+    "trace", "append", "--root", project, "--type", "test", "--outcome", "passed",
+    "--summary", "Results recorded", "--evidence", "results.jsonl", "--json",
+  ]));
+  assert.match(append.event.evidence[0], /^\.sdlc\/traces\/evidence\//u);
+
+  const verify = json(mustRun(["trace", "verify", "--root", project, "--json"]));
+  assert.equal(verify.status, "verified");
+  assert.deepEqual(verify.files.map((file) => file.path), [".sdlc/traces/project.jsonl"]);
+  const status = json(mustRun(["status", "--root", project, "--json"]));
+  assert.notEqual(status.next_action.kind, "repair_history");
+  const doctor = json(mustRun(["doctor", "--root", project, "--json"]));
+  assert.equal(doctor.checks.find((check) => check.id === "trace-integrity").status, "passed");
+  const gate = JSON.parse(runCli(["gate", "check", "--root", project, "--json"]).stdout);
+  assert.equal([...gate.checked, ...gate.errors].some((line) => line.includes("traces/evidence/")), false);
+});
+
+test("an interrupted write is reported as recoverable, never as tampering", () => {
+  const project = initializedProject("interrupted");
+  appendDecision(project, "Committed decision");
+  const tracesRoot = path.join(project, ".sdlc", "traces");
+  const checkpointPath = path.join(tracesRoot, ".integrity", "project.jsonl.checkpoint.json");
+  const checkpointBefore = fs.readFileSync(checkpointPath);
+  sealDirectly(project, [fixtureEvent(1, "Written before the interruption")]);
+  // The event reached the trace, but the checkpoint update did not.
+  fs.writeFileSync(checkpointPath, checkpointBefore);
+
+  const verify = mustRun(["trace", "verify", "--root", project, "--json"]);
+  const payload = json(verify);
+  assert.equal(payload.status, "recovery_needed");
+  assert.equal(payload.files[0].state, "recoverable");
+  assert.doesNotMatch(payload.recovery, /checkout/u);
+  assert.match(payload.recovery, /completes the repair automatically/u);
+  const human = mustRun(["trace", "verify", "--root", project]);
+  assert.match(human.stdout, /Do not restore the history from version control/u);
+
+  const status = json(mustRun(["status", "--root", project, "--json"]));
+  assert.equal(status.history_integrity.status, "recovery_needed");
+  assert.notEqual(status.next_action.kind, "repair_history");
+  const doctor = json(mustRun(["doctor", "--root", project, "--json"]));
+  const check = doctor.checks.find((entry) => entry.id === "trace-integrity");
+  assert.equal(check.status, "passed");
+  assert.equal(check.warning, true);
+
+  appendDecision(project, "Recorded after the interruption");
+  assert.equal(json(mustRun(["trace", "verify", "--root", project, "--json"])).status, "verified");
+});
+
+test("a history file above the verification limit is unverifiable, not tampered", async () => {
+  const { buildContext } = await import("../../lib/engine/common.mjs");
+  const { inspectTraceHistory } = await import("../../lib/engine/story.mjs");
+  const project = initializedProject("unverifiable");
+  appendDecision(project, "A decision large enough for a tiny limit");
+  const inspection = inspectTraceHistory(buildContext({ root: project }), { maxVerificationTraceBytes: 64 });
+  assert.equal(inspection.status, "unverifiable");
+  assert.equal(inspection.violations, 0);
+  assert.equal(inspection.files[0].state, "unverifiable");
+  assert.deepEqual(inspection.files[0].errors, [{ code: "trace_too_large", scope: "trace" }]);
+});
+
+test("large reports and status payloads are redacted item by item instead of collapsing", () => {
+  const project = initializedProject("large-presentation");
+  const email = ["owner", "example.test"].join("@");
+  sealDirectly(project, Array.from({ length: 700 }, (_, index) => fixtureEvent(index, `Decision ${index} by ${email}`)));
+  const report = json(mustRun(["report", "activity", "--root", project, "--since", "1d", "--json"]));
+  assert.equal(report.items.length, 700);
+  assert.equal(report.items[699].summary, "Decision 699 by [REDACTED]");
+  assert.doesNotMatch(JSON.stringify(report), new RegExp(email.replace(".", "\\."), "u"));
+
+  mustRun([
+    "requirement", "propose", "--root", project,
+    "--id", "REQ-BULK-SOURCE",
+    "--title", "Bulk source",
+    "--summary", "Template for many proposals",
+    "--acceptance", "One check",
+    "--autonomy-ceiling", "checkpointed",
+    "--write-path", "src",
+    "--json",
+  ]);
+  const requirementsRoot = path.join(project, ".sdlc", "requirements");
+  const source = JSON.parse(fs.readFileSync(path.join(requirementsRoot, "REQ-BULK-SOURCE.json"), "utf8"));
+  for (let index = 0; index < 400; index += 1) {
+    const id = `REQ-BULK-${String(index).padStart(4, "0")}`;
+    fs.writeFileSync(path.join(requirementsRoot, `${id}.json`), `${JSON.stringify({ ...source, id, logical_id: id })}\n`);
+  }
+  const status = json(mustRun(["status", "--root", project, "--json", "--full"]));
+  assert.equal(status.project.project_name, "Trace status fixture");
+  assert.equal(status.summary.pending_decisions, 401);
+  assert.equal(status.pending_decision_items.length, 401);
+  const human = mustRun(["status", "--root", project, "--full"]);
+  assert.match(human.stdout, /- Project: Trace status fixture \(/u);
+  assert.doesNotMatch(human.stdout, /undefined|LIMIT_EXCEEDED/u);
+});
+
+test("evidence URLs are kept as references and dotted names inside the project are accepted", () => {
+  const project = initializedProject("evidence-urls");
+  fs.mkdirSync(path.join(project, "..reports"));
+  fs.writeFileSync(path.join(project, "..reports", "r.txt"), "report\n");
+  const appended = json(mustRun([
+    "trace", "append", "--root", project, "--type", "decision", "--summary", "references",
+    "--evidence", "https://ci.example.test/runs/42",
+    "--evidence", "..reports/r.txt",
+    "--json",
+  ]));
+  assert.deepEqual(appended.event.evidence, ["https://ci.example.test/runs/42", "..reports/r.txt"]);
+  assert.deepEqual(appended.evidence_unverified, []);
+});
+
+test("a project with many custom patterns can still record history", () => {
+  const project = initializedProject("many-patterns");
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  config.observability.redaction.pii_patterns = Array.from(
+    { length: 56 },
+    (_, index) => `CASE${String(index).padStart(2, "0")}-[0-9]{4}`,
+  );
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  confirmConfiguration(project);
+  fs.writeFileSync(path.join(project, "result.txt"), "case CASE07-1234 passed\n");
+  const appended = json(mustRun([
+    "trace", "append", "--root", project, "--type", "test", "--outcome", "passed",
+    "--summary", "Recorded with CASE03-9999", "--evidence", "result.txt", "--json",
+  ]));
+  assert.equal(appended.event.summary, "Recorded with [REDACTED]");
+  const snapshot = fs.readFileSync(path.join(project, ...appended.event.evidence[0].split("/")), "utf8");
+  assert.doesNotMatch(snapshot, /CASE07-1234/u);
+});
+
+test("historical operational_v2 evidence written before detector additions can still be bound", async () => {
+  const { createOperationalBaselineRedactionPolicy, createOperationalRedactionPolicy, redactText } = await import("../../lib/observability/redaction.mjs");
+  const project = initializedProject("baseline-binding");
+  const raw = ["deploy --password ", "hunter", "22secret ok\n"].join("");
+  assert.notEqual(
+    redactText(raw, createOperationalBaselineRedactionPolicy()),
+    redactText(raw, createOperationalRedactionPolicy()),
+    "fixture must differ between the original and the current detector set",
+  );
+  fs.writeFileSync(path.join(project, "deploy.txt"), raw);
+  const append = json(mustRun([
+    "trace", "append", "--root", project, "--type", "test", "--outcome", "passed",
+    "--summary", "Historical evidence", "--evidence", "deploy.txt", "--json",
+  ]));
+  const event = JSON.parse(JSON.stringify(append.event));
+  const ref = event.evidence_refs[0];
+  // Recreate a historical v1 reference: the snapshot holds the original
+  // bytes and the fingerprint was computed with the original detector set.
+  fs.writeFileSync(path.join(project, ...ref.path.split("/")), raw);
+  const historical = Buffer.from(redactText(raw, createOperationalBaselineRedactionPolicy()), "utf8");
+  ref.representation = "redacted_utf8_v1";
+  delete ref.policy_source_ref;
+  ref.size_bytes = historical.length;
+  ref.sha256 = crypto.createHash("sha256").update(historical).digest("hex");
+  delete event._trace_integrity;
+  const tracesRoot = path.join(project, ".sdlc", "traces");
+  fs.rmSync(path.join(tracesRoot, "project.jsonl"));
+  fs.rmSync(path.join(tracesRoot, ".integrity"), { recursive: true, force: true });
+  sealDirectly(project, [event]);
+
+  const binding = json(mustRun([
+    "trace", "evidence", "bind", "--root", project,
+    "--target-event", event.id,
+    "--redaction-policy", "operational_v2",
+    "--json",
+  ]));
+  assert.equal(binding.status, "bound");
+  assert.equal(binding.binding_count, 1);
 });

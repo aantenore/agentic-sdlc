@@ -542,7 +542,7 @@ test("operational policy redacts extended vendor tokens and command-line credent
   // Credential-shaped values are assembled at runtime so the source tree never
   // contains a literal that a secret scanner would flag.
   const vendorTokens = [
-    ["ASIA", "Q".repeat(16)].join(""),
+    ["ASIA", "QW3RT7YU2IOPLASD"].join(""),
     ["AIza", "Sy", "k".repeat(33)].join(""),
     ["npm", "_", "n".repeat(36)].join(""),
     ["hf", "_", "h".repeat(34)].join(""),
@@ -585,9 +585,54 @@ test("extended detectors keep look-alike identifiers and options readable", () =
     "tool -u origin",
     '{"auth":"required"}',
     "https://hooks.example.test/services/abcdefgh",
+    "docker run -u 1000:1000 image",
+    "pip install --user git+https://example.test/package",
+    "use the --token flag",
+    "pass --password <value> on the command line",
+    "deploy --token $DEPLOY_TOKEN",
+    'config {"auth": "bearerTokenAuthScheme"}',
+    "ASIAPACIFICREGION012",
+    "ASIA".padEnd(20, "Q"),
+    ["curl -s -u admin", ":", "1234 https://example.test/"].join(""),
   ]) {
     assert.equal(redactText(benign, policy), benign, benign);
   }
+});
+
+test("built-in detectors do not count against the custom pattern limit", () => {
+  const customPatterns = Array.from({ length: 60 }, (_, index) => ({
+    name: `custom_${index}`,
+    pattern: `CUSTOM${String(index).padStart(2, "0")}-[0-9]{4}`,
+  }));
+  const policy = createOperationalRedactionPolicy({ piiPatterns: customPatterns });
+  assert.equal(redactText("CUSTOM07-1234", policy), REDACTION_PLACEHOLDER);
+  assert.throws(
+    () => createOperationalRedactionPolicy({
+      piiPatterns: [...customPatterns, ...customPatterns.slice(0, 5).map((entry) => ({ ...entry, name: `${entry.name}_copy` }))],
+    }),
+    /maxPatterns/u,
+  );
+});
+
+test("chunked presentation redaction keeps large payloads and fails loudly on an oversized value", async () => {
+  const { redactValueInChunks, RedactionLimitError } = await import("../../lib/observability/redaction.mjs");
+  const policy = createOperationalRedactionPolicy();
+  const email = ["owner", "example.test"].join("@");
+  const payload = {
+    project: { project_name: "Large", owner: email },
+    items: Array.from({ length: 3_000 }, (_, index) => ({ id: index, summary: `item ${index} ${email}`, tags: ["a", "b", "c"] })),
+  };
+  assert.equal(redactValueWithMetadata(payload, policy).limited, true, "fixture must exceed one global budget");
+  const presented = redactValueInChunks(payload, policy);
+  assert.equal(presented.project.project_name, "Large");
+  assert.equal(presented.project.owner, REDACTION_PLACEHOLDER);
+  assert.equal(presented.items.length, 3_000);
+  assert.equal(presented.items[2_999].summary, `item 2999 ${REDACTION_PLACEHOLDER}`);
+  assert.deepEqual(redactValueInChunks({ password: "x".repeat(10) }, policy), { password: REDACTION_PLACEHOLDER });
+  assert.throws(
+    () => redactValueInChunks({ huge: "x".repeat(300_000) }, policy),
+    (error) => error instanceof RedactionLimitError && error.location === "$.huge",
+  );
 });
 
 test("previously written operational_v2 policy sources stay verifiable after detector additions", async () => {
