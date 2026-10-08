@@ -122,8 +122,8 @@ Put proposal/baseline hashes, requirement/story/template/contract IDs, subject h
 
 Show concrete values and metering accuracy/source for:
 
-- target and maximum active time, excluding user and approved external waiting; the default is exact, soft at 2,700 seconds and hard at 3,600 seconds;
-- aggregate main-agent and subagent steps; the default is exact, soft at 40 and hard at 60;
+- target active time, excluding user and approved external waiting; the default is an estimated soft limit of 2,700 seconds with no hard limit;
+- aggregate main-agent and subagent steps; the default is an estimated soft limit of 40 with no hard limit;
 - aggregate main-agent and subagent tokens; the default is an estimated soft threshold of 200,000 with no hard limit;
 - cost/currency only when both a reliable metering/pricing adapter and a currency are configured;
 - configured warnings, normally 70% and 90%;
