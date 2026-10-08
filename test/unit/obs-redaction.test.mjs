@@ -611,26 +611,54 @@ test("extended detectors keep look-alike identifiers and options readable", () =
     "deploy --token $DEPLOY_TOKEN",
     'config {"auth": "bearerTokenAuthScheme"}',
     "ASIAPACIFICREGION012",
-    "ASIA".padEnd(20, "Q"),
-    ["curl -s -u admin", ":", "1234 https://example.test/"].join(""),
+    "use the --token argument",
+    "--password $DB_PASSWORD",
+    "--password ${DB_PASSWORD}",
+    "--password --verbose",
+    "--token <your-token>",
+    ["tool -u user", ":", "pass"].join(""),
   ]) {
     assert.equal(redactText(benign, policy), benign, benign);
   }
 });
 
-test("built-in detectors do not count against the custom pattern limit", () => {
-  const customPatterns = Array.from({ length: 60 }, (_, index) => ({
+test("built-in detectors do not count against the custom pattern limit", async () => {
+  const { assertTraceEvidencePolicySourceSafety } = await import("../../lib/lifecycle/output.mjs");
+  const customPatterns = Array.from({ length: 64 }, (_, index) => ({
     name: `custom_${index}`,
     pattern: `CUSTOM${String(index).padStart(2, "0")}-[0-9]{4}`,
   }));
   const policy = createOperationalRedactionPolicy({ piiPatterns: customPatterns });
   assert.equal(redactText("CUSTOM07-1234", policy), REDACTION_PLACEHOLDER);
+  assert.doesNotThrow(() => assertTraceEvidencePolicySourceSafety(JSON.parse(JSON.stringify(describeRedactionPolicy(policy)))));
   assert.throws(
     () => createOperationalRedactionPolicy({
-      piiPatterns: [...customPatterns, ...customPatterns.slice(0, 5).map((entry) => ({ ...entry, name: `${entry.name}_copy` }))],
+      piiPatterns: [...customPatterns, { name: "custom_extra", pattern: "EXTRA-[0-9]{4}" }],
     }),
     /maxPatterns/u,
   );
+
+  // Duplicates of a project pattern or of a built-in are removed, not
+  // exempted: they never reach the policy, so they cost nothing.
+  const deduplicated = createOperationalRedactionPolicy({
+    piiPatterns: [...customPatterns, ...customPatterns.map((entry) => ({ ...entry, name: `${entry.name}_copy` }))],
+  });
+  assert.equal(
+    describeRedactionPolicy(deduplicated).detectors.length,
+    describeRedactionPolicy(policy).detectors.length,
+  );
+
+  // Re-declaring a built-in is only exempt once; every further copy counts.
+  const builtin = describeRedactionPolicy(createOperationalRedactionPolicy()).detectors[0];
+  assert.throws(
+    () => createRedactionPolicy({
+      secretPatterns: Array.from({ length: 1_000 }, (_, index) => ({ name: `copy_${index}`, pattern: new RegExp(builtin.source, builtin.flags) })),
+    }),
+    /maxPatterns/u,
+  );
+  const stored = JSON.parse(JSON.stringify(describeRedactionPolicy(createOperationalRedactionPolicy())));
+  stored.detectors.push(...Array.from({ length: 1_000 }, (_, index) => ({ ...builtin, name: `copy_${index}` })));
+  assert.throws(() => assertTraceEvidencePolicySourceSafety(stored), /immutable safety limits/u);
 });
 
 test("chunked presentation redaction keeps large payloads and fails loudly on an oversized value", async () => {
