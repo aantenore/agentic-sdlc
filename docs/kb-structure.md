@@ -337,7 +337,7 @@ Immutable evidence of authority and execution. Exact paths are configurable; cat
 
 Receipts are canonical evidence. Screenshots and rendered pages remain separate evidence files referenced by the verification receipt.
 
-`authority_policy.usage_receipts_root` configures authorization-use storage; `authorization-uses` is only the portable default for new projects. `authority_policy.trusted_host_keys` is an array of `{ key_id, algorithm: "Ed25519", public_key }`, each optionally with `not_before`, `not_after`, and `retired`; `host_verified` requires at least one trusted public key. A receipt verifies only with a key that was valid when the receipt was decided, and a new signed decision needs a key that is not retired and inside its window, so a retired key keeps verifying the history it signed.
+`authority_policy.usage_receipts_root` configures authorization-use storage; `authorization-uses` is only the portable default for new projects. `authority_policy.trusted_host_keys` is an array of `{ key_id, algorithm: "Ed25519", public_key }`, each optionally with `not_before`, `not_after`, and `retired`; `host_verified` requires at least one trusted public key. A receipt verifies only with a key that was valid when the receipt was decided, so a retired key keeps verifying the history it signed; any new authority (a new signed decision, new work under a standing approval, a task start or action under a host-verified delivery, completing a pending authorization) needs a key that is not retired and inside its window now. Removing a key also invalidates the history it signed.
 
 ## `contracts/`
 
