@@ -43,10 +43,23 @@ function temporaryProject(label) {
   return project;
 }
 
+let extraEnvironment = {};
+
 function cliEnvironment() {
-  const env = { ...process.env };
+  const env = { ...process.env, ...extraEnvironment };
   for (const key of ISOLATED_ENVIRONMENT_KEYS) delete env[key];
   return env;
+}
+
+/** Runs `body` with extra environment variables for every CLI call it makes. */
+function withEnvironment(extra, body) {
+  const previous = extraEnvironment;
+  extraEnvironment = { ...previous, ...extra };
+  try {
+    return body();
+  } finally {
+    extraEnvironment = previous;
+  }
 }
 
 function run(args, project) {
@@ -183,10 +196,10 @@ function configureFakeCodeBurn(project) {
   ].join("\n"));
   const fixture = JSON.parse(fs.readFileSync(CODEBURN_FIXTURE, "utf8"));
   let calls = fixture.overview.calls;
-  const setReading = (cost) => {
+  const setReading = (cost, generated = new Date().toISOString()) => {
     calls += 1;
     const report = structuredClone(fixture);
-    report.generated = new Date().toISOString();
+    report.generated = generated;
     report.overview.cost = cost;
     report.overview.netCost = cost;
     report.overview.calls = calls;
@@ -592,6 +605,58 @@ test("a delivery meter keeps one series over the delivery's own window, and forg
     ["budget", "usage", "record", "--root", project, "--delivery", one.profileId, "--receipt-json", JSON.stringify(future)],
     project,
     /USAGE-FUTURE was not recorded: it is dated [^,]+, in the future/u,
+  );
+});
+
+test("spend between a delivery's approval and its meter start never slips past a standing budget", () => {
+  const project = initializeProject("late-meter");
+  const meter = configureFakeCodeBurn(project);
+  mustRunJson(standingArgs(project, ["--budget-per-delivery", "1", "--budget-total", "5", "--currency", "USD"]), project);
+  mustRunJson(["autonomy", "standing", "approve", "--root", project, "--id", "SA-COST", ...humanApproval("Approve SA-COST")], project);
+  // A test run may only shorten the allowance between approval and meter start.
+  withEnvironment({ NODE_ENV: "test", AGENTIC_SDLC_TEST_METER_START_ALLOWANCE_MS: "1500" }, () => {
+    const one = prepareDelivery(project, "ONE", { standingId: "SA-COST" });
+    approveDelivery(project, one, "SA-COST");
+    // Work spends 8 USD before anyone starts the meter, and an old report
+    // cannot make the late meter look as if it started on time.
+    sleep(2_000);
+    meter.setReading(9, new Date(Date.now() - 10 * 60 * 1000).toISOString());
+    mustFail(
+      ["budget", "meter", "start", "--root", project, "--delivery", one.profileId, "--adapter", "codeburn"],
+      project,
+      /CodeBurn report for delivery AUT-ONE was generated at [^,]+, not now/u,
+    );
+    meter.setReading(9);
+    meterStart(project, one.profileId);
+    startTask(project, one);
+    meter.setReading(9.1);
+    meterRecord(project, one.profileId);
+    const status = mustRunJson(["budget", "status", "--root", project, "--delivery", one.profileId], project);
+    assert.equal(status.usage.cost.amount, "0.1");
+    writeProjectFile(project, "src/flag-one.mjs", "export const one = false;\n");
+    expectFallback(project, one.profileId, "build.local", /its meter started at [^,]+, more than \d+ seconds after the delivery was approved at [^,]+, so spend before the meter started is not counted/u);
+  });
+});
+
+test("a delivery revoked before its meter started keeps a total standing budget from covering later steps", () => {
+  const project = initializeProject("unmetered");
+  configureFakeCodeBurn(project);
+  mustRunJson(standingArgs(project, ["--budget-per-delivery", "1", "--budget-total", "5", "--currency", "USD"]), project);
+  mustRunJson(["autonomy", "standing", "approve", "--root", project, "--id", "SA-COST", ...humanApproval("Approve SA-COST")], project);
+  const one = prepareDelivery(project, "ONE", { standingId: "SA-COST" });
+  approveDelivery(project, one, "SA-COST");
+  mustRunJson([
+    "autonomy", "delivery", "revoke", "--root", project, "--id", one.profileId, "--reason", "Stopped before any meter ran",
+    ...humanApproval(`Revoke ${one.profileId}`),
+  ], project);
+  // Its spend is unknown, and a meter started now would miss it.
+  mustFail(["budget", "meter", "start", "--root", project, "--delivery", one.profileId, "--adapter", "codeburn"], project, /revoked/u);
+
+  approveBrief(project, "TWO", { standingId: "SA-COST" });
+  mustFail(
+    proposeArgs(project, "TWO", { standingId: "SA-COST" }),
+    project,
+    /delivery AUT-ONE used this standing approval, but its cost is not freshly measured: no meter has reported this delivery's cost yet/u,
   );
 });
 
