@@ -2986,8 +2986,8 @@ test("terminal stories cannot be claimed or scheduled and status counts story re
   assert.equal(status.counts.stories, 2);
   const statusGuidance = splitHumanGuidance(mustRun(["status", "--root", project]).stdout);
   assert.match(statusGuidance.primary, /What remains protected:/u);
-  assert.match(statusGuidance.technical, /available_work: 1/u);
-  assert.match(statusGuidance.technical, /completed_work: 1/u);
+  assert.match(statusGuidance.technical, /Work ready to start: 1/u);
+  assert.match(statusGuidance.technical, /Completed work: 1/u);
 });
 
 test("status starts the stock story workflow and routes custom phases to an exact definition", () => {

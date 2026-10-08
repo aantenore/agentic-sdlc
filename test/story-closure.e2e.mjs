@@ -191,7 +191,7 @@ test("abandoned breakdown stories keep status blocked until they are superseded"
   assert.notEqual(after.next_action.kind, "resolve_blocker");
   const human = mustRun(["status", "--root", project]).stdout;
   assert.doesNotMatch(human, /cannot proceed/iu);
-  assert.match(human, /closed_work: 5/u);
+  assert.match(human, /Closed work: 5/u);
 
   const portfolioAfter = await buildProjectPortfolioSummary(project);
   assert.equal(portfolioAfter.aggregates.activeWorkflows.count, 1);
