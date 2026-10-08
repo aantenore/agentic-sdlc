@@ -86,8 +86,17 @@
         "kind": { "enum": ["local_release", "pull_request"] },
         "merge_allowed": { "const": false },
         "deploy_allowed": { "const": false },
-        "production_allowed": { "const": false }
+        "production_allowed": { "const": false },
+        "repository": { "type": "string", "minLength": 3, "maxLength": 512 },
+        "head_branch_prefix": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*/$"
+        }
       },
+      "if": { "properties": { "kind": { "const": "pull_request" } } },
+      "then": { "required": ["repository", "head_branch_prefix"] },
+      "else": { "not": { "anyOf": [{ "required": ["repository"] }, { "required": ["head_branch_prefix"] }] } },
       "additionalProperties": false
     },
     "delivery_level": { "const": "checkpointed" },

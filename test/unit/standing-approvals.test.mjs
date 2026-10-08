@@ -14,7 +14,9 @@ import {
   standingApprovalIntegrityErrors,
   standingApprovalPolicy,
   standingBudgetReasons,
+  standingBranchReasons,
   standingChangeReasons,
+  standingContractBoundReasons,
   standingDeliveryBoundReasons,
   standingDeliveryUseResolution,
   standingDerivedApprovalErrors,
@@ -35,6 +37,7 @@ function proposal(overrides = {}) {
     recipe_id: "dependency-bump",
     description: "Bump patch versions",
     destination: "pull_request",
+    repository: "Acme/Shop",
     requirement_refs: [{ id: "REQ-DEPS", profile_id: "AUT-REQ-DEPS", profile_hash: HASH }],
     allowed_write_paths: ["package.json", "src/**/*.mjs", "docs/"],
     max_changed_files: 3,
@@ -154,6 +157,9 @@ test("delivery bounds: destination, merge, level, requirements, actions, paths, 
     write_roots: ["src/deps"],
     outside_project_paths: [],
     authority_mode: "audit_only",
+    repository: "acme/shop",
+    head_branch: "standing/sa-deps/bump",
+    base_branch: "main",
   };
   assert.deepEqual(standingDeliveryBoundReasons(record, delivery), []);
   const reasons = (change) => standingDeliveryBoundReasons(record, { ...delivery, ...change }).join("\n");
@@ -282,5 +288,47 @@ test("a recorded slot is reused only for an exact retry of the same delivery pro
   assert.match(
     standingApprovalIntegrityErrors({ proposal: record, approval, uses: [held, sameProfile] }).join(),
     /repeats a delivery or profile/u,
+  );
+});
+
+test("a pull request standing approval is bound to one repository and its own branch prefix", () => {
+  const record = proposal();
+  assert.equal(record.destination.repository, "github.com/acme/shop");
+  assert.equal(record.destination.head_branch_prefix, "standing/sa-deps/");
+  assert.equal(proposal({ head_branch_prefix: "deps/" }).destination.head_branch_prefix, "deps/");
+  assert.throws(() => proposal({ repository: "" }), /--repository is required/u);
+  assert.throws(() => proposal({ repository: "not a repo" }), /--repository/u);
+  for (const unsafe of ["main/", "release/", "prod-", "deps", "/deps/", "a/../b/", "Production/x/"]) {
+    assert.throws(() => proposal({ head_branch_prefix: unsafe }), /--head-branch-prefix/u, unsafe);
+  }
+  const local = proposal({ destination: "local_release" });
+  assert.equal(local.destination.repository, undefined);
+  const widened = { ...record, destination: { ...record.destination, head_branch_prefix: "" } };
+  widened.record_hash = standingRecordHash(widened);
+  assert.ok(standingApprovalIntegrityErrors({ proposal: widened }).some((error) => /widens/u.test(error)));
+
+  const destination = record.destination;
+  const delivery = { repository: "https://github.com/acme/shop.git", head_branch: "standing/sa-deps/bump-1", base_branch: "main" };
+  assert.deepEqual(standingBranchReasons(destination, delivery), []);
+  assert.match(standingBranchReasons(destination, { ...delivery, repository: "acme/other" }).join(), /covers only github.com\/acme\/shop/u);
+  for (const head of ["main", "master", "release/1.2", "standing/sa-deps/", "feature/x", "standing/sa-deps-x/y"]) {
+    assert.ok(standingBranchReasons(destination, { ...delivery, head_branch: head }).length > 0, head);
+  }
+  assert.ok(standingBranchReasons(destination, { ...delivery, head_branch: "standing/sa-deps/x", base_branch: "standing/sa-deps/x" }).length > 0);
+  const bound = standingDeliveryBoundReasons(record, {
+    kind: "pull_request", level: "checkpointed", requirement_ids: ["REQ-DEPS"], allowed_actions: ["git.push"],
+    write_roots: ["docs"], ...delivery, head_branch: "main",
+  });
+  assert.match(bound.join(), /pushing to branch main is never covered/u);
+});
+
+test("a standing approval never approves release-phase or infrastructure work briefs", () => {
+  assert.deepEqual(standingContractBoundReasons({ phase: "implementation", allowed_tools: ["node", "npm test"] }), []);
+  for (const phase of ["release", "deploy", "production", "data-migration", "ops", "", "pre-release"]) {
+    assert.match(standingContractBoundReasons({ phase, allowed_tools: [] }).join(), /never approves/u, phase);
+  }
+  assert.match(
+    standingContractBoundReasons({ phase: "implementation", allowed_tools: ["node", "kubectl apply -f x", "Terraform"] }).join(),
+    /kubectl, terraform/u,
   );
 });

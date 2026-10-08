@@ -197,6 +197,9 @@ function proposeStanding(project, overrides = {}) {
     "--max-changed-files", String(overrides.maxFiles ?? 10),
     "--max-changed-lines", String(overrides.maxLines ?? 200),
     "--destination", overrides.destination || "local_release",
+    ...((overrides.destination || "local_release") === "pull_request"
+      ? ["--repository", overrides.repository || "aantenore/agentic-sdlc"]
+      : []),
     "--max-deliveries", String(overrides.maxDeliveries ?? 2),
     "--expires-at", overrides.expiresAt || isoAfter(7 * DAY),
     ...(overrides.extra || []),
@@ -251,9 +254,11 @@ function prepareDelivery(project, suffix, standingId, options = {}) {
     "contract", "approve",
     "--root", project,
     "--id", contractId,
-    "--standing-approval", standingId,
+    ...(options.directContract
+      ? humanApproval(`Approve ${contractId}`)
+      : ["--standing-approval", standingId]),
   ], project);
-  assert.equal(contract.approval.approval_source, "standing-approval");
+  assert.equal(contract.approval.approval_source, options.directContract ? "explicit-user" : "standing-approval");
   const proposed = mustRunJson([
     "autonomy", "delivery", "propose",
     "--root", project,
@@ -777,7 +782,7 @@ test("merge and production are never coverable by a standing approval", () => {
   const project = initializeProject("merge");
   git(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc.git"]);
   git(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
-  git(project, ["checkout", "-b", "codex/pr-1"]);
+  git(project, ["checkout", "-b", "standing/sa-flags/pr-1"]);
   const standingId = grantStanding(project, { destination: "pull_request", writePaths: ["src"] });
   for (const [suffix, merge] of [["MERGE", true], ["PR", false]]) {
     mustRun([
@@ -795,7 +800,7 @@ test("merge and production are never coverable by a standing approval", () => {
       "autonomy", "delivery", "propose", "--root", project, "--id", `AUT-${suffix}`, "--delivery", `PR-${suffix}`,
       "--kind", "pull_request", "--story", `ST-${suffix}`, "--contract", `CONTRACT-${suffix}`,
       "--requirement", suffix === "PR" ? "REQ-TOIL" : "REQ-TOIL-2", "--level", "checkpointed",
-      "--repository", "aantenore/agentic-sdlc", "--base", "main", "--head", "codex/pr-1", "--write-path", "src",
+      "--repository", "aantenore/agentic-sdlc", "--base", "main", "--head", "standing/sa-flags/pr-1", "--write-path", "src",
       ...(merge ? ["--merge-allowed"] : []), "--standing-approval", standingId,
     ];
     if (merge) {
@@ -816,11 +821,49 @@ test("merge and production are never coverable by a standing approval", () => {
   }
 });
 
+test("a delegated pull request never pushes outside its repository and branch prefix", () => {
+  const project = initializeProject("branches");
+  git(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc.git"]);
+  git(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
+  const standingId = grantStanding(project, { destination: "pull_request", writePaths: ["src"], maxDeliveries: 1 });
+  for (const [contractId, phase, profileId, storyId] of [
+    ["CONTRACT-BR", "implementation", "AUT-BR", "ST-BR"],
+    ["CONTRACT-BR-2", "implementation", "AUT-BR-2", "ST-BR-2"],
+    ["CONTRACT-REL", "release", "AUT-REL", "ST-REL"],
+  ]) {
+    mustRun([
+      "story", "create", "--root", project, "--id", storyId, "--title", storyId, "--phase", "implementation",
+      "--status", "ready", "--requirement", "REQ-TOIL", "--acceptance", "Observable.",
+    ], project);
+    mustRun([
+      "contract", "create", "--root", project, "--id", contractId, "--story", storyId, "--phase", phase,
+      "--delivery-profile", profileId, "--level", "checkpointed", "--context-summary", "Branch check.",
+      "--qa", "Who confirms?|The standing approval", "--tool", "node",
+      "--output-ref", "implementation-summary:implementation-summary-v1:new",
+    ], project);
+  }
+  mustFail(["contract", "approve", "--root", project, "--id", "CONTRACT-REL", "--standing-approval", standingId], project, /release phase, which a standing approval never approves/u);
+  mustRun(["contract", "approve", "--root", project, "--id", "CONTRACT-BR", "--standing-approval", standingId], project);
+  // One delivery allowed: a second brief for another delivery needs the person.
+  mustFail(["contract", "approve", "--root", project, "--id", "CONTRACT-BR-2", "--standing-approval", standingId], project, /the most it allows is 1/u);
+  const propose = (head, repository = "aantenore/agentic-sdlc") => [
+    "autonomy", "delivery", "propose", "--root", project, "--id", "AUT-BR", "--delivery", "PR-BR",
+    "--kind", "pull_request", "--story", "ST-BR", "--contract", "CONTRACT-BR", "--requirement", "REQ-TOIL",
+    "--level", "checkpointed", "--repository", repository, "--base", head === "main" ? "develop" : "main",
+    "--head", head, "--write-path", "src", "--standing-approval", standingId,
+  ];
+  mustFail(propose("main"), project, /pushing to branch main is never covered/u);
+  mustFail(propose("feature/x"), project, /covers only branches under standing\/sa-flags\//u);
+  mustFail(propose("standing/sa-flags/x", "someone/else"), project, /covers only github\.com\/aantenore\/agentic-sdlc/u);
+  mustRunJson(propose("standing/sa-flags/x"), project);
+});
+
 test("concurrent deliveries cannot both consume the last slot", async () => {
   const project = initializeProject("race");
   const standingId = grantStanding(project, { maxDeliveries: 1 });
   const first = prepareDelivery(project, "ONE", standingId, { requirementId: "REQ-TOIL" });
-  const second = prepareDelivery(project, "TWO", standingId, { requirementId: "REQ-TOIL-2" });
+  // One slot also bounds the briefs it approves, so the second brief is approved directly.
+  const second = prepareDelivery(project, "TWO", standingId, { requirementId: "REQ-TOIL-2", directContract: true });
   const results = await Promise.all([first, second].map((delivery) => runAsync([
     "autonomy", "delivery", "approve", "--root", project, "--id", delivery.profileId,
     "--phase", "implementation", "--standing-approval", standingId, "--json",
