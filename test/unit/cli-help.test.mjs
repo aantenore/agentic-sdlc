@@ -498,3 +498,25 @@ test("unknown help path returns bounded nearest suggestions", () => {
 test("unsupported locale fails before rendering", () => {
   assert.throws(() => renderHelp([], { locale: "fr" }), /Use en or it/u);
 });
+
+test("trace help lists valid types, reads naturally, and does not claim the group only reads", () => {
+  const append = renderHelp(["trace", "append"]);
+  assert.match(append, /--type <assumption\|claim\|decision\|gate\|handoff\|implementation\|lock\|release\|risk\|sync\|test> \(required\)/u);
+  assert.match(append, /--explanation-kind <[^>]+> \(required with --explanation\)/u);
+  assert.doesNotMatch(append, /required with --explanation is supplied/u);
+  const approve = renderHelp(["autonomy", "delivery", "approve"]);
+  assert.match(approve, /--approval-source <[^>]+> \(required when --standing-approval is not used\)/u);
+  assert.match(
+    renderHelp(["autonomy", "delivery", "approve"], { locale: "it" }),
+    /--approval-source <[^>]+> \(obbligatoria quando non si usa --standing-approval\)/u,
+  );
+  assert.match(renderHelp(["autonomy", "delivery", "propose"]), /\(required with --kind pull_request\)/u);
+
+  const group = buildHelpModel(["trace"]);
+  assert.equal(group.technical_details.effect, "mixed");
+  assert.doesNotMatch(group.human.protection, /Reads local records only/u);
+  assert.match(group.human.impact, /Some of these actions change local project records/u);
+  const italianGroup = buildHelpModel(["trace"], { locale: "it" });
+  assert.match(italianGroup.human.impact, /Alcune di queste azioni modificano/u);
+  assert.equal(buildHelpModel(["preset"]).technical_details.effect, "read");
+});
