@@ -124,6 +124,17 @@ function implementationIntent(storyId) {
 
 function initializeRepository(project, name, headBranch) {
   mustRun(["init", "--root", project, "--project-name", name, "--force"]);
+  // The test remote is a public repository the test cannot write to, so
+  // story claims stay on this computer instead of being shared through it.
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  config.orchestration_policy = {
+    ...config.orchestration_policy,
+    coordination: { ...config.orchestration_policy?.coordination, mode: "local_only" },
+  };
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const preview = mustRunJson(["config", "migrate", "--root", project]);
+  mustRunJson(["config", "migrate", "--root", project, "--apply", "--plan-hash", preview.plan.plan_hash, "--actor-type", "system"]);
   git(project, ["init"]);
   git(project, ["config", "user.name", AUTHOR.name]);
   git(project, ["config", "user.email", AUTHOR.email]);
@@ -190,7 +201,7 @@ function preparePullRequestDelivery() {
     "autonomy", "delivery", "propose", "--root", project,
     "--id", PROFILE_ID,
     "--delivery", "PR-185",
-    "--kind", "pull_request", "--code-review", "not-required", "--code-review-actor-type", "human", "--code-review-approval-source", "explicit-user", "--code-review-summary", "No review needed for this story",
+    "--kind", "pull_request", "--code-review", "required", "--code-review-actor-type", "human", "--code-review-approval-source", "explicit-user", "--code-review-summary", "Yes, review before merge",
     "--pr-mode", "existing",
     "--pr-number", "185",
     "--pr-url", PR_URL,
