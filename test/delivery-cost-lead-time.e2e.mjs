@@ -27,7 +27,6 @@ const ISOLATED_ENVIRONMENT_KEYS = [
 const SMOKE = '["node","--version"]';
 const ROLLBACK = "Restore the previous governed local release snapshot.";
 const REQUIREMENTS = ["REQ-TOIL", "REQ-TOIL-2"];
-const METER_PERIOD = ["--project", "DeliveryMetrics", "--from", "2026-07-14", "--to", "2026-07-14"];
 const DAY = 24 * 60 * 60 * 1000;
 
 after(() => {
@@ -174,8 +173,13 @@ function configureFakeCodeBurn(project) {
   fs.writeFileSync(runnerPath, [
     "import fs from 'node:fs';",
     `const reportPath = ${JSON.stringify(reportPath)};`,
+    "const arg = (name) => process.argv[process.argv.indexOf(name) + 1];",
     "if (process.argv.includes('--version')) process.stdout.write('codeburn 0.9.15\\n');",
-    "else process.stdout.write(fs.readFileSync(reportPath, 'utf8'));",
+    "else {",
+    "  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));",
+    "  report.period = `${arg('--from')} to ${arg('--to')}`;",
+    "  process.stdout.write(JSON.stringify(report));",
+    "}",
   ].join("\n"));
   const fixture = JSON.parse(fs.readFileSync(CODEBURN_FIXTURE, "utf8"));
   let calls = fixture.overview.calls;
@@ -232,22 +236,31 @@ function createBrief(project, suffix, requirementId) {
   ], project);
 }
 
-/** A local-release delivery; under a standing approval when standingId is given, else approved by a person. */
-function prepareDelivery(project, suffix, { requirementId = "REQ-TOIL", standingId = null } = {}) {
-  createBrief(project, suffix, requirementId);
-  mustRun([
-    "contract", "approve", "--root", project, "--id", `CONTRACT-${suffix}`,
-    ...(standingId ? ["--standing-approval", standingId] : humanApproval(`Approve CONTRACT-${suffix}`)),
-  ], project);
+function proposeArgs(project, suffix, { requirementId = "REQ-TOIL", standingId = null } = {}) {
   const releaseRoot = path.join(project, "docs", `local-release-${suffix.toLowerCase()}`);
-  mustRunJson([
+  return [
     "autonomy", "delivery", "propose", "--root", project, "--id", `AUT-${suffix}`, "--delivery", `LOCAL-${suffix}`,
     "--kind", "local_release", "--story", `ST-${suffix}`, "--contract", `CONTRACT-${suffix}`,
     "--requirement", requirementId, "--level", "checkpointed", "--target-root", releaseRoot,
     "--write-path", path.join(releaseRoot, "app"), "--smoke-test", SMOKE, "--rollback", ROLLBACK,
     ...(standingId ? ["--standing-approval", standingId] : []),
+  ];
+}
+
+function approveBrief(project, suffix, { requirementId = "REQ-TOIL", standingId = null } = {}) {
+  createBrief(project, suffix, requirementId);
+  mustRun([
+    "contract", "approve", "--root", project, "--id", `CONTRACT-${suffix}`,
+    ...(standingId ? ["--standing-approval", standingId] : humanApproval(`Approve CONTRACT-${suffix}`)),
   ], project);
   return { profileId: `AUT-${suffix}`, storyId: `ST-${suffix}`, contractId: `CONTRACT-${suffix}` };
+}
+
+/** A local-release delivery; under a standing approval when standingId is given, else approved by a person. */
+function prepareDelivery(project, suffix, options = {}) {
+  const delivery = approveBrief(project, suffix, options);
+  mustRunJson(proposeArgs(project, suffix, options), project);
+  return delivery;
 }
 
 function approveDelivery(project, delivery, standingId = null) {
@@ -280,8 +293,12 @@ function expectFallback(project, profileId, action, pattern) {
   return payload;
 }
 
+function meterStart(project, profileId, extra = []) {
+  return mustRunJson(["budget", "meter", "start", "--root", project, "--delivery", profileId, "--adapter", "codeburn", ...extra], project);
+}
+
 function meterRecord(project, profileId) {
-  return mustRunJson(["budget", "meter", "record", "--root", project, "--delivery", profileId, "--adapter", "codeburn", ...METER_PERIOD], project);
+  return mustRunJson(["budget", "meter", "record", "--root", project, "--delivery", profileId, "--adapter", "codeburn"], project);
 }
 
 test("a delivery records usage, shows its lead time and cost, and keeps its history append-only", async () => {
@@ -373,6 +390,13 @@ test("a delivery records usage, shows its lead time and cost, and keeps its hist
   assert.equal(item.deliveryMetrics.cost.status, "declared");
   assert.equal(item.deliveryMetrics.leadTime.status, "in_progress");
 
+  // Deleting the ledger itself is detected too: several receipts cannot exist without one.
+  const ledgerPath = path.join(project, ".sdlc", "autonomy", "metering", "AUT-ONE", "ledger.json");
+  const savedLedger = fs.readFileSync(ledgerPath);
+  fs.rmSync(ledgerPath);
+  mustFail(["budget", "status", "--root", project, "--delivery", delivery.profileId], project, /usage ledger of delivery AUT-ONE is missing although 3 receipts are recorded/u);
+  fs.writeFileSync(ledgerPath, savedLedger);
+
   // Deleting a recorded receipt is detected: the history no longer matches its ledger.
   const receiptPath = path.join(project, ".sdlc", "autonomy", "metering", "AUT-ONE", "usage", "USAGE-ONE-COST.json");
   const saved = fs.readFileSync(receiptPath);
@@ -408,12 +432,14 @@ test("a standing approval budget covers a step only with a fresh metered cost in
 
   const one = prepareDelivery(project, "ONE", { standingId: "SA-COST" });
   approveDelivery(project, one, "SA-COST");
+  // The meter starts before the work, and its window is the delivery's own.
+  const started = meterStart(project, one.profileId);
+  assert.equal(started.status, "created");
+  assert.ok(started.measured_metrics.includes("cost"));
+  assert.equal(started.baseline.snapshot.scope.from, new Date().toISOString().slice(0, 10));
   startTask(project, one);
   writeProjectFile(project, "src/flag-one.mjs", "export const one = false;\n");
   expectFallback(project, one.profileId, "build.local", /no meter has reported this delivery's cost yet; record it with budget meter record --delivery AUT-ONE/u);
-  const started = mustRunJson(["budget", "meter", "start", "--root", project, "--delivery", one.profileId, "--adapter", "codeburn", ...METER_PERIOD], project);
-  assert.equal(started.status, "created");
-  assert.ok(started.measured_metrics.includes("cost"));
   meter.setReading(2);
   const recorded = meterRecord(project, one.profileId);
   assert.deepEqual(recorded.usage.cost, { amount: "1", currency: "USD" });
@@ -448,10 +474,21 @@ test("a standing approval budget covers a step only with a fresh metered cost in
   mustFail(["budget", "status", "--root", project, "--delivery", one.profileId], project, /USAGE-AUT-ONE-codeburn-[a-f0-9]+ of delivery AUT-ONE cannot be trusted: its snapshot or delta failed integrity validation/u);
   fs.writeFileSync(deltaFile, originalDelta);
 
+  // Another delivery's cost counts toward the total only with a reading newer
+  // than its own last step: AUT-ONE's step came after its reading.
+  const two = approveBrief(project, "TWO", { requirementId: "REQ-TOIL-2", standingId: "SA-COST" });
+  mustFail(
+    proposeArgs(project, "TWO", { requirementId: "REQ-TOIL-2", standingId: "SA-COST" }),
+    project,
+    /delivery AUT-ONE used this standing approval, but its cost is not freshly measured: the latest meter reading \([^)]+\) is older than the delivery's last recorded step/u,
+  );
+  meter.setReading(2);
+  assert.deepEqual(meterRecord(project, one.profileId).usage.cost, { amount: "1", currency: "USD" });
+  mustRunJson(proposeArgs(project, "TWO", { requirementId: "REQ-TOIL-2", standingId: "SA-COST" }), project);
+
   // The second delivery: its own reading is older than its start, then the total is above budget.
-  const two = prepareDelivery(project, "TWO", { requirementId: "REQ-TOIL-2", standingId: "SA-COST" });
   approveDelivery(project, two, "SA-COST");
-  mustRunJson(["budget", "meter", "start", "--root", project, "--delivery", two.profileId, "--adapter", "codeburn", ...METER_PERIOD], project);
+  meterStart(project, two.profileId);
   meter.setReading(2.1);
   meterRecord(project, two.profileId);
   startTask(project, two);
@@ -471,6 +508,91 @@ test("a standing approval budget covers a step only with a fresh metered cost in
   assert.equal(usage.measured, 2);
   assert.match(mustRun(["autonomy", "standing", "status", "--root", project, "--id", "SA-COST"], project).stdout, /budget USD 1\.50 per delivery, USD 2\.00 total; spent USD 2\.60 over 2 deliveries/u);
   assert.match(mustRun(["status", "--root", project], project).stdout, /Standing approval SA-COST: exhausted; 2 of 2 deliveries used, expires \S+, cost USD 2\.60 of USD 2\.00/u);
+});
+
+test("a delivery meter keeps one series over the delivery's own window, and forged or late readings never count", () => {
+  const project = initializeProject("discipline");
+  const meter = configureFakeCodeBurn(project);
+  mustRunJson(standingArgs(project, ["--budget-per-delivery", "5", "--currency", "USD"]), project);
+  mustRunJson(["autonomy", "standing", "approve", "--root", project, "--id", "SA-COST", ...humanApproval("Approve SA-COST")], project);
+  const one = prepareDelivery(project, "ONE", { standingId: "SA-COST" });
+  approveDelivery(project, one, "SA-COST");
+  startTask(project, one);
+  // The report window is the delivery's own, never chosen by the caller.
+  mustFail(
+    ["budget", "meter", "start", "--root", project, "--delivery", one.profileId, "--adapter", "codeburn", "--from", "2026-07-14", "--to", "2026-07-14"],
+    project,
+    /meter window is derived from the delivery itself[\s\S]*--from, --to cannot be used with --delivery/u,
+  );
+  // A meter started after the work began cannot cover a step: earlier spend is not counted.
+  meter.setReading(1);
+  meterStart(project, one.profileId);
+  mustFail(
+    ["budget", "meter", "start", "--root", project, "--delivery", one.profileId, "--adapter", "codeburn", "--id", "METER-RESTART"],
+    project,
+    /already has the CodeBurn baseline METER-AUT-ONE-codeburn[\s\S]*would restart the count/u,
+  );
+  meter.setReading(1.5);
+  meterRecord(project, one.profileId);
+  writeProjectFile(project, "src/flag-one.mjs", "export const one = false;\n");
+  expectFallback(project, one.profileId, "build.local", /its meter started at [^,]+, after the work began at [^,]+, so earlier spend is not counted/u);
+
+  // Without its ledger, even a single receipt is not trusted for a budget.
+  const ledgerPath = path.join(project, ".sdlc", "autonomy", "metering", "AUT-ONE", "ledger.json");
+  const savedLedger = fs.readFileSync(ledgerPath);
+  fs.rmSync(ledgerPath);
+  assert.equal(mustRunJson(["budget", "status", "--root", project, "--delivery", one.profileId], project).ledger_status, "untracked");
+  expectFallback(project, one.profileId, "build.local", /its usage ledger is missing/u);
+  fs.writeFileSync(ledgerPath, savedLedger);
+
+  // A receipt claiming a trusted signed source counts only through a verified signature.
+  const plan = mustRunJson(["budget", "status", "--root", project, "--delivery", one.profileId], project).next_receipt_plan.plan;
+  const forged = buildExecutionUsageReceipt({
+    id: "USAGE-FORGED-SIGNED",
+    execution_id: one.profileId,
+    budget: plan,
+    usage: { cost: "0.01" },
+    metering: { cost: "estimated" },
+    started_at: new Date(Date.now() - 60_000).toISOString(),
+    ended_at: new Date().toISOString(),
+    source: {
+      adapter: "codeburn",
+      assurance: "trusted_attested",
+      aggregation: "cumulative",
+      attestation_ref: { id: "FAKE", path: ".sdlc/receipts/fake.json", hash: "a".repeat(64) },
+    },
+  });
+  mustFail(
+    ["budget", "usage", "record", "--root", project, "--delivery", one.profileId, "--receipt-json", JSON.stringify(forged)],
+    project,
+    /declares a trusted signed source, but signed or exact values cannot be declared manually or supplied inline/u,
+  );
+  writeProjectFile(project, ".sdlc/receipts/forged.json", JSON.stringify(forged));
+  mustFail(
+    ["budget", "usage", "record", "--root", project, "--delivery", one.profileId, "--receipt-file", ".sdlc/receipts/forged.json"],
+    project,
+    /Signed metering receipt USAGE-FORGED-SIGNED is not trusted by this project \(fail-closed\)/u,
+  );
+  const planted = path.join(project, ".sdlc", "autonomy", "metering", "AUT-ONE", "usage", "USAGE-FORGED-SIGNED.json");
+  fs.writeFileSync(planted, JSON.stringify(forged));
+  mustFail(["budget", "status", "--root", project, "--delivery", one.profileId], project, /Usage receipt USAGE-FORGED-SIGNED of delivery AUT-ONE cannot be trusted/u);
+  fs.rmSync(planted);
+
+  // A reading dated in the future is refused.
+  const future = buildExecutionUsageReceipt({
+    id: "USAGE-FUTURE",
+    execution_id: one.profileId,
+    budget: plan,
+    usage: { tokens: 10 },
+    metering: { tokens: "estimated" },
+    ended_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    source: { adapter: "manual-runtime-adapter", assurance: "manual_declared", aggregation: "delta", attestation_ref: null },
+  });
+  mustFail(
+    ["budget", "usage", "record", "--root", project, "--delivery", one.profileId, "--receipt-json", JSON.stringify(future)],
+    project,
+    /USAGE-FUTURE was not recorded: it is dated [^,]+, in the future/u,
+  );
 });
 
 const SIGNED_METER = "signed-cost-meter";

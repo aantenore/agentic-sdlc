@@ -150,13 +150,22 @@ test("usage adds deltas exactly, takes cumulative readings as they are, and tell
     receipt("R2", { tokens: 100, cost: "0.2" }, { source: { adapter: "codeburn", assurance: "advisory_observed", aggregation: "delta" } }),
     receipt("R1", { tokens: 50, cost: "0.1" }),
     receipt("R3", { tokens: 10 }, { budget_hash: PLAN_BASE.budget_hash }),
-  ], [PLAN_USD, PLAN_BASE]);
+  ], [PLAN_USD, PLAN_BASE], { verifiedReceiptIds: new Set(["R2"]) });
   assert.deepEqual(summary.cost, { amount: "0.3", currency: "USD" });
   assert.equal(summary.tokens, 160);
   assert.equal(summary.cost_status, "metered");
   assert.equal(summary.metered_cost_receipts, 1);
   assert.deepEqual(summary.metered_sources, ["codeburn"]);
   assert.equal(summary.latest_metered_cost_at, "2026-10-01T10:02:00.000Z");
+  assert.equal(summary.latest_metered_receipt_id, "R2");
+  // A meter's claim counts as metered only once its evidence was verified.
+  const claimed = summarizeDeliveryUsage([
+    receipt("R1", { cost: "0.01" }, { source: { adapter: "forged", assurance: "trusted_attested", aggregation: "delta" } }),
+  ], [PLAN_USD]);
+  assert.equal(claimed.cost_status, "unverified");
+  assert.equal(claimed.metered_cost_receipts, 0);
+  assert.equal(claimed.unverified_cost_receipts, 1);
+  assert.equal(claimed.latest_metered_cost_at, null);
   const cumulative = summarizeDeliveryUsage([
     receipt("R1", { cost: "0.5" }),
     receipt("R2", { cost: "1.25" }, { source: { adapter: "signed", assurance: "trusted_attested", aggregation: "cumulative" } }),
@@ -175,10 +184,12 @@ test("usage adds deltas exactly, takes cumulative readings as they are, and tell
 });
 
 test("usage lines name the cost, how it was measured, and what is not measured", () => {
-  const summary = summarizeDeliveryUsage([
+  const observed = [
     receipt("R1", { tokens: 1500, cost: "0.3" }, { source: { adapter: "codeburn", assurance: "advisory_observed", aggregation: "delta" } }),
-  ], [PLAN_USD]);
+  ];
+  const summary = summarizeDeliveryUsage(observed, [PLAN_USD], { verifiedReceiptIds: new Set(["R1"]) });
   assert.deepEqual(describeDeliveryUsage(summary), ["Cost: USD 0.30 (measured by codeburn); 1500 tokens; 1 receipt."]);
+  assert.deepEqual(describeDeliveryUsage(summarizeDeliveryUsage(observed, [PLAN_USD])), ["Cost: USD 0.30 (reported by a meter, not verified); 1500 tokens; 1 receipt."]);
   assert.deepEqual(describeDeliveryUsage(summary, { italian: true }), ["Costo: USD 0.30 (misurato da codeburn); token 1500; 1 ricevuta."]);
   assert.deepEqual(describeDeliveryUsage(summarizeDeliveryUsage([], [])), ["Cost: not measured (no usage recorded for this delivery)."]);
   assert.deepEqual(
