@@ -292,6 +292,7 @@ When several computers work on one project, a story belongs to whoever claimed i
 - If the remote cannot be reached (`STORY_CLAIM_REMOTE_UNAVAILABLE`), nothing was claimed: do not start the work. Offer to retry later. Suggest `orchestration_policy.coordination.mode: local_only` only when the user confirms that the project is worked on from this computer alone.
 - Taking over a story held elsewhere is the user's decision (`STORY_CLAIM_TAKEOVER_NEEDS_PERSON`). Show who holds it and since when, and give the user the exact command to run in their own terminal, with their reason: `story claim --id <story> --agent <name> --force --reason "<why>" --actor-type human`.
 - When `orchestrate status` or `status` says your claim was taken over, stop working on that story at once and tell the user who took it, when, and why.
+- A claim file that arrived with a branch you checked out belongs to the computer that made the claim. Never release or reuse it; releasing or taking over that story from here is the user's decision, with a reason.
 - Release the claim when the story is complete or handed off. If the release was not shared, say so and run `story release --id <story>` again once the remote is back.
 
 - **Italian examples:** “La story ST-002 è già in lavorazione da bob sul branch feature/ST-002 dalle 9:40: prendo ST-003, che è libera?”; “Il remote non è raggiungibile, quindi non ho assegnato nulla: riprovo tra poco?”

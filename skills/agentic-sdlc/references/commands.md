@@ -746,6 +746,16 @@ remote after this computer saw it, refuses claims of that story
 (`STORY_CLAIM_SHARED_RECORDS_INVALID`). Never push, delete, or rewrite these
 refs by hand.
 
+Ownership is decided by `refs/agentic-sdlc-local/claims/<remote>/...`, a ref
+only the claiming repository has; `claim.json` is committed evidence, not
+proof. Releasing a claim made on another computer (for example after checking
+out its branch) needs `--reason` and a human or CI actor, outside any agent
+session, and the release records who released it. Seen records are tracked
+per remote under `refs/agentic-sdlc-shared/claims/<remote>/`. A claim push
+whose answer is lost is re-checked on the remote; if the remote cannot be read,
+the refusal says the claim may have landed and the next `story claim` from the
+same computer releases it as `cancelled` first.
+
 Create every delivery story with at least one observable `--acceptance`
 criterion. `story create` never rewrites an existing story. For a legacy story
 that is missing criteria, recover only before task start with:

@@ -798,7 +798,9 @@ The dedicated assessment journey remains the exception described above: it packa
    user takes over a story held elsewhere, in their own terminal:
    `story claim --id ST-001 --agent <name> --force --reason "<why>" --actor-type human`
    (the CLI refuses it inside your session). When status says your claim was
-   taken over, stop working on that story and tell the user. Suggest
+   taken over, stop working on that story and tell the user. A claim file that
+   arrived with a branch you checked out is not yours: never release or reuse
+   it; only the user releases or takes over a claim made on another computer. Suggest
    `orchestration_policy.coordination.mode: local_only` only when the user
    confirms the project is worked on from one computer. See
    `references/parallel-work.md`.
