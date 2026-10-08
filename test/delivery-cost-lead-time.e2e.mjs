@@ -343,15 +343,35 @@ test("a delivery records usage, shows its lead time and cost, and keeps its hist
   assert.equal(status.next_receipt_plan.currency, "USD");
 
   startTask(project, delivery);
-  const started = mustRunJson(["budget", "status", "--root", project, "--delivery", delivery.profileId], project);
-  assert.equal(started.lead_time.status, "in_progress");
-  assert.equal(started.lead_time.stages.map((stage) => `${stage.from}>${stage.to}`).join(","), "proposed>approved,approved>task_started");
+  const deliveryStatus = mustRunJson(["autonomy", "delivery", "status", "--root", project, "--id", delivery.profileId], project);
+  const profile = deliveryStatus.delivery_profiles[0];
+  assert.equal(profile.lead_time.status, "in_progress");
+  assert.equal(profile.lead_time.stages.map((stage) => `${stage.from}>${stage.to}`).join(","), "proposed>approved,approved>task_started");
+  assert.equal(profile.usage.cost.amount, "0.3");
+  assert.equal(profile.metric_lines, undefined, "human lines stay out of JSON");
+  const english = mustRun(["autonomy", "delivery", "status", "--root", project, "--id", delivery.profileId], project).stdout;
+  assert.match(english, /Lead time: proposed → approved [^;]+; approved → work started [^;]+; still in progress\./u);
+  assert.match(english, /Waiting for a person: \S+ over 1 confirmation\./u);
+  assert.match(english, /Cost: USD 0\.30 \(declared by hand, not measured by a meter\); 1500 tokens; 3 receipts\./u);
+  const italian = mustRun(["autonomy", "delivery", "status", "--root", project, "--id", delivery.profileId, "--locale", "it"], project).stdout;
+  assert.match(italian, /Tempo di consegna: proposta → approvata [^;]+; approvata → lavoro avviato [^;]+; ancora in corso\./u);
+  assert.match(italian, /Costo: USD 0\.30 \(dichiarato a mano, non misurato da un contatore\); token 1500; 3 ricevute\./u);
+
+  const projectStatus = mustRunJson(["status", "--root", project], project);
+  assert.equal(projectStatus.delivery_metrics.deliveries, 1);
+  assert.equal(projectStatus.delivery_metrics.in_progress, 1);
+  assert.deepEqual(projectStatus.delivery_metrics.cost_by_currency, { USD: "0.3" });
+  assert.equal(projectStatus.delivery_metrics.items, undefined, "per-delivery items only with --full");
+  assert.match(mustRun(["status", "--root", project], project).stdout, /Deliveries: 1 \(0 finished, 1 in progress\); none finished yet; waiting for a person \S+ in total; cost USD 0\.30 over 1 delivery/u);
+  assert.match(mustRun(["status", "--root", project, "--locale", "it"], project).stdout, /Consegne: 1 \(0 concluse, 1 in corso\)/u);
 
   // Deleting a recorded receipt is detected: the history no longer matches its ledger.
   const receiptPath = path.join(project, ".sdlc", "autonomy", "metering", "AUT-ONE", "usage", "USAGE-ONE-COST.json");
   const saved = fs.readFileSync(receiptPath);
   fs.rmSync(receiptPath);
   mustFail(["budget", "status", "--root", project, "--delivery", delivery.profileId], project, /does not match its ledger[\s\S]*Missing: USAGE-ONE-COST/u);
+  const broken = mustRunJson(["autonomy", "delivery", "status", "--root", project, "--id", delivery.profileId], project);
+  assert.match(broken.delivery_profiles[0].usage_error, /does not match its ledger/u);
   fs.writeFileSync(receiptPath, saved);
   assert.equal(mustRunJson(["budget", "status", "--root", project, "--delivery", delivery.profileId], project).receipts.length, 3);
 });
@@ -442,6 +462,7 @@ test("a standing approval budget covers a step only with a fresh metered cost in
   assert.equal(usage.spent, "2.6");
   assert.equal(usage.measured, 2);
   assert.match(mustRun(["autonomy", "standing", "status", "--root", project, "--id", "SA-COST"], project).stdout, /budget USD 1\.50 per delivery, USD 2\.00 total; spent USD 2\.60 over 2 deliveries/u);
+  assert.match(mustRun(["status", "--root", project], project).stdout, /Standing approval SA-COST: exhausted; 2 of 2 deliveries used, expires \S+, cost USD 2\.60 of USD 2\.00/u);
 });
 
 const SIGNED_METER = "signed-cost-meter";
