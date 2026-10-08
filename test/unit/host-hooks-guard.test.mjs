@@ -94,11 +94,12 @@ test("the shared refs of standing approvals are never rewritten by hand", () => 
     "git -C . update-ref -d refs/agentic-sdlc-shared/standing/SA-X/abc/revoked",
     "git fetch --prune origin 'refs/agentic-sdlc/standing/*:refs/agentic-sdlc-shared/standing/*'",
     "git fetch origin '+refs/agentic-sdlc/standing/*:refs/agentic-sdlc-shared/standing/*'",
+    // Fetching into the refs the CLI keeps of what it has seen would plant records there.
+    "git fetch origin 'refs/agentic-sdlc/standing/*:refs/agentic-sdlc-shared/standing/*'",
   ]) {
     assert.equal(evaluatePreToolUse(shell(command))?.decision, "deny", command);
   }
   for (const command of [
-    "git fetch origin 'refs/agentic-sdlc/standing/*:refs/agentic-sdlc-shared/standing/*'",
     "git ls-remote origin 'refs/agentic-sdlc/*'",
     "git push origin feature/x",
     "git log -1 refs/agentic-sdlc-shared/standing/SA-tag-cleanup/abc/slots/0001",
@@ -118,6 +119,7 @@ test("the shared refs of story claims are never forged, deleted, or rewritten by
     "git fetch origin '+refs/agentic-sdlc/claims/*:refs/agentic-sdlc-shared/claims/*'",
     "git fetch --prune origin 'refs/agentic-sdlc/claims/*:refs/agentic-sdlc-shared/claims/*'",
     "rm -rf .git/refs/agentic-sdlc-shared/claims",
+    "git fetch origin 'refs/agentic-sdlc/claims/*:refs/agentic-sdlc-shared/claims/*'",
   ]) {
     const decision = evaluatePreToolUse(shell(command));
     assert.equal(decision?.decision, "deny", command);
@@ -127,10 +129,36 @@ test("the shared refs of story claims are never forged, deleted, or rewritten by
     "git ls-remote origin 'refs/agentic-sdlc/claims/*'",
     "git for-each-ref refs/agentic-sdlc-shared/claims/",
     "git log -1 --format=%B refs/agentic-sdlc-shared/claims/ST-1/000001/claim",
-    "git fetch origin 'refs/agentic-sdlc/claims/*:refs/agentic-sdlc-shared/claims/*'",
+    "git fetch origin refs/agentic-sdlc/claims/ST-1/000001/claim",
     "node bin/agentic-sdlc.mjs story claim --id ST-1 --agent worker --branch feature/ST-1",
     "node bin/agentic-sdlc.mjs story release --id ST-1 --reason done",
     "node bin/agentic-sdlc.mjs orchestrate status --json",
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command)), null, command);
+  }
+});
+
+test("the proof of this worktree's own claims cannot be planted, forged, or batch-written", () => {
+  for (const command of [
+    "git fetch origin refs/agentic-sdlc/claims/ST-1/000001/claim:refs/agentic-sdlc-local/claims/0123456789abcdef/ST-1/000001",
+    "git fetch origin refs/agentic-sdlc/claims/ST-1/000001/claim:refs/worktree/agentic-sdlc/claims/0123456789abcdef/ST-1/000001",
+    "git update-ref refs/worktree/agentic-sdlc/claims/0123456789abcdef/ST-1/000001 HEAD",
+    "git update-ref -d refs/worktree/agentic-sdlc/claims/0123456789abcdef/ST-1/000001",
+    "printf 'create refs/worktree/agentic-sdlc/claims/x/ST-1/000001 abc' | git update-ref --stdin",
+    "cat batch.txt | git update-ref --stdin",
+    "git update-ref --stdin < /tmp/batch.txt",
+    "git clone --mirror https://example.invalid/r.git --config 'remote.origin.fetch=refs/agentic-sdlc/*:refs/agentic-sdlc-shared/*'",
+    "rm -rf .git/worktrees/second/refs/worktree/agentic-sdlc",
+    "rm -rf .git/refs/worktree/agentic-sdlc/claims",
+    "rm -rf .git/refs/agentic-sdlc",
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command))?.decision, "deny", command);
+  }
+  for (const command of [
+    "git for-each-ref refs/worktree/agentic-sdlc/",
+    "git fetch origin refs/agentic-sdlc/claims/ST-1/000001/claim",
+    "git clone --mirror https://example.invalid/r.git /tmp/mirror",
+    "git update-ref refs/heads/topic HEAD",
   ]) {
     assert.equal(evaluatePreToolUse(shell(command)), null, command);
   }
