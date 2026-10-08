@@ -1095,6 +1095,27 @@ test("sync reports attention when the revocation could not be shared, and git's 
   assert.equal(status.status, 0, status.stderr);
 });
 
+test("a project without git still uses its standing approvals on this computer", () => {
+  const project = temporaryProject("no-git");
+  mustRun(["init", "--root", project, "--project-name", "Standing approvals"], project);
+  for (const requirementId of ["REQ-TOIL"]) {
+    mustRun([
+      "requirement", "propose", "--root", project, "--id", requirementId, "--title", "Routine flag cleanup",
+      "--summary", "Remove retired feature flags inside the approved write scope.",
+      "--acceptance", "Each cleanup is verified and released locally.", "--autonomy-ceiling", "checkpointed",
+      "--write-path", "docs", "--write-path", "src",
+    ], project);
+    mustRun(["requirement", "approve", "--root", project, "--id", requirementId, ...humanApproval(`Approve ${requirementId}`)], project);
+  }
+  mustRun(["output", "template", "propose", "--root", project, "--type", "implementation-summary", "--summary", "Canonical implementation-summary format"], project);
+  mustRun(["output", "template", "approve", "--root", project, "--id", "implementation-summary-v1", ...humanApproval("Approve implementation-summary output format")], project);
+  const standingId = grantStanding(project, { id: "SA-NOGIT", requirements: ["REQ-TOIL"] });
+  createBrief(project, "NG", "REQ-TOIL");
+  mustRun(["contract", "approve", "--root", project, "--id", "CONTRACT-NG", "--standing-approval", standingId], project);
+  const status = mustRunJson(["autonomy", "standing", "status", "--root", project, "--id", standingId], project);
+  assert.equal(status.standing_approvals[0].shared_state.scope, "local");
+});
+
 test("required sharing refuses a project without the remote, and local_only never contacts it", () => {
   const project = initializeProject("required");
   setCoordination(project, { mode: "required", remote: "shared" });

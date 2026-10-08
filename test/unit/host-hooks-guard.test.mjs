@@ -209,3 +209,30 @@ test("only commands that write the records themselves are denied", () => {
   const variable = "R=refs/agentic-sdlc; git push origin :$R/standing/SA-X/abc/revoked";
   assert.equal(evaluatePreToolUse(shell(variable))?.decision, "deny");
 });
+
+test("interpreters, brace globs, and git's own ref storage do not get past the guard", () => {
+  for (const command of [
+    "node -e \"delete process.env.CLAUDECODE; import('./bin/agentic-sdlc.mjs')\" autonomy standing approve --id X",
+    "python3 -c \"import os,subprocess; os.environ.pop('CLAUDECODE'); subprocess.run(['node','bin/agentic-sdlc.mjs'])\"",
+    "rm -rf .git/refs/agentic-sdlc-local",
+    "rm -f .sdlc/autonomy/s{t,}anding/SA-1/revocation.json",
+    "rm -rf .sdlc/auto*/standing",
+    "git clean -fd -- :/",
+    "git clean -fd -- ./.sdlc",
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command))?.decision, "deny", command);
+  }
+  for (const command of [
+    "git clean -n",
+    "git clean -ndx",
+    "git clean -fd src/",
+    "git clean -fdX",
+    "git stash show -u",
+    "grep -rn 'CLAUDECODE=' lib",
+    "env -i PATH=/usr/bin node --version",
+    "node -e \"console.log(require('./.sdlc/autonomy/standing/SA-1/proposal.json').id)\"",
+    "git push origin HEAD:$BRANCH && git ls-remote origin 'refs/agentic-sdlc/*'",
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command)), null, command);
+  }
+});
