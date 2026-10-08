@@ -48,8 +48,38 @@
       },
       "additionalProperties": false
     },
+    "assurance": {
+      "description": "Present only when a trusted host signed this decision: what the CLI verified about the embedded host receipt.",
+      "type": "object",
+      "required": ["mode", "verified", "action", "subject_hash", "receipt_ref"],
+      "properties": {
+        "mode": { "const": "host_verified" },
+        "verified": { "const": true },
+        "action": { "enum": ["autonomy.standing.approve", "autonomy.standing.revoke"] },
+        "subject_hash": { "$ref": "#/$defs/sha256" },
+        "receipt_ref": {
+          "type": "object",
+          "required": ["id", "hash", "key_id"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "hash": { "$ref": "#/$defs/sha256" },
+            "key_id": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "host_receipt": {
+      "description": "The Ed25519-signed host receipt for this exact decision, embedded so its signature can be verified again without the file it came from.",
+      "$ref": "host-approval-receipt.schema.json"
+    },
     "record_hash": { "$ref": "#/$defs/sha256" },
     "hash_algorithm": { "const": "sha256:stable-json:v1" }
+  },
+  "dependentRequired": {
+    "assurance": ["host_receipt"],
+    "host_receipt": ["assurance"]
   },
   "allOf": [
     {

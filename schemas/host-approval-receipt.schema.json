@@ -113,7 +113,7 @@
       "type": "object",
       "required": ["kind", "id", "hash"],
       "properties": {
-        "kind": { "enum": ["baseline", "assessment_proposal", "budget_amendment", "exception_request"] },
+        "kind": { "enum": ["baseline", "assessment_proposal", "budget_amendment", "exception_request", "standing_approval"] },
         "id": { "type": "string", "minLength": 1 },
         "path": { "type": "string", "minLength": 1 },
         "hash": { "$ref": "#/$defs/sha256" }
@@ -124,7 +124,7 @@
       "type": "object",
       "required": ["type", "normal_checkpoint"],
       "properties": {
-        "type": { "enum": ["context", "proposal", "exception", "budget-amendment"] },
+        "type": { "enum": ["context", "proposal", "exception", "budget-amendment", "standing-approval"] },
         "normal_checkpoint": {
           "oneOf": [
             { "enum": [1, 2] },
