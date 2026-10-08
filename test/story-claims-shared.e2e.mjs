@@ -387,3 +387,84 @@ test("an unreachable remote refuses the claim; local_only and a project without 
   assert.equal(claimedWithoutGit.claim.shared_claim, undefined);
   assert.equal(mustRunJson(["story", "release", "--root", noGit, "--id", "ST-1"], noGit).shared_release, undefined);
 });
+
+test("a claim file that arrives with git never makes another computer's claim one's own", () => {
+  const { first, second, remote } = sharedProject("copied-claim");
+  mustRunJson(claim(first, "ST-1", "alice"), first);
+  // The holder commits its claim file on the story branch; the other computer checks that branch out.
+  git(first, ["checkout", "--quiet", "-b", "feature/ST-1"]);
+  git(first, ["add", "-A"]);
+  git(first, ["commit", "--quiet", "-m", "feat: claim ST-1"]);
+  git(first, ["push", "--quiet", "origin", "feature/ST-1"]);
+  git(second, ["fetch", "--quiet", "origin", "feature/ST-1"]);
+  git(second, ["checkout", "--quiet", "-b", "feature/ST-1", "FETCH_HEAD"]);
+  assert.equal(claimFile(second, "ST-1").status, "active");
+  const before = fs.readFileSync(path.join(second, ".sdlc", "stories", "ST-1", "claim.json"));
+
+  for (const marker of SESSION_MARKERS) {
+    const inside = mustRefuseJson(["story", "release", "--root", second, "--id", "ST-1", "--reason", "Done", "--actor-type", "human"], second, { [marker]: "1" });
+    assert.equal(inside.error.code, "STORY_CLAIM_TAKEOVER_NEEDS_PERSON", marker);
+  }
+  assert.match(mustRefuseJson(["story", "release", "--root", second, "--id", "ST-1", "--reason", "Done"], second).error.message, /requires --actor-type human/u);
+  assert.match(mustRefuseJson(["story", "release", "--root", second, "--id", "ST-1", "--actor-type", "human"], second).error.message, /requires --reason/u);
+  assert.match(
+    mustRefuseJson(claim(second, "ST-1", "bob", ["--force", "--actor-type", "human"]), second).error.message,
+    /requires --reason/u,
+  );
+  assert.deepEqual(fs.readFileSync(path.join(second, ".sdlc", "stories", "ST-1", "claim.json")), before, "nothing was written here");
+  assert.deepEqual(remoteClaimRefs(remote), ["refs/agentic-sdlc/claims/ST-1/000001/claim"], "nothing was released on the remote");
+  const view = mustRunJson(["orchestrate", "status", "--root", second], second).stories[0];
+  assert.equal(view.shared_claim.here, false, "the copied claim file is not this computer's claim");
+
+  // A person may release it from here, with a reason; the record names who released it.
+  const released = mustRunJson(["story", "release", "--root", second, "--id", "ST-1", "--reason", "Alice's laptop is gone", "--actor-type", "human", "--actor", "carol"], second);
+  assert.equal(released.shared_release.status, "shared");
+  const release = remoteRecord(remote, "refs/agentic-sdlc/claims/ST-1/000001/release");
+  assert.equal(release.reason, "Alice's laptop is gone");
+  assert.deepEqual(release.released_by.actor, { id: "carol", type: "human" });
+  assert.equal(release.released_by.agent, null);
+});
+
+test("a claim push whose answer is lost is recognised, and an interrupted claim is cleaned up on retry", () => {
+  const { first, remote } = sharedProject("lost-answer", ["ST-1", "ST-2"]);
+  setOrchestration(first, { coordination: { timeout_seconds: 6 } });
+  const hook = path.join(remote, "hooks", "post-receive");
+
+  // The ref is created, then the remote stops answering: the claim is still recognised as made.
+  fs.writeFileSync(hook, "#!/bin/sh\ncase \"$(cat)\" in *refs/agentic-sdlc/claims/*) sleep 20;; esac\n", { mode: 0o755 });
+  const kept = mustRunJson(claim(first, "ST-1", "alice"), first);
+  assert.equal(kept.claim.shared_claim.epoch, 1);
+  assert.equal(remoteRecord(remote, "refs/agentic-sdlc/claims/ST-1/000001/claim").claimant_id, kept.claim.shared_claim.claimant_id);
+
+  // The ref is created, then the remote disappears: the outcome is unknown and the message says so.
+  fs.writeFileSync(hook, "#!/bin/sh\ncase \"$(cat)\" in *refs/agentic-sdlc/claims/ST-2/*) d=$(pwd); mv \"$d\" \"$d-away\"; sleep 20;; esac\n", { mode: 0o755 });
+  const unclear = mustRefuseJson(claim(first, "ST-2", "alice"), first);
+  assert.equal(unclear.error.code, "STORY_CLAIM_REMOTE_UNAVAILABLE");
+  assert.match(unclear.error.message, /may have reached the remote/u);
+  assert.match(unclear.human_guidance.protection_boundary, /may have reached the remote/u);
+  assert.equal(claimFile(first, "ST-2"), null);
+  fs.renameSync(`${remote}-away`, remote);
+  fs.rmSync(hook);
+  assert.deepEqual(remoteClaimRefs(remote).filter((ref) => ref.includes("/ST-2/")), ["refs/agentic-sdlc/claims/ST-2/000001/claim"]);
+
+  // The retry recognises its own orphan, releases it as cancelled, and claims again.
+  const retried = mustRunJson(claim(first, "ST-2", "alice"), first);
+  assert.equal(retried.claim.shared_claim.epoch, 2);
+  assert.equal(remoteRecord(remote, "refs/agentic-sdlc/claims/ST-2/000001/release").status, "cancelled");
+});
+
+test("pointing the remote elsewhere starts a fresh view instead of reporting every record as gone", () => {
+  const { first } = sharedProject("repointed");
+  mustRunJson(claim(first, "ST-1", "alice"), first);
+  mustRunJson(["story", "release", "--root", first, "--id", "ST-1", "--reason", "Moving remotes"], first);
+  const replacement = temporaryDirectory("repointed-replacement");
+  git(replacement, ["init", "--quiet", "--bare"]);
+  git(first, ["remote", "set-url", "origin", replacement]);
+  git(first, ["push", "--quiet", "origin", "main"]);
+  const status = mustRunJson(["orchestrate", "status", "--root", first], first);
+  assert.deepEqual(status.stories[0].shared_claim.problems, []);
+  assert.equal(status.stories[0].orchestration_state, "available");
+  const claimed = mustRunJson(claim(first, "ST-1", "alice"), first);
+  assert.equal(claimed.claim.shared_claim.epoch, 1);
+  assert.deepEqual(remoteClaimRefs(replacement), ["refs/agentic-sdlc/claims/ST-1/000001/claim"]);
+});

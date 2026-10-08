@@ -162,9 +162,14 @@ test("a claim is stale once it expires or is older than the configured age", () 
 test("the view tells this computer whether it holds the story and when its claim was taken over", () => {
   const records = [claimRecord("ST-1", 1)];
   const mine = { story_id: "ST-1", status: "active", shared_claim: { scope: "shared", epoch: 1, claimant_id: "CLM-1" } };
-  const here = sharedClaimView(stateOf(records, "ST-1"), mine, { nowMs: NOW });
+  const owned = new Map([["ST-1/000001", "CLM-1"]]);
+  const here = sharedClaimView(stateOf(records, "ST-1"), mine, { nowMs: NOW, owned });
   assert.equal(here.state, "claimed");
   assert.equal(here.here, true);
+  // A claim file that arrived with git does not make another computer's claim ours.
+  const copied = sharedClaimView(stateOf(records, "ST-1"), mine, { nowMs: NOW });
+  assert.equal(copied.here, false);
+  assert.equal(copied.ended_here, undefined);
 
   const elsewhere = sharedClaimView(stateOf(records, "ST-1"), null, { nowMs: NOW, staleAfterSeconds: 60 });
   assert.equal(elsewhere.here, false);
@@ -179,7 +184,7 @@ test("the view tells this computer whether it holds the story and when its claim
       takenOverBy: { claimantId: "CLM-2", agent: "agent-2", branch: "feature/ST-1", actor: { id: "person-2", type: "human" } },
     }),
     claimRecord("ST-1", 2),
-  ], "ST-1"), mine, { nowMs: NOW });
+  ], "ST-1"), mine, { nowMs: NOW, owned });
   assert.equal(takenOver.here, false);
   assert.equal(takenOver.holder.claimant_id, "CLM-2");
   assert.equal(takenOver.ended_here.status, "taken_over");
@@ -190,7 +195,7 @@ test("the view tells this computer whether it holds the story and when its claim
   assert.equal(unshared.state, "free");
   assert.equal(unshared.not_shared, true);
 
-  const missing = sharedClaimView(stateOf([], "ST-1"), mine, { nowMs: NOW });
+  const missing = sharedClaimView(stateOf([], "ST-1"), mine, { nowMs: NOW, owned });
   assert.equal(missing.state, "untrustworthy");
   assert.match(missing.problems.join("\n"), /this computer's claim 1 is not on the remote/u);
 });
