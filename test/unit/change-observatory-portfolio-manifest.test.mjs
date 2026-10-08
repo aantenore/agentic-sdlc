@@ -469,3 +469,43 @@ test("manifest errors name the project, the offending value, and forward slashes
     (error) => error.message.includes('found "portfolio-manifest:v0"'),
   );
 });
+
+test("manifest errors never repeat a private location, but keep the project number and id", async (t) => {
+  const root = await fixture(t, "private-values");
+  const cases = [
+    ["/home/alice/private/acme-merger", /an absolute path/u],
+    ["\\\\fileserver\\share\\acme-merger", /an absolute path/u],
+    ["C:\\Users\\alice\\acme-merger", /an absolute path/u],
+    ["C:acme-merger", /an absolute path/u],
+    ["~alice/acme-merger", /home folder/u],
+    ["$HOME/acme-merger", /a path with a variable/u],
+    ["%USERPROFILE%/acme-merger", /a path with a variable/u],
+    ["file:///home/alice/acme-merger", /a URL/u],
+    [" /home/alice/acme-merger", /an absolute path/u],
+  ];
+  for (const [projectPath, expected] of cases) {
+    await writeManifest(root, manifest([
+      { id: "alpha", path: "projects/alpha" },
+      { id: "acme", path: projectPath },
+    ]));
+    await assert.rejects(
+      () => loadPortfolioManifest(root, "portfolio.json"),
+      (error) => {
+        assert.equal(error.code, "invalid_project_path", projectPath);
+        assert.match(error.message, /Project #2 \(id "acme"\)/u, projectPath);
+        assert.match(error.message, expected, projectPath);
+        assert.match(error.message, /value not shown/u, projectPath);
+        assert.doesNotMatch(error.message, /alice|acme-merger|USERPROFILE|HOME|fileserver/u, projectPath);
+        return true;
+      },
+    );
+  }
+
+  await writeManifest(root, manifest([{ id: "/home/alice/acme-merger", path: "projects/alpha" }]));
+  await assert.rejects(
+    () => loadPortfolioManifest(root, "portfolio.json"),
+    (error) => error.code === "invalid_project_id"
+      && error.message.includes("Project #1")
+      && !/alice|acme-merger/u.test(error.message),
+  );
+});
