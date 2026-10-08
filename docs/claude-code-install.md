@@ -1,6 +1,6 @@
 # Claude Code installation
 
-Agentic SDLC 0.19.0 ships two host packagings from one source tree:
+Agentic SDLC 0.20.0 ships two host packagings from one source tree:
 
 | Host | Manifest | Command surface | Installer |
 |---|---|---|---|
@@ -81,7 +81,7 @@ The plugin ships one `hooks/hooks.json`, read by both Claude Code and Codex. It 
 - **Standing approval records stay untouched.** Direct edits, deletions, or overwrites of `.sdlc/autonomy/standing/`, rewrites of the `refs/agentic-sdlc/` refs (which also hold the story claims shared across computers), `git clean` or `git stash -u` that would delete uncommitted `.sdlc` records, and clearing the variables that mark the agent's session are blocked; reading, staging, and committing the records stay allowed.
 - **Each session starts informed.** When a project has standing approvals, the session starts with a short list: which are active, how many deliveries are left, and whether the shared state on the git remote can be reached.
 
-Claude Code enables plugin hooks with the plugin. Codex asks you to review and trust new plugin hooks at startup ("Review hooks"); until you trust them they do not run. A hook that fails or times out never blocks your work.
+Claude Code enables plugin hooks with the plugin. Codex asks you to review and trust new plugin hooks at startup ("Review hooks"); until you trust them they do not run, and a non-interactive Codex run needs them trusted beforehand. The hooks act only inside a project that uses agentic-sdlc (a `.sdlc` folder in the working directory or above it); in any other project they do nothing. A hook that fails or times out never blocks your work, and each check adds a short Node start-up to shell and edit calls.
 
 ## Path resolution
 

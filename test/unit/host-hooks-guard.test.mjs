@@ -2,13 +2,18 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import test from "node:test";
+import os from "node:os";
+import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { editedPaths, evaluatePreToolUse, sessionStartContext } from "../../lib/host-hooks/guard.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const HOOK = path.join(ROOT, "hooks", "agentic-sdlc-guard.mjs");
+// A stand-in project that uses agentic-sdlc: the hook only acts inside one.
+const GOVERNED = fs.mkdtempSync(path.join(os.tmpdir(), "hook-governed-"));
+fs.mkdirSync(path.join(GOVERNED, ".sdlc"));
+after(() => fs.rmSync(GOVERNED, { recursive: true, force: true }));
 
 function shell(command) {
   return { tool_name: "Bash", tool_input: { command } };
@@ -217,7 +222,7 @@ test("session context names each standing approval and whether it is shared", ()
 });
 
 test("the hook blocks only with exit status 2 and a reason, the signal both hosts honour", () => {
-  const run = (event, payload) => spawnSync(process.execPath, [HOOK, event], { input: JSON.stringify(payload), encoding: "utf8" });
+  const run = (event, payload) => spawnSync(process.execPath, [HOOK, event], { input: JSON.stringify({ cwd: GOVERNED, ...payload }), encoding: "utf8" });
   const blocked = run("pre-tool-use", shell("node bin/agentic-sdlc.mjs autonomy standing approve --id SA-X"));
   assert.equal(blocked.status, 2);
   assert.match(blocked.stderr, /Only the user can approve/u);
@@ -231,6 +236,27 @@ test("the hook blocks only with exit status 2 and a reason, the signal both host
   assert.equal(garbage.status, 0);
   const quiet = run("session-start", { cwd: ROOT, source: "startup" });
   assert.equal(quiet.status, 0);
+});
+
+test("the hook never acts in a project that does not use agentic-sdlc", () => {
+  const plain = fs.mkdtempSync(path.join(os.tmpdir(), "hook-plain-"));
+  try {
+    for (const command of ["git clean -fdx", "git stash -u", "export CLAUDECODE=", "node bin/agentic-sdlc.mjs autonomy standing approve --id X"]) {
+      const result = spawnSync(process.execPath, [HOOK, "pre-tool-use"], {
+        input: JSON.stringify({ cwd: plain, tool_name: "Bash", tool_input: { command } }),
+        encoding: "utf8",
+      });
+      assert.equal(result.status, 0, command);
+      assert.equal(result.stderr, "", command);
+    }
+  } finally {
+    fs.rmSync(plain, { recursive: true, force: true });
+  }
+  const governed = spawnSync(process.execPath, [HOOK, "pre-tool-use"], {
+    input: JSON.stringify({ cwd: path.join(GOVERNED, "sub", "dir"), tool_name: "Bash", tool_input: { command: "git clean -fdx" } }),
+    encoding: "utf8",
+  });
+  assert.equal(governed.status, 2, "a subfolder of a governed project is still guarded");
 });
 
 test("one hooks.json fits both hosts: plain command handlers, a known blocking signal, the shared root variable", () => {
