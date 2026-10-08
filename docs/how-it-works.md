@@ -524,13 +524,17 @@ Before a trace event is saved, the CLI applies the operational redaction policy.
 It removes sensitive keys, known token forms (including AWS temporary keys,
 Google API keys, npm, Hugging Face, Stripe restricted, SendGrid, and GitLab
 tokens, and Slack webhook URLs), configured secret/PII patterns, emails, bearer
-credentials, credential assignments, a secret-looking value passed after
-`--password` or `--token` (at least eight characters mixing letters with other
-characters; words, `$VARIABLES`, and `<placeholders>` stay readable),
-`user:password` after `-u`/`--user` on a `curl`, `wget`, or `http` command line
-(a numeric `uid:gid` stays readable), base64 `"auth"` values inside a container
-client's `"auths"` configuration, and private-key blocks. Built-in detectors
-never count against the number of patterns a project may configure.
+credentials, credential assignments, the value after `--password`, `--passwd`,
+`--pass`, `--secret`, or `--client-secret` (always, unless it is `$VARIABLE`,
+`${VARIABLE}`, a `<placeholder>`, or another `--option`), a value of at least
+eight characters after `--token`, `--access-token`, or `--api-key` (with the
+same exceptions and a few words that describe the option in prose),
+`user:password` after `-u`/`--user` on a `curl`, `wget`, `http`, `ftp`,
+`sftp`, or `lftp` command line in any letter case, base64 `"auth"` values in a
+container client configuration (inside `"auths"` or next to `"credHelpers"`),
+and private-key blocks. Each built-in detector is exempt once from the number
+of patterns a project may configure; project patterns that repeat a built-in
+or an earlier project pattern are removed rather than counted.
 Entropy alone never makes a value a secret. Exact `AUT-ACT-...` action IDs, SHA
 digests, UUIDs, correlation IDs, and other opaque audit data remain readable
 unless a known credential detector or explicit privacy rule matches them.

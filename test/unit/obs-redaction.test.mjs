@@ -543,6 +543,7 @@ test("operational policy redacts extended vendor tokens and command-line credent
   // contains a literal that a secret scanner would flag.
   const vendorTokens = [
     ["ASIA", "QW3RT7YU2IOPLASD"].join(""),
+    ["ASIA", "QWERTYUIOPLKJHGF"].join(""),
     ["AIza", "Sy", "k".repeat(33)].join(""),
     ["npm", "_", "n".repeat(36)].join(""),
     ["hf", "_", "h".repeat(34)].join(""),
@@ -564,12 +565,30 @@ test("operational policy redacts extended vendor tokens and command-line credent
   );
   const curl = ["curl -u admin", ":", "s3cret https://example.test/"].join("");
   assert.equal(redactText(curl, policy), `curl -u ${REDACTION_PLACEHOLDER} https://example.test/`);
+  for (const [input, expected] of [
+    [["mysql --password ", "x"].join(""), `mysql --password ${REDACTION_PLACEHOLDER}`],
+    [["vault --secret ", "s"].join(""), `vault --secret ${REDACTION_PLACEHOLDER}`],
+    [['db --passwd "two ', 'words"'].join(""), `db --passwd ${REDACTION_PLACEHOLDER}`],
+    [["deploy --token ", "abcdefgh"].join(""), `deploy --token ${REDACTION_PLACEHOLDER}`],
+    [["deploy --api-key ", "12345678"].join(""), `deploy --api-key ${REDACTION_PLACEHOLDER}`],
+    [["curl -s -u admin", ":", "1234 https://example.test/"].join(""), `curl -s -u ${REDACTION_PLACEHOLDER} https://example.test/`],
+    [["CURL -u admin", ":", "secret https://example.test/"].join(""), `CURL -u ${REDACTION_PLACEHOLDER} https://example.test/`],
+    [["lftp -u user", ":", "pw ftp.example.test"].join(""), `lftp -u ${REDACTION_PLACEHOLDER} ftp.example.test`],
+    [["sftp -u user", ":", "pw host.example.test"].join(""), `sftp -u ${REDACTION_PLACEHOLDER} host.example.test`],
+    [["ftp --user user", ":", "pw host.example.test"].join(""), `ftp --user ${REDACTION_PLACEHOLDER} host.example.test`],
+  ]) {
+    assert.equal(redactText(input, policy), expected, input.slice(0, 12));
+  }
   const registryAuth = Buffer.from(["user", "pass"].join(":")).toString("base64");
   const dockerConfig = JSON.stringify({ auths: { "registry.test": { auth: registryAuth } } });
   assert.equal(
     redactText(dockerConfig, policy),
     `{"auths":{"registry.test":{"auth":"${REDACTION_PLACEHOLDER}"}}}`,
   );
+  const helpersBefore = JSON.stringify({ credHelpers: { "gcr.io": "gcloud" }, legacy: { auth: registryAuth } });
+  assert.doesNotMatch(redactText(helpersBefore, policy), new RegExp(registryAuth.replaceAll("+", "\\+"), "u"));
+  const helpersAfter = JSON.stringify({ legacy: { auth: registryAuth }, credHelpers: { "gcr.io": "gcloud" } });
+  assert.doesNotMatch(redactText(helpersAfter, policy), new RegExp(registryAuth.replaceAll("+", "\\+"), "u"));
 });
 
 test("extended detectors keep look-alike identifiers and options readable", () => {
