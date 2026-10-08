@@ -533,11 +533,39 @@ test("a completion without usage records not_measured, and an interrupted comple
     "--reason", "Stop now", ...humanApproval("Stop"),
   ], /cannot be cancelled: its completion already started[\s\S]*records it as released[\s\S]*assessment proposal complete --id ASSESS-1/u);
   assert.equal(readJson(workflowPath).state, "running");
+  // A narrower window: the story is already done but the manifest is not written yet.
+  const parkedManifest = `${manifestPath}.parked`;
+  fs.renameSync(manifestPath, parkedManifest);
+  mustFail([
+    "assessment", "proposal", "cancel", "--root", project, "--id", "ASSESS-1",
+    "--reason", "Stop now", ...humanApproval("Stop"),
+  ], /cannot be cancelled: its completion already started and story ST-ASSESS-1 is already done/u);
+  fs.renameSync(parkedManifest, manifestPath);
   const recovered = JSON.parse(mustRun([
     "assessment", "proposal", "complete", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent", "--json",
   ]).stdout);
   assert.equal(recovered.status, "completed");
   assert.equal(readJson(workflowPath).state, "completed");
+});
+
+test("an amendment is refused while the project maximum for its metric cannot be read", () => {
+  const { project } = runningAssessment("budget-amend-unreadable-maximum", {
+    limits: { tokens: { unit: "tokens", metering: "estimated", soft: 1000 } },
+  });
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = readJson(configPath);
+  config.budget_policy.maxima = { tokens: "5,000" };
+  writeJson(configPath, config);
+  pinProjectConfig(project);
+  mustRun([
+    "budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1",
+    "--input-tokens", "900", "--output-tokens", "100", "--json",
+  ]);
+  mustFail([
+    "budget", "amend", "--root", project, "--proposal", "ASSESS-1", "--id", "BAMEND-UNREADABLE",
+    "--budget-json", JSON.stringify({ limits: { tokens: { soft: 999_999_999 } } }),
+    "--reason", "Far more tokens", ...humanApproval("I approve more tokens"),
+  ], /Invalid budget amendment BAMEND-UNREADABLE:[\s\S]*cannot be read/u);
 });
 
 test("project budget settings take precedence over the defaults template and are validated", () => {
