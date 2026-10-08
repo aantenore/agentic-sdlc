@@ -62,8 +62,11 @@ proceed safely until they are resolved:
   (`next_action.kind: migrate_config`, suggested command `config migrate`),
   or a configuration that cannot be verified (`repair_config`).
 
-The JSON view also reports `history_integrity` (`verified` or `violated`, with
-the affected files) and `configuration.status`. Proposals that wait for a
+The JSON view also reports `history_integrity` and `configuration.status`.
+Status uses a cheap consistency check of the history (`check: "quick"`) with
+the status `verified`, `recovery_needed` (an interrupted recording that the
+next event repairs automatically), or `violated`; `trace verify` runs the full
+check. Proposals that wait for a
 person, such as a proposed requirement, breakdown, dependency order, delivery
 autonomy profile, workflow definition or overlay, or standing approval, count
 as pending decisions and appear in `approval requests` with the exact approve
@@ -347,18 +350,27 @@ node "$PLUGIN_CLI" trace verify
 node "$PLUGIN_CLI" trace verify --json
 ```
 
-The command only reads. It exits `0` when every file matches its recorded
-fingerprints and `1` when any file changed, was truncated, or lost its
-checkpoint, naming the file and the stable error codes. `status`, `doctor`
-(check `trace-integrity`), `report activity`, and `report query` run the same
-check and lead with a "history changed unexpectedly" warning when it fails, and
-`trace append` refuses to add to a changed history with the error code
-`TRACE_INTEGRITY_VIOLATION`.
+The command only reads and checks the top-level history files
+(`.sdlc/traces/*.jsonl`). Each file is `valid`, `recoverable`, `unverifiable`,
+or `violated`, and the overall `status` is `verified`, `recovery_needed`,
+`unverifiable`, or `violated`. It exits `1` only for `violated`: a file that
+changed, was truncated, or lost its checkpoint, named with stable error codes.
+`doctor` (check `trace-integrity`), `report activity`, and `report query` run the
+same full check and lead with a "history changed unexpectedly" warning when it
+fails; `status` runs a cheap consistency check. `trace append` refuses to add
+to a changed history with the error code `TRACE_INTEGRITY_VIOLATION`.
 
-Do not edit history files by hand. If the change was not intended, restore the
-history from version control and verify again:
+`recovery_needed` means an earlier recording was interrupted after the event
+was written: the next event recorded in that file repairs it automatically, so
+do not restore anything. `unverifiable` means the file is above the 64 MiB
+verification limit, which is not evidence of tampering.
+
+For `violated`, do not edit history files by hand. If the change was not
+intended, back up the history first (restoring discards events recorded since
+your last commit), then restore it from version control and verify again:
 
 ```bash
+cp -R .sdlc/traces .sdlc-traces-backup
 git checkout -- .sdlc/traces
 node "$PLUGIN_CLI" trace verify
 ```
@@ -400,7 +412,7 @@ A few refusals on the merits report a more specific code, still with exit code
 
 | Code | Meaning |
 |---|---|
-| `CONFIG_MISSING` | `.sdlc/config.json` is missing in an initialized project. Every project command stops instead of silently using the default privacy rules; restore the file from version control. |
+| `CONFIG_MISSING` | `.sdlc/config.json` is missing in an initialized project. Every project command except `trace verify` stops instead of silently using the default privacy rules. The message names the bundled defaults file to copy back when the configuration lock proves the file held only defaults; otherwise restore it from version control. |
 | `PROJECT_RECORD_INVALID` | `.sdlc/project.json` is not valid JSON or does not match its schema; restore it from version control. |
 | `TRACE_INTEGRITY_VIOLATION` | A history file changed unexpectedly, so nothing was appended; run `trace verify`. |
 | `TRACE_HISTORY_TOO_LARGE` | A history file is above the read limit; the message names the file and the limit. |

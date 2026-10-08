@@ -1040,7 +1040,7 @@ node bin/agentic-sdlc.mjs trace append --root <project> --story ST-001 --type im
 ```
 
 Valid trace types: `assumption`, `decision`, `gate`, `claim`, `handoff`, `implementation`, `lock`, `release`, `risk`, `sync`, `test`.
-`--evidence` must name a file inside the project: absolute paths elsewhere, `../` escapes, and symlinks that leave the project are refused, accepted paths are stored project-relative, and a path to a file that does not exist yet is recorded as a path only with an "evidence not verified" notice (`evidence_unverified` in JSON).
+`--evidence` must name a file inside the project or an external URL: absolute paths elsewhere, `../` escapes, and symlinks that leave the project are refused, accepted paths are stored project-relative, URLs are kept unchanged as references (never fetched or fingerprinted), and a path to a file that does not exist yet is recorded as a path only with an "evidence not verified" notice (`evidence_unverified` in JSON).
 
 Verify the sealed history (read-only; exits `1` and explains recovery when a file changed):
 
@@ -1049,7 +1049,7 @@ node bin/agentic-sdlc.mjs trace verify --root <project>
 node bin/agentic-sdlc.mjs trace verify --root <project> --json
 ```
 
-When `trace append` reports `TRACE_INTEGRITY_VIOLATION`, run `trace verify`, tell the user which file changed, and, if the change was not intended, restore `.sdlc/traces` from version control before retrying. Never edit history files by hand. `TRACE_HISTORY_TOO_LARGE` means a history file exceeds the 8 MiB read limit; see `docs/how-it-works.md#history-size-limit`. `CONFIG_MISSING` and `PROJECT_RECORD_INVALID` mean `.sdlc/config.json` or `.sdlc/project.json` must be restored from version control; do not recreate them from defaults.
+When `trace append` reports `TRACE_INTEGRITY_VIOLATION`, run `trace verify` and tell the user which file changed. Only for `violated`, and only if the change was not intended, back up `.sdlc/traces` (restoring discards events recorded since the last commit) and restore it from version control before retrying. `recovery_needed` is an interrupted recording that the next recorded event repairs automatically; do not restore anything. `unverifiable` is a file above the 64 MiB verification limit, not tampering. Never edit history files by hand. `TRACE_HISTORY_TOO_LARGE` means a history file exceeds the 8 MiB read limit; see `docs/how-it-works.md#history-size-limit`. `CONFIG_MISSING` and `PROJECT_RECORD_INVALID` mean `.sdlc/config.json` or `.sdlc/project.json` must be restored (from version control, or by copying the bundled defaults file the message names when the lock proves the configuration was the defaults); do not recreate a customized configuration from defaults.
 Valid trace outcomes are `passed`, `failed`, `blocked`, `skipped`, and `ready`. Strict validation requires a `test` trace with `passed`; strict release requires `ready` or `passed`.
 
 Narrative flags are optional and repeatable where applicable. `--explanation-kind` accepts `codex-generated`, `deterministic`, or `human-authored` and requires `--explanation`. The stored scope is always `recorded-evidence-only`; never record private chain-of-thought or hidden reasoning.

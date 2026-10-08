@@ -524,9 +524,13 @@ Before a trace event is saved, the CLI applies the operational redaction policy.
 It removes sensitive keys, known token forms (including AWS temporary keys,
 Google API keys, npm, Hugging Face, Stripe restricted, SendGrid, and GitLab
 tokens, and Slack webhook URLs), configured secret/PII patterns, emails, bearer
-credentials, credential assignments, secrets passed as a separate command-line
-value (`--password <value>`, `--token <value>`) or as `-u user:password`,
-container registry `"auth"` values, and private-key blocks.
+credentials, credential assignments, a secret-looking value passed after
+`--password` or `--token` (at least eight characters mixing letters with other
+characters; words, `$VARIABLES`, and `<placeholders>` stay readable),
+`user:password` after `-u`/`--user` on a `curl`, `wget`, or `http` command line
+(a numeric `uid:gid` stays readable), base64 `"auth"` values inside a container
+client's `"auths"` configuration, and private-key blocks. Built-in detectors
+never count against the number of patterns a project may configure.
 Entropy alone never makes a value a secret. Exact `AUT-ACT-...` action IDs, SHA
 digests, UUIDs, correlation IDs, and other opaque audit data remain readable
 unless a known credential detector or explicit privacy rule matches them.
@@ -566,27 +570,52 @@ can make another consistent pair, so the mechanism is tamper-evident local
 integrity, not a signature, authenticity proof, or tamper-proof archive.
 
 Anyone can ask that question directly with the read-only `trace verify`
-command. It checks every history file, exits non-zero when one changed, and
-explains the recovery: do not edit the files, restore `.sdlc/traces` from
-version control if the change was not intended, then verify again. `status`,
-`doctor`, and both reports run the same check; a report built from a changed
-history opens with a "history changed unexpectedly" warning, and new trace
-events are refused (`TRACE_INTEGRITY_VIOLATION`) until the history is valid.
+command. It checks every sealed history file (the top-level
+`.sdlc/traces/*.jsonl` files; evidence snapshots below `.sdlc/traces/evidence/`
+are evidence content, not histories) and classifies each one:
+
+- **valid**: it matches its recorded fingerprints;
+- **recoverable**: an earlier recording was interrupted after the event was
+  written but before the checkpoint was updated. The written events are valid,
+  and the next event recorded in that file adopts them automatically. Nothing
+  needs to be restored, and restoring from version control would discard them;
+- **unverifiable**: the file is above the 64 MiB verification limit. This is a
+  size problem, not evidence of tampering;
+- **violated**: the history changed unexpectedly. `trace verify` exits `1`.
+  Do not edit the files; if the change was not intended, first back up the
+  history files, because restoring discards events recorded since the last
+  commit, then restore `.sdlc/traces` from version control and verify again.
+
+`doctor` and both reports run the full check, and a report built from a
+changed history opens with a "history changed unexpectedly" warning. `status`
+runs on every turn, so it uses a cheap consistency check instead (checkpoint,
+file size, any uncommitted tail, and the last recorded event) and points to
+`trace verify` for the full check. New trace events are refused
+(`TRACE_INTEGRITY_VIOLATION`) until a violated history is valid again.
 
 The privacy rules come from `.sdlc/config.json`. If that file disappears from
 an initialized project (one with `.sdlc/project.json` or `.sdlc/config.lock.json`),
 the CLI does not fall back to the bundled defaults, which would silently drop
-custom redaction: every project command stops with `CONFIG_MISSING`, `doctor`
-fails its `effective-config` check, and `config migrate` refuses to rebuild the
-file. Restore it from version control. A damaged `.sdlc/project.json` is
-handled the same way (`PROJECT_RECORD_INVALID`).
+custom redaction: every project command except `trace verify` (which shows no
+recorded content) stops with `CONFIG_MISSING`, `doctor` fails its
+`effective-config` check, and `config migrate` refuses to rebuild the file.
+When `.sdlc/config.lock.json` proves that the missing file held exactly the
+bundled defaults, the message names the bundled file to copy back; otherwise
+restore it from version control. A damaged `.sdlc/project.json` is handled the
+same way (`PROJECT_RECORD_INVALID`).
 
 Evidence passed to `trace append --evidence` must name a file inside the
-project. Absolute paths elsewhere, `../` escapes, and symlinks that leave the
-project are refused before anything is written; accepted paths are stored
-project-relative. A path to a file that does not exist yet is recorded as a
-path only and reported as "evidence not verified", because no fingerprint of
-its content can be sealed.
+project or an external URL. Absolute paths elsewhere, `../` escapes, and
+symlinks that leave the project are refused before anything is written;
+accepted paths are stored project-relative. A URL is kept exactly as given as a
+reference; it is never fetched or fingerprinted. A path to a file that does not
+exist yet is recorded as a path only and reported as "evidence not verified",
+because no fingerprint of its content can be sealed.
+
+When `trace evidence bind --redaction-policy operational_v2` binds evidence
+recorded before later built-in detectors were added, it tries both the current
+detector set and the original one (each with the project's own patterns) and
+binds the one that reproduces the stored fingerprint.
 
 #### History size limit
 
@@ -611,10 +640,13 @@ intact. Until one exists:
 - use `trace compact` for a readable summary; it never shrinks or replaces the
   canonical history.
 
-`report activity` and `report query` apply the project's operational redaction
-policy again when they present a report, on standard output, in JSON, and in
-files written with `--out`, so a pattern added after an event was recorded is
-honored. Human and Markdown output also neutralize terminal control characters
+`status`, `report activity`, and `report query` apply the project's operational
+redaction policy again when they present their result, item by item so that a
+large result (hundreds of events or proposals) is never replaced as a whole by
+a limit placeholder; a single value too large to redact safely stops the
+command instead of printing a partial result. Reports do so on standard
+output, in JSON, and in files written with `--out`, so a pattern added after an
+event was recorded is honored. Human and Markdown output also neutralize terminal control characters
 in recorded text (escape sequences are removed, line breaks become spaces, other
 control characters are shown as visible `\xNN` escapes) and state how many
 history lines could not be read instead of dropping them silently.
