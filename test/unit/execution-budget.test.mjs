@@ -4,9 +4,10 @@ import assert from "node:assert/strict";
 import {
   aggregateBudgetUsage,
   applyBudgetAmendment,
+  budgetInputPolicyErrors,
+  budgetUtilizationPercent,
   buildBudgetAmendment,
   buildExecutionUsageReceipt,
-  budgetUtilizationPercent,
   commitBudgetReservation,
   evaluateBudgetUsage,
   formatBudgetQuantity,
@@ -361,6 +362,41 @@ test("soft limits get advance warnings and unreported metrics are marked unmeasu
   assert.equal(budgetUtilizationPercent(budget.limits.tokens, 750, 1000), "75.0");
   assert.equal(budgetUtilizationPercent(budget.limits.cost, "1.5", "5"), "30.0");
   assert.equal(budgetUtilizationPercent(budget.limits.tokens, 1, null), null);
+});
+
+test("budget input policy rejects unusable metrics, units, limits, actions, and maxima", () => {
+  const valid = normalizeExecutionBudget({
+    id: "budget-valid",
+    limits: {
+      tokens: { unit: "tokens", metering: "estimated", soft: 1000 },
+      cost: { unit: "money", currency: "USD", metering: "estimated", soft: "5" },
+      quality_checks: { unit: "checks", metering: "estimated", soft: 20 },
+    },
+  });
+  assert.deepEqual(budgetInputPolicyErrors(valid, { maxima: { tokens: 1000, cost: "5.00" } }), []);
+  assert.match(
+    budgetInputPolicyErrors(valid, { maxima: { cost: "4.99" } }).join("\n"),
+    /limits\.cost\.soft 5 exceeds the project maximum 4\.99/u,
+  );
+  const invalid = normalizeExecutionBudget({
+    id: "budget-invalid",
+    limits: {
+      hasOwnProperty: { unit: "tokens", metering: "estimated", soft: 1 },
+      steps: { unit: "steps", metering: "estimated", soft: 0 },
+      cost: { unit: "money", metering: "estimated", currency: "EUR", soft: "0" },
+      calls: { unit: "currency", currency: "EUR", metering: "estimated", soft: "1" },
+    },
+    limit_policy: { on_warning: "page" },
+    extensions: { on_limit: "auto_raise" },
+  });
+  const problems = budgetInputPolicyErrors(invalid).join("\n");
+  assert.match(problems, /metric 'hasOwnProperty' must be a simple lowercase identifier/u);
+  assert.match(problems, /limits\.steps\.soft must be greater than 0/u);
+  assert.match(problems, /limits\.cost\.soft must be greater than 0/u);
+  assert.match(problems, /unit 'currency' is not a known unit/u);
+  assert.match(problems, /limits\.calls declares currency EUR, so its unit must be 'money'/u);
+  assert.match(problems, /limit_policy\.on_warning must be 'notify'/u);
+  assert.match(problems, /extensions\.on_limit must be 'request_extension'/u);
 });
 
 test("cumulative aggregation is reserved for trusted attested sources", () => {

@@ -327,6 +327,10 @@ test("budget status shows limits, percentages, currency, and metrics the meter c
 test("budget amend applies the formal approval checks and the audit-only warning of proposal approve", () => {
   const { project } = runningAssessment("budget-amend-authority", {
     limits: { tokens: { unit: "tokens", metering: "estimated", soft: 1000 } },
+  }, {
+    configure: (config) => {
+      config.budget_policy.maxima = { tokens: 5000 };
+    },
   });
   const paused = JSON.parse(mustRun([
     "budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1",
@@ -348,7 +352,13 @@ test("budget amend applies the formal approval checks and the audit-only warning
     amend("--actor-type", "human", "--approval-source", "explicit-user"),
     /requires --summary or --approval-evidence when --approval-source explicit-user is used/u,
   );
+  mustFail([
+    "budget", "amend", "--root", project, "--proposal", "ASSESS-1", "--id", "BAMEND-TOO-LARGE",
+    "--budget-json", JSON.stringify({ limits: { tokens: { soft: 9000 } } }),
+    "--reason", "Far more tokens", ...humanApproval("I approve 9000 tokens"),
+  ], /Invalid budget amendment BAMEND-TOO-LARGE:[\s\S]*limits\.tokens\.soft 9000 exceeds the project maximum 5000/u);
   assert.equal(fs.existsSync(path.join(project, ".sdlc", "budgets", "ASSESS-1", "amendments", "BAMEND-1.json")), false);
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "budgets", "ASSESS-1", "amendments", "BAMEND-TOO-LARGE.json")), false);
 
   const approved = mustRun(amend(...humanApproval("I approve raising only the token soft limit to 2000")));
   assert.match(approved.stdout, /Authority assurance: audit_only/u);
@@ -357,6 +367,85 @@ test("budget amend applies the formal approval checks and the audit-only warning
   assert.equal(replay.idempotent, true);
   assert.equal(replay.authority_assurance_label, "audit_only");
   assert.match(replay.authority_note, /must not be represented as host-verified security/u);
+});
+
+test("the shipped default budget is soft-only, so a normal project can complete without signing keys", () => {
+  const { project, prepared } = runningAssessment("budget-default-complete", null);
+  const limits = prepared.proposal.execution_budget.limits;
+  assert.deepEqual(Object.keys(limits).sort(), ["active_time_seconds", "steps", "tokens"]);
+  for (const spec of Object.values(limits)) {
+    assert.equal(spec.hard, null);
+    assert.notEqual(spec.metering, "exact");
+  }
+  mustRun(["budget", "usage", "record", "--root", project, "--proposal", "ASSESS-1", "--steps", "3", "--input-tokens", "900", "--output-tokens", "100"]);
+  const artifact = ".sdlc/stories/ST-ASSESS-1/outputs/technical-assessment.md";
+  fs.mkdirSync(path.dirname(path.join(project, artifact)), { recursive: true });
+  fs.writeFileSync(path.join(project, artifact), "# Technical assessment\n\n## Evidence\nThe baseline describes the project.\n");
+  const authorization = readJson(path.join(project, ".sdlc", "assessments", "workflows", "ASSESS-1.json")).authorization_ref;
+  mustRun([
+    "output", "link", "--root", project, "--story", "ST-ASSESS-1", "--type", "technical-analysis",
+    "--artifact", artifact, "--template", prepared.proposal.deliverable.template_id, "--mode", "new",
+    "--requirement", "REQ-ASSESS-1", "--authorization", authorization,
+  ]);
+  const completed = JSON.parse(mustRun([
+    "assessment", "proposal", "complete", "--root", project, "--id", "ASSESS-1", "--actor-type", "agent", "--json",
+  ]).stdout);
+  assert.equal(completed.status, "completed");
+});
+
+test("project budget settings take precedence over the defaults template and are validated", () => {
+  const { prepared } = runningAssessment("budget-precedence", null, {
+    apply: false,
+    configure: (config) => {
+      config.budget_policy.warning_thresholds_percent = [50, 80];
+      config.budget_policy.completion_reserve_percent = 20;
+    },
+  });
+  assert.deepEqual(prepared.proposal.execution_budget.warning_thresholds_percent, [50, 80]);
+  assert.equal(prepared.proposal.execution_budget.completion_reserve_percent, 20);
+
+  const project = tmpProject("budget-invalid-config");
+  mustRun(["init", "--root", project, "--project-name", "E2E", "--force"]);
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = readJson(configPath);
+  config.budget_policy.warning_thresholds_percent = [150];
+  writeJson(configPath, config);
+  mustFail(["config", "migrate", "--root", project, "--json"], /warning_thresholds_percent/u);
+});
+
+test("a new budget is refused when its metrics, units, limits, actions, or maxima are unusable", () => {
+  const { project } = runningAssessment("budget-strict-input", {
+    limits: { tokens: { unit: "tokens", metering: "estimated", soft: 1000 } },
+  }, {
+    apply: false,
+    configure: (config) => {
+      config.budget_policy.maxima = { tokens: 500_000, cost: "20" };
+    },
+  });
+  const prepare = (budget, id) => [
+    "assessment", "proposal", "prepare", "--root", project, "--id", id,
+    "--baseline", "BASELINE-1", "--story", `ST-${id}`, "--requirement", `REQ-${id}`,
+    "--scope-title", "Invalid budget", "--scope-summary", "Must not be prepared.",
+    "--format", "Markdown", "--delivery", "artifact",
+    "--artifact", `.sdlc/stories/ST-${id}/outputs/technical-assessment.md`,
+    "--budget-json", JSON.stringify(budget),
+  ];
+  const cases = [
+    [{ limits: { constructor: { unit: "tokens", metering: "estimated", soft: 10 } } }, /metric 'constructor' must be a simple lowercase identifier/u],
+    [{ limits: { Tokens: { unit: "tokens", metering: "estimated", soft: 10 } } }, /metric 'Tokens' must be a simple lowercase identifier/u],
+    [{ limits: { tokens: { unit: "tokens", metering: "estimated", soft: 0 } } }, /limits\.tokens\.soft must be greater than 0/u],
+    [{ limits: { quality_checks: { unit: "chekcs", metering: "estimated", soft: 5 } } }, /unit 'chekcs' is not a known unit/u],
+    [{ limits: { tokens: { unit: "calls", metering: "estimated", soft: 5 } } }, /limits\.tokens\.unit must be 'tokens'/u],
+    [{ limits: { cost: { unit: "tokens", currency: "USD", metering: "estimated", soft: "5" } } }, /declares currency USD, so its unit must be 'money'/u],
+    [{ limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10 } }, limit_policy: { on_soft_limit: "partial_delivery" } }, /limit_policy\.on_soft_limit must be 'checkpoint'/u],
+    [{ limits: { tokens: { unit: "tokens", metering: "estimated", soft: 10 } }, extensions: { automatic_extension: true } }, /extensions\.automatic_extension must be false/u],
+    [{ limits: { tokens: { unit: "tokens", metering: "estimated", soft: 600_000 } } }, /limits\.tokens\.soft 600000 exceeds the project maximum 500000/u],
+    [{ limits: { cost: { unit: "money", currency: "USD", metering: "estimated", soft: "25.00" } } }, /limits\.cost\.soft 25 exceeds the project maximum 20/u],
+  ];
+  cases.forEach(([budget, pattern], index) => {
+    mustFail(prepare(budget, `ASSESS-BAD-${index}`), pattern);
+    assert.equal(fs.existsSync(path.join(project, ".sdlc", "assessments", "proposals", `ASSESS-BAD-${index}.json`)), false);
+  });
 });
 
 test("meter setup errors say how to continue", () => {

@@ -812,8 +812,30 @@
           "$ref": "#/$defs/budget_defaults"
         },
         "maxima": {
+          "description": "Largest soft or hard limit a proposal or budget amendment may set for a metric: a whole number, or a decimal string for money metrics in the budget's currency.",
           "type": "object",
-          "additionalProperties": true
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "integer", "minimum": 1 },
+              { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$" }
+            ]
+          }
+        },
+        "warning_thresholds_percent": {
+          "description": "Project-wide warning percentages; they take precedence over budget_policy.defaults and apply unless a proposal's --budget-json sets its own.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 1, "maximum": 99 }
+        },
+        "completion_reserve_percent": {
+          "description": "Project-wide completion reserve; it takes precedence over budget_policy.defaults and applies unless a proposal's --budget-json sets its own.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "on_limit": {
+          "const": "request_extension"
         },
         "presentation": {
           "type": "object",
@@ -850,16 +872,15 @@
         },
         "limits": {
           "type": "object",
-          "required": ["active_time_seconds", "steps", "tokens"],
+          "minProperties": 1,
+          "description": "Default limits for a new proposal. Soft limits pause for a decision; a hard limit is optional and needs exact metering from a trusted signed source.",
           "properties": {
             "active_time_seconds": {
               "allOf": [
                 { "$ref": "#/$defs/budget_limit_input" },
                 {
-                  "required": ["soft", "hard"],
                   "properties": {
-                    "unit": { "const": "seconds" },
-                    "metering": { "const": "exact" }
+                    "unit": { "const": "seconds" }
                   }
                 }
               ]
@@ -868,10 +889,8 @@
               "allOf": [
                 { "$ref": "#/$defs/budget_limit_input" },
                 {
-                  "required": ["soft", "hard"],
                   "properties": {
-                    "unit": { "const": "steps" },
-                    "metering": { "const": "exact" }
+                    "unit": { "const": "steps" }
                   }
                 }
               ]
@@ -895,10 +914,20 @@
         "limit_policy": {
           "type": "object",
           "required": ["on_warning", "on_soft_limit", "on_hard_limit", "on_metering_violation"],
+          "properties": {
+            "on_warning": { "const": "notify" },
+            "on_soft_limit": { "const": "checkpoint" },
+            "on_hard_limit": { "const": "stop" },
+            "on_metering_violation": { "const": "stop" }
+          },
           "additionalProperties": true
         },
         "extensions": {
           "type": "object",
+          "properties": {
+            "automatic_extension": { "const": false },
+            "on_limit": { "const": "request_extension" }
+          },
           "additionalProperties": true
         }
       },
