@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SOURCE_ROOTS = Object.freeze(["bin", "lib", "scripts", "test", "ui"]);
+const SOURCE_ROOTS = Object.freeze(["bin", "hooks", "lib", "scripts", "test", "ui"]);
 const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".mjs"]);
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 

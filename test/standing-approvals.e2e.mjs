@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 import { buildObservatoryViewModel } from "../lib/change-observatory/index.mjs";
 import { buildDeliveryExecutionProfileV2 } from "../lib/autonomy-policy.mjs";
 import { standingRecordHash } from "../lib/standing-approvals.mjs";
+import { claimSharedStandingSlot, publishSharedStandingRevocation } from "../lib/engine/standing-shared.mjs";
+import { STANDING_COORDINATION_DEFAULTS } from "../lib/standing-shared-state.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = path.join(REPOSITORY_ROOT, "bin", "agentic-sdlc.mjs");
@@ -18,6 +20,7 @@ const ISOLATED_ENVIRONMENT_KEYS = [
   "GITHUB_ACTIONS",
   "GITHUB_ACTOR",
   "CODEX_AGENT_NAME",
+  "CODEX_THREAD_ID",
   "CODEX_USER_ID",
   "CLAUDECODE",
   "AGENTIC_SDLC_AGENT_HOST",
@@ -534,6 +537,53 @@ function startTask(project, delivery) {
   assert.equal(taskStart.execution_allowed, true, JSON.stringify(taskStart, null, 2));
 }
 
+/** A bare repository standing in for the shared remote, plus a second copy of the project. */
+function sharedRemote(project, label) {
+  const remote = temporaryProject(`${label}-remote`);
+  spawnSync("git", ["init", "--bare", "--quiet", remote], { encoding: "utf8" });
+  git(project, ["remote", "add", "origin", remote]);
+  git(project, ["push", "--quiet", "origin", "main"]);
+  const otherCopy = temporaryProject(`${label}-other-copy`);
+  fs.rmSync(otherCopy, { recursive: true, force: true });
+  const cloned = spawnSync("git", ["clone", "--quiet", remote, otherCopy], { encoding: "utf8" });
+  assert.equal(cloned.status, 0, cloned.stderr);
+  return { remote, otherCopy };
+}
+
+function sharedRefs(remote) {
+  const result = spawnSync("git", ["ls-remote", remote, "refs/agentic-sdlc/*"], { encoding: "utf8" });
+  return result.stdout.split("\n").filter(Boolean).map((line) => line.split("\t")[1]);
+}
+
+function standingProposal(project, standingId) {
+  return readJson(project, `.sdlc/autonomy/standing/${standingId}/proposal.json`);
+}
+
+/** Changes the coordination setting the way a person would: edit, then re-pin the configuration. */
+function setCoordination(project, coordination) {
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  config.standing_approval_policy = { ...config.standing_approval_policy, coordination };
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const preview = mustRunJson(["config", "migrate", "--root", project], project);
+  mustRunJson([
+    "config", "migrate", "--root", project, "--apply", "--plan-hash", preview.plan.plan_hash, "--actor-type", "human",
+  ], project);
+}
+
+function createBrief(project, suffix, requirementId) {
+  mustRun([
+    "story", "create", "--root", project, "--id", `ST-${suffix}`, "--title", suffix, "--phase", "implementation",
+    "--status", "ready", "--requirement", requirementId, "--acceptance", "Observable.",
+  ], project);
+  mustRun([
+    "contract", "create", "--root", project, "--id", `CONTRACT-${suffix}`, "--story", `ST-${suffix}`, "--phase", "implementation",
+    "--delivery-profile", `AUT-${suffix}`, "--level", "checkpointed", "--context-summary", "Shared state check.",
+    "--qa", "Who confirms?|The standing approval", "--tool", "node",
+    "--output-ref", "implementation-summary:implementation-summary-v1:new",
+  ], project);
+}
+
 function startedDelivery(label, standingOverrides = {}) {
   const project = initializeProject(label);
   const standingId = grantStanding(project, standingOverrides);
@@ -774,6 +824,16 @@ test("only a person or CI can approve or revoke a standing approval", () => {
     "--actor-type", "agent", "--approval-source", "automation", "--summary", "Self-approved",
   ], project, /explicit approval/u);
   mustFail(["contract", "approve", "--root", project, "--id", "CONTRACT-X", "--standing-approval", id], project, /does not exist|not been approved|proposed/u);
+  // Inside an agent's own session even a human-attributed approval is refused.
+  for (const marker of ["CLAUDECODE", "CODEX_THREAD_ID"]) {
+    const inside = spawnSync(process.execPath, [
+      CLI, "autonomy", "standing", "approve", "--root", project, "--id", id, ...humanApproval("Approve it"),
+    ], { cwd: project, encoding: "utf8", env: { ...cliEnvironment(), [marker]: "1" }, timeout: 120_000 });
+    assert.notEqual(inside.status, 0, marker);
+    assert.match(`${inside.stdout}${inside.stderr}`, /only be approved by the user, outside the agent's session/u, marker);
+  }
+  const status = mustRunJson(["autonomy", "standing", "status", "--root", project, "--id", id], project);
+  assert.equal(status.standing_approvals[0].status, "proposed");
 });
 
 test("merge and production are never coverable by a standing approval", () => {
@@ -781,6 +841,8 @@ test("merge and production are never coverable by a standing approval", () => {
   git(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc.git"]);
   git(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
   git(project, ["checkout", "-b", "standing/sa-flags/pr-1"]);
+  // The remote is a public repository the test cannot write to, so nothing is shared.
+  setCoordination(project, { mode: "local_only" });
   const standingId = grantStanding(project, { destination: "pull_request", writePaths: ["src"] });
   for (const [suffix, merge] of [["MERGE", true], ["PR", false]]) {
     mustRun([
@@ -823,6 +885,7 @@ test("a delegated pull request never pushes outside its repository and branch pr
   const project = initializeProject("branches");
   git(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc.git"]);
   git(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
+  setCoordination(project, { mode: "local_only" });
   const standingId = grantStanding(project, { destination: "pull_request", writePaths: ["src"], maxDeliveries: 1 });
   for (const [contractId, phase, profileId, storyId] of [
     ["CONTRACT-BR", "implementation", "AUT-BR", "ST-BR"],
@@ -854,6 +917,223 @@ test("a delegated pull request never pushes outside its repository and branch pr
   mustFail(propose("feature/x"), project, /covers only branches under standing\/sa-flags\//u);
   mustFail(propose("standing/sa-flags/x", "someone/else"), project, /covers only github\.com\/aantenore\/agentic-sdlc/u);
   mustRunJson(propose("standing/sa-flags/x"), project);
+});
+
+test("every copy of the project shares used deliveries and revocations through the git remote", () => {
+  const project = initializeProject("shared");
+  const { remote, otherCopy } = sharedRemote(project, "shared");
+  const standingId = grantStanding(project, { maxDeliveries: 2 });
+  const delivery = prepareDelivery(project, "ONE", standingId);
+  approveDelivery(project, delivery, standingId);
+  const proposal = standingProposal(project, standingId);
+  assert.ok(sharedRefs(remote).some((ref) => ref.endsWith("/slots/0001")), "slot 1 is recorded on the remote");
+  startTask(project, delivery);
+
+  // Another copy of the project uses the last delivery: this copy cannot use it again.
+  const elsewhere = claimSharedStandingSlot({ root: otherCopy }, STANDING_COORDINATION_DEFAULTS, "origin", {
+    proposal,
+    slot: 2,
+    delivery: { id: "LOCAL-ELSEWHERE", kind: "local_release" },
+    profileRef: { id: "AUT-ELSEWHERE", hash: "e".repeat(64) },
+  });
+  assert.equal(elsewhere.published, true, JSON.stringify(elsewhere));
+  const duplicate = claimSharedStandingSlot({ root: otherCopy }, STANDING_COORDINATION_DEFAULTS, "origin", {
+    proposal,
+    slot: 2,
+    delivery: { id: "LOCAL-AGAIN", kind: "local_release" },
+    profileRef: { id: "AUT-AGAIN", hash: "f".repeat(64) },
+  });
+  assert.equal(duplicate.conflict, true, "the remote accepts one claim per slot");
+  createBrief(project, "TWO", "REQ-TOIL-2");
+  mustFail(
+    ["contract", "approve", "--root", project, "--id", "CONTRACT-TWO", "--standing-approval", standingId],
+    project,
+    /all 2 deliveries were used \(counted across everyone using this project\)/u,
+  );
+
+  // A revocation made in another copy stops the delivery in progress here at its next step.
+  writeProjectFile(project, "src/flag-one.mjs", "export const one = false;\n");
+  const revoked = publishSharedStandingRevocation({ root: otherCopy }, STANDING_COORDINATION_DEFAULTS, "origin", {
+    proposal,
+    revocation: { record_hash: "d".repeat(64), reason: "Stopped from another copy" },
+  });
+  assert.equal(revoked.published, true, JSON.stringify(revoked));
+  expectFallback(project, delivery.profileId, "build.local", /it was revoked \(recorded on the git remote 'origin': Stopped from another copy\)/u);
+  const status = mustRunJson(["autonomy", "standing", "status", "--root", project, "--id", standingId], project);
+  assert.equal(status.standing_approvals[0].status, "revoked");
+  assert.equal(status.standing_approvals[0].shared_state.revoked, true);
+  assert.deepEqual(status.standing_approvals[0].shared_state.shared_slots.map((slot) => slot.slot), [1, 2]);
+});
+
+test("an unreachable shared remote makes a standing approval cover nothing until it is back", () => {
+  const project = initializeProject("offline");
+  const { remote } = sharedRemote(project, "offline");
+  const standingId = grantStanding(project, { id: "SA-OFFLINE" });
+  git(project, ["remote", "set-url", "origin", path.join(remote, "missing")]);
+  createBrief(project, "OFF", "REQ-TOIL");
+  mustFail(
+    ["contract", "approve", "--root", project, "--id", "CONTRACT-OFF", "--standing-approval", standingId],
+    project,
+    /shared state on the git remote 'origin' cannot be checked/u,
+  );
+  const status = mustRunJson(["autonomy", "standing", "status", "--root", project, "--id", standingId], project);
+  assert.equal(status.standing_approvals[0].shared_state.checked, false);
+  assert.doesNotMatch(JSON.stringify(status), new RegExp(remote.replace(/[\\^$.*+?()[\]{}|]/gu, "\\$&"), "u"));
+
+  // A revocation made while the remote is unreachable is kept here and shared later.
+  const revoked = mustRunJson([
+    "autonomy", "standing", "revoke", "--root", project, "--id", standingId,
+    "--reason", "Pause delegated work", ...humanApproval("Stop the standing approval"),
+  ], project);
+  assert.equal(revoked.shared_revocation.status, "failed");
+  git(project, ["remote", "set-url", "origin", remote]);
+  const synced = mustRunJson(["autonomy", "standing", "sync", "--root", project, "--id", standingId], project);
+  assert.deepEqual(synced.actions, ["revocation shared"]);
+  assert.equal(synced.shared_state.revoked, true);
+  assert.ok(sharedRefs(remote).some((ref) => ref.endsWith("/revoked")));
+});
+
+test("a remote that refuses the shared records is reported as not shared, never as shared", () => {
+  const project = initializeProject("refused");
+  const { remote } = sharedRemote(project, "refused");
+  const standingId = grantStanding(project, { id: "SA-REFUSED" });
+  const hook = path.join(remote, "hooks", "pre-receive");
+  fs.writeFileSync(hook, "#!/bin/sh\nwhile read old new ref; do case \"$ref\" in refs/agentic-sdlc/*) echo refused >&2; exit 1;; esac; done\n", { mode: 0o755 });
+  const revoked = mustRunJson([
+    "autonomy", "standing", "revoke", "--root", project, "--id", standingId,
+    "--reason", "Pause delegated work", ...humanApproval("Stop the standing approval"),
+  ], project);
+  assert.equal(revoked.shared_revocation.status, "failed", JSON.stringify(revoked.shared_revocation));
+  const synced = mustRunJson(["autonomy", "standing", "sync", "--root", project, "--id", standingId], project);
+  assert.match(synced.actions.join("\n"), /revocation not shared/u);
+  assert.equal(synced.shared_state.revoked, false);
+  assert.deepEqual(sharedRefs(remote), []);
+});
+
+test("a standing approval covers nothing once its shared remote is renamed, replaced, or loses records", () => {
+  const project = initializeProject("moved");
+  const { remote, otherCopy } = sharedRemote(project, "moved");
+  const standingId = grantStanding(project, { id: "SA-MOVED", maxDeliveries: 3 });
+  const delivery = prepareDelivery(project, "ONE", standingId);
+  approveDelivery(project, delivery, standingId);
+  createBrief(project, "TWO", "REQ-TOIL-2");
+  const approveTwo = ["contract", "approve", "--root", project, "--id", "CONTRACT-TWO", "--standing-approval", standingId];
+
+  git(project, ["remote", "rename", "origin", "upstream"]);
+  mustFail(approveTwo, project, /the git remote 'origin' is no longer configured/u);
+  git(project, ["remote", "rename", "upstream", "origin"]);
+
+  const replacement = temporaryProject("moved-replacement");
+  spawnSync("git", ["init", "--bare", "--quiet", replacement], { encoding: "utf8" });
+  git(project, ["remote", "set-url", "origin", replacement]);
+  mustFail(approveTwo, project, /is not the one this standing approval was approved with/u);
+  git(project, ["remote", "set-url", "origin", remote]);
+
+  // Someone deletes the shared records on the remote: what was seen here is not forgotten.
+  const slotRef = sharedRefs(remote).find((ref) => ref.endsWith("/slots/0001"));
+  git(otherCopy, ["push", "--quiet", "origin", `:${slotRef}`]);
+  mustFail(approveTwo, project, /slot 1, recorded before, is gone from the remote/u);
+});
+
+test("deliveries used before the remote existed are shared before a new one is claimed", () => {
+  const project = initializeProject("late-remote");
+  const standingId = grantStanding(project, { id: "SA-LATE", maxDeliveries: 3 });
+  const first = prepareDelivery(project, "ONE", standingId);
+  approveDelivery(project, first, standingId);
+  const { remote } = sharedRemote(project, "late-remote");
+  const second = prepareDelivery(project, "TWO", standingId, { requirementId: "REQ-TOIL-2" });
+  approveDelivery(project, second, standingId);
+  const slots = sharedRefs(remote).filter((ref) => /\/slots\//u.test(ref)).map((ref) => ref.slice(-4)).sort();
+  assert.deepEqual(slots, ["0001", "0002"]);
+});
+
+test("a separate push address, a cleaned revocation file, or a removed remote never undo a revocation", () => {
+  const project = initializeProject("pushurl");
+  const { remote, otherCopy } = sharedRemote(project, "pushurl");
+  const fork = temporaryProject("pushurl-fork");
+  spawnSync("git", ["init", "--bare", "--quiet", fork], { encoding: "utf8" });
+  git(project, ["remote", "set-url", "--push", "origin", fork]);
+  const standingId = grantStanding(project, { id: "SA-PUSHURL", maxDeliveries: 2 });
+  const revoked = mustRunJson([
+    "autonomy", "standing", "revoke", "--root", project, "--id", standingId,
+    "--reason", "Pause delegated work", ...humanApproval("Stop the standing approval"),
+  ], project);
+  assert.equal(revoked.shared_revocation.status, "shared");
+  assert.ok(sharedRefs(remote).some((ref) => ref.endsWith("/revoked")), "the revocation reaches the fetch address");
+  assert.deepEqual(sharedRefs(fork), []);
+  void otherCopy;
+
+  // The revocation file is uncommitted: cleaning it away does not bring the standing approval back.
+  fs.rmSync(path.join(project, ".sdlc", "autonomy", "standing", standingId, "revocation.json"));
+  git(project, ["remote", "remove", "origin"]);
+  createBrief(project, "PU", "REQ-TOIL");
+  mustFail(
+    ["contract", "approve", "--root", project, "--id", "CONTRACT-PU", "--standing-approval", standingId],
+    project,
+    /revoked on this computer|no longer configured/u,
+  );
+});
+
+test("sync reports attention when the revocation could not be shared, and git's language does not matter", () => {
+  const project = initializeProject("sync-attention");
+  const { remote } = sharedRemote(project, "sync-attention");
+  const standingId = grantStanding(project, { id: "SA-ATTN" });
+  fs.writeFileSync(path.join(remote, "hooks", "pre-receive"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+  mustRunJson([
+    "autonomy", "standing", "revoke", "--root", project, "--id", standingId,
+    "--reason", "Pause delegated work", ...humanApproval("Stop the standing approval"),
+  ], project);
+  const synced = mustRunJson(["autonomy", "standing", "sync", "--root", project, "--id", standingId], project);
+  assert.equal(synced.status, "attention");
+  const human = mustRun(["autonomy", "standing", "sync", "--root", project, "--id", standingId], project);
+  assert.match(human.stdout, /NOT up to date/u);
+  // Without a remote, a non-English git still means "no remote": the state stays local.
+  const local = initializeProject("locale");
+  const status = spawnSync(process.execPath, [CLI, "autonomy", "standing", "status", "--root", local, "--json"], {
+    cwd: local, encoding: "utf8", env: { ...cliEnvironment(), LANG: "it_IT.UTF-8", LC_ALL: "it_IT.UTF-8", LANGUAGE: "it" },
+  });
+  assert.equal(status.status, 0, status.stderr);
+});
+
+test("a project without git still uses its standing approvals on this computer", () => {
+  const project = temporaryProject("no-git");
+  mustRun(["init", "--root", project, "--project-name", "Standing approvals"], project);
+  for (const requirementId of ["REQ-TOIL"]) {
+    mustRun([
+      "requirement", "propose", "--root", project, "--id", requirementId, "--title", "Routine flag cleanup",
+      "--summary", "Remove retired feature flags inside the approved write scope.",
+      "--acceptance", "Each cleanup is verified and released locally.", "--autonomy-ceiling", "checkpointed",
+      "--write-path", "docs", "--write-path", "src",
+    ], project);
+    mustRun(["requirement", "approve", "--root", project, "--id", requirementId, ...humanApproval(`Approve ${requirementId}`)], project);
+  }
+  mustRun(["output", "template", "propose", "--root", project, "--type", "implementation-summary", "--summary", "Canonical implementation-summary format"], project);
+  mustRun(["output", "template", "approve", "--root", project, "--id", "implementation-summary-v1", ...humanApproval("Approve implementation-summary output format")], project);
+  const standingId = grantStanding(project, { id: "SA-NOGIT", requirements: ["REQ-TOIL"] });
+  createBrief(project, "NG", "REQ-TOIL");
+  mustRun(["contract", "approve", "--root", project, "--id", "CONTRACT-NG", "--standing-approval", standingId], project);
+  const status = mustRunJson(["autonomy", "standing", "status", "--root", project, "--id", standingId], project);
+  assert.equal(status.standing_approvals[0].shared_state.scope, "local");
+});
+
+test("required sharing refuses a project without the remote, and local_only never contacts it", () => {
+  const project = initializeProject("required");
+  setCoordination(project, { mode: "required", remote: "shared" });
+  const standingId = grantStanding(project, { id: "SA-REQUIRED" });
+  createBrief(project, "REQ", "REQ-TOIL");
+  mustFail(
+    ["contract", "approve", "--root", project, "--id", "CONTRACT-REQ", "--standing-approval", standingId],
+    project,
+    /the git remote 'shared' is not configured/u,
+  );
+  const local = initializeProject("local-only");
+  git(local, ["remote", "add", "origin", path.join(local, "no-such-remote")]);
+  setCoordination(local, { mode: "local_only" });
+  const localId = grantStanding(local, { id: "SA-LOCAL" });
+  createBrief(local, "LOC", "REQ-TOIL");
+  mustRun(["contract", "approve", "--root", local, "--id", "CONTRACT-LOC", "--standing-approval", localId], local);
+  const status = mustRunJson(["autonomy", "standing", "status", "--root", local, "--id", localId], local);
+  assert.equal(status.standing_approvals[0].shared_state.scope, "local");
 });
 
 test("concurrent deliveries cannot both consume the last slot", async () => {

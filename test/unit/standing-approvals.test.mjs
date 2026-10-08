@@ -253,7 +253,11 @@ test("a derived approval is historically valid only inside the approval window",
 });
 
 test("policy values come from configuration and are validated", () => {
-  assert.deepEqual(standingApprovalPolicy({}), STANDING_APPROVAL_POLICY_DEFAULTS);
+  assert.deepEqual(standingApprovalPolicy({}), {
+    ...STANDING_APPROVAL_POLICY_DEFAULTS,
+    coordination: { mode: "auto", remote: "origin", timeout_seconds: 20 },
+  });
+  assert.throws(() => standingApprovalPolicy({ standing_approval_policy: { coordination: { mode: "off" } } }), /coordination\.mode/u);
   assert.equal(standingApprovalPolicy({ standing_approval_policy: { max_deliveries: 3 } }).max_deliveries, 3);
   assert.throws(() => standingApprovalPolicy({ standing_approval_policy: { max_deliveries: 0 } }), /positive integer/u);
   assert.throws(() => standingApprovalPolicy({ standing_approval_policy: { enabled: "yes" } }), /boolean/u);

@@ -1465,6 +1465,12 @@
     "max_deliveries": 20,
     "max_changed_files": 200,
     "max_changed_lines": 5000,
-    "expiry_warning_hours": 72
+    "expiry_warning_hours": 72,
+    "coordination": {
+      "principle": "Slots a standing approval has used and its revocation are also recorded as refs on this git remote, so every clone of the project sees them before it relies on the standing approval. auto shares them when the remote exists and keeps them on this computer otherwise; required refuses to rely on a standing approval without the remote; local_only never shares them. When sharing applies and the remote cannot be reached, the standing approval covers nothing and every step asks for the normal confirmation.",
+      "mode": "auto",
+      "remote": "origin",
+      "timeout_seconds": 20
+    }
   }
 }

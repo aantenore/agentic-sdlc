@@ -129,6 +129,8 @@ export function validReleaseFixtureEntries({ version = "0.13.3", extra = [] } = 
     { path: "package/README.md", data: "fixture readme\n" },
     { path: "package/bin/agentic-sdlc.mjs", data: "#!/usr/bin/env node\n", mode: 0o755 },
     { path: "package/config/release-artifact-policy.json", data: "{}\n" },
+    { path: "package/hooks/agentic-sdlc-guard.mjs", data: "// fixture\n" },
+    { path: "package/hooks/hooks.json", data: "{}\n" },
     { path: "package/lib/build-identity.mjs", data: "// fixture\n" },
     { path: "package/schemas/project-bootstrap-journal.schema.json", data: "{}\n" },
     { path: "package/schemas/project-bootstrap-manifest.schema.json", data: "{}\n" },

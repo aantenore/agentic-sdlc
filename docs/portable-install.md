@@ -14,6 +14,7 @@ assets/
 bin/
 config/
 docs/
+hooks/
 lib/
 schemas/
 scripts/
@@ -36,6 +37,8 @@ download. The first product starter remains:
 ```text
 Contextualize this project and prepare an initial technical assessment.
 ```
+
+`hooks/hooks.json` holds the guard rails around standing approvals described in [claude-code-install.md](claude-code-install.md#hooks); Codex lists them for review at startup and runs them only once you trust them.
 
 The npm `files` allowlist defines the package surface. Project-specific `.sdlc/` data, repository tests, Git metadata, and unlisted root files do not travel with the plugin.
 

@@ -73,6 +73,16 @@ The plugin installs four skills, shared byte-for-byte with the Codex packaging:
 
 Claude Code loads a skill when the conversation matches its description, so the slash commands are a shortcut rather than a requirement.
 
+## Hooks
+
+The plugin ships one `hooks/hooks.json`, read by both Claude Code and Codex. It adds three guard rails around standing approvals. They are a second line of defence, not the only one: the CLI itself refuses `autonomy standing approve` inside an agent's session, standing-approval records are hash-sealed, and the shared state on the git remote is checked before every covered step. Neither the hooks nor those checks are a cryptographic guarantee; a project that needs one uses signed approvals (`host_verified`), which turns standing approvals off.
+
+- **Only you approve a standing approval.** If the agent tries to run `autonomy standing approve` itself, the call is blocked and the agent hands you the exact command to run in your own terminal.
+- **Standing approval records stay untouched.** Direct edits, deletions, or overwrites of `.sdlc/autonomy/standing/`, rewrites of the `refs/agentic-sdlc/` refs, `git clean` or `git stash -u` that would delete uncommitted `.sdlc` records, and clearing the variables that mark the agent's session are blocked; reading, staging, and committing the records stay allowed.
+- **Each session starts informed.** When a project has standing approvals, the session starts with a short list: which are active, how many deliveries are left, and whether the shared state on the git remote can be reached.
+
+Claude Code enables plugin hooks with the plugin. Codex asks you to review and trust new plugin hooks at startup ("Review hooks"); until you trust them they do not run. A hook that fails or times out never blocks your work.
+
 ## Path resolution
 
 Slash commands reference the CLI through `${CLAUDE_PLUGIN_ROOT}`, which Claude Code substitutes with the installed plugin directory. Skill bodies do not rely on that substitution: each skill that runs the CLI (`agentic-sdlc`, `agentic-sdlc-assessment`, `change-observatory`) states that the plugin root is exactly two directories above its own `SKILL.md`, which works identically under a Claude install, a Codex install, and a plain `git clone`. The CLI also derives its own root from `import.meta.url` and reports it in `doctor --json` as `plugin_root`.

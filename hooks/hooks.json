@@ -1,0 +1,29 @@
+{
+  "description": "Agentic SDLC guard: only the user approves a standing approval, standing-approval records and their shared refs stay out of direct edits, and each session starts with the project's standing approvals.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/agentic-sdlc-guard.mjs\" session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/agentic-sdlc-guard.mjs\" pre-tool-use",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

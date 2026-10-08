@@ -1027,6 +1027,7 @@ import {
   proposeStandingApproval,
   revokeStandingApproval,
   showStandingApprovals,
+  syncStandingApproval,
 } from "../lib/engine/standing.mjs";
 import {
   addStoryAcceptance,
@@ -1149,6 +1150,7 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.standing.revoke": call(revokeStandingApproval),
     "autonomy.standing.status": call(showStandingApprovals),
     "autonomy.standing.explain": call(explainStandingApproval),
+    "autonomy.standing.sync": call(syncStandingApproval),
     "contract.create": call(createContract),
     "contract.approve": call(approveContract),
     "story.create": call(createStory),
