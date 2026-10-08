@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import os from "node:os";
 import test from "node:test";
 
 import {
@@ -170,6 +172,40 @@ test("support bundle is allowlisted, redacted, bounded, and content-verifiable",
   const tampered = JSON.parse(JSON.stringify(bundle));
   tampered.sections.readiness.status = "ready";
   assert.equal(verifySupportBundleDigest(tampered), false);
+});
+
+test("support bundle versions name the package, platform, and architecture without host details", async () => {
+  const packageMetadata = JSON.parse(
+    await readFile(new URL("../../package.json", import.meta.url), "utf8"),
+  );
+  const bundle = createOperations().supportBundle({
+    context: createOperations().beginRequest().context,
+    limits: {},
+  });
+  const versions = bundle.sections.versions;
+  assert.equal(versions.package, packageMetadata.version);
+  assert.equal(versions.platform, process.platform);
+  assert.equal(versions.arch, process.arch);
+  assert.equal(versions.node, process.versions.node);
+  assert.deepEqual(Object.keys(versions).sort(), [
+    "arch", "healthSchema", "modelSchema", "node", "package", "platform",
+  ]);
+  const serialized = JSON.stringify(bundle);
+  for (const hostDetail of [os.hostname(), process.cwd(), os.homedir()]) {
+    if (hostDetail.length >= 6) assert.equal(serialized.includes(hostDetail), false, hostDetail);
+  }
+  assert.equal(verifySupportBundleDigest(bundle), true);
+
+  const injected = createOperations({ packageVersion: "9.8.7" }).supportBundle({
+    context: createOperations().beginRequest().context,
+    limits: {},
+  });
+  assert.equal(injected.sections.versions.package, "9.8.7");
+  const unsafe = createOperations({ packageVersion: "/home/alice/pkg" }).supportBundle({
+    context: createOperations().beginRequest().context,
+    limits: {},
+  });
+  assert.equal(unsafe.sections.versions.package, "unknown");
 });
 
 test("recent request retention rejects values above the configured hard bound", () => {
