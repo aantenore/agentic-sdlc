@@ -47,7 +47,7 @@ In the default `audit_only` mode the tool records who you said you are but canno
 2. **Record cost against the delivery** once it is approved, with a meter or by hand:
 
    ```bash
-   agentic-sdlc budget meter start --delivery AUT-PR-184 --adapter codeburn    # once, after approval and before the work starts
+   agentic-sdlc budget meter start --delivery AUT-PR-184 --adapter codeburn    # once, right after approval and before the work starts
    agentic-sdlc budget meter record --delivery AUT-PR-184 --adapter codeburn   # whenever you want a reading
    agentic-sdlc budget usage record --delivery AUT-PR-184 --input-tokens 1200 --output-tokens 300 --cost-amount 0.42 --currency USD
    ```
@@ -572,9 +572,11 @@ Each stage is the time between two recorded milestones, and the total runs from 
 At each delivery step the CLI measures the cost from the delivery's recorded usage, and the standing approval covers the step only when all of these hold; otherwise the step falls back to the normal confirmation with the reason:
 
 1. A meter (an adapter observation or a trusted signed reading) has reported this delivery's cost and the CLI verified that reading. A cost declared by hand still counts toward the amounts, but on its own it leaves the delivery not measured.
-2. The latest verified reading is newer than the delivery's last recorded step (its start, any action, or its close), is not dated in the future, and its meter window reaches today; an adapter meter must also have started before the work began, so no earlier spend escapes it. Run `budget meter start --delivery <profile-id>` after approval and before `task start`, and `budget meter record --delivery <profile-id>` before each step. The delivery's usage ledger must exist.
+2. The latest verified reading is newer than the delivery's last recorded step (its start, any action, or its close), is not dated in the future, and its meter window reaches today. A meter counts only the spend after its first reading, so the reading must count from the delivery's approval: the meter (or the earliest trusted signed reading) must have started within 5 minutes of the delivery's approval and before the work began. Run `budget meter start --delivery <profile-id>` right after `autonomy delivery approve` and before `task start`, and `budget meter record --delivery <profile-id>` before each step. A meter starts only from a report generated when it starts, so an old report cannot make a late meter look on time. The delivery's usage ledger must exist.
 3. The delivery's cost is within `--budget-per-delivery`.
-4. The cost of every delivery that used the standing approval, here or in another copy of the project, plus this one, is within `--budget-total`. Each of those deliveries needs the same fresh verified reading (newer than its own last step, also after it closed); one whose records are not on this computer, or whose cost is not freshly measured, makes the total unmeasurable, so the step is not covered. Record a final reading for a finished delivery with `budget meter record --delivery <its profile-id>`.
+4. The cost of every delivery that used the standing approval, here or in another copy of the project, plus this one, is within `--budget-total`. Each of those deliveries needs the same fresh verified reading (newer than its own last step, also after it closed); one whose records are not on this computer, or whose cost is not freshly measured, makes the total unmeasurable, so the step is not covered. Record a final reading for a finished delivery with `budget meter record --delivery <its profile-id>`; readings are still accepted after a delivery is closed or revoked, but no meter is started for it then.
+
+   A delivery whose meter started late, or that was closed or revoked before any meter started, keeps its cost unknown for good: no later meter can count what it spent. Its own steps, and under `--budget-total` every later step of the standing approval, fall back to the normal confirmation. To recover, continue with normal confirmations, or revoke the standing approval and have the user approve a new one, which counts only its own deliveries.
 
 Before a delivery starts (its proposal and approval under the standing approval) its own cost so far counts, which may be nothing yet, and the total so far must fit. `autonomy standing status` and `status` show what was spent against the budget. A standing approval recorded with numeric amounts by an earlier version is compared exactly too.
 
