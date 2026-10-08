@@ -108,6 +108,34 @@ test("the shared refs of standing approvals are never rewritten by hand", () => 
   }
 });
 
+test("the shared refs of story claims are never forged, deleted, or rewritten by hand", () => {
+  for (const command of [
+    "git push origin :refs/agentic-sdlc/claims/ST-1/000001/claim",
+    "git push origin HEAD:refs/agentic-sdlc/claims/ST-1/000002/claim",
+    "git push --force origin abc123:refs/agentic-sdlc/claims/ST-1/000001/release",
+    "git update-ref refs/agentic-sdlc/claims/ST-1/000001/release HEAD",
+    "git update-ref -d refs/agentic-sdlc-shared/claims/ST-1/000001/claim",
+    "git fetch origin '+refs/agentic-sdlc/claims/*:refs/agentic-sdlc-shared/claims/*'",
+    "git fetch --prune origin 'refs/agentic-sdlc/claims/*:refs/agentic-sdlc-shared/claims/*'",
+    "rm -rf .git/refs/agentic-sdlc-shared/claims",
+  ]) {
+    const decision = evaluatePreToolUse(shell(command));
+    assert.equal(decision?.decision, "deny", command);
+  }
+  assert.match(evaluatePreToolUse(shell("git push origin :refs/agentic-sdlc/claims/ST-1/000001/claim")).reason, /story claims/u);
+  for (const command of [
+    "git ls-remote origin 'refs/agentic-sdlc/claims/*'",
+    "git for-each-ref refs/agentic-sdlc-shared/claims/",
+    "git log -1 --format=%B refs/agentic-sdlc-shared/claims/ST-1/000001/claim",
+    "git fetch origin 'refs/agentic-sdlc/claims/*:refs/agentic-sdlc-shared/claims/*'",
+    "node bin/agentic-sdlc.mjs story claim --id ST-1 --agent worker --branch feature/ST-1",
+    "node bin/agentic-sdlc.mjs story release --id ST-1 --reason done",
+    "node bin/agentic-sdlc.mjs orchestrate status --json",
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command)), null, command);
+  }
+});
+
 test("malformed payloads never block", () => {
   for (const payload of [null, {}, { tool_name: "Bash" }, { tool_name: "Bash", tool_input: "x" }, { tool_name: "Read", tool_input: { file_path: ".sdlc/autonomy/standing/x" } }]) {
     assert.equal(evaluatePreToolUse(payload), null);
