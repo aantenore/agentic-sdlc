@@ -12,16 +12,18 @@ permissions:
   contents: read
 
 jobs:
-  # Linux and macOS run the whole suite in one job per cell. When a pull request
-  # or push changes only documentation (see scripts/ci-change-scope.mjs), every
-  # step after the scope detection is skipped: the job still reports success so
-  # the required checks resolve, but the release gate does not count it, because
-  # the "Run the test suite" step never ran.
+  # Linux runs the whole suite in one job per Node line. macOS and Windows are
+  # slower runners, so their suites are split into parallel shards below. When
+  # a pull request or push changes only documentation (see
+  # scripts/ci-change-scope.mjs), every step after the scope detection is
+  # skipped: the job still reports success so the required checks resolve, but
+  # the release gate does not count it, because the "Run the test suite" step
+  # never ran.
   test:
     timeout-minutes: 35
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"os":["ubuntu-latest","macos-latest"],"node":[24],"include":[{"os":"ubuntu-latest","node":"18.20.3"}]}' || github.event_name == 'push' && '{"os":["ubuntu-latest","macos-latest"],"node":[24],"include":[{"os":"ubuntu-latest","node":"18.20.3"},{"os":"ubuntu-latest","node":"20.12.0"},{"os":"ubuntu-latest","node":"21.6.0"}]}' || '{"os":["ubuntu-latest","macos-latest"],"node":["18.20.3","20.12.0","21.6.0",24]}') }}
+      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"os":["ubuntu-latest"],"node":[24,"18.20.3"]}' || github.event_name == 'push' && '{"os":["ubuntu-latest"],"node":["18.20.3","20.12.0","21.6.0",24]}' || '{"os":["ubuntu-latest"],"node":["18.20.3","20.12.0","21.6.0",24]}') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -57,7 +59,7 @@ jobs:
         run: npm test
         env:
           PYTHON: ${{ steps.python.outputs.python-path }}
-          AGENTIC_SDLC_TEST_CONCURRENCY: ${{ matrix.os == 'macos-latest' && matrix.node == '18.20.3' && '1' || matrix.os == 'ubuntu-latest' && '4' || '2' }}
+          AGENTIC_SDLC_TEST_CONCURRENCY: "4"
       - name: Enforce enterprise performance on the required reference runtime
         if: steps.scope.outputs.docs_only != 'true' && matrix.os == 'ubuntu-latest' && matrix.node == 24
         run: npm run benchmark:enterprise
@@ -68,17 +70,19 @@ jobs:
         if: steps.scope.outputs.docs_only != 'true'
         run: npm pack --dry-run
 
-  # Windows is the slowest runner, so its suite is split into three shards that
-  # run in parallel. The checks that do not depend on the shard (source check,
-  # runner canary, doctor, pack) run once per Node line, in shard 1. A
+  # macOS and Windows are the slowest runners, so each of their suites is split
+  # into three shards that run in parallel (see scripts/run-test-suite.mjs for
+  # the deterministic, cost-balanced split). Only the shard-dependent work
+  # is here: the checks that do not depend on the shard run once per operating
+  # system and Node line in test-checks, so no shard carries extra work. A
   # documentation-only change skips every step after the scope detection.
-  test-windows-shard:
-    name: test shard (windows-latest, ${{ matrix.node }}, ${{ matrix.shard }})
+  test-shard:
+    name: test shard (${{ matrix.os }}, ${{ matrix.node }}, ${{ matrix.shard }})
     timeout-minutes: 35
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"node":[24],"shard":["1/3","2/3","3/3"]}' || github.event_name == 'push' && '{"node":[24],"shard":["1/3","2/3","3/3"]}' || '{"node":["18.20.3","20.12.0","21.6.0",24],"shard":["1/3","2/3","3/3"]}') }}
-    runs-on: windows-latest
+      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"os":["macos-latest","windows-latest"],"node":[24],"shard":["1/3","2/3","3/3"]}' || github.event_name == 'push' && '{"os":["macos-latest","windows-latest"],"node":[24],"shard":["1/3","2/3","3/3"]}' || '{"os":["macos-latest","windows-latest"],"node":["18.20.3","20.12.0","21.6.0",24],"shard":["1/3","2/3","3/3"]}') }}
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
@@ -100,38 +104,67 @@ jobs:
         with:
           python-version: "3.13.14"
           update-environment: false
-      - name: Check source syntax
-        if: steps.scope.outputs.docs_only != 'true' && startsWith(matrix.shard, '1/')
-        run: npm run check
-      - name: Verify bounded test-runner bootstrap
-        if: steps.scope.outputs.docs_only != 'true' && startsWith(matrix.shard, '1/')
-        run: node --test test/unit/test-suite-runner.test.mjs
       - name: Run this shard of the test suite
         if: steps.scope.outputs.docs_only != 'true'
         run: npm test
         env:
           PYTHON: ${{ steps.python.outputs.python-path }}
-          AGENTIC_SDLC_TEST_CONCURRENCY: "2"
+          AGENTIC_SDLC_TEST_CONCURRENCY: ${{ matrix.os == 'macos-latest' && matrix.node == '18.20.3' && '1' || '2' }}
           AGENTIC_SDLC_TEST_SHARD: ${{ matrix.shard }}
+
+  # The checks that do not depend on the shard (source check, runner canary,
+  # installation doctor, pack dry run) run once per operating system and Node
+  # line, in parallel with the shards, on the same OS they always ran on. They
+  # need no Python. A documentation-only change skips every step after the
+  # scope detection.
+  test-checks:
+    name: checks (${{ matrix.os }}, ${{ matrix.node }})
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"os":["macos-latest","windows-latest"],"node":[24]}' || github.event_name == 'push' && '{"os":["macos-latest","windows-latest"],"node":[24]}' || '{"os":["macos-latest","windows-latest"],"node":["18.20.3","20.12.0","21.6.0",24]}') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - id: scope
+        name: Detect Markdown-only changes
+        run: node scripts/ci-change-scope.mjs
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_BEFORE_SHA: ${{ github.event.before }}
+      - name: Check source syntax
+        if: steps.scope.outputs.docs_only != 'true'
+        run: npm run check
+      - name: Verify bounded test-runner bootstrap
+        if: steps.scope.outputs.docs_only != 'true'
+        run: node --test test/unit/test-suite-runner.test.mjs
       - name: Run the installation doctor
-        if: steps.scope.outputs.docs_only != 'true' && startsWith(matrix.shard, '1/')
+        if: steps.scope.outputs.docs_only != 'true'
         run: npm run doctor
       - name: Verify the package contents
-        if: steps.scope.outputs.docs_only != 'true' && startsWith(matrix.shard, '1/')
+        if: steps.scope.outputs.docs_only != 'true'
         run: npm pack --dry-run
 
-  # Stable per-Node status for the Windows shards: this is the job that carries
-  # the required check name "test (windows-latest, <node>)" and that the release
-  # gate reads. It queries the shard jobs of this run, so a Node line passes
-  # only when each of its own shards succeeded (needs.result alone would mix
-  # Node lines); a shard that failed, was cancelled, or is missing fails it.
-  # always() makes it run (and fail) instead of being skipped when a shard fails.
-  # The second verification, which proves the shards really ran the suite, is
-  # the marker the release gate requires and is skipped for documentation-only
-  # changes.
-  test-windows:
-    name: test (windows-latest, ${{ matrix.node }})
-    needs: test-windows-shard
+  # Stable per-OS, per-Node status for the sharded platforms: this is the job
+  # that carries the required check names "test (macos-latest, <node>)" and
+  # "test (windows-latest, <node>)" and that the release gate reads. It queries
+  # the jobs of this run, so a cell passes only when each of its own shards and
+  # its own checks job succeeded (needs.result alone would mix cells); a job
+  # that failed, was cancelled, or is missing fails it. always() makes it run
+  # (and fail) instead of being skipped when a shard fails. The second
+  # verification, which proves the shards really ran the suite and the checks
+  # job really ran its steps, is the marker the release gate requires and is
+  # skipped for documentation-only changes.
+  test-sharded:
+    name: test (${{ matrix.os }}, ${{ matrix.node }})
+    needs: [test-shard, test-checks]
     if: always()
     timeout-minutes: 5
     permissions:
@@ -139,7 +172,7 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"node":[24]}' || github.event_name == 'push' && '{"node":[24]}' || '{"node":["18.20.3","20.12.0","21.6.0",24]}') }}
+      matrix: ${{ fromJSON(github.event_name == 'pull_request' && '{"os":["macos-latest","windows-latest"],"node":[24]}' || github.event_name == 'push' && '{"os":["macos-latest","windows-latest"],"node":[24]}' || '{"os":["macos-latest","windows-latest"],"node":["18.20.3","20.12.0","21.6.0",24]}') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -157,13 +190,15 @@ jobs:
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           CI_BEFORE_SHA: ${{ github.event.before }}
       - name: Require every shard of this Node line
-        run: node scripts/verify-ci-shards.mjs --platform windows-latest --node "$MATRIX_NODE" --shards 3
+        run: node scripts/verify-ci-shards.mjs --platform "$MATRIX_OS" --node "$MATRIX_NODE" --shards 3
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          MATRIX_OS: ${{ matrix.os }}
           MATRIX_NODE: ${{ matrix.node }}
       - name: Confirm every shard ran the test suite
         if: steps.scope.outputs.docs_only != 'true'
-        run: node scripts/verify-ci-shards.mjs --platform windows-latest --node "$MATRIX_NODE" --shards 3 --require-executed
+        run: node scripts/verify-ci-shards.mjs --platform "$MATRIX_OS" --node "$MATRIX_NODE" --shards 3 --require-executed
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          MATRIX_OS: ${{ matrix.os }}
           MATRIX_NODE: ${{ matrix.node }}
