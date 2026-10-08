@@ -283,6 +283,21 @@ The `verification_receipt:v1` reports separately:
 
 Say “verified” only when all proposal-required dimensions pass. Otherwise qualify the claim. A legacy `status: passed` structural receipt is not evidence of semantic or rendered correctness.
 
+## Work Shared Across Computers
+
+When several computers work on one project, a story belongs to whoever claimed it first on the project's git remote (see [Parallel Work Model](architecture.md#several-computers)). The agent never decides on its own who works on what:
+
+- Before editing, run `orchestrate status --json` and pick only an `available` story. A story `claimed` or `stale` on another computer shows its holder and branch; do not work on it.
+- Claim with `story claim` before the first edit. If the claim is refused because the story is held elsewhere (`STORY_CLAIM_HELD_ELSEWHERE`), tell the user who holds it, on which branch, and since when, and offer another available story. Never retry with `--force`.
+- If the remote cannot be reached (`STORY_CLAIM_REMOTE_UNAVAILABLE`), nothing was claimed: do not start the work. Offer to retry later. Suggest `orchestration_policy.coordination.mode: local_only` only when the user confirms that the project is worked on from this computer alone.
+- Taking over a story held elsewhere is the user's decision (`STORY_CLAIM_TAKEOVER_NEEDS_PERSON`). Show who holds it and since when, and give the user the exact command to run in their own terminal, with their reason: `story claim --id <story> --agent <name> --force --reason "<why>" --actor-type human`.
+- When `orchestrate status` or `status` says your claim was taken over, stop working on that story at once and tell the user who took it, when, and why.
+- A claim file that arrived with a branch you checked out belongs to the computer that made the claim. Never release or reuse it; releasing or taking over that story from here is the user's decision, with a reason.
+- Release the claim when the story is complete or handed off. If the release was not shared, say so and run `story release --id <story>` again once the remote is back.
+
+- **Italian examples:** “La story ST-002 è già in lavorazione da bob sul branch feature/ST-002 dalle 9:40: prendo ST-003, che è libera?”; “Il remote non è raggiungibile, quindi non ho assegnato nulla: riprovo tra poco?”
+- **English examples:** “ST-002 is already being worked on by bob on branch feature/ST-002 since 9:40: shall I take ST-003, which is free?”; “The remote cannot be reached, so nothing was claimed: shall I retry in a moment?”
+
 ## Release And Archive
 
 Completion produces lineage from baseline and proposal through requirement revision/profile, delivery profile, story/contract, authorization uses, artifact generation, layered verification, and execution usage. A pull-request completion does not imply protected-branch merge. A local release additionally requires evidence for its exact local target, smoke tests, and rollback procedure, and does not imply remote deployment. A `release-manifest:v1` inventories those hashes, while `release-gate-receipt:v1` records the deterministic checks that admitted that exact manifest. An `archive-record:v1` is a logical, hash-bound declaration that identified legacy artifacts remain historical but are outside that release scope; it does not move files. The historical `archive closed` command instead emits a distinct `archive_plan` governed by `archive-plan.schema.json`; applying that plan verifies source hashes under a lock and rolls back incomplete moves.

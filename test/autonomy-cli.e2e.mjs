@@ -524,8 +524,25 @@ function commitCoverageHash(record) {
   return crypto.createHash("sha256").update(stableJson(canonical)).digest("hex");
 }
 
+/**
+ * The test remote is a public repository the test cannot write to, so story
+ * claims stay on this computer instead of being shared through it.
+ */
+function keepClaimsOnThisComputer(project) {
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  config.orchestration_policy = {
+    ...config.orchestration_policy,
+    coordination: { ...config.orchestration_policy?.coordination, mode: "local_only" },
+  };
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const preview = mustRunJson(["config", "migrate", "--root", project]);
+  mustRunJson(["config", "migrate", "--root", project, "--apply", "--plan-hash", preview.plan.plan_hash, "--actor-type", "system"]);
+}
+
 function initializeAutonomyProject(project, options = {}) {
   mustRun(["init", "--root", project, "--project-name", "Autonomy E2E", "--force"]);
+  keepClaimsOnThisComputer(project);
   mustGit(project, ["init"]);
   mustGit(project, ["config", "user.name", "Autonomy E2E"]);
   mustGit(project, ["config", "user.email", "autonomy-e2e@example.invalid"]);

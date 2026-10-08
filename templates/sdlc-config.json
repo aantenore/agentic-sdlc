@@ -1262,6 +1262,15 @@
     "release_before_reclaim": true,
     "default_ttl_seconds": 86400
   },
+  "orchestration_policy": {
+    "principle": "Parallel work across several computers is safe only when every computer sees the same story claims. coordination decides where claims are recorded: auto shares them through this git remote when it exists and keeps them on this computer otherwise; required refuses to claim without the remote; local_only never shares them, for a project worked on from one computer only. A shared claim is created on the remote before the claim file, and when sharing applies and the remote cannot be reached, story claim is refused, because claiming is the start of work. Releases, handoffs, and closures publish a release record so the story can be claimed again; taking over a claim held elsewhere is a person's decision, recorded on the remote for the previous holder to see. stale_claim_after_seconds lists a claim as stale in orchestrate status once it is that old, even before it expires; null means only its expiry counts.",
+    "stale_claim_after_seconds": null,
+    "coordination": {
+      "mode": "auto",
+      "remote": "origin",
+      "timeout_seconds": 20
+    }
+  },
   "handoff_policy": {
     "required_for_phase_transfer": true,
     "record_trace": true,

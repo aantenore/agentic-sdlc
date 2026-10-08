@@ -105,9 +105,26 @@ function fakeGitHubEnv(project, values) {
 }
 
 /** A pull-request delivery that is started and allowed to merge, as in the autonomy E2E suite. */
+/**
+ * The test remote is a public repository the test cannot write to, so story
+ * claims stay on this computer instead of being shared through it.
+ */
+function keepClaimsOnThisComputer(project) {
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  config.orchestration_policy = {
+    ...config.orchestration_policy,
+    coordination: { ...config.orchestration_policy?.coordination, mode: "local_only" },
+  };
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const preview = mustRunJson(["config", "migrate", "--root", project]);
+  mustRunJson(["config", "migrate", "--root", project, "--apply", "--plan-hash", preview.plan.plan_hash, "--actor-type", "system"]);
+}
+
 function preparePullRequestDelivery() {
   const project = tmpDirectory("project");
   mustRun(["init", "--root", project, "--project-name", "Review Gate E2E", "--force"]);
+  keepClaimsOnThisComputer(project);
   git(project, ["init"]);
   git(project, ["config", "user.name", AUTHOR.name]);
   git(project, ["config", "user.email", AUTHOR.email]);

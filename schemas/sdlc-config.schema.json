@@ -197,6 +197,24 @@
     },
     "capability_discovery_policy": {
       "$ref": "#/$defs/capability_discovery_policy"
+    },
+    "orchestration_policy": {
+      "type": "object",
+      "properties": {
+        "principle": { "type": "string" },
+        "stale_claim_after_seconds": { "type": ["integer", "null"], "minimum": 60, "maximum": 31536000 },
+        "coordination": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "mode": { "enum": ["auto", "required", "local_only"] },
+            "remote": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+            "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 300 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "$defs": {

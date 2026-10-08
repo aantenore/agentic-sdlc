@@ -708,6 +708,58 @@ claims the same story, or use `--force` only after human coordination. The CLI
 serializes local claim changes and strict gates enforce the configured branch
 pattern.
 
+### Claims shared across computers
+
+When the project has the git remote named by
+`orchestration_policy.coordination.remote` (default `origin`), `story claim`
+first creates `refs/agentic-sdlc/claims/<story>/<epoch>/claim` on that remote
+with a create-only push, and writes `claim.json` (with `shared_claim`) only
+after the remote accepted it. Of two computers claiming the same story at once,
+exactly one wins; the other gets `STORY_CLAIM_HELD_ELSEWHERE` with the holder,
+branch, and time, and writes nothing. Releases (`story release`,
+`--release-claim`, closing a started story) are written locally first and then
+published as `.../<epoch>/release`; output reports `shared_release.status`
+(`shared`, `already_shared`, `taken_over`, or `not_shared` with the reason).
+After `not_shared`, run `story release --id <story>` again when the remote is
+reachable: it shares the release without rewriting the claim.
+
+```bash
+node bin/agentic-sdlc.mjs story claim --root <project> --id ST-001 --agent <host-agent> --branch feature/ST-001
+node bin/agentic-sdlc.mjs story release --root <project> --id ST-001 --reason "Design finished"
+# A person, in their own terminal, after deciding the holder cannot continue:
+node bin/agentic-sdlc.mjs story claim --root <project> --id ST-001 --agent <name> --branch feature/ST-001 --force --reason "<why>" --actor-type human
+```
+
+Taking over a story held on another computer needs `--force`, `--reason`, and a
+human or CI actor, and is refused inside an agent session
+(`STORY_CLAIM_TAKEOVER_NEEDS_PERSON`). The release record names who took over
+and why; the previous holder's `orchestrate status` and `status` show it.
+
+`orchestration_policy.coordination.mode` is `auto` (default: share when the
+remote exists, otherwise keep claims on this computer), `required` (refuse to
+claim without the remote), or `local_only` (never share, for one computer
+only); `timeout_seconds` bounds each remote call. With sharing in effect, an
+unreachable remote refuses the claim (`STORY_CLAIM_REMOTE_UNAVAILABLE`):
+claiming is the start of work. A project without git keeps claims local. A
+shared record that is unreadable, or that disappeared from or changed on the
+remote after this computer saw it, refuses claims of that story
+(`STORY_CLAIM_SHARED_RECORDS_INVALID`). Never push, delete, or rewrite these
+refs by hand.
+
+Ownership is decided by `refs/worktree/agentic-sdlc/claims/<remote>/...`, a
+per-worktree record holding a secret whose hash is the claim's `owner_proof`;
+`claim.json` is committed evidence, not proof. A pending record (push made, file
+not yet written) is cleaned up on retry; a confirmed claim whose file is missing
+in this worktree is treated as held. The plugin's hooks refuse fetching into,
+or batch-writing (`update-ref --stdin` from a pipe or file), the refs the CLI
+keeps for itself. Releasing a claim made on another computer (for example after checking
+out its branch) needs `--reason` and a human or CI actor, outside any agent
+session, and the release records who released it. Seen records are tracked
+per remote under `refs/agentic-sdlc-shared/claims/<remote>/`. A claim push
+whose answer is lost is re-checked on the remote; if the remote cannot be read,
+the refusal says the claim may have landed and the next `story claim` from the
+same computer releases it as `cancelled` first.
+
 Create every delivery story with at least one observable `--acceptance`
 criterion. `story create` never rewrites an existing story. For a legacy story
 that is missing criteria, recover only before task start with:
@@ -867,6 +919,16 @@ node bin/agentic-sdlc.mjs orchestrate plan --root <project> --limit 10
 ```
 
 Use `status` before opening another Codex chat. Use `plan` to find available story lanes for a parent orchestrator chat.
+
+When claims are shared through the git remote, both commands (and the project
+`status`) read every computer's claims with one `ls-remote` while some story
+is still open. A story held elsewhere is `claimed` (or `stale` once it expires
+or is older than `orchestration_policy.stale_claim_after_seconds`) with
+`shared_claim.holder` (agent, branch, claimed and expiry time) and
+`shared_claim.here: false`; it is never offered as an available lane.
+`shared_claim.ended_here` tells the previous holder that its claim was released
+or taken over, by whom, and why. `shared_claims.checked: false` means the
+remote could not be read; other computers' claims are then not shown.
 
 ## Route Intent
 

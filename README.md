@@ -221,6 +221,7 @@ project, repository, or global Git ignore rules match them.
 | Deterministic CLI | The CLI validates structured state, permissions, limits, and evidence; it does not interpret the conversation. |
 | Local execution and data | Project reads, approved local writes, tests, `.sdlc/` records, and a local release stay on the named machine and paths. |
 | Repository publication | Push and PR create/update use the network and only the displayed repository and branches. |
+| Shared work claims | `story claim` and its releases publish only small claim records under `refs/agentic-sdlc/claims/` on the project's git remote, so every computer sees who works on which story; no branch is pushed by them. |
 | Deployment and production | A PR or local release never implies a remote deployment, production access, or secret use. Those need a separate exact decision. |
 
 A **new PR** must show the repository, base branch, new head branch, allowed files, tests, push, and PR creation. An **existing PR** must show the exact PR and its current repository, base, head, and SHA; the workflow updates that PR and does not create another one. A **local-only result** excludes push, PR actions, remote deployment, and production and includes a smoke test plus rollback.
@@ -476,6 +477,18 @@ The default stays the same: every delivery asks for its own work brief approval,
 Merge, production, deploy, data migrations, force-push, and deletions of tracked files outside the paths are never covered. A matching delivery passes `--standing-approval <id>` on `contract approve`, `autonomy delivery propose`, and `autonomy delivery approve`; approving it consumes one delivery slot atomically. Each delivery action is then confirmed by a derived approval that names the standing approval and its slot, but only after the CLI re-checks the expiry, revocation, delivery count, the bound project, configuration, policy, and requirement hashes, and the files changed since task start. Anything outside the bounds answers `checkpoint_required` with the reason, so the normal confirmation applies. Tests, secret scanning, review, smoke tests, gates, and the lifecycle-complete certificate all still run. `autonomy standing revoke` takes effect at once, including for deliveries in progress at their next step. `status`, `autonomy standing status`, and the Change Observatory list standing approvals, the deliveries that used them, the deliveries left, and the expiry, and `status` warns before expiry.
 
 Only the user approves a standing approval, in their own terminal: the CLI refuses `autonomy standing approve` inside an agent's session, and the plugin's hooks (`hooks/hooks.json`, read by both Claude Code and Codex) stop the agent from running it or from changing the records directly. Used deliveries and revocations are also shared through the project's git remote, so every copy of the project, such as CI runners or containers, counts the same deliveries and sees a revocation at its next step; if the remote cannot be reached, nothing is covered and the normal confirmation applies (`standing_approval_policy.coordination`).
+
+## Parallel Work Across Computers
+
+Stories are the unit of parallel work: one story, one claim, one branch, one pull request. A claim file only coordinates processes on one checkout, so when the project has a git remote, `story claim` first records the claim on that remote with a push the remote accepts only if no one claimed that story first. Of two computers claiming the same story at the same moment, exactly one wins; the other is told who holds it, on which branch, and since when, and nothing is written. Releasing (`story release`, or `--release-claim` on `story complete-step` and `story prepare-handoff`) frees the story for everyone.
+
+```bash
+agentic-sdlc orchestrate status --json        # free, claimed (with holder and branch), stale, and blocked stories from every computer
+agentic-sdlc story claim --id ST-002 --agent alice --branch feature/ST-002
+agentic-sdlc story release --id ST-002 --reason "Merged"
+```
+
+The split is simple: publish the approved specs and story breakdown, let every computer pull them, then each runs `orchestrate status`, claims one available story, works on its branch, and opens its pull request. Claiming is the start of work, so if the remote cannot be reached the claim is refused; set `orchestration_policy.coordination.mode` to `local_only` for a project worked on from one computer only (`auto`, the default, shares claims when the remote exists; `required` refuses without it). Taking over a story held elsewhere is a person's decision, made in their own terminal with `--force` and a `--reason` that the previous holder sees. See [Parallel Work Model](docs/architecture.md#several-computers) for the step-by-step guide.
 
 ## Native Codex Metering Versus Exact Metering
 
@@ -736,6 +749,7 @@ If the plugin is absent or shows an older version, rerun the installer and `code
 - Every pull request and local release has its own explicit delivery execution profile; a prior PR choice is never reused.
 - A local release records its target root, smoke tests, governed smoke working directory, rollback, write paths, and allowed actions.
 - Protected-branch merge, remote deployment, and production access remain explicit exception decisions.
+- A story is claimed on the project's git remote before any work starts, so two computers never hold the same story; an unreachable remote refuses the claim unless the project chose `local_only`.
 - A free-text scope or `actor-type human` flag is not authority. Checkpoint 2 binds a host/CI receipt and content authorization to the proposal hash; every covered use stores a validity-at-use receipt.
 - The approved budget aggregates main-agent and subagent usage, preserves a completion reserve, and changes only through a versioned amendment.
 - Cache and indexes are derived data and never count as canonical evidence.

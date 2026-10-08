@@ -549,6 +549,44 @@ Phase locks are reserved for shared artifacts that cannot be safely edited by mu
 
 This avoids one shared mutable planning document becoming a collaboration bottleneck.
 
+### Several computers
+
+A claim file and its `claim.lock` only serialize processes that share one checkout. When the project has a git remote, claims are therefore also recorded on that remote, so two computers can never hold the same story and find out only at merge:
+
+| Ref on the remote | Created by | Meaning |
+|---|---|---|
+| `refs/agentic-sdlc/claims/<story>/<epoch>/claim` | `story claim` | who holds the story: agent, branch, a claimant id for this claim, the approved contract and task start it is bound to, claim and expiry time |
+| `refs/agentic-sdlc/claims/<story>/<epoch>/release` | `story release`, `story complete-step --release-claim`, `story prepare-handoff --release-claim`, `story supersede`/`cancel` of a started story, a takeover | how and when that claim ended (`released`, `transferred`, `cancelled`, `closed`, or `taken_over` with who took over and why) |
+
+Each ref is created with a push that the remote accepts only if the ref does not exist yet (`--force-with-lease=<ref>:`), to the remote's fetch address, without hooks or signing, in the C locale, and bounded by `timeout_seconds`. A story is free when its latest epoch has a release (or it has none); claiming it creates the next epoch. Of two computers claiming the same epoch at the same moment, exactly one push is accepted: the other is refused with who holds the story, on which branch, and since when, and writes nothing. `story claim` writes `claim.json` (with the shared record under `shared_claim`) only after the remote accepted the claim.
+
+Releases are written on this computer first and then shared, so a release that cannot reach the remote only keeps the story reserved for everyone else a little longer; `story release` run again shares it. Taking over a story held elsewhere is a person's decision: `story claim --force --reason <why>` with a human or CI actor, refused inside an agent's session. The takeover is recorded in the release record, so the previous holder's `orchestrate status` and `status` say who took the story over, when, and why.
+
+Every computer keeps the claim records it has seen under `refs/agentic-sdlc-shared/claims/<remote>/` (one view per remote, named by a credential-free fingerprint of its address), fetched without `+` and never pruned; a record that later disappears from or changes on the remote makes that story's shared state untrustworthy, and claiming it is refused until the remote's refs are restored. Pointing the remote elsewhere starts a fresh view instead of reporting every earlier record as gone.
+
+Whether a claim was made here is decided only by an ownership record the claiming worktree writes for itself, `refs/worktree/agentic-sdlc/claims/<remote>/<story>/<epoch>`: git keeps `refs/worktree/` apart for every worktree and never pushes or fetches it. The record holds a random secret; the shared claim carries only its hash (`owner_proof`), so ownership cannot be rebuilt from the public claim record, and copying that record into the ownership refs proves nothing. The record is `pending` from just before the push and `confirmed` once `claim.json` is written; only a pending record without its claim file is treated as an interrupted attempt, while a confirmed claim whose file is missing here (another branch, another worktree) counts as held like any other. A linked worktree on a git that does not keep `refs/worktree/` apart is refused rather than sharing ownership with the others. `claim.json` stays committed with the story's work, because traces and gates bind it as evidence, but it is not proof of ownership: when it arrives on another computer with a checked-out branch, releasing that claim or taking the story over from there is still a person's decision, with `--reason` and a human or CI actor, refused inside an agent's session, and the release record names who released it. Because the ownership record is written before the claim is pushed, a push whose answer is lost is recognised: the CLI lists the remote ref again and keeps the claim if it landed; if the remote cannot be read at all, the refusal says the claim may have reached the remote, and the next `story claim` from this computer releases that interrupted claim as `cancelled` before claiming again. `orchestrate status`, `orchestrate plan`, and `status` read every story's records with one `ls-remote` (and fetch only unseen records) whenever some story is still open. A story another computer holds is listed as `claimed` (or `stale`, once it expires or is older than `orchestration_policy.stale_claim_after_seconds`) and is never offered as an available lane.
+
+`orchestration_policy.coordination` selects where claims live:
+
+| `mode` | With the remote | Without the remote | Remote unreachable |
+|---|---|---|---|
+| `auto` (default) | shared | kept on this computer, as before | claim refused |
+| `required` | shared | claim refused | claim refused |
+| `local_only` | kept on this computer | kept on this computer | not contacted |
+
+`remote` (default `origin`) names the git remote and `timeout_seconds` (default 20) bounds each call. A project that is not a git repository keeps its claims on this computer. Claiming is the start of work, so an unreachable remote refuses the claim with a plain explanation; `local_only` is the escape for a project worked on from one computer only. Projects without the `orchestration_policy` block use these defaults. The plugin's hooks refuse forging, deleting, or rewriting these refs by hand.
+
+#### Split the work across machines, step by step
+
+1. **Publish the approved specs.** On the first computer, approve the requirements, story breakdown, contracts, and task starts (each story ready to claim), commit `.sdlc/`, and push the branch everyone starts from (for example `main`). Keep `orchestration_policy.coordination.mode` at `auto` (or `required`).
+2. **Pull on every computer.** Each computer clones or pulls that branch, so all of them read the same stories, contracts, and dependency graph.
+3. **Pick a free lane.** On each computer, run `agentic-sdlc orchestrate status --json` (or `orchestrate plan --json`). Stories claimed on any computer show as `claimed` with holder and branch; hard dependencies keep blocked stories out of the `available` list.
+4. **Claim before editing.** Run `agentic-sdlc story claim --id <story> --agent <name> --branch feature/<story>`. If another computer won the race or already holds it, the command says who and where; pick another available story.
+5. **Branch and work.** Create the story branch, implement, record traces and steps, and push the branch.
+6. **Open the pull request.** Deliver the story through its own pull request or local release, as the delivery profile says.
+7. **Release or hand off.** When the story is complete or handed to another computer, release the claim (`story release`, or `--release-claim` on `story complete-step` / `story prepare-handoff`). If the release says it was not shared, run `story release --id <story>` again once the remote can be reached.
+8. **Stale work.** A claim that expired or exceeds the configured age shows as `stale`. Ask its holder to release it; only a person may take it over, with `story claim --id <story> --agent <name> --force --reason "<why>" --actor-type human` in their own terminal.
+
 For phase-by-phase examples, see [Agent Interactions](agent-interactions.md).
 
 ## Gate Model

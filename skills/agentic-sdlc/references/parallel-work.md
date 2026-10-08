@@ -59,6 +59,30 @@ flowchart TB
   GateB --> Merge
 ```
 
+## Multiple Computers
+
+Claim files and their locks only serialize work on one checkout. When the
+project has a git remote, every claim is also created on it as
+`refs/agentic-sdlc/claims/<story>/<epoch>/claim` before `claim.json` is
+written, with a push the remote accepts only if the ref does not exist yet, so
+exactly one computer wins a story. Releases, handoffs with `--release-claim`,
+closures, and takeovers add `.../<epoch>/release`, after which the story can be
+claimed again.
+
+1. Publish the approved specs: requirements, story breakdown, contracts, and task starts, committed and pushed to the shared branch.
+2. On each computer, pull that branch and run `orchestrate status --json`; stories claimed on any computer show as `claimed` with holder and branch.
+3. Claim one `available` story with `story claim` before editing; a refusal names who holds it.
+4. Create the story branch, work, push, and open the story's pull request (or complete its local release).
+5. Release the claim when done or handed off; if the release was not shared, run `story release` again once the remote is reachable.
+
+`orchestration_policy.coordination.mode` is `auto` (default), `required`, or
+`local_only`. With sharing in effect, an unreachable remote refuses the claim:
+claiming is the start of work. Taking over a story held elsewhere is a person's
+decision (`--force --reason <why>` with a human actor, outside any agent
+session); the release record tells the previous holder who took over and why.
+A claim older than `orchestration_policy.stale_claim_after_seconds`, or past its
+expiry, is listed as `stale`.
+
 ## Parent Orchestrator Chat
 
 A parent chat can coordinate several worker chats without editing their story files directly:
@@ -74,6 +98,6 @@ The parent may distribute story work only across separately governed delivery la
 
 ## Conflict Handling
 
-If two agents need the same story, split the story or coordinate release and reclaim. Do not use `--force` on a claim unless a human has decided the previous claim is stale or invalid.
+If two agents need the same story, split the story or coordinate release and reclaim. Do not use `--force` on a claim unless a human has decided the previous claim is stale or invalid; for a claim held on another computer, the person runs the takeover in their own terminal.
 
 Use phase locks only for shared artifacts such as global analysis, release notes, or architecture decisions. Do not lock the whole project for ordinary story-scoped implementation.

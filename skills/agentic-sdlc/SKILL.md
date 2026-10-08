@@ -82,7 +82,7 @@ By default every delivery gets its own work brief approval, its own working-mode
 
 In Italian: "Queste pulizie dei flag si ripetono. Se vuoi, posso smettere di chiederti conferma ogni volta: fino a 5 rilasci locali entro il 1° novembre, solo in `src/flags` e `docs`, al massimo 10 file e 200 righe ciascuno. Test, scansione dei segreti e controlli finali continuano a girare ogni volta. Se qualcosa esce da questi limiti mi fermo e ti chiedo, e puoi revocarla in qualsiasi momento. Vuoi che la imposti?"
 
-**Never create or widen one on your own.** Record the proposal with `autonomy standing propose` and show its plain-language summary (`autonomy standing explain`). The approval belongs to the user: give them the exact `autonomy standing approve --id <id> --actor-type human --approval-source explicit-user --summary "<their words>"` command to run in their own terminal; the plugin's hooks block you from running it. Records are immutable: different limits need a new proposal and a new explicit approval. An agent, system, or automation actor can never approve or revoke one, and never edits the files under `.sdlc/autonomy/standing/` or the `refs/agentic-sdlc/` refs.
+**Never create or widen one on your own.** Record the proposal with `autonomy standing propose` and show its plain-language summary (`autonomy standing explain`). The approval belongs to the user: give them the exact `autonomy standing approve --id <id> --actor-type human --approval-source explicit-user --summary "<their words>"` command to run in their own terminal; the plugin's hooks block you from running it. Records are immutable: different limits need a new proposal and a new explicit approval. An agent, system, or automation actor can never approve or revoke one, and never edits the files under `.sdlc/autonomy/standing/` or the `refs/agentic-sdlc/` refs (which also hold story claims).
 
 **How to use it.** For a matching delivery, use the middle working level and pass `--standing-approval <id>` instead of the approver options on `contract approve`, `autonomy delivery propose` (with `--level checkpointed`), and `autonomy delivery approve`. Then request each delivery action without `--confirm-action`: the CLI records a derived approval when the step fits, or answers `checkpoint_required` with `standing_approval.reasons`. In that case stop, tell the user which limit was crossed (paths, size, destination, expiry, count, budget, changed rules, or revocation), and ask for the normal confirmation. Every existing check still runs. Use `autonomy standing status` to report remaining deliveries and warn the user before expiry; use `autonomy standing revoke` as soon as the user asks to stop. Used deliveries and revocations are shared through the project's git remote; if the remote cannot be reached, nothing is covered, so ask for the normal confirmation, and after a revocation reports `shared_revocation.status: failed`, run `autonomy standing sync --id <id>` once the remote is back.
 
@@ -793,6 +793,24 @@ The dedicated assessment journey remains the exception described above: it packa
    node <plugin-root>/bin/agentic-sdlc.mjs story claim --root <target-project> --id ST-001 --agent <host-agent> --branch feature/ST-001 --thread-id <thread-id> --authorization AUTH-ST-001-CLAIM
    ```
 
+   When the project has a git remote, the claim is first recorded on it
+   (`refs/agentic-sdlc/claims/`), so every computer working on the project sees
+   it; `orchestrate status` lists stories claimed on other computers as
+   `claimed` with their holder and branch. Work only on a story you claimed.
+   If the claim is refused because another computer holds the story, tell the
+   user who holds it, on which branch, and since when, and offer another
+   available story; never retry with `--force`. If the remote cannot be
+   reached, nothing was claimed: do not start, and offer to retry. Only the
+   user takes over a story held elsewhere, in their own terminal:
+   `story claim --id ST-001 --agent <name> --force --reason "<why>" --actor-type human`
+   (the CLI refuses it inside your session). When status says your claim was
+   taken over, stop working on that story and tell the user. A claim file that
+   arrived with a branch you checked out is not yours: never release or reuse
+   it; only the user releases or takes over a claim made on another computer. Suggest
+   `orchestration_policy.coordination.mode: local_only` only when the user
+   confirms the project is worked on from one computer. See
+   `references/parallel-work.md`.
+
 15. Capture durable autonomy decisions, assumptions, risks, tests, handoffs, sync/push/PR events, dependency revalidation, and release evidence as traces. Include requirement/profile, delivery/profile, requested/effective level, and deterministic reason-code references. Strict gates require `test` and `release` traces to include real evidence paths outside cache/index directories and explicit successful outcomes (`passed` for tests; `ready` or `passed` for release). A local release also requires target-bound smoke-test evidence and its rollback procedure:
 
    ```bash
@@ -871,7 +889,7 @@ The dedicated assessment journey remains the exception described above: it packa
      --request-id <unique-phase-transition-id>
    ```
 
-17. Use `story prepare-handoff` when passing work between chats, machines, or phases. Use `--release-claim` only when the next agent should be able to claim the story after pulling the shared KB:
+17. Use `story prepare-handoff` when passing work between chats, machines, or phases. Use `--release-claim` only when the next agent should be able to claim the story after pulling the shared KB; the release is also shared through the git remote, and if the output says it was not shared, run `story release --id ST-001` again once the remote can be reached:
 
    ```bash
    node <plugin-root>/bin/agentic-sdlc.mjs story prepare-handoff \
