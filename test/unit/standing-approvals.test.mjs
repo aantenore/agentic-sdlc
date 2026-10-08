@@ -50,6 +50,7 @@ function proposal(overrides = {}) {
     description: "Bump patch versions",
     destination: "pull_request",
     repository: "Acme/Shop",
+    code_review: "not-required",
     requirement_refs: [{ id: "REQ-DEPS", profile_id: "AUT-REQ-DEPS", profile_hash: HASH }],
     allowed_write_paths: ["package.json", "src/**/*.mjs", "docs/"],
     max_changed_files: 3,

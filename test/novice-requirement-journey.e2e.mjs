@@ -263,7 +263,7 @@ test("a structured Codex handoff reaches one executable PR task in lifecycle ord
     "--root", project,
     "--id", "AUT-PR-NOVICE-001",
     "--delivery", "PR-NOVICE-001",
-    "--kind", "pull_request",
+    "--kind", "pull_request", "--code-review", "not-required", "--code-review-actor-type", "human", "--code-review-approval-source", "explicit-user", "--code-review-summary", "No review needed for this story",
     "--story", "ST-NOVICE-001",
     "--contract", "contract-ST-NOVICE-001-implementation",
     "--requirement", "REQ-NOVICE-001",

@@ -208,7 +208,8 @@
             { "type": "null" },
             { "type": "string", "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$" }
           ]
-        }
+        },
+        "code_review": { "$ref": "#/$defs/code_review_decision" }
       },
       "allOf": [
         {
@@ -238,6 +239,42 @@
               "pr_number": { "type": "null" },
               "pr_url": { "type": "null" },
               "reviewed_head_sha": { "type": "null" }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "code_review_decision": {
+      "type": "object",
+      "description": "The person's choice of whether this pull request needs a code review before the plugin merges it. Checked only at pull_request.merge.",
+      "required": ["decision", "source", "actor_id", "user_words", "standing_approval_id", "decided_at"],
+      "properties": {
+        "decision": { "enum": ["required", "not-required"] },
+        "source": { "enum": ["explicit-user", "standing-approval"] },
+        "actor_id": { "type": ["string", "null"] },
+        "user_words": { "type": ["string", "null"] },
+        "standing_approval_id": { "type": ["string", "null"] },
+        "decided_at": { "type": "string", "format": "date-time" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "explicit-user" } } },
+          "then": {
+            "properties": {
+              "actor_id": { "type": "string", "minLength": 1 },
+              "user_words": { "type": "string", "minLength": 1 },
+              "standing_approval_id": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "source": { "const": "standing-approval" } } },
+          "then": {
+            "properties": {
+              "actor_id": { "type": "null" },
+              "user_words": { "type": "null" },
+              "standing_approval_id": { "type": "string", "minLength": 1 }
             }
           }
         }

@@ -218,8 +218,14 @@ node bin/agentic-sdlc.mjs autonomy delivery propose \
   --allow-action git.commit \
   --allow-action git.push \
   --allow-action pull_request.update \
+  --code-review not-required \
+  --code-review-actor-type human \
+  --code-review-approval-source explicit-user \
+  --code-review-summary "No, complete it automatically" \
   --json
 ```
+
+Every new pull-request proposal must carry the user's answer to "do you want a code review before this PR is merged?": `--code-review required|not-required`, with `--code-review-actor-type human`, `--code-review-approval-source explicit-user`, and `--code-review-summary` quoting the user's words; `--code-review-actor <person-id>` names the person (default `user`). An agent or system choice is refused, and so is `--code-review` on a local release. Ask the question at the same step as the autonomy choice, before `task start`, and never infer it from an earlier story (see the skill, Workflow step 13). The answer is stored in the approved, hash-bound profile as `pull_request_target.code_review` (`decision`, `source` `explicit-user` or `standing-approval`, `actor_id`, `user_words`, `standing_approval_id`, `decided_at`); editing it breaks the profile hash, and a delivery that carries it cannot be approved with `--approval-source automation`. A proposal under `--standing-approval` without `--code-review` takes the standing approval's answer instead. A profile created before this option has no `code_review` and follows `gate_policy.merge_requires_code_review` without blocking or asking. The requirement is checked only at `pull_request.merge`; see [Record A Code Review](#record-a-code-review) for what it needs and how to change it after approval.
 
 Local-release example:
 
@@ -359,6 +365,8 @@ node bin/agentic-sdlc.mjs autonomy delivery revoke \
   --summary "Revoke autonomy for PR-184"
 ```
 
+`autonomy delivery explain` and `status` state, for a pull request, whether a code review is needed before merge and where that comes from: `project_policy` (the project requires one for every pull request), `delivery_profile` (the user chose it for this story), `standing_approval`, `change` (changed after approval), or `project_default` (a profile created before the choice existed). When a review is required they also show how many of the reviews recorded on this computer are valid for the current head ("N of M"). In JSON this is `code_review` in `explain` and `code_review_before_merge` in `status`, which lists every open pull-request delivery with its requirement.
+
 Before approving, review the complete proposed JSON: requirement ceiling, selected level, target identity, allowed actions, write paths, automatic phases, checkpoints, exception triggers, merge/deploy exclusions, expiry, and the non-reuse boundary. In `audit_only`, a requested `bounded-autonomous` profile evaluates only as `checkpointed`, including for local releases. Effective `bounded-autonomous` requires an external host/CI to sign the exact profile-approval subject with Ed25519, `authority_policy.mode: host_verified`, the public key in `authority_policy.trusted_host_keys`, and `--host-receipt-file <path.json>` on `autonomy delivery approve`. The CLI verifies that receipt; it cannot self-issue trusted authority.
 
 Before task start, verify that the approved profile ID equals the planned `delivery_execution_profile_id` in the already approved contract. Supply that profile to the evaluator. `supervised` always requires confirmation. For another effective level, task start is automatic only when the current phase is listed under `autonomy_policy.presets.<level>.automatic_phases`; otherwise rerun the displayed checkpoint with `--confirm-start` or a matching authorization. The stock `checkpointed` preset makes analysis, design, implementation, and validation automatic but keeps release actions checkpointed. Do not rewrite the contract:
@@ -380,6 +388,8 @@ A standing approval lets similar deliveries proceed without a confirmation for e
 
 For `--destination pull_request`, `--repository <owner/repository>` is required and pushes are confined to head branches under `--head-branch-prefix` (default `standing/<id>/`). The base branch and shared, release, or production branches (`main`, `master`, `develop`, `release/*`, `prod*`, ...) are never covered. A work brief approved under a standing approval must be for a non-release phase, must not allow infrastructure tools (`kubectl`, `terraform`, cloud CLIs, ...), must name a delivery that is new or proposed under the same standing approval, and the briefs it approves never name more deliveries than `--max-deliveries`.
 
+For `--destination pull_request`, `--code-review required|not-required` is also required: it records the user's answer to the code review question for every pull request the standing approval covers, and `autonomy standing explain` states it in plain language. A delivery proposed with `--standing-approval` and no `--code-review` takes that answer (stored with `source: standing-approval` and the standing approval id) and is not asked again. An explicit `--code-review` answer that differs from the bound is outside the standing approval: the delivery is not covered and goes through the normal question and approval. A standing approval proposed before this option has no bound, so each delivery under it needs the user's own answer. A standing approval never covers a merge, whatever it records here. Recording `--code-review not-required` is how a user states once that none of these stories need a review; it is bounded by the same deliveries, expiry, and revocation, and is never inferred from earlier answers.
+
 `--budget-per-delivery`, `--budget-total`, and `--currency` set an optional cost budget, accepted only when a source that reports delivery cost is configured (the CodeBurn adapter with its `cost` mapping, or a trusted signed source whose metrics include `cost`); otherwise propose is refused and nothing is recorded. Amounts are exact decimals. A step is covered only when a verified meter reading of the delivery's cost is newer than its last recorded step, its meter started within 5 minutes of the delivery's approval and before the work, and its window reaches today (run `budget meter start --delivery <profile-id>` right after `autonomy delivery approve` and before `task start` and `budget meter record --delivery <profile-id>` before each step), the delivery's cost is within the per-delivery budget, and the cost of every delivery that used the standing approval is within the total; a hand-declared cost counts toward the amounts but never makes a delivery measured, and a total that includes a delivery without a fresh verified reading here (record a final one for a finished delivery) is not measurable; a delivery whose meter started late, or that ended before any meter started, keeps that total unmeasurable for good (continue with normal confirmations, or revoke and have the user approve a new standing approval). Otherwise the normal confirmation applies.
 
 ```bash
@@ -392,6 +402,21 @@ node bin/agentic-sdlc.mjs autonomy standing propose \
   --write-path src/flags --write-path docs \
   --max-changed-files 10 --max-changed-lines 200 \
   --destination local_release \
+  --max-deliveries 5 \
+  --expires-at 2026-11-01T00:00:00Z
+
+# A pull-request destination also records the user's code review answer.
+node bin/agentic-sdlc.mjs autonomy standing propose \
+  --root <project> \
+  --id SA-DEPS \
+  --recipe dependency-bump \
+  --description "Bump patch versions of npm dependencies" \
+  --requirement REQ-DEPS \
+  --write-path package.json --write-path package-lock.json \
+  --max-changed-files 2 --max-changed-lines 400 \
+  --destination pull_request \
+  --repository owner/repository \
+  --code-review not-required \
   --max-deliveries 5 \
   --expires-at 2026-11-01T00:00:00Z
 
@@ -1136,7 +1161,50 @@ node bin/agentic-sdlc.mjs review record --root <project> --delivery AUT-PR-001 -
 node bin/agentic-sdlc.mjs review record --root <project> --delivery AUT-PR-001 --verdict changes_requested --finding '{"severity":"blocking","summary":"Refund path skips the audit trace","path":"src/refund.js","line":42}' --json
 ```
 
-The reviewed head commit and the base commit are read from the repository (the delivery's head branch must be checked out), and the reviewer's Git name and email from the local Git configuration; there is no option to name a commit. An approval cannot carry a `blocking` finding. When `gate_policy.merge_requires_code_review` is `true`, `autonomy delivery action --action pull_request.merge` exits `1` unless an approved review exists for the exact head being merged, by a reviewer whose actor and Git email differ from every commit author in `base..head`. A new commit on the head branch requires a new review.
+The reviewed head commit and the base commit are read from the repository (the delivery's head branch must be checked out), and the reviewer's Git name and email from the local Git configuration; there is no option to name a commit. An approval cannot carry a `blocking` finding.
+
+### When a review is required
+
+A review is required for a pull-request delivery when the user chose it for that story (the answer given to `autonomy delivery propose --code-review`), or when the project policy requires it for every pull request. The template sets `gate_policy.merge_requires_code_review` to `false`. An existing project that explicitly has `true` keeps it: it requires a review for every pull request and no story answer lowers it. To change the policy, edit `.sdlc/config.json`, preview with `config migrate`, then apply with `config migrate --apply --plan-hash <hash>`. A profile created before the per-story answer existed has none and follows the project default. `autonomy delivery explain` and `status` show which source applies (`project_policy`, `delivery_profile`, `standing_approval`, `change`, `project_default`).
+
+The requirement is checked only at `pull_request.merge`, never at `git.commit`, `git.push`, `pull_request.create`, `pull_request.update`, closing as `ready_for_review`, or any gate, including `gate check --strict --lifecycle-complete`. When it applies, `autonomy delivery action --action pull_request.merge` exits `1` unless an approved `code-review:v1` record exists for the exact head being merged, with a valid schema and `record_hash`, by a reviewer whose actor and Git email differ from every commit author in `base..head`. A later `changes_requested` from an independent reviewer blocks the merge, and a new commit on the head branch requires a new review.
+
+### Change the requirement after approval
+
+```bash
+node bin/agentic-sdlc.mjs review require --root <project> --delivery AUT-PR-001 --summary "The user asked for a review before merge"
+node bin/agentic-sdlc.mjs review waive --root <project> --delivery AUT-PR-001 --actor-type human --approval-source explicit-user --summary "<the user's words>"
+```
+
+Before the task starts, re-propose the delivery with the new answer instead. After approval:
+
+- `review require` adds the requirement. Anyone may run it. It applies at once, also to a delivery in progress, and only at merge.
+- `review waive` drops it. Only the user can decide that: it needs `--actor-type human --approval-source explicit-user` and the user's words in `--summary`, it is refused inside an agent session (the user runs it in their own terminal), and it is refused when the project policy requires reviews for every pull request.
+
+Each writes a hash-bound record, `code-review-requirement-change:v1`, under `.sdlc/reviews/requirement-changes/`, bound to the profile id and hash, and appends a `review.require` or `review.waive` trace event. A record whose hash no longer matches, or a waiver not made by a person, is ignored.
+
+### Reviews from another computer
+
+A review recorded on another computer counts at merge only after it is shared. Sharing is an explicit, user-initiated step; nothing is published automatically:
+
+```bash
+node bin/agentic-sdlc.mjs review publish --root <project> --delivery AUT-PR-001 [--review <review-id>]
+node bin/agentic-sdlc.mjs review fetch --root <project> --delivery AUT-PR-001
+```
+
+`review publish` pushes each valid review of the delivery recorded here (or only `--review`) to the coordination remote as a create-only ref, `refs/agentic-sdlc/reviews/<profile-id>/<profile-hash16>/<review-id>`. It never pushes or changes the pull-request branch or any other branch. `review fetch` reads those refs into `refs/agentic-sdlc-shared/reviews/...` and reports which are valid for the current head and why the others are ignored. At merge the plugin does a read-only fetch of the same refs. A received review counts only when its schema and `record_hash` are valid, it is for the same delivery profile (id and hash) and the same repository, its `reviewed_head_sha` equals the head being merged, and its reviewer is independent of the `base..head` authors, recomputed locally; otherwise it is ignored with a reason. An unreachable remote leaves only the reviews recorded on this computer. The remote and timeout come from `orchestration_policy.coordination`. The refs are create-only, like those used for standing approvals and story claims, so two computers never conflict on one mutable ref.
+
+### Independent review on the same computer
+
+`review record` uses the Git configuration identity as the reviewer, so the person guiding the agent can record an independent review on the same computer only if the agent's commits carry another identity. Recommend that the agent commit with a dedicated identity through environment variables, for its own commits only:
+
+```bash
+GIT_AUTHOR_NAME=agent-dev-1 GIT_AUTHOR_EMAIL=agent-dev-1@users.noreply.invalid \
+GIT_COMMITTER_NAME=agent-dev-1 GIT_COMMITTER_EMAIL=agent-dev-1@users.noreply.invalid \
+git commit ...
+```
+
+Leave the repository's `user.name` and `user.email` as the person's identity. Do not set the agent identity in the repository Git configuration: the person's review would carry it and would not be independent.
 
 ## Print The Pull-Request Checks Table
 
@@ -1155,7 +1223,7 @@ The host writes the description, so put the table in it when authorizing `pull_r
 | Tests | `test-run:v1` records of the delivery's story, recorded while the delivery was running | The latest run of that command passed and was made at the current commit. One row per distinct command; a later failure replaces an earlier pass, and a run made before a later commit is `NOT RUN` until it is run again. |
 | Smoke tests | The same records, when recorded with `test record --framework smoke` | The latest smoke run passed. |
 | Secret scan | `secret-scan:v1` records for the delivery | The latest scan that still covers the current head, delivery base, and uncommitted work is clean. A scan of an earlier state is `NOT RUN`. |
-| Code review gate | `code-review:v1` records for the delivery profile | An independent reviewer approved the current head. Only the author's review, or a review of an earlier head, is `NOT RUN`. Shows whether `gate_policy.merge_requires_code_review` makes it a merge requirement. |
+| Code review gate | `code-review:v1` records for the delivery profile | An independent reviewer approved the current head. Only the author's review, or a review of an earlier head, is `NOT RUN`. Shows whether this delivery's merge requires a review (the user's answer for the story, or `gate_policy.merge_requires_code_review`). With no review recorded the row is `NOT RUN`, whether or not the merge needs one; the requirement itself is checked only at merge. |
 | Strict gate, Lifecycle-complete gate | `.sdlc/gates/<story>-strict.json` and `-final.json` | The receipt exists, matches its schema and its own hash, and is for this story. |
 | Standing approval | The standing approval the delivery was proposed under (row appears only then) | A delivery slot is recorded for this delivery and the approval is not `invalid` or `revoked`. |
 | Budget decision | The start receipt's recorded autonomy decision and the contract | An execution budget is bound and the start decision was not stopped by it. With no budget bound, the row is `NOT RUN`. |

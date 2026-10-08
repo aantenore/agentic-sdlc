@@ -45,7 +45,7 @@ For generic implementation and release work, follow this order:
 2. **Agree the requirement** — show the outcome, success criteria, non-goals, constraints, integrations, and maximum working independence in ordinary language; obtain the required approval. List every project path the work may change, including `.gitignore` when it may be added or updated and an in-repository local-release destination (see “Choose where the result goes”).
 3. **Decompose only when needed** — say up front that every story is delivered on its own: each story gets its own pull request or local release and its own autonomy choice. Before proposing stories, ask whether the user wants one result or several. When the user wants ONE pull request or ONE local release for several parts, propose one delivery story whose parts are tasks inside it; propose several stories only when each part should ship separately. Obtain approval before treating the breakdown as canonical, and agree this shape before approval, not after: an approved story that is never started stays in the plan (see “Approved stories that will not be delivered”).
 4. **Agree the output and work brief** — resolve the real output, tools, files, tests, contract, branches or local target, verification, and protected actions. Create and approve the contextualized contract only after this content is complete.
-5. **Choose autonomy for this delivery** — for every pull request or local release, ask again; never carry the choice over from earlier work. Before presenting the choices, explain whether option 3 can actually be effective; when this installation cannot digitally verify the approver, say that option 3 will be reduced to “Autonomy with checkpoints”.
+5. **Choose autonomy for this delivery** — for every pull request or local release, ask again; never carry the choice over from earlier work. Before presenting the choices, explain whether option 3 can actually be effective; when this installation cannot digitally verify the approver, say that option 3 will be reduced to “Autonomy with checkpoints”. For a pull request, ask the code review question at the same step, before `task start`: does the user want a person who did not author the commits to approve the code before this PR is merged? It applies to this story only and is never inherited (see Workflow step 13). A local release never takes it.
 6. **Start the story workflow, then start once** — bind the exact configured phase order to the story before any completed step, then make one logical `task start` decision. Never use an early speculative start as routing or discovery, and never reconstruct the workflow after work has begun.
 7. **Implement, test, and advance phases** — after the governed task start is recorded, claim the story, change only approved paths, run the agreed checks, record evidence, complete each phase, and enter the next phase only after the previous one is complete.
 8. **Validate, then enter release** — after validation and the latest passing test evidence, seal the intermediate strict receipt and use it to move the task-bound workflow into `release`.
@@ -85,6 +85,8 @@ In Italian: "Queste pulizie dei flag si ripetono. Se vuoi, posso smettere di chi
 **Never create or widen one on your own.** Record the proposal with `autonomy standing propose` and show its plain-language summary (`autonomy standing explain`). The approval belongs to the user: give them the exact `autonomy standing approve --id <id> --actor-type human --approval-source explicit-user --summary "<their words>"` command to run in their own terminal; the plugin's hooks block you from running it. Records are immutable: different limits need a new proposal and a new explicit approval. An agent, system, or automation actor can never approve or revoke one, and never edits the files under `.sdlc/autonomy/standing/` or the `refs/agentic-sdlc/` refs (which also hold story claims). In a project that requires signed approvals (`host_verified`), the approval also needs a receipt signed by the trusted host for that exact standing approval: tell the user, show the `host_receipt_request` from `autonomy standing explain --id <id> --json` (the action and exact subject the host signs), and add `--host-receipt-file <receipt.json>` to the command they run. Never create, edit, copy, or sign a receipt yourself. A standing approval without a valid receipt covers nothing there. Revoking accepts a receipt but never needs one.
 
 **How to use it.** For a matching delivery, use the middle working level and pass `--standing-approval <id>` instead of the approver options on `contract approve`, `autonomy delivery propose` (with `--level checkpointed`), and `autonomy delivery approve`. Then request each delivery action without `--confirm-action`: the CLI records a derived approval when the step fits, or answers `checkpoint_required` with `standing_approval.reasons`. In that case stop, tell the user which limit was crossed (paths, size, destination, expiry, count, budget, changed rules, a missing or invalid signature, or revocation), and ask for the normal confirmation. Every existing check still runs. When the standing approval has a cost budget, run `budget meter start --delivery <profile-id>` immediately after the delivery is approved (within 5 minutes) and before `task start`, and `budget meter record --delivery <profile-id>` before each delivery action so the step rests on a fresh reading of the delivery's cost; a step whose cost is not freshly measured falls back to the normal confirmation. Use `autonomy standing status` to report remaining deliveries, the cost spent against a budget, and warn the user before expiry; use `autonomy standing revoke` as soon as the user asks to stop. Used deliveries and revocations are shared through the project's git remote; if the remote cannot be reached, nothing is covered, so ask for the normal confirmation, and after a revocation reports `shared_revocation.status: failed`, run `autonomy standing sync --id <id>` once the remote is back.
+
+**Code review under a standing approval.** A standing approval for a pull-request destination records the user's answer to the code review question for every pull request it covers: propose it with `--code-review required|not-required` and show that answer in its plain-language summary. A delivery proposed with `--standing-approval` and no `--code-review` takes that answer (recorded as coming from the standing approval) and the question is not asked again. If the user gives a different answer for a story, that delivery is outside the standing approval and goes through the normal question and approval. A standing approval never covers a merge, so any merge still needs its own approval. When the user wants no review on all their stories, the two ways are to answer per story, or to record it once as a standing approval with `--code-review not-required` inside the usual bounds (limited number of deliveries, expiry, revocable). Never infer it from earlier answers; they may only inform what you suggest.
 
 The dedicated assessment journey remains the exception described above: it packages its requirement, contract draft, budget, and any already named delivery choice into checkpoint 2, then applies and starts that unchanged proposal without exposing extra normal decisions.
 
@@ -356,6 +358,30 @@ The dedicated assessment journey remains the exception described above: it packa
 
    Map the explicit answer internally only after the plain-language choice: `Guidato` → `supervised`, `Autonomia con controlli` → `checkpointed`, and `Autonomia completa entro questi limiti` → `bounded-autonomous`. The `--level` value is mandatory for every proposal and must come from this delivery's current answer; past choices may inform a recommendation but never supply the value. Keep the complete JSON record for machine processing and place its IDs, codes, hashes, exact actions, and policy calculations only after `Technical details (optional):` or `Dettagli tecnici (facoltativi):`.
 
+   For a pull request, ask a second question at this same step, before `task start`. It is separate from the autonomy question, it is never asked for a local release, and it applies to this story only. In Italian, use this copy:
+
+   > Vuoi una revisione del codice prima del merge di questa PR?
+   >
+   > 1. No: il plugin completa la PR in piena automazione (consigliato per questa storia).
+   > 2. Sì: prima del merge una persona che non è autore dei commit deve approvare il codice. Fino al merge tutto procede in automatico.
+   >
+   > Questa scelta vale solo per questa storia.
+
+   In English:
+
+   > Do you want a code review before this PR is merged?
+   >
+   > 1. No: the plugin completes the PR in full automation (recommended for this story).
+   > 2. Yes: before the merge, a person who did not author the commits must approve the code. Everything before the merge proceeds automatically.
+   >
+   > This choice applies only to this story.
+
+   Suggest option 1 by default. When the story touches security, authentication, payments, data migrations, public APIs, or infrastructure, suggest option 2 instead and move “(consigliato per questa storia)” / “(recommended for this story)” from option 1 to the end of option 2's first sentence. Never inherit the answer from an earlier story or delivery: past answers may only inform the suggestion. If `gate_policy.merge_requires_code_review` is `true`, the project already requires a review for every pull request; say so when you ask, because a “No” does not lower it.
+
+   The answer is a formal decision by the user. Do not propose the delivery or start the task without it, and never answer for the user. Record it on `autonomy delivery propose` with `--code-review required` (“Sì”/“Yes”) or `--code-review not-required` (“No”), together with `--code-review-actor-type human --code-review-approval-source explicit-user --code-review-summary "<the user's words>"` and, when the person is known, `--code-review-actor <person-id>`. The CLI rejects an agent or system choice, and refuses `--code-review` for a local release. It is stored in the approved, hash-bound delivery profile as `pull_request_target.code_review`; a delivery that carries it cannot be approved with `--approval-source automation`. A covered standing-approval delivery does not ask again (see “Standing approvals for repeated toil”). A profile approved before this question existed has no answer and follows the project default without blocking or asking.
+
+   The requirement is checked only at `pull_request.merge`. Commits, push, pull-request create and update, closing as `ready_for_review`, and every gate, including `gate check --strict --lifecycle-complete`, proceed without a review. To change the answer after approval, see the code review paragraphs below.
+
    For a new pull request:
 
    ```bash
@@ -378,6 +404,10 @@ The dedicated assessment journey remains the exception described above: it packa
      --allow-action git.push \
      --allow-action pull_request.create \
      --allow-action pull_request.update \
+     --code-review not-required \
+     --code-review-actor-type human \
+     --code-review-approval-source explicit-user \
+     --code-review-summary "<the user's words>" \
      --json
    ```
 
@@ -405,6 +435,10 @@ The dedicated assessment journey remains the exception described above: it packa
      --allow-action git.commit \
      --allow-action git.push \
      --allow-action pull_request.update \
+     --code-review required \
+     --code-review-actor-type human \
+     --code-review-approval-source explicit-user \
+     --code-review-summary "<the user's words>" \
      --json
    ```
 
@@ -845,7 +879,7 @@ The dedicated assessment journey remains the exception described above: it packa
 
    When `gate_policy.secret_scan.enabled` is `true`, a story in validation needs a record whose outcome is `clean` for the current head, and the lifecycle-complete gate requires one for the head it certifies, so run the scan again after every change to the delivery. Remove and rotate any credential the scan reports; never paste the matched value into a trace, a summary, or a commit message.
 
-   Before a pull request merges, a reviewer who authored none of its commits records a review of the current head. `review record` reads the head commit from the repository and the reviewer's Git identity from the local Git configuration, and writes a `code-review:v1` record under `.sdlc/reviews/`:
+   When a code review is required before the merge (the user's answer for this story, or a project policy that requires it for every pull request), a reviewer who authored none of its commits records a review of the current head. `review record` reads the head commit from the repository and the reviewer's Git identity from the local Git configuration, and writes a `code-review:v1` record under `.sdlc/reviews/`:
 
    ```bash
    node <plugin-root>/bin/agentic-sdlc.mjs review record \
@@ -855,7 +889,15 @@ The dedicated assessment journey remains the exception described above: it packa
      --actor <reviewer-id> --actor-type human
    ```
 
-   When `gate_policy.merge_requires_code_review` is `true`, `pull_request.merge` is refused (exit `1`) until an approved review exists for the exact head being merged by a reviewer whose actor and Git email differ from every commit author of the pull request. Any new commit on the head branch needs a new review. Never record a review on behalf of someone who did not read the diff, and never record an approval as the author of the change.
+   When a review is required, `pull_request.merge` is refused (exit `1`) until an approved review exists for the exact head being merged by a reviewer whose actor and Git email differ from every commit author of `base..head`. A later independent `changes_requested` blocks the merge, and any new commit on the head branch needs a new review. The requirement is checked only at `pull_request.merge`: never at `git.commit`, `git.push`, `pull_request.create`, `pull_request.update`, closing as `ready_for_review`, or any gate (including `gate check --strict --lifecycle-complete`). Never record a review on behalf of someone who did not read the diff, and never record an approval as the author of the change.
+
+   The template sets `gate_policy.merge_requires_code_review` to `false`, so by default a review is required only where the user chose it. The sources, in order: `true` requires a review for every pull request (`project_policy`) and no story answer lowers it; otherwise a change recorded after approval (`change`), then the answer in the approved profile (`delivery_profile`, or `standing_approval` when a standing approval supplied it), then the project default for a profile approved before the question existed (`project_default`). An existing project that explicitly has `true` keeps it. To change the policy, the project uses the reviewed path: edit `.sdlc/config.json`, preview with `config migrate`, then `config migrate --apply --plan-hash <hash>`. `autonomy delivery explain` and `status` show which source applies and, when a review is required, how many valid reviews of the current head are recorded on this computer.
+
+   To change the answer after approval, before the task starts just propose the delivery again with the new answer. Once it is approved, use a requirement change, which applies at once, also to a delivery in progress, and only at merge. `review require --delivery <profile-id> [--summary "<text>"]` adds the requirement and anyone may run it. `review waive --delivery <profile-id> --actor-type human --approval-source explicit-user --summary "<the user's words>"` drops it: only the user can decide that, so give them the exact command to run in their own terminal; it is refused inside an agent session and when the project policy requires reviews for every pull request. Each writes a record bound to the profile id and hash under `.sdlc/reviews/requirement-changes/` and a `review.require` or `review.waive` trace event.
+
+   A review recorded on another computer counts only after its recorder runs `review publish --delivery <profile-id> [--review <review-id>]`. That pushes each record to the project's coordination remote as a create-only ref `refs/agentic-sdlc/reviews/<profile-id>/<profile-hash16>/<review-id>`; it never touches the pull-request branch or any other branch, and nothing publishes automatically. `review fetch --delivery <profile-id>` reads those refs into `refs/agentic-sdlc-shared/reviews/` and shows which are valid, and the plugin does a read-only fetch itself at merge. A received review counts only when its schema and `record_hash` are valid, it belongs to the same delivery profile (id and hash) and repository, its `reviewed_head_sha` equals the head being merged, and its reviewer is independent of the `base..head` authors recomputed locally; otherwise it is ignored with a reason. If the remote cannot be reached, only the reviews recorded on this computer count. The remote and timeout come from `orchestration_policy.coordination`.
+
+   `review record` takes the reviewer's identity from the Git configuration, so the person guiding the agent can record an independent review on the same computer only when the agent commits under another identity. Recommend that the agent commit with a dedicated identity through environment variables, for its own commits only (`GIT_AUTHOR_NAME=agent-dev-1 GIT_AUTHOR_EMAIL=agent-dev-1@users.noreply.invalid GIT_COMMITTER_NAME=agent-dev-1 GIT_COMMITTER_EMAIL=agent-dev-1@users.noreply.invalid`), and leave the repository's `user.name` and `user.email` as the person's identity. Never set the agent identity in the repository Git configuration: the person's review would carry it.
 
    Put the recorded checks in the pull-request description. The host writes that description, so before it creates or updates the pull request, print the table and include it unchanged:
 
@@ -1022,6 +1064,8 @@ Before claiming the SDLC is complete or a story is ready to merge:
 - verify local releases identify target root, writes/actions, successful smoke tests, rollback, and an earlier passing `rollback.verify` receipt bound to unchanged evidence;
 - verify declared local data migrations have paired `data.migrate`/`data.rollback`, exact target and scopes, immutable preview evidence, an exact backup, a passing rollback verification, and a later passing final migration before release;
 - verify protected-branch merge and remote/production deployment have separate exact authority when requested;
+- verify each new pull-request delivery profile carries the user's own answer to the code review question (`pull_request_target.code_review`, from `explicit-user` or a standing approval), asked before task start and never inferred, inherited, or answered by an agent, and that a local release carries none;
+- verify that, when a review is required, `pull_request.merge` rests on an approved `code-review:v1` record for the exact head by a reviewer independent of every `base..head` author, and that any change of the requirement after approval is a record under `.sdlc/reviews/requirement-changes/`;
 - verify relevant contracts exist under `.sdlc/contracts/`;
 - verify durable outputs are linked in `.sdlc/output-contracts/registry.json` with approved templates;
 - verify approved breakdowns and dependency graph entries are satisfied when the story uses them;

@@ -109,6 +109,15 @@ function fakeGitHubEnv(project, values) {
  * The test remote is a public repository the test cannot write to, so story
  * claims stay on this computer instead of being shared through it.
  */
+function setProjectReviewPolicy(project, value) {
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  config.gate_policy.merge_requires_code_review = value;
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const preview = mustRunJson(["config", "migrate", "--root", project]);
+  mustRunJson(["config", "migrate", "--root", project, "--apply", "--plan-hash", preview.plan.plan_hash, "--actor-type", "system"]);
+}
+
 function keepClaimsOnThisComputer(project) {
   const configPath = path.join(project, ".sdlc", "config.json");
   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
@@ -121,10 +130,20 @@ function keepClaimsOnThisComputer(project) {
   mustRunJson(["config", "migrate", "--root", project, "--apply", "--plan-hash", preview.plan.plan_hash, "--actor-type", "system"]);
 }
 
-function preparePullRequestDelivery() {
+function codeReviewAnswer(decision) {
+  return [
+    "--code-review", decision,
+    "--code-review-actor-type", "human",
+    "--code-review-approval-source", "explicit-user",
+    "--code-review-summary", decision === "required" ? "Sì, revisione prima del merge" : "No, completa in automatico",
+  ];
+}
+
+function preparePullRequestDelivery({ codeReview = "required", projectRequires = null, untilPropose = false, commitIdentity = null } = {}) {
   const project = tmpDirectory("project");
   mustRun(["init", "--root", project, "--project-name", "Review Gate E2E", "--force"]);
   keepClaimsOnThisComputer(project);
+  if (projectRequires !== null) setProjectReviewPolicy(project, projectRequires);
   git(project, ["init"]);
   git(project, ["config", "user.name", AUTHOR.name]);
   git(project, ["config", "user.email", AUTHOR.email]);
@@ -168,6 +187,7 @@ function preparePullRequestDelivery() {
     "--tool", "node",
   ]);
   mustRunJson(["contract", "approve", "--root", project, "--id", "CONTRACT-REVIEW", ...humanApproval("Approve the contract")]);
+  if (untilPropose) return project;
   mustRunJson([
     "autonomy", "delivery", "propose", "--root", project,
     "--id", PROFILE_ID,
@@ -183,6 +203,7 @@ function preparePullRequestDelivery() {
     "--write-path", "src",
     "--allow-action", "pull_request.merge",
     "--merge-allowed",
+    ...(codeReview ? codeReviewAnswer(codeReview) : []),
   ]);
   mustRunJson(["autonomy", "delivery", "approve", "--root", project, "--id", PROFILE_ID, ...humanApproval("Approve the merge delivery")]);
 
@@ -190,7 +211,22 @@ function preparePullRequestDelivery() {
   fs.writeFileSync(path.join(project, "src", "change.txt"), "reviewed change\n", "utf8");
   fs.writeFileSync(path.join(project, "src", "implementation-summary.md"), "# Implementation summary\n", "utf8");
   git(project, ["add", "--", "src"]);
-  git(project, ["commit", "-m", "feat: the change under review"]);
+  if (commitIdentity) {
+    // The agent commits under its own identity, set only for its commits.
+    const result = spawnSync("git", ["-C", project, "commit", "-m", "feat: the change under review"], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: commitIdentity.name,
+        GIT_AUTHOR_EMAIL: commitIdentity.email,
+        GIT_COMMITTER_NAME: commitIdentity.name,
+        GIT_COMMITTER_EMAIL: commitIdentity.email,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+  } else {
+    git(project, ["commit", "-m", "feat: the change under review"]);
+  }
 
   const intent = JSON.stringify({
     requested_action: "implement_story",
@@ -226,8 +262,8 @@ test("pull_request.merge requires an approved review of the exact head by a non-
   const configPath = path.join(project, ".sdlc", "config.json");
   assert.equal(
     JSON.parse(fs.readFileSync(configPath, "utf8")).gate_policy.merge_requires_code_review,
-    true,
-    "a new project is initialized with the merge review gate on",
+    false,
+    "a new project is initialized in full automation; the review is a per-story choice",
   );
   const headSha = () => git(project, ["rev-parse", "HEAD"]);
 
@@ -327,7 +363,7 @@ test("review record refuses an approval with a blocking finding and a non pull-r
 });
 
 test("a project whose configuration never declared the merge review gate keeps merging as before", () => {
-  const project = preparePullRequestDelivery();
+  const project = preparePullRequestDelivery({ codeReview: "not-required" });
   const configPath = path.join(project, ".sdlc", "config.json");
   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
   delete config.gate_policy.merge_requires_code_review;
@@ -344,4 +380,148 @@ test("a project whose configuration never declared the merge review gate keeps m
     env: fakeGitHubEnv(project, { headSha: git(project, ["rev-parse", "HEAD"]) }),
   });
   assert.equal(checkpoint.status, "checkpoint_required");
+});
+
+function proposeArgs(project, extra = []) {
+  return [
+    "autonomy", "delivery", "propose", "--root", project,
+    "--id", PROFILE_ID,
+    "--delivery", "PR-REVIEW",
+    "--kind", "pull_request",
+    "--story", STORY_ID,
+    "--contract", "CONTRACT-REVIEW",
+    "--requirement", "REQ-REVIEW",
+    "--level", "checkpointed",
+    "--repository", "aantenore/agentic-sdlc",
+    "--base", "main",
+    "--head", "codex/pr-review",
+    "--write-path", "src",
+    "--allow-action", "pull_request.merge",
+    "--merge-allowed",
+    ...extra,
+  ];
+}
+
+test("a new pull-request delivery needs the user's own answer on code review", () => {
+  const project = preparePullRequestDelivery({ untilPropose: true });
+  mustRefuse(proposeArgs(project), /needs the user's answer on code review before merge/u);
+  mustRefuse(proposeArgs(project, [
+    "--code-review", "not-required",
+    "--code-review-approval-source", "explicit-user",
+    "--code-review-summary", "decided by the agent",
+  ]), /--code-review-actor-type human/u);
+  mustRefuse(proposeArgs(project, [
+    "--code-review", "required",
+    "--code-review-actor-type", "human",
+    "--code-review-approval-source", "explicit-user",
+  ]), /--code-review-summary must quote the user's answer/u);
+  const proposed = mustRunJson(proposeArgs(project, codeReviewAnswer("not-required")));
+  const choice = proposed.delivery_profile.pull_request_target.code_review;
+  assert.equal(choice.decision, "not-required");
+  assert.equal(choice.source, "explicit-user");
+  assert.equal(choice.user_words, "No, completa in automatico");
+  assert.equal(proposed.review.code_review_before_merge.decision, "not-required");
+  // A choice made by a person is never approved by automation.
+  mustRefuse(
+    ["autonomy", "delivery", "approve", "--root", project, "--id", PROFILE_ID, "--actor-type", "agent", "--approval-source", "automation", "--summary", "auto"],
+    /automation cannot approve it|requires/u,
+  );
+});
+
+test("without a required review the merge proceeds in full automation and explain says why", () => {
+  const project = preparePullRequestDelivery({ codeReview: "not-required" });
+  const headSha = git(project, ["rev-parse", "HEAD"]);
+  const checkpoint = mustRunJson(mergeArgs(project), { env: fakeGitHubEnv(project, { headSha }) });
+  assert.equal(checkpoint.status, "checkpoint_required");
+  const explained = mustRunJson(["autonomy", "delivery", "explain", "--root", project, "--id", PROFILE_ID]);
+  assert.equal(explained.code_review.requirement.required, false);
+  assert.equal(explained.code_review.requirement.source, "delivery_profile");
+  const italian = mustRun(["autonomy", "delivery", "explain", "--root", project, "--id", PROFILE_ID, "--locale", "it"]);
+  assert.match(italian.stdout, /Revisione del codice prima del merge: non richiesta \(scelta dall’utente per questa storia\)/u);
+  const english = mustRun(["autonomy", "delivery", "explain", "--root", project, "--id", PROFILE_ID]);
+  assert.match(english.stdout, /Code review before merge: not required \(chosen by the user for this story\)/u);
+  const status = mustRunJson(["status", "--root", project]);
+  assert.equal(status.code_review_before_merge[0].required, false);
+});
+
+test("a required review blocks only the merge and is counted in explain and status", () => {
+  const project = preparePullRequestDelivery({ codeReview: "required" });
+  const headSha = git(project, ["rev-parse", "HEAD"]);
+  // The strict lifecycle gate does not ask for the review.
+  const gate = run(["gate", "check", "--root", project, "--story", STORY_ID, "--strict", "--json"]);
+  assert.doesNotMatch(`${gate.stdout}${gate.stderr}`, /code review|code_review_required|revisione del codice/iu);
+  mustRefuse(mergeArgs(project), /no approved code review exists for head/u, { env: fakeGitHubEnv(project, { headSha }) });
+  const english = mustRun(["autonomy", "delivery", "explain", "--root", project, "--id", PROFILE_ID]);
+  assert.match(english.stdout, /Code review before merge: required \(chosen by the user for this story\)/u);
+  assert.match(english.stdout, /Valid reviews of the current head \([0-9a-f]{12}\): 0 of 0/u);
+  mustRunJson(["review", "record", "--root", project, "--delivery", PROFILE_ID, "--verdict", "approved", "--actor", REVIEWER.actor, "--actor-type", "human"], { env: gitIdentityEnv(REVIEWER) });
+  const status = mustRunJson(["status", "--root", project]);
+  assert.equal(status.code_review_before_merge[0].required, true);
+  assert.equal(status.code_review_before_merge[0].valid_reviews, 1);
+  const italian = mustRun(["status", "--root", project, "--locale", "it"]);
+  assert.match(italian.stdout, /Revisione prima del merge per PR-REVIEW \(storia ST-REVIEW\): richiesta/u);
+  assert.equal(mustRunJson(mergeArgs(project), { env: fakeGitHubEnv(project, { headSha }) }).status, "checkpoint_required");
+});
+
+test("a review can be added after approval; only the user, outside the agent session, can drop it", () => {
+  const project = preparePullRequestDelivery({ codeReview: "not-required" });
+  const headSha = git(project, ["rev-parse", "HEAD"]);
+  const added = mustRunJson(["review", "require", "--root", project, "--delivery", PROFILE_ID, "--summary", "The user wants a review after all"]);
+  assert.equal(added.code_review_requirement.required, true);
+  assert.equal(added.code_review_requirement.source, "change");
+  mustRefuse(mergeArgs(project), /no approved code review exists for head/u, { env: fakeGitHubEnv(project, { headSha }) });
+  const waive = ["review", "waive", "--root", project, "--delivery", PROFILE_ID, "--actor-type", "human", "--approval-source", "explicit-user", "--summary", "Niente revisione per questa storia"];
+  mustRefuse(waive, /cannot run inside an agent session/u, { env: { CLAUDECODE: "1" } });
+  mustRefuse(waive, /cannot run inside an agent session/u, { env: { CODEX_THREAD_ID: "thread-1" } });
+  mustRefuse(["review", "waive", "--root", project, "--delivery", PROFILE_ID, "--actor-type", "agent", "--approval-source", "automation", "--summary", "agent"], /human|explicit-user/u);
+  mustRefuse(mergeArgs(project), /no approved code review exists for head/u, { env: fakeGitHubEnv(project, { headSha }) });
+  const dropped = mustRunJson(waive);
+  assert.equal(dropped.code_review_requirement.required, false);
+  assert.equal(dropped.change.approval_source, "explicit-user");
+  assert.equal(mustRunJson(mergeArgs(project), { env: fakeGitHubEnv(project, { headSha }) }).status, "checkpoint_required");
+  // A drop record forged without a person's decision does not count.
+  const forgedPath = path.join(project, dropped.change_path);
+  const forged = JSON.parse(fs.readFileSync(forgedPath, "utf8"));
+  forged.actor.type = "agent";
+  fs.writeFileSync(forgedPath, `${JSON.stringify(forged, null, 2)}\n`, "utf8");
+  mustRefuse(mergeArgs(project), /no approved code review exists for head/u, { env: fakeGitHubEnv(project, { headSha }) });
+});
+
+test("a project that requires reviews for every pull request is a floor no story choice lowers", () => {
+  const project = preparePullRequestDelivery({ codeReview: "not-required", projectRequires: true });
+  const headSha = git(project, ["rev-parse", "HEAD"]);
+  mustRefuse(mergeArgs(project), /no approved code review exists for head/u, { env: fakeGitHubEnv(project, { headSha }) });
+  mustRefuse(
+    ["review", "waive", "--root", project, "--delivery", PROFILE_ID, "--actor-type", "human", "--approval-source", "explicit-user", "--summary", "no"],
+    /requires a code review before every pull request merge/u,
+  );
+  const explained = mustRunJson(["autonomy", "delivery", "explain", "--root", project, "--id", PROFILE_ID]);
+  assert.equal(explained.code_review.requirement.source, "project_policy");
+});
+
+test("editing the approved choice in the delivery profile is never silent", () => {
+  const project = preparePullRequestDelivery({ codeReview: "required" });
+  const headSha = git(project, ["rev-parse", "HEAD"]);
+  const profilePath = path.join(project, ".sdlc", "autonomy", "deliveries", `${PROFILE_ID}.json`);
+  const located = fs.existsSync(profilePath)
+    ? profilePath
+    : spawnSync("git", ["-C", project, "ls-files", "--others", "--cached", "--", `*${PROFILE_ID}.json`], { encoding: "utf8" }).stdout.split("\n").filter(Boolean).map((item) => path.join(project, item))[0];
+  const profile = JSON.parse(fs.readFileSync(located, "utf8"));
+  profile.pull_request_target.code_review.decision = "not-required";
+  fs.writeFileSync(located, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+  const refused = run(mergeArgs(project), { env: fakeGitHubEnv(project, { headSha }) });
+  assert.equal(refused.status, 1, `${refused.stdout}\n${refused.stderr}`);
+  assert.doesNotMatch(refused.stdout, /checkpoint_required/u);
+});
+
+test("an agent committing under its own identity lets the guiding person review on the same machine", () => {
+  const agent = { name: "agent-dev-1", email: "agent-dev-1@users.noreply.invalid" };
+  const project = preparePullRequestDelivery({ codeReview: "required", commitIdentity: agent });
+  const headSha = git(project, ["rev-parse", "HEAD"]);
+  assert.equal(git(project, ["log", "-1", "--format=%ae"]), agent.email);
+  // The repository identity stays the person's, so their review is independent.
+  const review = mustRunJson(["review", "record", "--root", project, "--delivery", PROFILE_ID, "--verdict", "approved", "--actor", "antonio", "--actor-type", "human"]);
+  assert.equal(review.independent, true);
+  assert.equal(review.code_review.reviewer.git_email, AUTHOR.email);
+  assert.equal(mustRunJson(mergeArgs(project), { env: fakeGitHubEnv(project, { headSha }) }).status, "checkpoint_required");
 });

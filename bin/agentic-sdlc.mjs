@@ -5,6 +5,10 @@ import zlib from "node:zlib";
 // File system, child processes, OS, randomness, process, console and clock
 // come from the host seam, so every code path can run against test doubles.
 import {
+  requireCodeReview,
+  waiveCodeReview,
+} from "../lib/engine/code-review-requirement.mjs";
+import {
   childProcess,
   console,
   crypto,
@@ -1036,6 +1040,10 @@ import {
   syncStandingApproval,
 } from "../lib/engine/standing.mjs";
 import {
+  fetchCodeReviews,
+  publishCodeReviews,
+} from "../lib/engine/review-shared.mjs";
+import {
   addStoryAcceptance,
   appendTrace,
   approveBaseline,
@@ -1206,6 +1214,10 @@ function buildCliRuntimeHandlerRegistry() {
     "feedback.record": call(recordFeedback),
     "secret.scan": call(runSecretScan),
     "review.record": call(recordCodeReview),
+    "review.require": call(requireCodeReview),
+    "review.waive": call(waiveCodeReview),
+    "review.publish": call(publishCodeReviews),
+    "review.fetch": call(fetchCodeReviews),
     "output.template.propose": call(proposeOutputTemplate),
     "output.template.approve": call(approveOutputTemplate),
     "output.resolve": call(resolveOutput),

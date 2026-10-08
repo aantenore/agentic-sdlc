@@ -620,8 +620,23 @@ Examples:
 
 `delivery-execution-profile:v2` stores the explicit selection for exactly one delivery and exactly one story/approved-contract pair. It also binds each externally verified delivery action to one registered observer and includes an independent provider-binding hash. Historical v1 records are never rewritten; their original bytes and profile hashes remain valid, while a compatibility mapping is derived only in memory. When several changes need to ship together, first model an agreed aggregation story/contract instead of treating a profile as an unrelated multi-story bundle:
 
-- `pull_request` binds repository, base branch, head branch, canonical actions, explicit write paths, one story/contract hash pair, and whether merge is allowed;
+- `pull_request` binds repository, base branch, head branch, canonical actions, explicit write paths, one story/contract hash pair, whether merge is allowed, and the user's answer on code review before merge (`pull_request_target.code_review`, see below);
 - `local_release` binds the local root, actions, write paths, smoke tests, and required rollback while denying external, production, and destructive access.
+
+`pull_request_target.code_review` records whether the user wants a code review before this pull request is merged:
+
+```json
+"code_review": {
+  "decision": "not-required",
+  "source": "explicit-user",
+  "actor_id": "maria",
+  "user_words": "No, complete it automatically",
+  "standing_approval_id": null,
+  "decided_at": "2026-10-08T09:30:00.000Z"
+}
+```
+
+`decision` is `required` or `not-required`. `source` is `explicit-user` (the answer of a person, with `actor_id` and `user_words`) or `standing-approval` (the answer bound in a standing approval, named by `standing_approval_id`). The field is part of the hashed profile, so editing it breaks the profile hash. A profile created before the question existed has no `code_review` and follows `gate_policy.merge_requires_code_review`. A local release never has one. The requirement is checked only at `pull_request.merge`; a change after approval is recorded under `reviews/requirement-changes/`.
 
 Both kinds bind the applicable requirement profile hashes and material scope. Their use policy is exact-delivery, non-reusable, one concurrent run, receipt-backed, and closed on terminal state. A new pull request or local release always needs a new selection, even when it implements the same requirement.
 
@@ -633,7 +648,7 @@ Delivery binding is one-way: reserve the planned profile ID in the final require
 
 Local smoke commands are JSON argv arrays, never shell strings. Shells, indirect dispatchers, inline interpreter code, and ambiguous loaders are rejected; explicit interpreted entrypoints are bound to allowed artifact paths. A v3 release chain records authorization, durable write-ahead attempt, target, command, cwd, sandbox, launcher/runtime/payload identity, pre/post artifact manifests, exit status, outcome, and output hashes. The sandbox denies external network, with host-specific loopback behavior, but can read host-account files and does not attest transitive imports; only reviewed code that avoids ungoverned host paths belongs in the artifact. Remote push/merge evidence is different: the CLI records a live remote pre-state and queries the exact Git remote or GitHub PR at completion. The hash-bound observation is not a provider-signed offline attestation; retain durable host/CI/provider evidence as well.
 
-`standing/<id>/` holds one standing approval: a user-approved, bounded, revocable delegation for repeated low-risk deliveries. `proposal.json` (`standing-approval:v1`) records the recipe and description, requirement profile hashes, project-relative paths or globs, per-delivery file and line limits, the single destination (local release, or pull request create/update without merge), the number of deliveries, the mandatory expiry, a budget field that is always `null` for new records (records from earlier versions may carry a budget, which then fails closed at every step), the project, configuration, and policy hashes it binds, the authority mode it was proposed under (`authority_mode`; under `host_verified` its approval must be signed), and the CLI-fixed list of what is never covered. `approval.json` and `revocation.json` (`standing-approval-decision:v1`) hold the person's formal approval or revocation; when the trusted host signed the decision they also embed its verified receipt (`assurance` and `host_receipt`), which is checked again against `authority_policy.trusted_host_keys` whenever the standing approval is read, and which a `host_verified` project requires for the approval. Each `uses/<slot>.json` (`standing-approval-use:v1`) is one consumed delivery slot bound to one delivery profile; the slot number is the file name, so two deliveries can never share a slot. Every record is immutable and hash-sealed; an edited record makes the standing approval invalid. Derived approvals on contracts, delivery profiles, and action receipts carry `approval_source: standing-approval` with the standing approval id, hashes, and slot (plus `host_receipt_ref` when its approval was signed), and the strict gate checks they were created while it was approved, unexpired, and unrevoked, and that any receipt they name is the one that signed it.
+`standing/<id>/` holds one standing approval: a user-approved, bounded, revocable delegation for repeated low-risk deliveries. `proposal.json` (`standing-approval:v1`) records the recipe and description, requirement profile hashes, project-relative paths or globs, per-delivery file and line limits, the single destination (local release, or pull request create/update without merge, which for a pull request also records the user's `code_review` answer, `required` or `not-required`, for every pull request it covers), the number of deliveries, the mandatory expiry, a budget field that is always `null` for new records (records from earlier versions may carry a budget, which then fails closed at every step), the project, configuration, and policy hashes it binds, the authority mode it was proposed under (`authority_mode`; under `host_verified` its approval must be signed), and the CLI-fixed list of what is never covered. `approval.json` and `revocation.json` (`standing-approval-decision:v1`) hold the person's formal approval or revocation; when the trusted host signed the decision they also embed its verified receipt (`assurance` and `host_receipt`), which is checked again against `authority_policy.trusted_host_keys` whenever the standing approval is read, and which a `host_verified` project requires for the approval. Each `uses/<slot>.json` (`standing-approval-use:v1`) is one consumed delivery slot bound to one delivery profile; the slot number is the file name, so two deliveries can never share a slot. Every record is immutable and hash-sealed; an edited record makes the standing approval invalid. Derived approvals on contracts, delivery profiles, and action receipts carry `approval_source: standing-approval` with the standing approval id, hashes, and slot (plus `host_receipt_ref` when its approval was signed), and the strict gate checks they were created while it was approved, unexpired, and unrevoked, and that any receipt they name is the one that signed it.
 
 ## `stories/`
 
@@ -880,10 +895,14 @@ record, so the scan appears in the story history and in the Change Observatory.
 
 ## `reviews/`
 
-Code review records for pull-request deliveries. A `.json` file whose `kind` is
-`code_review` is a canonical record validated against
-`schemas/code-review.schema.json` (`code-review:v1`), written only by
-`review record`:
+Code review records for pull-request deliveries, and the changes made to whether
+a delivery needs one. Whether a pull request needs a review before its merge is
+the user's answer for the story, stored in the approved delivery profile as
+`pull_request_target.code_review`, unless the project policy
+`gate_policy.merge_requires_code_review` is `true` and requires one for every
+pull request. A `.json` file whose `kind` is `code_review` is a canonical record
+validated against `schemas/code-review.schema.json` (`code-review:v1`), written
+only by `review record`:
 
 ```text
 .sdlc/reviews/ST-001-code-review-20260916T101500-a1b2c3.json
@@ -930,6 +949,55 @@ canonical evidence and belong in source control.
 Writing a record also appends a `gate` trace event whose evidence names the
 record: `passed` for an approval by a reviewer independent of every author,
 `failed` otherwise.
+
+### `reviews/requirement-changes/`
+
+A change, after a delivery was approved, to whether its merge needs a review:
+
+```text
+.sdlc/reviews/requirement-changes/ST-001-review-requirement-20261008T101500-d4e5f6.json
+```
+
+```json
+{
+  "kind": "code_review_requirement_change",
+  "schema_version": "code-review-requirement-change:v1",
+  "id": "ST-001-review-requirement-20261008T101500-d4e5f6",
+  "story_id": "ST-001",
+  "delivery_id": "PR-ST-001",
+  "delivery_profile_id": "AUT-PR-ST-001",
+  "delivery_profile_hash": "7be1…",
+  "decision": "required",
+  "previous_decision": "not-required",
+  "approval_source": null,
+  "summary": "The user asked for a review before merge",
+  "actor": { "...": "..." },
+  "git": { "...": "..." },
+  "run": { "...": "..." },
+  "created_at": "2026-10-08T10:15:00.000Z",
+  "record_hash": "c3d9…",
+  "hash_algorithm": "sha256:stable-json:v1"
+}
+```
+
+The record is validated against `schemas/code-review-requirement-change.schema.json`
+(`code-review-requirement-change:v1`) and written only by `review require` and
+`review waive`. It is bound to the delivery profile id and hash, so it changes
+nothing for any other profile. `decision: "required"` may be recorded by anyone.
+`decision: "not-required"` is valid only as a person's explicit decision
+(`approval_source: "explicit-user"`, human actor) and never lowers a project
+policy that requires reviews for every pull request. The latest valid record
+decides, a record whose content no longer matches its `record_hash` is ignored,
+and each record is immutable. Writing one also appends a `decision` trace event
+with the action `review.require` or `review.waive`. These records are canonical
+evidence and belong in source control.
+
+A review recorded on another computer is not stored here. `review publish`
+shares it as a create-only ref `refs/agentic-sdlc/reviews/<profile-id>/<profile-hash16>/<review-id>`
+and `review fetch` reads such refs into `refs/agentic-sdlc-shared/reviews/`; a
+received review counts at merge only after its schema, `record_hash`, delivery
+profile, repository, reviewed head, and the reviewer's independence from the
+`base..head` authors have been checked locally.
 
 ## `observations/`
 

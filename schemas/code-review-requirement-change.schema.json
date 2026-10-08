@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "code-review-requirement-change.schema.json",
+  "title": "Agentic SDLC Code Review Requirement Change v1",
+  "description": "A change, made after a pull-request delivery was approved, to whether its merge needs a code review. The record is bound to the exact delivery profile (id and hash). Adding the requirement may be recorded by anyone; dropping it is valid only as a person's explicit decision, and never lowers a project policy that requires a review for every pull request.",
+  "type": "object",
+  "required": [
+    "kind",
+    "schema_version",
+    "id",
+    "story_id",
+    "delivery_id",
+    "delivery_profile_id",
+    "delivery_profile_hash",
+    "decision",
+    "previous_decision",
+    "approval_source",
+    "summary",
+    "actor",
+    "git",
+    "run",
+    "created_at",
+    "record_hash",
+    "hash_algorithm"
+  ],
+  "properties": {
+    "kind": { "const": "code_review_requirement_change" },
+    "schema_version": { "const": "code-review-requirement-change:v1" },
+    "id": { "type": "string", "minLength": 1 },
+    "story_id": { "type": "string", "minLength": 1 },
+    "delivery_id": { "type": "string", "minLength": 1 },
+    "delivery_profile_id": { "type": "string", "minLength": 1 },
+    "delivery_profile_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "decision": { "enum": ["required", "not-required"] },
+    "previous_decision": { "enum": ["required", "not-required"] },
+    "approval_source": { "type": ["string", "null"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "actor": { "$ref": "common.schema.json#/$defs/actor" },
+    "git": { "$ref": "common.schema.json#/$defs/git" },
+    "run": { "$ref": "common.schema.json#/$defs/run" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "record_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "hash_algorithm": { "const": "sha256:stable-json:v1" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "decision": { "const": "not-required" } } },
+      "then": {
+        "properties": {
+          "approval_source": { "const": "explicit-user" },
+          "actor": { "properties": { "type": { "const": "human" } } }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

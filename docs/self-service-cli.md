@@ -378,14 +378,93 @@ their own identity.
 A review by an author of the range is recorded, because it happened, and the
 output states that it does not satisfy the merge gate.
 
-When `gate_policy.merge_requires_code_review` is `true`, `autonomy delivery
-action --action pull_request.merge` exits `1` unless an approved review exists
-for the exact head being merged, by a reviewer whose actor and Git email differ
-from every commit author of the pull request. Any new commit on the head branch
-requires a new review. The flag is read as an explicit `true`: a project whose
-configuration never declared it keeps the merge gate it agreed to, and adopts
-the check by initializing from the current template or migrating through
-`config migrate`.
+### When a review is required
+
+The user decides for each story, before the task starts, whether its pull
+request needs a review before the merge. The answer is part of the approved
+delivery profile (`autonomy delivery propose --code-review required|not-required`
+with `--code-review-actor-type human --code-review-approval-source explicit-user
+--code-review-summary "<the user's words>"`). An agent or system choice is
+refused, and a local release takes none. The template sets
+`gate_policy.merge_requires_code_review` to `false`; an existing project that
+explicitly has `true` keeps it, requires a review for every pull request, and
+no story answer lowers it. To change that policy, edit `.sdlc/config.json`,
+preview with `config migrate`, then run `config migrate --apply --plan-hash
+<hash>`. A profile created before the per-story answer existed follows the
+project default.
+
+The requirement is checked only at `pull_request.merge`, never at `git.commit`,
+`git.push`, `pull_request.create`, `pull_request.update`, closing as
+`ready_for_review`, or any gate. When it applies, `autonomy delivery action
+--action pull_request.merge` exits `1` unless an approved review exists for the
+exact head being merged, by a reviewer whose actor and Git email differ from
+every commit author of the pull request. A later `changes_requested` from an
+independent reviewer blocks it, and any new commit on the head branch requires a
+new review. `autonomy delivery explain` and `status` show the requirement, where
+it comes from (`project_policy`, `delivery_profile`, `standing_approval`,
+`change`, or `project_default`), and how many of the reviews recorded on this
+computer are valid for the current head.
+
+### Change the requirement after approval
+
+`review require` and `review waive` change the answer for an approved delivery.
+Each writes a record bound to the profile id and hash under
+`.sdlc/reviews/requirement-changes/` and a `review.require` or `review.waive`
+trace event. Before the task starts, propose the delivery again instead.
+
+```bash
+node "$PLUGIN_CLI" review require --root /path/to/project \
+  --delivery AUT-PR-BOOKING --summary "The user asked for a review"
+node "$PLUGIN_CLI" review waive --root /path/to/project \
+  --delivery AUT-PR-BOOKING --actor-type human --approval-source explicit-user \
+  --summary "<the user's words>"
+```
+
+`review require` (effect: local) may be run by anyone. It applies immediately,
+also to a delivery in progress, and only at merge. `review waive` (effect:
+protected) is the user's decision: it is refused inside an agent session, so
+the user runs it in their own terminal, and it is refused when the project
+policy requires reviews for every pull request.
+
+### Share a review with another computer
+
+A review recorded on another computer counts at merge only after it is shared.
+Sharing is explicit and never automatic:
+
+```bash
+node "$PLUGIN_CLI" review publish --root /path/to/project --delivery AUT-PR-BOOKING
+node "$PLUGIN_CLI" review fetch --root /path/to/project --delivery AUT-PR-BOOKING
+```
+
+`review publish` (effect: share) pushes each valid review of the delivery as a
+create-only ref, `refs/agentic-sdlc/reviews/<profile-id>/<profile-hash16>/<review-id>`,
+to the coordination remote (`orchestration_policy.coordination`); `--review
+<review-id>` publishes one. It never pushes or changes the pull-request branch
+or any other branch. `review fetch` (effect: local) reads the refs into
+`refs/agentic-sdlc-shared/reviews/` and shows which are valid and why the others
+are ignored; at merge the plugin does a read-only fetch itself. A received
+review counts only when its schema and `record_hash` are valid, it is for the
+same delivery profile (id and hash) and repository, its `reviewed_head_sha`
+equals the head being merged, and its reviewer is independent of the
+`base..head` authors recomputed locally. If the remote cannot be reached, only
+the reviews recorded on this computer count.
+
+### Record an independent review on the same computer
+
+`review record` uses the Git configuration identity, so the person guiding the
+agent can record an independent review on the same computer only if the agent's
+commits carry another identity. Let the agent commit with a dedicated identity
+through environment variables, for its own commits only:
+
+```bash
+GIT_AUTHOR_NAME=agent-dev-1 GIT_AUTHOR_EMAIL=agent-dev-1@users.noreply.invalid \
+GIT_COMMITTER_NAME=agent-dev-1 GIT_COMMITTER_EMAIL=agent-dev-1@users.noreply.invalid \
+git commit ...
+```
+
+Leave the repository's `user.name` and `user.email` as the person's identity.
+Do not set the agent identity in the repository Git configuration: the person's
+review would then carry it.
 
 ## Print the recorded checks of a pull request
 

@@ -143,13 +143,15 @@ For implementation work, the order is deliberately linear:
 2. agree the requirement and success criteria;
 3. decompose it only when needed;
 4. agree the output and plain-language work brief;
-5. make a fresh autonomy choice for this one PR or local release;
+5. make a fresh autonomy choice for this one PR or local release and, for a pull request, say whether it needs a code review before the merge;
 6. start the exact story-bound workflow before the task, then start the task once;
 7. claim the now-started story, then implement and test, completing each phase before entering the next;
 8. after validation, seal the intermediate strict gate and enter `release`;
 9. complete the named PR or local release, record release evidence, release the completed story claim, then seal the final lifecycle gate.
 
 Before showing the autonomy choices, Codex explains whether the most independent option can really be used. If this installation cannot digitally verify who approved the delivery, option 3 is reduced to **autonomy with checkpoints**; this is disclosed before you choose.
+
+For a pull request, Codex asks one more question at the same step: do you want a code review before this PR is merged? The default suggestion is no, and the plugin then completes the PR in full automation. If you say yes, a person who did not author the commits must approve the code before the merge, and everything before the merge still proceeds automatically. The answer applies to that story only and is never reused. See [How It Works](docs/how-it-works.md#code-review-before-merge-is-chosen-for-each-story).
 
 ### One complete first project
 
@@ -391,7 +393,7 @@ An additional decision is exceptional: it is required for a new installation, ex
 In plain terms:
 
 1. While agreeing a requirement, you decide only the maximum freedom that future work may request. This does not authorize a pull request.
-2. For every pull request or local release, the plugin asks for a separate autonomy choice. That choice applies only to that delivery and is never reused.
+2. For every pull request or local release, the plugin asks for a separate autonomy choice. That choice applies only to that delivery and is never reused. For a pull request it also asks, separately, whether a code review is needed before the merge.
 3. The CLI then tells you what is actually possible now. If it says **autonomy with checkpoints**, the agent may work between the named checkpoints but must stop before actions such as push, merge, or release when those actions require approval.
 4. The default installation records who approved the work, but that record has no independently verifiable digital signature. For that reason, a request for full autonomy becomes autonomy with checkpoints. Full autonomy inside the agreed limits is available only when the system running the plugin verifies a signed approval for that exact delivery.
 
@@ -471,6 +473,7 @@ The default stays the same: every delivery asks for its own work brief approval,
 | Paths | project-relative prefixes or globs, such as `src/flags` and `docs` |
 | Size per delivery | at most 10 changed files and 200 added plus removed lines |
 | Destination | local release only, or a pull request created or updated but never merged, on one repository and only from branches under the standing approval's own prefix (never the base, shared, release, or production branches) |
+| Code review | for a pull-request destination, `required` or `not-required` for every pull request it covers; a covered delivery does not ask the code review question again |
 | Count and expiry | 5 deliveries until 1 November (capped by `standing_approval_policy.max_validity_days`) |
 | Budget | optional USD 1.50 per delivery and USD 10.00 in total, measured from each delivery's metered cost; accepted only when a meter that reports delivery cost (CodeBurn or a trusted signed source) is configured, and a step whose cost is not freshly measured falls back to a normal confirmation |
 

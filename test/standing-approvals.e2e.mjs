@@ -195,8 +195,12 @@ function initializeProject(label) {
 }
 
 function proposeStanding(project, overrides = {}) {
+  return mustRunJson(standingProposeArgs(project, overrides), project);
+}
+
+function standingProposeArgs(project, overrides = {}) {
   const id = overrides.id || "SA-FLAGS";
-  const args = [
+  return [
     "autonomy", "standing", "propose",
     "--root", project,
     "--id", id,
@@ -208,13 +212,15 @@ function proposeStanding(project, overrides = {}) {
     "--max-changed-lines", String(overrides.maxLines ?? 200),
     "--destination", overrides.destination || "local_release",
     ...((overrides.destination || "local_release") === "pull_request"
-      ? ["--repository", overrides.repository || "aantenore/agentic-sdlc"]
+      ? [
+          "--repository", overrides.repository || "aantenore/agentic-sdlc",
+          ...(overrides.codeReview === null ? [] : ["--code-review", overrides.codeReview || "not-required"]),
+        ]
       : []),
     "--max-deliveries", String(overrides.maxDeliveries ?? 2),
     "--expires-at", overrides.expiresAt || isoAfter(7 * DAY),
     ...(overrides.extra || []),
   ];
-  return mustRunJson(args, project);
 }
 
 function grantStanding(project, overrides = {}) {
@@ -865,7 +871,7 @@ test("merge and production are never coverable by a standing approval", () => {
     mustRun(["contract", "approve", "--root", project, "--id", `CONTRACT-${suffix}`, "--standing-approval", standingId], project);
     const propose = [
       "autonomy", "delivery", "propose", "--root", project, "--id", `AUT-${suffix}`, "--delivery", `PR-${suffix}`,
-      "--kind", "pull_request", "--story", `ST-${suffix}`, "--contract", `CONTRACT-${suffix}`,
+      "--kind", "pull_request", "--code-review", "not-required", "--code-review-actor-type", "human", "--code-review-approval-source", "explicit-user", "--code-review-summary", "No review needed for this story", "--story", `ST-${suffix}`, "--contract", `CONTRACT-${suffix}`,
       "--requirement", suffix === "PR" ? "REQ-TOIL" : "REQ-TOIL-2", "--level", "checkpointed",
       "--repository", "aantenore/agentic-sdlc", "--base", "main", "--head", "standing/sa-flags/pr-1", "--write-path", "src",
       ...(merge ? ["--merge-allowed"] : []), "--standing-approval", standingId,
@@ -914,16 +920,33 @@ test("a delegated pull request never pushes outside its repository and branch pr
   mustRun(["contract", "approve", "--root", project, "--id", "CONTRACT-BR", "--standing-approval", standingId], project);
   // One delivery allowed: a second brief for another delivery needs the person.
   mustFail(["contract", "approve", "--root", project, "--id", "CONTRACT-BR-2", "--standing-approval", standingId], project, /the most it allows is 1/u);
-  const propose = (head, repository = "aantenore/agentic-sdlc") => [
+  const answer = (decision) => [
+    "--code-review", decision, "--code-review-actor-type", "human", "--code-review-approval-source", "explicit-user", "--code-review-summary", "Answer for this story",
+  ];
+  const propose = (head, repository = "aantenore/agentic-sdlc", review = answer("not-required")) => [
     "autonomy", "delivery", "propose", "--root", project, "--id", "AUT-BR", "--delivery", "PR-BR",
-    "--kind", "pull_request", "--story", "ST-BR", "--contract", "CONTRACT-BR", "--requirement", "REQ-TOIL",
+    "--kind", "pull_request", ...review, "--story", "ST-BR", "--contract", "CONTRACT-BR", "--requirement", "REQ-TOIL",
     "--level", "checkpointed", "--repository", repository, "--base", head === "main" ? "develop" : "main",
     "--head", head, "--write-path", "src", "--standing-approval", standingId,
   ];
   mustFail(propose("main"), project, /pushing to branch main is never covered/u);
   mustFail(propose("feature/x"), project, /covers only branches under standing\/sa-flags\//u);
   mustFail(propose("standing/sa-flags/x", "someone/else"), project, /covers only github\.com\/aantenore\/agentic-sdlc/u);
-  mustRunJson(propose("standing/sa-flags/x"), project);
+  // A different answer on code review is outside the standing approval, so the user is asked as usual.
+  mustFail(propose("standing/sa-flags/x", undefined, answer("required")), project, /covers only pull requests with code review not-required/u);
+  // A covered delivery takes the user's choice recorded in the standing approval and does not ask again.
+  const covered = mustRunJson(propose("standing/sa-flags/x", undefined, []), project);
+  assert.equal(covered.delivery_profile.pull_request_target.code_review.source, "standing-approval");
+  assert.equal(covered.delivery_profile.pull_request_target.code_review.decision, "not-required");
+  assert.equal(covered.delivery_profile.pull_request_target.code_review.standing_approval_id, standingId);
+});
+
+test("a pull-request standing approval records the user's code review choice", () => {
+  const project = initializeProject("review-bound");
+  mustFail(standingProposeArgs(project, { destination: "pull_request", codeReview: null }), project, /--code-review must be required or not-required/u);
+  const proposed = mustRunJson(standingProposeArgs(project, { destination: "pull_request", codeReview: "required" }), project);
+  assert.equal(proposed.standing_approval.destination.code_review, "required");
+  assert.match(mustRun([...standingProposeArgs(project, { id: "SA-IT", destination: "pull_request", codeReview: "not-required" }), "--locale", "it"], project).stdout, /non serve una revisione del codice prima del merge/u);
 });
 
 test("every copy of the project shares used deliveries and revocations through the git remote", () => {

@@ -123,7 +123,7 @@ flowchart LR
 
 Each part has one job:
 
-- **The user** confirms the observed project context, agrees each requirement and the maximum working freedom it permits, and makes a fresh working-mode choice for every pull request or local release.
+- **The user** confirms the observed project context, agrees each requirement and the maximum working freedom it permits, and makes a fresh working-mode choice for every pull request or local release. For a pull request the user also says whether a code review is needed before the merge.
 - **Codex** reads the conversation and repository, separates evidence from inference, explains questions, and prepares structured CLI input. Repository text is data, not authority: an instruction found in a README cannot grant a tool, a secret, or a wider write scope.
 - **The CLI** does not interpret natural language. It validates schemas, hashes, state transitions, budgets, signatures, authorization uses, and release evidence before it writes.
 - **`.sdlc/`** is the project-local control plane. It travels through normal Git review and contains the records needed to reproduce why a write or release was allowed.
@@ -308,13 +308,15 @@ The prompt must show the exact boundary in ordinary language:
 
 The choice belongs to one delivery and one approved requirement contract. It cannot be reused for another PR or release, and only one run may use it at a time. Earlier successful deliveries may improve the recommendation, but they never grant more freedom. Each story is its own delivery with its own choice. If several parts must ship together, agree one delivery story whose parts are tasks inside it, and propose that shape at breakdown time instead of approving several stories first; an approved story that is never started currently stays in the plan, because no command retires it. Never quietly combine unrelated work in one delivery.
 
+For a pull request, the user answers a second question at this same step, before the task starts: whether a person who did not author the commits must approve the code before the plugin merges it. The answer applies to that story only and is never carried over; everything before the merge proceeds automatically either way. See [Code review before merge is chosen for each story](#code-review-before-merge-is-chosen-for-each-story).
+
 The system always applies the safest limit among the user’s choice, the project rules, the requirement, its contract, the available tools, the environment, and the budget. Any one of those may reduce what can happen; none may silently increase it. Missing, expired, revoked, or changed inputs stop the delivery safely.
 
 The approval screen should lead with a readable summary: what will be delivered, where, which files and actions are allowed, where work will pause, what remains excluded, when the choice expires, and how rollback works. Machine JSON and internal identifiers remain available as optional audit details; understanding the JSON is not a prerequisite for informed approval.
 
 ### Standing approvals: the one bounded exception
 
-A user may approve once that similar low-risk deliveries proceed without asking each time, for example dependency bumps or retired-flag cleanup. A standing approval names the kind of work, its requirements, project-relative paths, files and lines per delivery, one destination (a local release, or a pull request created or updated but never merged, bound to one repository and pushed only to branches under the standing approval's own prefix, never to the base, shared, release, or production branches), a number of deliveries, a mandatory expiry, and optionally a cost budget per delivery and in total. A budget is accepted only when the project has a source that reports delivery cost (the CodeBurn meter with its cost mapping, or a trusted signed source for cost); otherwise `autonomy standing propose` refuses `--budget-per-delivery` and `--budget-total` instead of recording a standing approval that could never cover a step. With a budget, each covered step needs a verified meter reading of the delivery's cost taken after its previous step, from a meter started right after the delivery's approval and before the work began, and the delivery's cost and the total of every delivery that used the standing approval must stay within the budget, compared as exact decimals; a cost that is not measured, or a total that includes a delivery whose cost no meter recorded, means the normal confirmation applies. It covers only the middle working mode, and it never covers merge, production, deploy, data migrations, force-push, or deletions outside its paths.
+A user may approve once that similar low-risk deliveries proceed without asking each time, for example dependency bumps or retired-flag cleanup. A standing approval names the kind of work, its requirements, project-relative paths, files and lines per delivery, one destination (a local release, or a pull request created or updated but never merged, bound to one repository and pushed only to branches under the standing approval's own prefix, never to the base, shared, release, or production branches), a number of deliveries, a mandatory expiry, and optionally a cost budget per delivery and in total. A budget is accepted only when the project has a source that reports delivery cost (the CodeBurn meter with its cost mapping, or a trusted signed source for cost); otherwise `autonomy standing propose` refuses `--budget-per-delivery` and `--budget-total` instead of recording a standing approval that could never cover a step. With a budget, each covered step needs a verified meter reading of the delivery's cost taken after its previous step, from a meter started right after the delivery's approval and before the work began, and the delivery's cost and the total of every delivery that used the standing approval must stay within the budget, compared as exact decimals; a cost that is not measured, or a total that includes a delivery whose cost no meter recorded, means the normal confirmation applies. It covers only the middle working mode, and it never covers merge, production, deploy, data migrations, force-push, or deletions outside its paths. A standing approval for a pull-request destination also records the user's answer to the code review question for every pull request it covers (`--code-review required|not-required`), so a covered delivery does not ask it again.
 
 A delivery proposed under a standing approval treats every delivery action as a confirmation point. The work brief approval, the working-mode choice, and each action confirmation are then satisfied by a derived approval that references the standing approval and the delivery slot it consumed, but only while the standing approval is approved, unexpired, unrevoked, and bound to unchanged project, configuration, policy, and requirement hashes, and while the files changed since task start and any cost budget stay inside its bounds. Otherwise the normal confirmation applies, with the reason shown. Revocation takes effect at the next step of every delivery in progress. All other checks run unchanged.
 
@@ -729,32 +731,146 @@ deliveries would break the promise that project policy changes only through a
 reviewed decision. Adoption is by initializing from the current template or
 migrating through `config migrate`.
 
-### A pull request merges only after an independent review of its exact head
+### Code review before merge is chosen for each story
 
 An approved delivery profile allows `pull_request.merge`, but it says nothing
-about whether anyone read the diff. `review record` writes that evidence: a
-`code-review:v1` record under `.sdlc/reviews/` naming the story, the delivery,
-the repository, both branches, the base commit, the reviewed head commit, the
-reviewer's actor and Git identity, the verdict (`approved` or
-`changes_requested`), and any findings.
+about whether anyone read the diff. By default the plugin completes a pull
+request in full automation: the project template sets
+`gate_policy.merge_requires_code_review` to `false`, and the user decides for
+each story whether a review is needed.
+
+Before the task starts, at the same step as the autonomy choice, the agent asks
+this for every new pull-request delivery (never for a local release), in the
+user's language:
+
+> Do you want a code review before this PR is merged?
+>
+> 1. No: the plugin completes the PR in full automation (recommended for this story).
+> 2. Yes: before the merge, a person who did not author the commits must approve the code. Everything before the merge proceeds automatically.
+>
+> This choice applies only to this story.
+
+The agent suggests "No" by default, and "Yes" when the story touches security,
+authentication, payments, data migrations, public APIs, or infrastructure. The
+answer is the user's own. It is recorded as a formal human decision
+(`autonomy delivery propose --code-review required|not-required` with actor
+type `human`, approval source `explicit-user`, and the user's words), an agent
+or system choice is rejected, and the task does not start without it. It is
+never inherited from an earlier story: past answers can only shape the
+suggestion. The answer is stored in the approved delivery profile as
+`pull_request_target.code_review`, so it is covered by the profile hash.
+Editing it breaks the profile, and a delivery that carries it cannot be
+approved with `--approval-source automation`. A profile approved before this
+question existed has no answer and follows the project default without
+blocking or asking.
+
+`gate_policy.merge_requires_code_review` set to `true` is the project's own
+rule that every pull request needs a review. No story answer lowers it. An
+existing project that explicitly has `true` keeps it. To change it, the project
+uses the reviewed `config migrate` path: edit `.sdlc/config.json`, preview with
+`config migrate`, then `config migrate --apply --plan-hash <hash>`. The flag is
+read as an explicit `true`, so a project that never declared it keeps the merge
+behavior it agreed to.
+
+`autonomy delivery explain` and `status` show where the requirement for a pull
+request comes from: the project policy (`project_policy`), the user's answer for
+this story (`delivery_profile`), a standing approval (`standing_approval`), a
+change made after approval (`change`), or the project default
+(`project_default`). When a review is required they also show how many of the
+reviews recorded on this computer are valid for the current head, and `status`
+lists every open pull-request delivery with its requirement.
+
+#### What a review is
+
+`review record` writes the evidence: a `code-review:v1` record under
+`.sdlc/reviews/` naming the story, the delivery, the repository, both branches,
+the base commit, the reviewed head commit, the reviewer's actor and Git
+identity, the verdict (`approved` or `changes_requested`), and any findings.
 
 The reviewed head commit is read from the repository, never taken from an
 option, so a review stays bound to the diff that was actually read. The author
 identities of every commit in `base..head` are stored with it.
 
-When `gate_policy.merge_requires_code_review` is `true`, authorizing
-`pull_request.merge` requires an approved review for this delivery at exactly
-the head being merged, recorded by a reviewer whose actor and Git email differ
-from every commit author in `base..head`. A review by an author is recorded but
-does not count; a later `changes_requested` from an independent reviewer
-withdraws an earlier approval of the same head; a new commit on the head branch
-leaves the merge unreviewed again; a record edited after it was written no
-longer matches its hash and is ignored. A refusal exits `1`.
+When a review is required, authorizing `pull_request.merge` requires an
+approved review for this delivery at exactly the head being merged, recorded by
+a reviewer whose actor and Git email differ from every commit author in
+`base..head`. A review by an author is recorded but does not count; a later
+`changes_requested` from an independent reviewer withdraws an earlier approval
+of the same head; a new commit on the head branch leaves the merge unreviewed
+again; a record edited after it was written no longer matches its hash and is
+ignored. A refusal exits `1`.
 
-The flag is read as an explicit `true`, like `gate_policy.secret_scan.enabled`.
-A project whose configuration never declared it keeps the merge gate it agreed
-to, so a plugin update cannot start refusing its merges. Adoption is by
-initializing from the current template or migrating through `config migrate`.
+The requirement is checked only at `pull_request.merge`. `git.commit`,
+`git.push`, `pull_request.create`, `pull_request.update`, closing as
+`ready_for_review`, and every gate, including `gate check --strict
+--lifecycle-complete`, proceed without a review.
+
+#### Changing the answer after approval
+
+Before the task starts, the agent re-proposes the delivery with the new answer.
+After approval the answer changes only through a record bound to the exact
+profile (id and hash):
+
+- `review require --delivery <profile-id>` adds the requirement. Anyone may run
+  it. It applies at once, also to a delivery in progress, and only at merge.
+- `review waive --delivery <profile-id> --actor-type human --approval-source
+  explicit-user --summary "<the user's words>"` drops it. Only the user can do
+  this: it is refused inside an agent session, so the user runs it in their own
+  terminal, and it is refused when the project policy requires reviews for every
+  pull request.
+
+Each writes a `code-review-requirement-change:v1` record under
+`.sdlc/reviews/requirement-changes/` and a `review.require` or `review.waive`
+trace event.
+
+#### Reviews from another computer
+
+A review recorded on another computer counts at merge only after the person who
+recorded it shares it with `review publish --delivery <profile-id>`. It pushes
+each review as its own create-only ref,
+`refs/agentic-sdlc/reviews/<profile-id>/<profile-hash16>/<review-id>`, to the
+project's coordination remote (`orchestration_policy.coordination`). It never
+pushes or changes the pull-request branch or any other branch, and nothing is
+published automatically. `review fetch --delivery <profile-id>` reads the refs
+into `refs/agentic-sdlc-shared/reviews/` and shows which are valid; at merge the
+plugin does a read-only fetch of the same refs.
+
+A received review counts only when its schema and `record_hash` are valid, it
+belongs to the same delivery profile (id and hash) and repository, its
+`reviewed_head_sha` equals the head being merged, and its reviewer is
+independent of the `base..head` authors, which are recomputed locally. Any other
+review is ignored with a reason. If the remote cannot be reached, only the
+reviews recorded on this computer count.
+
+The reviews travel as create-only refs rather than Git notes because a notes
+namespace is one mutable ref, so two computers writing to it conflict with
+non-fast-forward errors, and notes are not fetched by default. Create-only refs
+reuse the mechanism the project already uses for standing approvals and story
+claims.
+
+#### A reviewer on the same computer
+
+`review record` takes the reviewer's identity from the Git configuration. For
+the person guiding the agent to record an independent review on the same
+computer, the agent's commits must carry another identity. Let the agent commit
+with a dedicated identity through environment variables, for its own commits
+only (`GIT_AUTHOR_NAME=agent-dev-1 GIT_AUTHOR_EMAIL=agent-dev-1@users.noreply.invalid
+GIT_COMMITTER_NAME=agent-dev-1 GIT_COMMITTER_EMAIL=agent-dev-1@users.noreply.invalid`),
+and leave the repository's `user.name` and `user.email` as the person's
+identity. Do not set the agent identity in the repository Git configuration:
+the person's review would then carry it and would not be independent.
+
+#### Standing approvals and stories without a review
+
+A standing approval for a pull-request destination records the user's answer
+once, with `autonomy standing propose --code-review required|not-required`. A
+delivery proposed under it without `--code-review` takes that answer and is not
+asked again; a different answer for a story puts that delivery outside the
+standing approval, so it takes the normal question and approval. A standing
+approval never covers a merge. Recording `not-required` is how a user states
+once that these stories need no review. It is bounded by the number of
+deliveries and the expiry, and it can be revoked. The alternative is to answer
+per story. Neither is inferred from earlier answers.
 
 ### The pull-request description lists what was recorded
 

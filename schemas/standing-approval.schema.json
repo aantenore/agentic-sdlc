@@ -92,11 +92,15 @@
           "type": "string",
           "maxLength": 200,
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*/$"
+        },
+        "code_review": {
+          "description": "The user's choice on code review before merge for every pull request the standing approval covers. Absent on standing approvals proposed before the choice existed.",
+          "enum": ["required", "not-required"]
         }
       },
       "if": { "properties": { "kind": { "const": "pull_request" } } },
       "then": { "required": ["repository", "head_branch_prefix"] },
-      "else": { "not": { "anyOf": [{ "required": ["repository"] }, { "required": ["head_branch_prefix"] }] } },
+      "else": { "not": { "anyOf": [{ "required": ["repository"] }, { "required": ["head_branch_prefix"] }, { "required": ["code_review"] }] } },
       "additionalProperties": false
     },
     "delivery_level": { "const": "checkpointed" },
