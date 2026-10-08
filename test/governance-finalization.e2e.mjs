@@ -316,8 +316,24 @@ function configureCustomPhase(project, customPhase) {
   pinProjectConfig(project);
 }
 
+/**
+ * The test remote is a public repository the test cannot write to, so story
+ * claims stay on this computer instead of being shared through it.
+ */
+function keepClaimsOnThisComputer(project) {
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = readJson(project, ".sdlc/config.json");
+  config.orchestration_policy = {
+    ...config.orchestration_policy,
+    coordination: { ...config.orchestration_policy?.coordination, mode: "local_only" },
+  };
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  pinProjectConfig(project);
+}
+
 function initializeGitProject(project, branch, configureProject = null) {
   mustRun(["init", "--root", project, "--project-name", "Finalization regression"], project);
+  keepClaimsOnThisComputer(project);
   configureProject?.(project);
   mustGit(project, ["init"]);
   mustGit(project, ["config", "user.name", "Finalization E2E"]);

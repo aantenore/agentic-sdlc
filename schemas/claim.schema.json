@@ -64,6 +64,50 @@
       "description": "Immutable delivery profile that required the story.claim checkpoint.",
       "$ref": "#/$defs/hashed_ref"
     },
+    "shared_claim": {
+      "description": "The same claim as recorded for every computer: a create-only ref on the project's git remote, made before this file was written.",
+      "type": "object",
+      "required": [
+        "scope",
+        "remote",
+        "ref",
+        "epoch",
+        "claimant_id"
+      ],
+      "properties": {
+        "scope": {
+          "const": "shared"
+        },
+        "remote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "remote_fingerprint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^refs/agentic-sdlc/claims/[^/]+/[0-9]{6}/claim$"
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "claimant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "takeover_of": {
+          "description": "The claim held elsewhere that a person took over to make this one.",
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
     "audit": {
       "type": "object",
       "additionalProperties": true
