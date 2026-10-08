@@ -472,9 +472,9 @@ The default stays the same: every delivery asks for its own work brief approval,
 | Size per delivery | at most 10 changed files and 200 added plus removed lines |
 | Destination | local release only, or a pull request created or updated but never merged, on one repository and only from branches under the standing approval's own prefix (never the base, shared, release, or production branches) |
 | Count and expiry | 5 deliveries until 1 November (capped by `standing_approval_policy.max_validity_days`) |
-| Budget | not accepted yet: delivery cost cannot be measured, so a standing approval with a cost budget is refused at proposal |
+| Budget | optional USD 1.50 per delivery and USD 10.00 in total, measured from each delivery's metered cost; accepted only when a meter that reports delivery cost (CodeBurn or a trusted signed source) is configured, and a step whose cost is not freshly measured falls back to a normal confirmation |
 
-Merge, production, deploy, data migrations, force-push, and deletions of tracked files outside the paths are never covered. A matching delivery passes `--standing-approval <id>` on `contract approve`, `autonomy delivery propose`, and `autonomy delivery approve`; approving it consumes one delivery slot atomically. Each delivery action is then confirmed by a derived approval that names the standing approval and its slot, but only after the CLI re-checks the expiry, revocation, delivery count, the bound project, configuration, policy, and requirement hashes, and the files changed since task start. Anything outside the bounds answers `checkpoint_required` with the reason, so the normal confirmation applies. Tests, secret scanning, review, smoke tests, gates, and the lifecycle-complete certificate all still run. `autonomy standing revoke` takes effect at once, including for deliveries in progress at their next step. `status`, `autonomy standing status`, and the Change Observatory list standing approvals, the deliveries that used them, the deliveries left, and the expiry, and `status` warns before expiry.
+Merge, production, deploy, data migrations, force-push, and deletions of tracked files outside the paths are never covered. A matching delivery passes `--standing-approval <id>` on `contract approve`, `autonomy delivery propose`, and `autonomy delivery approve`; approving it consumes one delivery slot atomically. Each delivery action is then confirmed by a derived approval that names the standing approval and its slot, but only after the CLI re-checks the expiry, revocation, delivery count, the bound project, configuration, policy, and requirement hashes, and the files changed since task start. Anything outside the bounds answers `checkpoint_required` with the reason, so the normal confirmation applies. Tests, secret scanning, review, smoke tests, gates, and the lifecycle-complete certificate all still run. `autonomy standing revoke` takes effect at once, including for deliveries in progress at their next step. `status`, `autonomy standing status`, and the Change Observatory list standing approvals, the deliveries that used them, the deliveries left, the expiry, and the cost spent against a budget, and `status` warns before expiry.
 
 Only the user approves a standing approval, in their own terminal: the CLI refuses `autonomy standing approve` inside an agent's session, and the plugin's hooks (`hooks/hooks.json`, read by both Claude Code and Codex) stop the agent from running it or from changing the records directly. In a project that requires signed approvals (`host_verified`), the approval also needs the trusted host's Ed25519 receipt for that exact standing approval (`--host-receipt-file`): it binds the record hash, the decision, and the expiry, is kept inside the approval record, and is verified again at every covered step and by the strict gate, so a script that writes the records itself cannot approve one. Revoking accepts a receipt but never requires one, because it only removes authority. An `audit_only` project may add a receipt too, and the approval is then shown as signed by the trusted host. Used deliveries and revocations are also shared through the project's git remote, so every copy of the project, such as CI runners or containers, counts the same deliveries and sees a revocation at its next step; if the remote cannot be reached, nothing is covered and the normal confirmation applies (`standing_approval_policy.coordination`).
 
@@ -537,6 +537,13 @@ deducts synthetic savings from usage. CodeBurn remains a disabled, opt-in
 legacy adapter for existing projects. Full details are in
 [Native Codex Session Metering](docs/codex-session-metering.md) and
 [Autonomy, Limits, and Metering](docs/limits-and-metering.md).
+
+Deliveries are measured too: `status`, `autonomy delivery status`, and the
+Change Observatory show each delivery's lead time (proposed, approved, work
+started, first action, released or ready for review), the time it waited for a
+person, and the cost and tokens recorded against it with
+`budget usage record --delivery` or `budget meter record --delivery`; a delivery
+with nothing recorded reads "not measured".
 
 ## RTK Context Optimization
 
@@ -774,6 +781,8 @@ node bin/agentic-sdlc.mjs budget meter start --root /path/to/project --proposal 
 node bin/agentic-sdlc.mjs budget meter record --root /path/to/project --proposal ASSESSMENT-001
 node bin/agentic-sdlc.mjs budget status --root /path/to/project --proposal ASSESSMENT-001 --json
 node bin/agentic-sdlc.mjs autonomy delivery checks --root /path/to/project --id AUT-PR-184
+node bin/agentic-sdlc.mjs budget usage record --root /path/to/project --delivery AUT-PR-184 --cost-amount 0.42 --currency USD
+node bin/agentic-sdlc.mjs budget status --root /path/to/project --delivery AUT-PR-184
 node bin/agentic-sdlc.mjs gate check --root /path/to/project --scope release-manifest --release-manifest RELEASE-ASSESSMENT-001 --strict --json
 node bin/agentic-sdlc.mjs migration active --root /path/to/project --release-manifest RELEASE-ASSESSMENT-001
 node bin/agentic-sdlc.mjs migration active --root /path/to/project --release-manifest RELEASE-ASSESSMENT-001 --apply

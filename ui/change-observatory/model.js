@@ -248,6 +248,70 @@ export function normalizeSemanticObservation(value) {
   };
 }
 
+const DELIVERY_MILESTONES = new Set(["proposed", "approved", "task_started", "first_action", "finished"]);
+const DELIVERY_FINISHES = new Set(["released", "ready_for_review", "closed"]);
+const LEAD_TIME_STATUSES = new Set(["finished", "in_progress", "approved", "awaiting_approval", "unknown"]);
+const COST_STATUSES = new Set(["metered", "unverified", "declared", "not_measured", "mixed_currencies"]);
+const DECIMAL_AMOUNT = /^(?:0|[1-9]\d*)(?:\.\d+)?$/u;
+const CURRENCY_CODE = /^[A-Z][A-Z0-9]{2,7}$/u;
+
+function countOrNull(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function amountOrNull(value) {
+  return typeof value === "string" && DECIMAL_AMOUNT.test(value) ? value : null;
+}
+
+function currencyOrNull(value) {
+  return typeof value === "string" && CURRENCY_CODE.test(value) ? value : null;
+}
+
+/** Lead time and cost of one delivery, kept only when every value has the expected shape. */
+export function normalizeDeliveryMetrics(value) {
+  const metrics = objectOrEmpty(value);
+  const leadTime = objectOrEmpty(metrics.leadTime);
+  const cost = objectOrEmpty(metrics.cost);
+  return {
+    leadTime: {
+      status: LEAD_TIME_STATUSES.has(leadTime.status) ? leadTime.status : "unknown",
+      finish: DELIVERY_FINISHES.has(leadTime.finish) ? leadTime.finish : null,
+      stages: arrayOrEmpty(leadTime.stages)
+        .map(objectOrEmpty)
+        .filter((stage) => DELIVERY_MILESTONES.has(stage.from) && DELIVERY_MILESTONES.has(stage.to))
+        .map((stage) => ({ from: stage.from, to: stage.to, seconds: countOrNull(stage.seconds) })),
+      totalSeconds: countOrNull(leadTime.totalSeconds),
+      waitingSeconds: countOrNull(leadTime.waitingSeconds) ?? 0,
+      waitingConfirmations: countOrNull(leadTime.waitingConfirmations) ?? 0,
+      unrecordedRequests: countOrNull(leadTime.unrecordedRequests) ?? 0,
+    },
+    cost: {
+      status: COST_STATUSES.has(cost.status) ? cost.status : "not_measured",
+      amount: amountOrNull(cost.amount),
+      currency: currencyOrNull(cost.currency),
+      tokens: countOrNull(cost.tokens),
+      receipts: countOrNull(cost.receipts) ?? 0,
+      sources: arrayOrEmpty(cost.sources).map((entry) => readable(entry, "")).filter(Boolean),
+    },
+  };
+}
+
+/** Recorded spend of a standing approval budget. */
+export function normalizeStandingBudget(value) {
+  const budget = objectOrEmpty(value);
+  const currency = currencyOrNull(budget.currency);
+  if (!currency) return null;
+  return {
+    currency,
+    perDelivery: amountOrNull(budget.perDelivery),
+    total: amountOrNull(budget.total),
+    spent: amountOrNull(budget.spent) ?? "0",
+    deliveries: countOrNull(budget.deliveries) ?? 0,
+    notMeasured: countOrNull(budget.notMeasured) ?? 0,
+    verified: budget.verified === true,
+  };
+}
+
 export function normalizeItem(value) {
   const item = objectOrEmpty(value);
   const sourceRefs = arrayOrEmpty(item.sourceRefs).map(normalizeSourceRef).filter(Boolean);
@@ -318,6 +382,8 @@ export function normalizeItem(value) {
     outputs: arrayOrEmpty(item.outputs).map(normalizeMappedEntry).filter(Boolean),
     alternatives: arrayOrEmpty(item.alternatives).map(normalizeMappedEntry).filter(Boolean),
     evidence: arrayOrEmpty(item.evidence).map(normalizeMappedEntry).filter(Boolean),
+    ...(item.deliveryMetrics ? { deliveryMetrics: normalizeDeliveryMetrics(item.deliveryMetrics) } : {}),
+    ...(normalizeStandingBudget(item.standingBudget) ? { standingBudget: normalizeStandingBudget(item.standingBudget) } : {}),
   };
 }
 

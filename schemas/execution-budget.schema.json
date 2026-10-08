@@ -101,13 +101,21 @@
         "currency": {
           "type": ["string", "null"],
           "pattern": "^[A-Z][A-Z0-9]{2,7}$"
+        },
+        "measure_only": {
+          "description": "Only in a delivery meter plan: the metric is measured and never limited.",
+          "const": true
         }
       },
       "allOf": [
         {
-          "not": {
-            "properties": { "soft": { "type": "null" }, "hard": { "type": "null" } },
-            "required": ["soft", "hard"]
+          "if": { "required": ["measure_only"] },
+          "then": { "properties": { "soft": { "type": "null" }, "hard": { "type": "null" } } },
+          "else": {
+            "not": {
+              "properties": { "soft": { "type": "null" }, "hard": { "type": "null" } },
+              "required": ["soft", "hard"]
+            }
           }
         },
         {

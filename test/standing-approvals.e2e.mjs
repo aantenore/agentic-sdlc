@@ -734,7 +734,7 @@ test("the delivery count is enforced and exhaustion falls back", () => {
   assert.equal(build.action_receipt.approval.approval_source, "standing-approval");
 });
 
-test("a standing approval with a cost budget is refused because delivery cost cannot be measured", () => {
+test("a standing approval with a cost budget is refused while no meter reports delivery cost", () => {
   const project = initializeProject("budget");
   for (const extra of [
     ["--budget-per-delivery", "5", "--budget-total", "20", "--currency", "EUR"],
@@ -749,7 +749,7 @@ test("a standing approval with a cost budget is refused because delivery cost ca
       ...extra,
     ], project);
     assert.notEqual(result.status, 0, result.stdout);
-    assert.match(`${result.stdout}\n${result.stderr}`, /cannot carry a cost budget yet[\s\S]*would never cover anything[\s\S]*Nothing was recorded/u);
+    assert.match(`${result.stdout}\n${result.stderr}`, /only when this project has a meter that reports delivery cost[\s\S]*would never cover anything[\s\S]*Nothing was recorded/u);
   }
   assert.equal(fs.existsSync(path.join(project, ".sdlc", "autonomy", "standing", "SA-BUDGET")), false);
   // Without the budget options the same bounds are accepted.

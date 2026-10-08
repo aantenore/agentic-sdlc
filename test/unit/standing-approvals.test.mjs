@@ -228,6 +228,31 @@ test("a configured budget fails closed without a measurement", () => {
   assert.match(standingBudgetReasons(record, { measurable: true, currency: "USD", delivery_amount: 1, total_amount: 1 }).join(), /not EUR/u);
 });
 
+test("a standing budget keeps exact decimal amounts and compares them exactly", () => {
+  const record = proposal({ budget: { per_delivery_amount: "0.10", total_amount: "000.30", currency: "usd" } });
+  assert.deepEqual(record.budget, { currency: "USD", per_delivery_amount: "0.1", total_amount: "0.3" });
+  assert.throws(() => proposal({ budget: { per_delivery_amount: "0", currency: "USD" } }), /positive decimal amount/u);
+  assert.throws(() => proposal({ budget: { per_delivery_amount: "1e3", currency: "USD" } }), /positive decimal amount/u);
+  assert.throws(() => proposal({ budget: { per_delivery_amount: "0.1234567", currency: "USD" } }), /positive decimal amount/u);
+  // 0.1 + 0.2 is exactly the 0.3 total, so it is not above the budget.
+  const exact = { measurable: true, currency: "USD", delivery_amount: "0.1", total_amount: "0.3" };
+  assert.deepEqual(standingBudgetReasons(record, exact), []);
+  assert.match(
+    standingBudgetReasons(record, { ...exact, delivery_amount: "0.1000001" }).join(),
+    /this delivery cost USD 0\.1000001, above the per-delivery budget of USD 0\.10/u,
+  );
+  assert.match(
+    standingBudgetReasons(record, { ...exact, total_amount: "0.31" }).join(),
+    /cost USD 0\.31, above the total budget of USD 0\.30/u,
+  );
+  // An amount that cannot be read exactly fails closed.
+  assert.match(standingBudgetReasons(record, { ...exact, total_amount: "1e-3" }).join(), /cannot be compared exactly/u);
+  // A budget recorded as numbers by an earlier version is compared exactly too.
+  const legacy = { ...record, budget: { currency: "USD", per_delivery_amount: 5, total_amount: 20.125 } };
+  assert.deepEqual(standingBudgetReasons(legacy, { measurable: true, currency: "USD", delivery_amount: "5", total_amount: "20.125" }), []);
+  assert.match(standingBudgetReasons(legacy, { measurable: true, currency: "USD", delivery_amount: "5.01", total_amount: "6" }).join(), /above the per-delivery budget/u);
+});
+
 test("a recorded standing budget reads as currency amounts", () => {
   assert.equal(formatStandingBudget(null), "none");
   assert.equal(
@@ -237,6 +262,10 @@ test("a recorded standing budget reads as currency amounts", () => {
   assert.equal(
     formatStandingBudget({ currency: "EUR", per_delivery_amount: null, total_amount: 20.125 }),
     "no per-delivery limit, EUR 20.125 total",
+  );
+  assert.equal(
+    formatStandingBudget({ currency: "USD", per_delivery_amount: "1.5", total_amount: "2" }),
+    "USD 1.50 per delivery, USD 2.00 total",
   );
 });
 

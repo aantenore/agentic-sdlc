@@ -316,6 +316,45 @@ const ITALIAN = Object.freeze({
   "Present · not verified": "Presente · non verificato",
   "IntentABI · Codex shadow": "IntentABI · osservazione Codex",
   "Unlinked. No complete explicit story and trace link was recorded.": "Non collegata. Non è stato registrato un collegamento completo ed esplicito alla storia e alla traccia.",
+  "Delivery time and cost": "Tempi e costo della consegna",
+  "Lead time": "Tempo di consegna",
+  Stages: "Fasi",
+  "Waiting for a person": "In attesa di una persona",
+  Cost: "Costo",
+  Tokens: "Token",
+  "Not measured": "Non misurato",
+  "Still in progress": "Ancora in corso",
+  "Waiting for approval": "In attesa di approvazione",
+  "measured by a meter": "misurato da un contatore",
+  "reported by a meter, not verified here": "riportato da un contatore, non verificato qui",
+  "declared by hand, not measured by a meter": "dichiarato a mano, non misurato da un contatore",
+  "Recorded in more than one currency, so it cannot be added up": "Registrato in più valute, quindi non sommabile",
+  "No wait for a person was recorded": "Nessuna attesa di una persona registrata",
+  "Standing approval budget": "Budget dell’approvazione permanente",
+  "Shown as recorded; the command line checks the usage history again before relying on a cost.": "Mostrato come registrato; la riga di comando ricontrolla la cronologia dell’utilizzo prima di basarsi su un costo.",
+});
+
+const DELIVERY_MILESTONE_TEXT = Object.freeze({
+  en: Object.freeze({
+    proposed: "proposed",
+    approved: "approved",
+    task_started: "work started",
+    first_action: "first action",
+    finished: "finished",
+    released: "released",
+    ready_for_review: "ready for review",
+    closed: "closed",
+  }),
+  it: Object.freeze({
+    proposed: "proposta",
+    approved: "approvata",
+    task_started: "lavoro avviato",
+    first_action: "prima azione",
+    finished: "conclusa",
+    released: "rilasciata",
+    ready_for_review: "pronta per la revisione",
+    closed: "chiusa",
+  }),
 });
 
 const AUTONOMY_TYPES = new Set([
@@ -447,6 +486,100 @@ export function applyDocumentLocale(root, locale = activeLocale) {
   for (const element of root?.querySelectorAll?.("[data-i18n-aria-label]") ?? []) {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
   }
+}
+
+/** "2d 3h 05m", "3h 05m", "12m 30s", "45s"; Italian uses "g" for days. */
+export function formatDurationText(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return t("Not recorded");
+  const whole = Math.floor(seconds);
+  const days = Math.floor(whole / 86_400);
+  const hours = Math.floor((whole % 86_400) / 3_600);
+  const minutes = Math.floor((whole % 3_600) / 60);
+  const rest = whole % 60;
+  const pad = (value) => String(value).padStart(2, "0");
+  if (days > 0) return `${days}${activeLocale === "it" ? "g" : "d"} ${hours}h ${pad(minutes)}m`;
+  if (hours > 0) return `${hours}h ${pad(minutes)}m`;
+  if (minutes > 0) return `${minutes}m ${pad(rest)}s`;
+  return `${rest}s`;
+}
+
+function amountText(currency, amount) {
+  if (!currency || amount === null || amount === undefined) return null;
+  const [whole, fraction = ""] = String(amount).split(".");
+  return `${currency} ${whole}.${fraction.padEnd(2, "0")}`;
+}
+
+/** Localized text for one delivery's lead time and cost. */
+export function deliveryMetricsTexts(metrics) {
+  const italian = activeLocale === "it";
+  const lead = metrics?.leadTime ?? {};
+  const cost = metrics?.cost ?? {};
+  const names = DELIVERY_MILESTONE_TEXT[italian ? "it" : "en"];
+  const milestone = (id) => names[id === "finished" && lead.finish ? lead.finish : id] ?? id;
+  const leadTime = Number.isFinite(lead.totalSeconds)
+    ? formatDurationText(lead.totalSeconds)
+    : ["approved", "in_progress"].includes(lead.status)
+      ? t("Still in progress")
+      : lead.status === "awaiting_approval" ? t("Waiting for approval") : t("Not recorded");
+  const stages = (lead.stages ?? [])
+    .map((stage) => `${milestone(stage.from)} → ${milestone(stage.to)}: ${formatDurationText(stage.seconds)}`);
+  const confirmations = lead.waitingConfirmations ?? 0;
+  const unrecorded = lead.unrecordedRequests ?? 0;
+  const unrecordedText = unrecorded > 0
+    ? (italian
+      ? ` (${unrecorded} ${unrecorded === 1 ? "conferma senza" : "conferme senza"} ora di richiesta registrata)`
+      : ` (${unrecorded} ${unrecorded === 1 ? "confirmation" : "confirmations"} without a recorded request time)`)
+    : "";
+  const waiting = confirmations > 0 || unrecorded > 0
+    ? (italian
+      ? `${formatDurationText(lead.waitingSeconds ?? 0)} su ${confirmations} ${confirmations === 1 ? "conferma" : "conferme"}${unrecordedText}`
+      : `${formatDurationText(lead.waitingSeconds ?? 0)} over ${confirmations} ${confirmations === 1 ? "confirmation" : "confirmations"}${unrecordedText}`)
+    : t("No wait for a person was recorded");
+  const amount = amountText(cost.currency, cost.amount);
+  const known = ["metered", "unverified", "declared"].includes(cost.status) && amount;
+  const costValue = known
+    ? amount
+    : cost.status === "mixed_currencies" ? t("Recorded in more than one currency, so it cannot be added up") : t("Not measured");
+  const costDetail = known && cost.status === "metered"
+    ? `${costValue} · ${t("measured by a meter")}${cost.sources?.length ? ` (${cost.sources.join(", ")})` : ""}`
+    : known && cost.status === "unverified"
+      ? `${costValue} · ${t("reported by a meter, not verified here")}`
+      : known ? `${costValue} · ${t("declared by hand, not measured by a meter")}` : costValue;
+  const tokens = Number.isFinite(cost.tokens)
+    ? (italian ? `${cost.tokens} token` : `${cost.tokens} tokens`)
+    : t("Not measured");
+  return {
+    leadTime,
+    stages,
+    waiting,
+    cost: costDetail,
+    tokens,
+    compact: `${t("Lead time")}: ${leadTime} · ${t("Cost")}: ${costValue}`,
+  };
+}
+
+/** Localized recorded spend of a standing approval budget. */
+export function standingBudgetText(budget) {
+  if (!budget?.currency) return null;
+  const italian = activeLocale === "it";
+  const spent = amountText(budget.currency, budget.spent ?? "0");
+  const total = amountText(budget.currency, budget.total);
+  const perDelivery = amountText(budget.currency, budget.perDelivery);
+  const limits = [
+    perDelivery ? (italian ? `${perDelivery} per consegna` : `${perDelivery} per delivery`) : null,
+    total ? (italian ? `${total} in tutto` : `${total} in total`) : null,
+  ].filter(Boolean).join(italian ? " e " : " and ");
+  const unmeasured = budget.notMeasured > 0
+    ? (italian
+      ? `; ${budget.notMeasured} ${budget.notMeasured === 1 ? "consegna senza" : "consegne senza"} lettura di un contatore`
+      : `; ${budget.notMeasured} ${budget.notMeasured === 1 ? "delivery" : "deliveries"} without a meter reading`)
+    : "";
+  const recorded = budget.verified
+    ? (italian ? "Speso finora" : "Spent so far")
+    : (italian ? "Registrato finora, non verificato qui," : "Recorded so far, not verified here,");
+  return italian
+    ? `${recorded} ${spent} su ${budget.deliveries} ${budget.deliveries === 1 ? "consegna" : "consegne"}; limite ${limits}${unmeasured}.`
+    : `${recorded} ${spent} over ${budget.deliveries} ${budget.deliveries === 1 ? "delivery" : "deliveries"}; limit ${limits}${unmeasured}.`;
 }
 
 export function isAutonomyRecord(item) {

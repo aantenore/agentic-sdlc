@@ -342,7 +342,8 @@ test("optimization and budget focused help expose executable and metering bounda
   assert.match(run.get("--json")?.description, /Not supported.*child output is streamed/u);
 
   const usage = flags("budget usage record");
-  assert.equal(usage.get("--proposal")?.required, true);
+  assert.equal(usage.get("--proposal")?.required_one_of, "--proposal or --delivery");
+  assert.equal(usage.get("--delivery")?.required_one_of, "--proposal or --delivery");
   for (const flag of [
     "--receipt-json",
     "--receipt-file",
@@ -362,9 +363,13 @@ test("optimization and budget focused help expose executable and metering bounda
     assert.equal(usage.has(flag), true, `budget usage record should expose ${flag}`);
   }
 
-  for (const command of ["budget meter start", "budget meter record", "budget amend", "budget status"]) {
-    assert.equal(flags(command).get("--proposal")?.required, true, `${command} should require --proposal`);
+  assert.equal(flags("budget amend").get("--proposal")?.required, true, "budget amend should require --proposal");
+  assert.equal(flags("budget amend").has("--delivery"), false, "a delivery has no budget to amend");
+  for (const command of ["budget meter start", "budget meter record", "budget status"]) {
+    assert.equal(flags(command).get("--proposal")?.required_one_of, "--proposal or --delivery", `${command} should take --proposal or --delivery`);
+    assert.equal(flags(command).get("--delivery")?.required_one_of, "--proposal or --delivery", `${command} should take --proposal or --delivery`);
   }
+  assert.equal(flags("budget meter start").has("--currency"), true);
   assert.equal(flags("budget meter record").has("--baseline"), true);
   assert.equal(flags("budget meter record").has("--thread-id"), true);
   assert.equal(flags("budget amend").get("--budget-json")?.required_one_of, "--budget-json or --budget-file");
