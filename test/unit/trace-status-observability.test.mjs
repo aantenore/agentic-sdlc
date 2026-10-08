@@ -462,3 +462,12 @@ test("status and approval requests list a proposed requirement waiting for appro
   const italian = mustRun(["approval", "requests", "--root", project, "--locale", "it"]);
   assert.match(italian.stdout, /1\. Requisito proposto/u);
 });
+
+test("init ends with a concrete first step instead of the generic result text", () => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "agentic-sdlc-trace-status-init-"));
+  tempProjects.add(folder);
+  const result = mustRun(["init", "--root", folder]);
+  assert.match(result.stdout, /^Outcome: The project is ready for guided delivery\./u);
+  assert.match(result.stdout, /Next step: Propose your first requirement/u);
+  assert.doesNotMatch(result.stdout, /The requested result is ready/u);
+});
