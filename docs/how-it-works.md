@@ -761,8 +761,8 @@ command replaces an older one, so a late failure is not hidden behind an
 earlier pass. A record whose hash no longer matches is left out and counted.
 
 The pull-request description itself is written by the host, not by the CLI, so
-authorizing `pull_request.create` or `pull_request.update` returns the exact
-command to run. The output is the table alone, with no clock reading or
+authorizing `pull_request.create` or `pull_request.update` returns the table
+(`pull_request_body_checks.markdown`) and the command that prints it again. The output is the table alone, with no clock reading or
 envelope, so identical records produce identical bytes and an update can pin
 the description with `--expected-pr-body-sha256`. Before anything is printed
 the table goes through the same privacy redaction as the Change Observatory, so

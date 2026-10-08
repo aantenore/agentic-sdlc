@@ -101,7 +101,7 @@ function fakeGitHubEnv(project, values) {
     AUTONOMY_FAKE_GH_DRAFT: values.draft === false ? "false" : "true",
     ...(values.updatedAt ? { AUTONOMY_FAKE_GH_UPDATED_AT: values.updatedAt } : {}),
     AUTONOMY_FAKE_GH_HEAD_SHA: values.headSha,
-    AUTONOMY_FAKE_GH_HEAD: "codex/pr-checks",
+    AUTONOMY_FAKE_GH_HEAD: "feature/pr-checks",
     AUTONOMY_FAKE_GH_BASE: "main",
     AUTONOMY_FAKE_GH_BASE_SHA: git(project, ["rev-parse", "refs/remotes/origin/main"]),
     AUTONOMY_FAKE_GH_MERGED_AT: "",
@@ -177,7 +177,7 @@ function createStoryAndContract(project, { storyId, contractId, profileId, requi
 /** A started pull-request delivery on an exact existing PR, with one committed change. */
 function preparePullRequestDelivery() {
   const project = tmpDirectory("project");
-  initializeRepository(project, "Delivery Checks E2E", "codex/pr-checks");
+  initializeRepository(project, "Delivery Checks E2E", "feature/pr-checks");
   approveRequirementAndFormat(project, "REQ-CHECKS", "checkpointed");
   createStoryAndContract(project, {
     storyId: STORY_ID,
@@ -200,7 +200,7 @@ function preparePullRequestDelivery() {
     "--level", "checkpointed",
     "--repository", "aantenore/agentic-sdlc",
     "--base", "main",
-    "--head", "codex/pr-checks",
+    "--head", "feature/pr-checks",
     "--write-path", "src",
   ]);
   mustRunJson(["autonomy", "delivery", "approve", "--root", project, "--id", PROFILE_ID, ...humanApproval("Approve this delivery")]);
@@ -212,7 +212,7 @@ function preparePullRequestDelivery() {
 
   const started = mustRunJson(["task", "start", "--root", project, "--intent-json", implementationIntent(STORY_ID), "--delivery-profile", PROFILE_ID]);
   assert.equal(started.execution_allowed, true);
-  mustRun(["story", "claim", "--root", project, "--id", STORY_ID, "--agent", "codex", "--branch", "codex/pr-checks"]);
+  mustRun(["story", "claim", "--root", project, "--id", STORY_ID, "--agent", "checks-agent", "--branch", "feature/pr-checks"]);
   return project;
 }
 
@@ -364,7 +364,7 @@ test("the checks table lists what was recorded, redacts it, and follows the proj
   const offBranch = mustRun(checksArgs(project));
   assert.match(offBranch.stdout, /not checked out here/u);
   assert.equal(JSON.parse(mustRun(checksArgs(project, ["--format", "json"])).stdout).delivery.head_sha, null);
-  git(project, ["checkout", "--quiet", "codex/pr-checks"]);
+  git(project, ["checkout", "--quiet", "feature/pr-checks"]);
 
   // 6. A record edited after it was written is not evidence: it is left out and counted.
   const recordPath = path.join(project, passing.test_run_path);
@@ -394,9 +394,14 @@ test("authorizing a pull-request update points at the checks table, which a loca
     ...humanApproval("Approve marking this exact pull request ready for review"),
   ], { env: fakeGitHubEnv(project, { headSha }) });
   assert.equal(authorization.status, "authorized");
-  assert.deepEqual(authorization.pull_request_body_checks, {
-    command: `agentic-sdlc autonomy delivery checks --id ${PROFILE_ID} --format markdown`,
-  });
+  // The authorization hands over the table itself, the same bytes the command prints.
+  assert.equal(
+    authorization.pull_request_body_checks.command,
+    `agentic-sdlc autonomy delivery checks --id ${PROFILE_ID} --format markdown`,
+  );
+  assert.match(authorization.pull_request_body_checks.markdown, /^## Delivery checks\n/u);
+  assert.equal(authorization.pull_request_body_checks.markdown, mustRun(checksArgs(project)).stdout.trimEnd());
+  assert.equal(authorization.pull_request_body_checks.unavailable_reason, undefined);
   const human = mustRun([
     "autonomy", "delivery", "action", "--root", project,
     "--id", PROFILE_ID,

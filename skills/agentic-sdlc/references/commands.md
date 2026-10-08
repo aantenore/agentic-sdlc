@@ -1044,7 +1044,7 @@ node bin/agentic-sdlc.mjs autonomy delivery checks --root <project> --id AUT-PR-
 node bin/agentic-sdlc.mjs autonomy delivery checks --root <project> --id AUT-PR-001 --locale it
 ```
 
-The host writes the description, so put the table in it when authorizing `pull_request.create` or `pull_request.update`; both authorizations return the exact command as `pull_request_body_checks.command`. A typical hand-off is `node bin/agentic-sdlc.mjs autonomy delivery checks --root <project> --id AUT-PR-001 > checks.md`, then a description built from the summary text followed by `checks.md`.
+The host writes the description, so put the table in it when authorizing `pull_request.create` or `pull_request.update`. Both authorizations return the table as `pull_request_body_checks.markdown` (the same bytes the command prints) with the command that regenerates it as `pull_request_body_checks.command`; when a record cannot be read, `markdown` is `null` and `unavailable_reason` says why, and the authorization still succeeds. The table is built when the action is authorized, so record the test, scan, and review evidence first. A typical hand-off is `node bin/agentic-sdlc.mjs autonomy delivery checks --root <project> --id AUT-PR-001 > checks.md`, then a description built from the summary text followed by `checks.md`.
 
 | Row | Read from | Passes when |
 |---|---|---|
