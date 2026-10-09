@@ -305,6 +305,29 @@ sensitive action still requires a review, and that the choice expires with this
 delivery. Internal level and authority codes remain available only in technical
 details and the raw-evidence drawer.
 
+### Everyday Views, Search, And Large Projects
+
+The sidebar shows four everyday views: Overview, Stories, Timeline, and Map.
+The record-level views (requests, agreements, decisions, changes, checks, agent
+notes, and the step-by-step story record) sit under **More details**, which
+stays open once chosen.
+
+- **Work on other computers.** Stories claimed on the shared remote appear as
+  in progress, with who holds them. The Observatory reads only the local copies
+  that `status` and the claim commands keep (`GET /api/v1/claims`); it never
+  contacts the remote. A delivered story that a change request is changing
+  says so ("Being changed by ...").
+- **Search** ignores accents, case, and ID punctuation (`st replan 001` finds
+  `ST-REPLAN-001`), ranks ID and title matches first, and highlights matches.
+- **Large projects.** Lists render a page at a time with **Show more**. A plan
+  with more than 120 stories hides finished work that unlocks nothing still
+  open, with **Show everything** to bring it back. Dependency edges come from
+  a compact endpoint (`GET /api/v1/dependencies`), so a large
+  `dependencies/graph.json` never hides the plan. The knowledge base is read
+  stories, requirements, contracts, dependencies, and traces first, so when a
+  project outgrows the read limits (8,192 files, 64 MiB by default) the
+  stories still appear and a warning names what was skipped.
+
 The interface uses `recorded`, `inferred`, `missing`, and `malformed` provenance explicitly. It never silently turns an absent record into a completed phase.
 
 ## Proof-Bound Iteration Dossiers

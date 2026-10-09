@@ -30,7 +30,10 @@ import {
   t,
 } from "./i18n.js";
 import { icon, node } from "./dom.js";
+import { INSIGHT_SETTINGS } from "./insights.js";
 import { activityView, dashboardView, mapView, storiesView } from "./visuals.js";
+
+const LIST_PAGE_SIZE = INSIGHT_SETTINGS.timelinePageSize;
 
 function provenanceBadge(provenance) {
   return node("span", {
@@ -882,6 +885,23 @@ function recordRow(item, selectedId) {
   );
 }
 
+// Long lists are built a page at a time; "Show more" adds the next page.
+function pagedItems(items, options) {
+  if (options.limit) return items.slice(0, options.limit);
+  return options.pageSize ? items.slice(0, options.pageSize) : items;
+}
+
+function showMoreFooter(shown, total) {
+  return node("div", { className: "stream-more" }, [
+    node("button", {
+      className: "text-button",
+      text: `${t("Show more")} (${total - shown})`,
+      attrs: { type: "button" },
+      dataset: { action: "timeline-more" },
+    }),
+  ]);
+}
+
 function recordsPanel(title, description, items, state, options = {}) {
   const panel = node("section", { className: "section-panel" }, [sectionHeading(title, description)]);
   if (!items.length) {
@@ -889,13 +909,15 @@ function recordsPanel(title, description, items, state, options = {}) {
     return panel;
   }
   const list = node("div", { className: "record-list", attrs: { role: "list" } });
-  const visibleItems = options.limit ? items.slice(0, options.limit) : items;
+  const visibleItems = pagedItems(items, options);
   visibleItems.forEach((item) => {
     const row = recordRow(item, state.selectedId);
     list.append(node("div", { attrs: { role: "listitem" } }, [row]));
   });
   panel.append(list);
-  if (visibleItems.length < items.length) {
+  if (!options.limit && visibleItems.length < items.length) {
+    panel.append(showMoreFooter(visibleItems.length, items.length));
+  } else if (visibleItems.length < items.length) {
     panel.append(node("footer", {
       className: "panel-note",
       text: `Showing ${visibleItems.length} of ${items.length}. Open the dedicated view for the complete history.`,
@@ -906,7 +928,7 @@ function recordsPanel(title, description, items, state, options = {}) {
 }
 
 function changesPanel(model, state, options = {}) {
-  const visibleChanges = options.limit ? model.changes.slice(0, options.limit) : model.changes;
+  const visibleChanges = pagedItems(model.changes, options);
   const groups = groupChangesByIntent(visibleChanges);
   const panel = node("section", { className: "section-panel" }, [
     sectionHeading("Recorded changes", "Implementation and sync evidence grouped by recorded intent"),
@@ -926,7 +948,9 @@ function changesPanel(model, state, options = {}) {
     group.items.forEach((item) => list.append(recordRow(item, state.selectedId)));
   }
   panel.append(list);
-  if (visibleChanges.length < model.changes.length) {
+  if (!options.limit && visibleChanges.length < model.changes.length) {
+    panel.append(showMoreFooter(visibleChanges.length, model.changes.length));
+  } else if (visibleChanges.length < model.changes.length) {
     panel.append(node("footer", {
       className: "panel-note",
       text: `Showing ${visibleChanges.length} of ${model.changes.length}. Open Changes for the complete history.`,
@@ -945,9 +969,7 @@ function verificationPanel(model, state, options = {}) {
     return panel;
   }
   const list = node("div", { className: "record-list", attrs: { role: "list" } });
-  const visibleItems = options.limit
-    ? model.verification.slice(0, options.limit)
-    : model.verification;
+  const visibleItems = pagedItems(model.verification, options);
   for (const item of visibleItems) {
     const display = displayTextForItem(item);
     list.append(
@@ -958,7 +980,9 @@ function verificationPanel(model, state, options = {}) {
     );
   }
   panel.append(list);
-  if (visibleItems.length < model.verification.length) {
+  if (!options.limit && visibleItems.length < model.verification.length) {
+    panel.append(showMoreFooter(visibleItems.length, model.verification.length));
+  } else if (visibleItems.length < model.verification.length) {
     panel.append(node("footer", {
       className: "panel-note",
       text: `Showing ${visibleItems.length} of ${model.verification.length}. Open Verification for the complete history.`,
@@ -1061,7 +1085,7 @@ function intentEvidenceCard(item, state) {
   ]);
 }
 
-function intentEvidencePanel(model, state) {
+function intentEvidencePanel(model, state, options = {}) {
   const panel = node("section", {
     className: "section-panel",
     attrs: { "aria-labelledby": "intent-evidence-heading" },
@@ -1088,15 +1112,20 @@ function intentEvidencePanel(model, state) {
     return panel;
   }
 
+  const visibleItems = pagedItems(model.semanticObservations, options);
   panel.append(
     node("div", { className: "intent-evidence-list" },
-      model.semanticObservations.map((item) => intentEvidenceCard(item, state)),
+      visibleItems.map((item) => intentEvidenceCard(item, state)),
     ),
   );
+  if (visibleItems.length < model.semanticObservations.length) {
+    panel.append(showMoreFooter(visibleItems.length, model.semanticObservations.length));
+  }
   return panel;
 }
 
 export function renderPrimary(container, model, state) {
+  const paging = { pageSize: LIST_PAGE_SIZE * Math.max(1, state.explore?.pages ?? 1) };
   let content;
   switch (state.view) {
     case "timeline":
@@ -1111,7 +1140,7 @@ export function renderPrimary(container, model, state) {
         "Approved boundaries, versions, and source evidence",
         model.contracts,
         state,
-        { emptyMessage: "No contract evolution was recorded." },
+        { emptyMessage: "No contract evolution was recorded.", ...paging },
       );
       break;
     case "decisions":
@@ -1120,16 +1149,17 @@ export function renderPrimary(container, model, state) {
         "Recorded rationale and alternatives across delivery",
         model.decisions,
         state,
+        paging,
       );
       break;
     case "changes":
-      content = changesPanel(model, state);
+      content = changesPanel(model, state, paging);
       break;
     case "intent-evidence":
-      content = intentEvidencePanel(model, state);
+      content = intentEvidencePanel(model, state, paging);
       break;
     case "verification":
-      content = verificationPanel(model, state);
+      content = verificationPanel(model, state, paging);
       break;
     case "stories":
       content = storiesView(model, state);

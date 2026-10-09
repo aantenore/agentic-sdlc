@@ -173,6 +173,34 @@ export class ObservatoryApi {
     return bounded;
   }
 
+  // Shared story claims this computer last saw on the remote. Optional:
+  // an older server answers 404 and the views keep their recorded states.
+  async loadClaims(portfolioProjectId = null, { signal } = {}) {
+    const href = portfolioProjectId === null
+      ? "/api/v1/claims"
+      : `/api/v1/portfolio/claims?project=${encodeURIComponent(portfolioProjectId)}`;
+    const response = await this.#request(href, { signal, headers: { Accept: "application/json" } });
+    const payload = await parseJsonResponse(response, "shared claims");
+    return Array.isArray(payload?.claims) ? payload.claims : [];
+  }
+
+  // Compact dependency edges of the project plan. Returns null when the
+  // server predates this endpoint, so callers can read the graph record.
+  async loadDependencyEdges(portfolioProjectId = null, { signal } = {}) {
+    const href = portfolioProjectId === null
+      ? "/api/v1/dependencies"
+      : `/api/v1/portfolio/dependencies?project=${encodeURIComponent(portfolioProjectId)}`;
+    let response;
+    try {
+      response = await this.#request(href, { signal, headers: { Accept: "application/json" } });
+    } catch (error) {
+      if (error?.status === 404) return null;
+      throw error;
+    }
+    const payload = await parseJsonResponse(response, "dependency");
+    return payload?.found ? (Array.isArray(payload.edges) ? payload.edges : []) : [];
+  }
+
   // Parsed JSON content of one canonical record, for read-only projections
   // such as the dependency plan. Returns null when it is not structured data.
   async loadSourceData(href, { signal } = {}) {

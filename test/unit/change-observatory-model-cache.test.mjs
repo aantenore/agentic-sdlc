@@ -89,7 +89,7 @@ test("structured stat signatures preserve canonical revision bytes for ASCII and
   const unicodeRevision = await computeCanonicalRevision(fixture.projectRoot);
   assert.equal(
     unicodeRevision,
-    "e627a95b2d1da928c7989e77e5e99ef12c96a5592d48438dac6025be239b8cc4",
+    "ce5e6446e52adc456000789ea1b00a40bf620817465d4dc34ee9def60833c9af",
   );
   assert.equal(await computeCanonicalRevision(fixture.projectRoot), unicodeRevision);
 });

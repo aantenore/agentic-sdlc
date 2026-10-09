@@ -120,7 +120,11 @@
           <button class="nav-item" type="button" data-view="map">
             <svg aria-hidden="true"><use href="#icon-map"></use></svg><span data-i18n="Map">Map</span>
           </button>
-          <span class="nav-group-label" data-i18n="Detailed records">Detailed records</span>
+          <button class="nav-group-toggle" type="button" data-action="toggle-expert" aria-expanded="false" aria-controls="nav-expert">
+            <svg class="nav-group-chevron" aria-hidden="true"><use href="#icon-chevron"></use></svg>
+            <span data-i18n="More details">More details</span>
+          </button>
+          <div id="nav-expert" class="nav-expert" hidden>
           <button class="nav-item" type="button" data-view="timeline">
             <svg aria-hidden="true"><use href="#icon-dossier"></use></svg><span data-i18n="Story dossier">Story dossier</span>
           </button>
@@ -139,6 +143,7 @@
           <button class="nav-item" type="button" data-view="verification">
             <svg aria-hidden="true"><use href="#icon-verification"></use></svg><span data-i18n="Verification">Verification</span>
           </button>
+          </div>
         </div>
         <div class="nav-meta" aria-live="polite">
           <span class="nav-meta-label" data-i18n="Evidence API">Evidence API</span>
