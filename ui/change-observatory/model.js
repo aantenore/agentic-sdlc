@@ -551,9 +551,14 @@ function normalizeIteration(value, index, dossier = null) {
 function normalizeClosure(value) {
   const closure = objectOrEmpty(value);
   if (!["superseded", "cancelled"].includes(closure.event)) return null;
+  const replacementId = readable(closure.replacementId, "") || null;
+  const replacementIds = Array.isArray(closure.replacementIds)
+    ? closure.replacementIds.map((id) => readable(id, "")).filter(Boolean)
+    : [];
   return {
     event: closure.event,
-    replacementId: readable(closure.replacementId, "") || null,
+    replacementId,
+    replacementIds: replacementIds.length ? replacementIds : replacementId ? [replacementId] : [],
   };
 }
 

@@ -569,10 +569,12 @@ function storyNextText(story, storiesById) {
     return `${t("Worked on by")} ${story.holder.holder ?? story.holder.agent ?? t("another computer")}`;
   }
   if (story.remoteOnly) return t("New on another computer: update this copy to see its details");
-  const replacementId = story.iteration?.closure?.replacementId;
-  if (story.state === "replaced" && replacementId) {
-    const successor = storiesById?.get(replacementId);
-    return `${t("Replaced by")} ${successor ? storyTitle(successor) : replacementId}`;
+  const replacementIds = story.iteration?.closure?.replacementIds ?? [];
+  if (story.state === "replaced" && replacementIds.length) {
+    return `${t("Replaced by")} ${replacementIds.map((id) => {
+      const successor = storiesById?.get(id);
+      return successor ? storyTitle(successor) : id;
+    }).join(", ")}`;
   }
   if (story.state === "waiting" && story.waitingOn?.length) {
     return `${t("Waiting for")} ${waitingNames(story, storiesById)}`;
@@ -828,9 +830,7 @@ function storyRow(story, state, insight) {
   article.append(node("div", { className: "story-body", attrs: { id: bodyId } }, [
     summary ? node("p", { className: "story-summary", text: summary }) : null,
     phaseTrack(story, { labels: true }),
-    story.iteration?.closure?.replacementId
-      ? storyLinks("Replaced by", [story.iteration.closure.replacementId], insight)
-      : null,
+    storyLinks("Replaced by", story.iteration?.closure?.replacementIds, insight),
     storyLinks("Changes the work of", story.changes, insight),
     storyLinks("Being changed by", story.changedBy, insight),
     storyLinks("Needs first", story.prerequisites, insight),

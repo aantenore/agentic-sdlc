@@ -296,7 +296,7 @@ test("a dependency on a superseded story follows its replacement", () => {
   approveDependencies(project, "DEP-NEXT", ["ST-NEXT:ST-002:blocks:implementation:validated"]);
   const deps = mustRunJson(["story", "deps", "--root", project, "--id", "ST-NEXT"]);
   assert.equal(deps.blockers.length, 1);
-  assert.match(deps.blockers[0], /ST-NEXT depends on ST-002 \(superseded by ST-MVP\)/u);
+  assert.match(deps.blockers[0], /ST-NEXT depends on ST-002 → superseded by ST-MVP \[draft \(design\), not claimed\] \(blocks, implementation, requires validated\)/u);
 
   mustRun([
     "story", "cancel",

@@ -949,6 +949,72 @@ active stories still depend on is refused: close the dependents first or
 supersede it instead. A tampered closure, or a story edited after closure,
 blocks that story until it is repaired.
 
+### Split a story into several stories
+
+Repeat `--by` when one story is split into several stories. The closure is then
+written as `story-closure:v2`, with every replacement in `replacement_ids` and
+`replacement_id: null`; a single `--by` still writes the unchanged
+`story-closure:v1` record, and existing v1 records stay valid as they are.
+Writing a v2 closure records that the project needs plugin 0.51.0 or later.
+
+```bash
+node bin/agentic-sdlc.mjs story supersede --root <project> --id ST-ORCH-001   --by ST-ORCH-001A --by ST-ORCH-001B --by ST-ORCH-001C   --reason "Split into client, tools, and agents with the orchestrator"   --actor-type human --approval-source explicit-user --summary "Split the orchestration story in three"
+```
+
+A dependency on a split story is never moved onto one of its parts
+automatically. It stays unsatisfied (blocking when it is a hard dependency)
+and `status`, `story deps`, and the gates report it as needing review:
+`ST-CHAT-001A depends on ST-ORCH-001, which was split into ST-ORCH-001A,
+ST-ORCH-001B, ST-ORCH-001C: a person must decide which of them ST-CHAT-001A
+depends on ...`, with the `dependency revise` command that records the choice.
+With a single replacement the dependency follows it as before.
+
+The output of `story supersede` (JSON `dependents` and `dependency_review`)
+lists every open story whose approved dependencies point at the closed story.
+For a split it proposes the revision and approval commands, with a
+`<A|B|C>` placeholder for each choice.
+
+### Revise approved dependencies
+
+`dependency revise` proposes a change to the approved graph: `--retire
+from:to[:type:blocks]` stops evaluating approved edges, `--redirect
+from:old-to:new-to` retires them and adds the same edge (type, scope, required
+state, requirements) towards another story (repeat it to point one dependency
+at several stories), and `--edge` adds a new edge. `--rationale` is required.
+The revision is a proposal: nothing changes until a person approves it with
+`dependency approve`, which an agent cannot do.
+
+```bash
+node bin/agentic-sdlc.mjs dependency revise --root <project> --id DEP-REV-ST-ORCH-001   --redirect ST-CHAT-001A:ST-ORCH-001:ST-ORCH-001A   --redirect ST-CHAT-001A:ST-ORCH-001:ST-ORCH-001C   --retire ST-IMPR-001:ST-ORCH-001   --rationale "ST-ORCH-001 was split; each dependent names the part it needs"
+node bin/agentic-sdlc.mjs dependency approve --root <project> --id DEP-REV-ST-ORCH-001   --actor-type human --approval-source explicit-user --summary "Point each dependent at the part it needs"
+```
+
+Approved dependency records are never rewritten. On approval, each retired
+edge stays in `.sdlc/dependencies/graph.json` with `status: "retired"`,
+`retired_by_revision`, `retired_at`, and `retired_by`; redirected edges carry
+`revises` with the edge they replace, and a `dependency.revise` project trace
+records the decision. Retired edges are no longer evaluated by `status`,
+`orchestrate`, `story deps`, `dependency status`, gates, or `task start`, and
+approving an earlier proposal again does not bring them back. A revision is
+refused when an edge it retires is no longer active (for example another
+revision retired it first); propose it again from the current graph.
+Approving a revision records that the project needs plugin 0.51.0 or later.
+
+### Reading a dependency message
+
+Every dependency message names the story it effectively waits on and where
+that story stands, then the edge terms:
+
+```text
+ST-CHAT-001A depends on ST-ORCH-001 → superseded by ST-ORCH-001A [in progress (implementation), claimed by agente-orch-001a on another computer] (blocks, analysis, requires merged)
+ST-IMPR-001 depends on ST-ORCH-001C [draft (design), not claimed] (blocks, analysis, requires merged)
+```
+
+The state is `merged`, `done`, `blocked`, `in progress (<phase>), claimed by
+<agent>` (with `on another computer` when `status` read the shared claims on
+the remote), or `<status> (<phase>), not claimed`. A superseded story is not a
+permanent blocker: the dependency waits on its replacement.
+
 ## Capability Discovery
 
 ```bash
@@ -1385,7 +1451,7 @@ Besides the counts, `status` names the work, each list bounded by `orchestration
 
 ## Follow A Dependency Chain
 
-`story deps --id ST-001` lists the direct dependencies. `story deps --id ST-001 --transitive` follows every unsatisfied dependency upstream and ends with the root causes: unsatisfied upstream stories that wait on nothing themselves. Each story is expanded once, and a cycle is printed as `CYCLE A -> B -> A` instead of looping. JSON: `chain` (from, to, depth, satisfied, message), `root_causes`, `cycles`.
+`story deps --id ST-001` lists the direct dependencies; each message names the story it effectively waits on and its state (see "Reading a dependency message"). `story deps --id ST-001 --transitive` follows every unsatisfied dependency upstream and ends with the root causes: unsatisfied upstream stories that wait on nothing themselves. Each story is expanded once, and a cycle is printed as `CYCLE A -> B -> A` instead of looping. JSON: `chain` (from, to, depth, satisfied, message), `root_causes`, `cycles`.
 
 ## Work Merged But Still Open
 

@@ -1,16 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 
 import { DomainValidationError } from "../../lib/canonical.mjs";
 import { findForbiddenHumanGuidanceTerms } from "../../lib/human-guidance.mjs";
 import { statusHumanGuidance } from "../../lib/engine/guidance.mjs";
+import { validateAgainstSchema } from "../../lib/json-schema-validator.mjs";
 import {
   STORY_CLOSURE_SCHEMA,
+  STORY_CLOSURE_SCHEMA_V2,
   buildStoryClosure,
   buildStoryClosureSubject,
+  storyClosureReplacementIds,
 } from "../../lib/story-closure.mjs";
 
 const HASH = "a".repeat(64);
+const schemaDir = fileURLToPath(new URL("../../schemas", import.meta.url));
 
 function ref(id) {
   return { id, path: `.sdlc/stories/${id}/story.json`, content_hash: HASH };
@@ -135,4 +140,81 @@ test("a started-story closure binds terminal deliveries without delivered work",
       JSON.stringify(input),
     );
   }
+});
+
+test("a story split into several replacements is recorded as a version 2 closure", () => {
+  const subject = buildStoryClosureSubject({
+    event: "superseded",
+    stories: [ref("ST-ORCH-001")],
+    replacements: [ref("ST-ORCH-001C"), ref("ST-ORCH-001A"), ref("ST-ORCH-001B")],
+    reason: "Split into client, tools, and orchestrator",
+  });
+  assert.deepEqual(subject.replacements.map((item) => item.id), ["ST-ORCH-001A", "ST-ORCH-001B", "ST-ORCH-001C"]);
+  assert.equal(Object.hasOwn(subject, "replacement"), false);
+  assert.deepEqual(storyClosureReplacementIds(subject), ["ST-ORCH-001A", "ST-ORCH-001B", "ST-ORCH-001C"]);
+
+  const record = buildStoryClosure({
+    id: "CLOSE-ST-ORCH-001-1",
+    story_id: "ST-ORCH-001",
+    subject,
+    approval: { status: "approved" },
+    created_at: "2026-10-09T10:00:00.000Z",
+    audit: {},
+  });
+  assert.equal(record.schema_version, STORY_CLOSURE_SCHEMA_V2);
+  assert.equal(record.replacement_id, null, "a version 1 reader must not follow one part of a split");
+  assert.deepEqual(record.replacement_ids, ["ST-ORCH-001A", "ST-ORCH-001B", "ST-ORCH-001C"]);
+  assert.deepEqual(storyClosureReplacementIds(record), record.replacement_ids);
+  const plain = JSON.parse(JSON.stringify(record));
+  assert.deepEqual(validateAgainstSchema(plain, "story-closure.schema.json", { schemaDir }).errors, []);
+  for (const tampered of [
+    { ...plain, schema_version: STORY_CLOSURE_SCHEMA },
+    { ...plain, replacement_id: "ST-ORCH-001A" },
+    { ...plain, replacement_ids: ["ST-ORCH-001A"] },
+    { ...plain, event: "cancelled", status: "cancelled" },
+  ]) {
+    assert.notDeepEqual(validateAgainstSchema(tampered, "story-closure.schema.json", { schemaDir }).errors, [], JSON.stringify(tampered.schema_version));
+  }
+
+  const invalid = [
+    { replacements: [ref("ST-A")] },
+    { replacements: [ref("ST-A"), ref("ST-A")] },
+    { replacements: [ref("ST-A"), ref("ST-ORCH-001")] },
+    { replacements: [ref("ST-A"), ref("ST-B")], replacement: ref("ST-C") },
+  ];
+  for (const input of invalid) {
+    assert.throws(
+      () => buildStoryClosureSubject({ event: "superseded", stories: [ref("ST-ORCH-001")], reason: "x", ...input }),
+      DomainValidationError,
+      JSON.stringify(input),
+    );
+  }
+  assert.throws(() => buildStoryClosureSubject({
+    event: "cancelled",
+    stories: [ref("ST-ORCH-001")],
+    replacements: [ref("ST-A"), ref("ST-B")],
+    reason: "x",
+  }), DomainValidationError);
+});
+
+test("a single replacement stays a version 1 closure that version 1 readers follow", () => {
+  const subject = buildStoryClosureSubject({
+    event: "superseded",
+    stories: [ref("ST-001")],
+    replacement: ref("ST-MVP"),
+    reason: "One story delivers it",
+  });
+  const record = buildStoryClosure({
+    id: "CLOSE-ST-001-1",
+    story_id: "ST-001",
+    subject,
+    approval: {},
+    created_at: "2026-10-09T10:00:00.000Z",
+    audit: {},
+  });
+  assert.equal(record.schema_version, STORY_CLOSURE_SCHEMA);
+  assert.equal(record.replacement_id, "ST-MVP");
+  assert.equal(Object.hasOwn(record, "replacement_ids"), false);
+  assert.deepEqual(storyClosureReplacementIds(record), ["ST-MVP"]);
+  assert.deepEqual(storyClosureReplacementIds({ replacement_id: null }), []);
 });
