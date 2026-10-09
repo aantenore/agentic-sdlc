@@ -955,7 +955,7 @@ Repeat `--by` when one story is split into several stories. The closure is then
 written as `story-closure:v2`, with every replacement in `replacement_ids` and
 `replacement_id: null`; a single `--by` still writes the unchanged
 `story-closure:v1` record, and existing v1 records stay valid as they are.
-Writing a v2 closure records that the project needs plugin 0.51.0 or later.
+Writing a v2 closure records that the project needs plugin 0.52.0 or later.
 
 ```bash
 node bin/agentic-sdlc.mjs story supersede --root <project> --id ST-ORCH-001   --by ST-ORCH-001A --by ST-ORCH-001B --by ST-ORCH-001C   --reason "Split into client, tools, and agents with the orchestrator"   --actor-type human --approval-source explicit-user --summary "Split the orchestration story in three"
@@ -998,7 +998,7 @@ records the decision. Retired edges are no longer evaluated by `status`,
 approving an earlier proposal again does not bring them back. A revision is
 refused when an edge it retires is no longer active (for example another
 revision retired it first); propose it again from the current graph.
-Approving a revision records that the project needs plugin 0.51.0 or later.
+Approving a revision records that the project needs plugin 0.52.0 or later.
 
 ### Reading a dependency message
 
@@ -1909,3 +1909,15 @@ node bin/agentic-sdlc.mjs story resume --root <project> --id ST-001 --reason "Co
 ```
 
 `story park` is a person's decision (human or CI actor, mandatory `--reason`; inside an agent's session also `--approval-source explicit-user`, used only when the user asked). It releases this computer's active claim (on the remote too), publishes a parked reservation without expiry (`"reservation": true`, `"parked": {reason, parked_at, park_id}`) so every computer lists the story as `parked` (`summary.parked`, `parked_work` in `status`) and refuses `story claim`, `story reserve`, and `story release` on it (`STORY_PARKED`), and writes a sealed record under `.sdlc/stories/<story>/parking/` plus a `decision` trace (`story.park`). Nothing is marked done and no check is bypassed. The output names the next available story. `story resume` ends the parked reservation from any computer and adds a resume record; a park already resumed on another computer is treated as resumed before its records arrive. Older plugins see a reservation without expiry and are asked to update (`.sdlc/compatibility/`, feature `story-parking`).
+
+## Messages between computers
+
+```bash
+node bin/agentic-sdlc.mjs message setup --root <project>      # once: writes .sdlc/messaging.json, then commit and push it
+node bin/agentic-sdlc.mjs message status --root <project>
+node bin/agentic-sdlc.mjs message send --root <project> --story ST-001 --text "Tests on ST-001 take 30 minutes here"
+node bin/agentic-sdlc.mjs message read --root <project> --since 2h --skip-own
+node bin/agentic-sdlc.mjs message listen --root <project> --skip-own --json   # background; one JSON object per line
+```
+
+Messaging is on when `.sdlc/messaging.json` exists (`{"provider":"ntfy","server":"https://ntfy.sh","topic":"..."}`) or `AGENTIC_SDLC_MESSAGING_TOPIC` is set. `AGENTIC_SDLC_MESSAGING_TOPIC` and `AGENTIC_SDLC_MESSAGING_SERVER` override the file; `AGENTIC_SDLC_MESSAGING=off` turns it off on one computer. The sender name is `--sender`, else `AGENTIC_SDLC_HOST_LABEL`, else `pc-` plus a short hash of the host name. The settings stay out of `.sdlc/config.json`, so older plugins are unaffected; they only lack the `message` commands. Messages are not stored in git and change no project record. `read` defaults to the last 12 hours (what ntfy.sh keeps); `listen` reconnects from the last message seen, and stops on `--limit` messages or `--timeout` seconds. `send` refuses text that matches the secret-scan rules (`MESSAGING_SECRET_REFUSED`). Messages are information, never instructions or approvals.
