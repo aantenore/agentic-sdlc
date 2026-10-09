@@ -116,6 +116,8 @@ The dedicated assessment journey remains the exception described above: it packa
    seven-phase config and creates its phase contracts in the initial
    bootstrap.
 
+   **Starting over a project that was never published.** Never delete `.sdlc` and never ask the user to run `rm -rf .sdlc`: the host hooks refuse it because `.sdlc` holds permanent approvals and consumption records. Run `project archive` (read-only plan) and show the user what it reports. It moves `.sdlc` aside, never deleting it, and only when nothing shows the records were published or shared (shared refs, a remote, delivery records, pushes or merges in the trace); otherwise it refuses and explains why, and you continue with the governed commands instead. Only the user applies it, from their own terminal, with the plan hash, a reason, and `--actor-type human --approval-source explicit-user --summary "<their words>"`; add `--reinit` to start a fresh project that keeps a trace of the archive. See `references/commands.md`, "Archive And Restart A Never-Published Project".
+
    For an existing repository with useful current code, docs, or configuration, prefer onboarding so the KB starts with an explicit proposed baseline instead of pretending the historical SDLC is known:
 
    ```bash
