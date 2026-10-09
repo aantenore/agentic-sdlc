@@ -257,6 +257,10 @@ const ITALIAN = Object.freeze({
   "A project request and its expected outcome were recorded.": "Sono stati registrati una richiesta di progetto e il risultato atteso.",
   "A change to the project was recorded.": "È stata registrata una modifica al progetto.",
   "A project decision was recorded.": "È stata registrata una decisione di progetto.",
+  "Changes from other stories reviewed": "Modifiche di altre storie verificate",
+  "Newer main branch acknowledged": "Main più recente preso in carico",
+  "Story closed": "Storia chiusa",
+  "Approval recorded": "Approvazione registrata",
   "A project check was recorded; review the explanation below before relying on it.": "È stata registrata una verifica; prima di farvi affidamento, leggi la spiegazione qui sotto.",
   "A working agreement for this delivery was recorded.": "È stato registrato un accordo operativo per questa consegna.",
   "Evidence about a release was recorded.": "È stata registrata una prova relativa a un rilascio.",
@@ -808,6 +812,8 @@ const INTERNAL_TERM_WORDS = Object.freeze([
 ]);
 const DANGLING_WORDS = /\s+(?:for|on|of|to|in|at|by|from|with|su|per|di|del|della|dello|da|a|in|con|e|and|:)\s*$/iu;
 
+const WORK_ID = /(?<![\w./\\-])(?:ST|REQ)-[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?(?![\w/\\-]|\.\w)/u;
+
 const STRIPPABLE_RECORD_ID = /\b[A-Z][A-Z0-9]{1,20}-[A-Za-z0-9][A-Za-z0-9._:-]*/u;
 
 function globalPattern(pattern) {
@@ -819,9 +825,24 @@ function globalPattern(pattern) {
  * record IDs, absolute paths, and command lines are dropped, internal terms
  * become plain words. Returns null when nothing readable is left.
  */
-export function humanizeRecordedText(value) {
+export function humanizeRecordedText(value, { keepWorkIds = false } = {}) {
   let text = String(value ?? "").trim();
   if (!text) return null;
+  if (!containsInternalPrimaryText(text)) return text;
+  if (!keepWorkIds) return humanizedText(text);
+  // Story and request IDs are words readers use, so a summary keeps them and
+  // only the remaining technical fragments are dropped.
+  const kept = [];
+  const protectedText = text.replace(globalPattern(WORK_ID), (match) => {
+    kept.push(match);
+    return `\uE000${kept.length - 1}\uE001`;
+  });
+  const humanized = humanizedText(protectedText);
+  return humanized?.replace(/\uE000(\d+)\uE001/gu, (_, index) => kept[Number(index)]) ?? null;
+}
+
+function humanizedText(value) {
+  let text = value;
   if (!containsInternalPrimaryText(text)) return text;
   const prefixed = text.match(/^([^:]{1,80}):\s*(.+)$/su);
   // "CR on REQ-EDIT-001: wider edits" keeps only its readable subject.
@@ -844,6 +865,9 @@ export function humanizeRecordedText(value) {
     .replace(/\b(?:git|gh|npm|docker)\.([a-z]{3,})\b/gu, "$1")
     .replace(/\b([a-z]{3,})\.([a-z]{3,})\b/gu, "$1 $2")
     .replace(/\(\s*\)|\[\s*\]/gu, " ")
+    .replace(/([(\[])\s+/gu, "$1")
+    // "contract contract-ST-1-impl" leaves the same word twice once the ID is gone.
+    .replace(/(?<!\p{L})(\p{L}{3,})\s+\1(?!\p{L})/giu, "$1")
     .replace(/\s+([,.;:)])/gu, "$1")
     .replace(/([,;:])(?:\s*[,;:])+/gu, "$1")
     .replace(/\s{2,}/gu, " ")
@@ -872,6 +896,81 @@ function containsInternalPrimaryText(value) {
     WINDOWS_UNC_PATH,
     EXECUTABLE_COMMAND_LINE,
   ].some((pattern) => pattern.test(text));
+}
+
+// Plain-language names for recorded actions. Unknown actions fall back to the
+// kind of record, never to the raw action identifier.
+export const ACTION_LABELS = Object.freeze({
+  "authorization.grant": "Permission granted",
+  "autonomy.delivery.approve": "Way of working approved",
+  "autonomy.delivery.close": "Way of working closed",
+  "autonomy.delivery.propose": "Way of working proposed",
+  "autonomy.delivery.revoke": "Way of working revoked",
+  "baseline.approve": "Starting point approved",
+  "baseline.propose": "Starting point proposed",
+  "capability.approve": "Tool approved",
+  "capability.profile.approve": "Tool set approved",
+  "capability.profile.propose": "Tool set proposed",
+  "capability.recommend": "Tool suggested",
+  "contract.approve": "Agreement approved",
+  "contract.story-link": "Agreement linked to the work",
+  "git.commit": "Change saved",
+  "git.push": "Change shared",
+  "implementation": "Change made",
+  "output.link": "Result attached",
+  "pull_request.create": "Review requested",
+  "pull_request.merge": "Change merged",
+  "pull_request.update": "Review updated",
+  "requirement.approve": "Request approved",
+  "requirement.create": "Request created",
+  "requirement.propose": "Request proposed",
+  "requirement.revise": "Request revised",
+  "requirement.supersede": "Request replaced",
+  "story.complete-step": "Step completed",
+  "story.release": "Work released",
+  "task.start.confirm": "Work started",
+  "test": "Tests run",
+  "test.local": "Tests run",
+  "test.run": "Tests run",
+  "validation": "Validation run",
+  "workflow.instance.start": "Workflow started",
+  "workflow.instance.transition": "Workflow moved on",
+});
+
+export function actionLabel(item) {
+  const action = String(item?.action ?? "");
+  return Object.hasOwn(ACTION_LABELS, action) ? ACTION_LABELS[action] : null;
+}
+
+// Records whose title is only an identifier still say what happened: the
+// identifier prefix or file name names the event, never the raw code.
+const RECORD_ID_TITLES = Object.freeze([
+  [/^OVR-/u, "Changes from other stories reviewed"],
+  [/^BACK-/u, "Newer main branch acknowledged"],
+  [/^START-/u, "Work started"],
+  [/^CLOSE-/u, "Story closed"],
+  [/^APR-/u, "Approval recorded"],
+]);
+const STORY_FILE_TITLES = Object.freeze([
+  [/(?:^|[-/])pr-create\.json$/u, "Review requested"],
+  [/(?:^|[-/])pr-merge\.json$/u, "Change merged"],
+  [/(?:^|[-/])pr-update(?:-\d+)?\.json$/u, "Review updated"],
+]);
+
+function derivedRecordTitle(item) {
+  const action = actionLabel(item);
+  if (action) return action;
+  const phase = String(item?.phase ?? "").trim().toLowerCase();
+  if (item?.type === "story-step" && phase) {
+    return `${t("Step completed")}: ${t(phase.charAt(0).toUpperCase() + phase.slice(1))}`;
+  }
+  // A known record kind already names itself; only generic records need more.
+  if (recordPresentation(item).kind !== "Project record") return null;
+  const id = String(item?.id ?? "");
+  for (const [pattern, title] of RECORD_ID_TITLES) if (pattern.test(id)) return title;
+  const sourcePath = String(item?.sourceRefs?.[0]?.path ?? "");
+  for (const [pattern, title] of STORY_FILE_TITLES) if (pattern.test(sourcePath)) return title;
+  return null;
 }
 
 function recordPresentation(item) {
@@ -952,10 +1051,18 @@ export function displayTextForItem(item) {
 
   const fallback = recordPresentation(item);
   const recordedTitle = humanizeRecordedText(item?.title);
-  const recordedSummary = humanizeRecordedText(item?.summary);
+  const derivedTitle = recordedTitle ? null : derivedRecordTitle(item);
+  const rawSummary = String(item?.summary ?? "").trim();
+  // A record without a summary shows none instead of a placeholder sentence.
+  const summaryMissing = !rawSummary || rawSummary === "No recorded summary.";
+  const recordedSummary = summaryMissing && derivedTitle
+    ? null
+    : humanizeRecordedText(rawSummary, { keepWorkIds: true });
   return {
-    title: recordedTitle ? localizePlaceholder(recordedTitle) : t(fallback.kind),
-    summary: recordedSummary ? localizePlaceholder(recordedSummary) : t(fallback.summary),
+    title: recordedTitle ? localizePlaceholder(recordedTitle) : t(derivedTitle ?? fallback.kind),
+    summary: recordedSummary
+      ? localizePlaceholder(recordedSummary)
+      : (summaryMissing && derivedTitle ? "" : t(fallback.summary)),
     status: projectedStatus(item),
   };
 }

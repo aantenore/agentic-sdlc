@@ -17,7 +17,7 @@ import {
   storyInsights,
   storyState,
 } from "../../ui/change-observatory/insights.js";
-import { humanizeRecordedText, readableRecordedTitle } from "../../ui/change-observatory/i18n.js";
+import { displayTextForItem, humanizeRecordedText, readableRecordedTitle } from "../../ui/change-observatory/i18n.js";
 import { isActionableDiagnostic } from "../../ui/change-observatory/components.js";
 import { normalizeViewModel, recordSelectionKey } from "../../ui/change-observatory/model.js";
 import { defaultExploreState } from "../../ui/change-observatory/visuals.js";
@@ -287,4 +287,25 @@ test("navigation adds the visual views and keeps every existing view address", a
     assert.match(html, new RegExp(`data-view="${view}"`, "u"), view);
   }
   assert.match(html, /data-action="toggle-live"[^>]*aria-pressed="false"/u);
+});
+
+test("summaries keep story and request IDs and records without a title still say what happened", () => {
+  assert.equal(
+    humanizeRecordedText("Riviste le modifiche di ST-WEB-003 (merge 77e2440) in evidence/ST-WEB-003.md", { keepWorkIds: true }),
+    "Riviste le modifiche di ST-WEB-003 (merge 77e2440) in a file",
+  );
+  assert.equal(humanizeRecordedText("Linked story ST-A to contract contract-ST-A-implementation"), "Linked story to contract");
+  assert.equal(humanizeRecordedText("Ended (AUT-PR-A cancelled)"), "Ended (cancelled)");
+  const titleOf = (record) => displayTextForItem({ status: "missing", provenance: "recorded", ...record });
+  assert.equal(titleOf({ id: "OVR-1", title: "OVR-1", summary: "Riviste le modifiche di ST-B." }).title, "Changes from other stories reviewed");
+  assert.equal(titleOf({ id: "STEP-ST-A-validation-1", type: "story-step", phase: "validation", title: "STEP-ST-A-validation-1" }).title, "Step completed: Validation");
+  assert.equal(titleOf({ id: "TR-1", type: "gate", action: "git.push", title: "TR-1" }).title, "Change shared");
+  const artifact = titleOf({
+    id: "story-artifact:.sdlc/stories/ST-A/evidence/AUT-PR-A-pr-merge.json",
+    type: "story-artifact",
+    title: null,
+    summary: "No recorded summary.",
+    sourceRefs: [{ path: ".sdlc/stories/ST-A/evidence/AUT-PR-A-pr-merge.json" }],
+  });
+  assert.deepEqual([artifact.title, artifact.summary], ["Change merged", ""]);
 });

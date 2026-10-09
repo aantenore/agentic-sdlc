@@ -1902,3 +1902,27 @@ async function writeText(root, relativePath, value) {
   await fs.mkdir(path.dirname(target), { recursive: true });
   await fs.writeFile(target, value, "utf8");
 }
+
+test("cited log files are not reported as missing evidence", async (t) => {
+  const root = await createProject(t);
+  await writeJson(root, ".sdlc/project.json", { schema_version: "0.1.0", project_id: "logs", project_name: "Logs" });
+  await writeJson(root, ".sdlc/stories/ST-L/story.json", { schema_version: "0.1.0", id: "ST-L", title: "Logs", status: "draft" });
+  await writeText(root, ".sdlc/tests/ST-L-run.log", "ok\n");
+  await writeJsonLines(root, ".sdlc/traces/ST-L.jsonl", [{
+    id: "TR-L",
+    story_id: "ST-L",
+    type: "test",
+    summary: "Tests passed.",
+    evidence: [".sdlc/tests/ST-L-run.log", ".sdlc/tests/ST-L-gone.json"],
+    created_at: "2026-07-16T08:40:00Z",
+  }]);
+  const model = await buildObservatoryViewModel(root);
+  const codes = model.diagnostics.map((diagnostic) => diagnostic.code);
+  assert.equal(codes.includes("dossier_evidence_target_unparsed_format"), true);
+  assert.equal(
+    model.diagnostics.filter((diagnostic) => diagnostic.code === "dossier_evidence_target_missing")
+      .flatMap((diagnostic) => diagnostic.sourceRefs).length,
+    1,
+    "only the absent JSON file is missing",
+  );
+});

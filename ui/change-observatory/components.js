@@ -275,6 +275,7 @@ export const ROUTINE_DIAGNOSTIC_CODES = Object.freeze(new Set([
   "dossier_link_target_missing",
   "dossier_record_unlinked",
   "dossier_evidence_target_malformed",
+  "dossier_evidence_target_unparsed_format",
   "dossier_evidence_target_jsonl_unsupported",
   "dossier_evidence_link_shared",
   "dossier_lane_missing",
@@ -878,6 +879,7 @@ function recordRow(item, selectedId) {
         recordMetricsLine(item),
       ]),
       node("span", { className: "record-meta" }, [
+        item.storyId ? node("span", { className: "story-id", text: String(item.storyId) }) : null,
         statusText(display.status),
         provenanceBadge(item.provenance),
       ]),
