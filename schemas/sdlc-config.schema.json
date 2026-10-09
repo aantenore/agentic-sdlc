@@ -291,6 +291,14 @@
           },
           "additionalProperties": false
         },
+        "certification_drift": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "mode": { "enum": ["stale", "reopen"] }
+          },
+          "additionalProperties": false
+        },
         "workflow_history": {
           "type": "object",
           "properties": {

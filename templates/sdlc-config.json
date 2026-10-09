@@ -1329,6 +1329,10 @@
       "pull_requests": "off",
       "recent_within_seconds": null
     },
+    "certification_drift": {
+      "principle": "A story's final certification binds the exact content it certified: its records, the files in its requirement write paths, and its release targets. Work merged later by others (another story, a docs commit, an untracked file in a shared folder such as docs) changes that content without undoing the story. With mode stale the story stays completed, and status reports its certification as stale with the paths that changed since; the receipt's own identity (its hash, workflow, checkpoint, and task start) must still verify, so a damaged or replaced receipt never counts. With reopen a changed certification no longer closes the story, as in earlier versions. Records are never rewritten.",
+      "mode": "stale"
+    },
     "workflow_history": {
       "principle": "Every computer appends workflow audit records to the one shared project history (.sdlc/traces/project.jsonl), which is a single hash chain. When records written on several computers are copied onto one branch afterwards, that chain no longer verifies as a whole even though each workflow's own records are intact. With check workflow, status and the other read-only lifecycle views verify each story workflow on its own chained records and report the divergence; with project they also require the whole history to verify first, so every story workflow is blocked while it does not. Writes and trace verify always check the whole history.",
       "check": "workflow"
