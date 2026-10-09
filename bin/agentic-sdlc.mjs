@@ -999,6 +999,9 @@ import {
   resumeStory,
 } from "../lib/engine/story-parking.mjs";
 import {
+  storyWait,
+} from "../lib/engine/story-waits.mjs";
+import {
   publishStoryRecords,
 } from "../lib/engine/story-records-publish.mjs";
 import {
@@ -1214,6 +1217,7 @@ function buildCliRuntimeHandlerRegistry() {
     "story.availability": call(showStoryAvailability),
     "story.park": call(parkStory),
     "story.resume": call(resumeStory),
+    "story.wait": call(storyWait),
     "story.publish-records": call(publishStoryRecords),
     "story.overlap": report(showStoryOverlap),
     "story.overlap.confirm": call(confirmStoryOverlap),
