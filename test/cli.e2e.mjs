@@ -9551,6 +9551,34 @@ test("blocking dependency cycles fail strict gate", () => {
   mustFail(["gate", "check", "--root", project, "--story", "ST-001", "--strict"], /blocking dependency cycle/);
 });
 
+test("story deps --transitive follows the chain to its root causes and stops at cycles", () => {
+  const project = tmpProject("dependencies-transitive");
+  initProject(project);
+  for (const id of ["ST-001", "ST-002", "ST-003", "ST-004"]) story(project, id);
+  mustRun(["dependency", "propose", "--root", project, "--id", "DEP-A", "--edge", "ST-001:ST-002:blocks:implementation:done"]);
+  mustRun(["dependency", "approve", "--root", project, "--id", "DEP-A", ...humanApproval("Approved dependency A")]);
+  mustRun(["dependency", "propose", "--root", project, "--id", "DEP-B", "--edge", "ST-002:ST-003:blocks:implementation:done"]);
+  mustRun(["dependency", "approve", "--root", project, "--id", "DEP-B", ...humanApproval("Approved dependency B")]);
+  const direct = JSON.parse(mustRun(["story", "deps", "--root", project, "--id", "ST-001", "--json"]).stdout);
+  assert.equal(direct.edges.length, 1);
+  const chain = JSON.parse(mustRun(["story", "deps", "--root", project, "--id", "ST-001", "--transitive", "--json"]).stdout);
+  assert.deepEqual(chain.chain.map((link) => [link.from, link.to, link.depth, link.satisfied]), [
+    ["ST-001", "ST-002", 1, false],
+    ["ST-002", "ST-003", 2, false],
+  ]);
+  assert.deepEqual(chain.root_causes, ["ST-003"]);
+  assert.deepEqual(chain.cycles, []);
+  const human = mustRun(["story", "deps", "--root", project, "--id", "ST-001", "--transitive"]).stdout;
+  assert.match(human, /Root causes: ST-003/u);
+
+  mustRun(["dependency", "propose", "--root", project, "--id", "DEP-C", "--edge", "ST-003:ST-001:blocks:implementation:done"]);
+  mustRun(["dependency", "approve", "--root", project, "--id", "DEP-C", ...humanApproval("Approved dependency C")]);
+  const cyclic = JSON.parse(mustRun(["story", "deps", "--root", project, "--id", "ST-001", "--transitive", "--json"]).stdout);
+  assert.equal(cyclic.chain.length, 3);
+  assert.deepEqual(cyclic.cycles, [["ST-001", "ST-002", "ST-003", "ST-001"]]);
+  assert.deepEqual(cyclic.root_causes, []);
+});
+
 test("downstream dependency becomes stale when upstream artifact changes until revalidated", () => {
   const project = tmpProject("dependencies-stale");
   initProject(project);
