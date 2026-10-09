@@ -28,41 +28,8 @@ import {
   standingBudgetText,
   t,
 } from "./i18n.js";
-
-const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-
-function node(tag, options = {}, children = []) {
-  const element = document.createElement(tag);
-  if (options.className) element.className = options.className;
-  if (options.text !== undefined) {
-    element.textContent = options.i18n
-      ? localizeUiText(options.text)
-      : String(options.text ?? "");
-  }
-  for (const [name, value] of Object.entries(options.attrs ?? {})) {
-    if (value !== null && value !== undefined) {
-      const rendered = options.i18n && (name === "title" || name.startsWith("aria-"))
-        ? localizeUiText(value)
-        : value;
-      element.setAttribute(name, String(rendered));
-    }
-  }
-  for (const [name, value] of Object.entries(options.dataset ?? {})) {
-    if (value !== null && value !== undefined) element.dataset[name] = String(value);
-  }
-  element.append(...children.filter(Boolean));
-  return element;
-}
-
-function icon(name, className = "") {
-  const svg = document.createElementNS(SVG_NAMESPACE, "svg");
-  if (className) svg.setAttribute("class", className);
-  svg.setAttribute("aria-hidden", "true");
-  const use = document.createElementNS(SVG_NAMESPACE, "use");
-  use.setAttribute("href", `#icon-${name}`);
-  svg.append(use);
-  return svg;
-}
+import { icon, node } from "./dom.js";
+import { activityView, dashboardView, mapView, storiesView } from "./visuals.js";
 
 function provenanceBadge(provenance) {
   return node("span", {
@@ -1088,21 +1055,6 @@ function intentEvidencePanel(model, state) {
   return panel;
 }
 
-function overview(model, state) {
-  return node("div", { className: "view-stack" }, [
-    dossierPanel(model, state),
-    lineagePanel(model, state),
-    node("div", { className: "overview-grid" }, [
-      recordsPanel("Contract evolution", "Versions, approvals, and status", model.contracts, state, {
-        limit: 6,
-        emptyMessage: "No contract evolution was recorded.",
-      }),
-      changesPanel(model, state, { limit: 6 }),
-      verificationPanel(model, state, { limit: 6 }),
-    ]),
-  ]);
-}
-
 export function renderPrimary(container, model, state) {
   let content;
   switch (state.view) {
@@ -1138,8 +1090,17 @@ export function renderPrimary(container, model, state) {
     case "verification":
       content = verificationPanel(model, state);
       break;
+    case "stories":
+      content = storiesView(model, state);
+      break;
+    case "activity":
+      content = activityView(model, state);
+      break;
+    case "map":
+      content = mapView(model, state);
+      break;
     default:
-      content = overview(model, state);
+      content = dashboardView(model, state);
   }
   container.replaceChildren(content);
 }
