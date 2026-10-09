@@ -16,6 +16,10 @@
       "since": "0.35.0",
       "summary": "Story records carried in pull requests and published after merge",
       "config_keys": ["orchestration_policy.story_records"]
+    },
+    "story-closure-unstarted-revoked-delivery": {
+      "since": "0.45.0",
+      "summary": "Stories closed after a delivery revoked before it started"
     }
   }
 }

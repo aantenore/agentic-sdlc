@@ -173,3 +173,12 @@ test("findings are ordered by path, line, and rule so a record is reproducible",
   assert.equal(result.file_count, undefined);
   assert.deepEqual(result.scanned_paths, ["src/a.js", "src/b.js"]);
 });
+
+test("CSS custom property names and file paths are not credentials", () => {
+  const result = scanFiles([
+    file("src/ui/style.css", '.sample[data-token="--brand-primary"] {}'),
+    file("src/ui/tokens.tsx", '{ token: "--brand-primary", name: "Lake" }\nconst TOKEN = "src/ui/token.css";'),
+  ]);
+  assert.equal(result.outcome, "clean");
+  assert.equal(scanFiles([file("src/a.js", 'secret = "abc/def+ghi/jkl=="')]).outcome, "findings");
+});
