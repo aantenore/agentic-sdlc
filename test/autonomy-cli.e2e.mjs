@@ -1936,6 +1936,14 @@ test("requirement ceiling and an exact PR profile govern task start without leak
   assert.equal(terminalReuse.execution_allowed, false);
   assert.equal(terminalReuse.contract_action, "repair_delivery_autonomy");
   assert.ok(terminalReuse.blocking_reasons.includes("delivery.profile_terminal"));
+  mustFail([
+    "story", "claim",
+    "--root", project,
+    "--id", "ST-PR-1",
+    "--agent", "codex",
+    "--branch", "codex/pr-1",
+    "--force",
+  ], /cannot be claimed: delivery AUT-PR-1 of its current contract .* is cancelled/su);
 
   const successorContract = mustRunJson([
     "contract", "create",

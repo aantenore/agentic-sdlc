@@ -127,6 +127,11 @@ status` exposes `current_phase_completion`, its blockers, and an empty
 `ready_next_states` list until the phase is safe to leave. Idempotent retries of
 an already recorded transition remain no-ops.
 
+The reverse also holds: `story complete-step` for a configured phase is refused
+while the bound workflow is in a different phase, so a step cannot be recorded
+before its phase is entered. Steps outside the configured phase order and
+stories without a readable bound workflow keep the previous behavior.
+
 The technical-assessment preset complements the existing
 `assessment-proposal:v1` and `assessment-workflow:v1` records; it does not
 replace their files, commands, JSON fields, or two-checkpoint behavior.
