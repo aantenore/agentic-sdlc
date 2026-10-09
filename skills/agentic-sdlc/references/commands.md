@@ -778,6 +778,21 @@ published as `.../<epoch>/release`; output reports `shared_release.status`
 (`shared`, `already_shared`, `taken_over`, or `not_shared` with the reason).
 After `not_shared`, run `story release --id <story>` again when the remote is
 reachable: it shares the release without rewriting the claim.
+A plain release made once the story's delivery is finished (terminal delivery,
+passing release trace, completed release step) is published as `completed`,
+with the delivery id, kind, terminal status, close time, merge commit, and close
+receipt hash under `completion`; a story closed by `story supersede` or
+`story cancel` is published as `closed`. Every other computer then treats the
+story as finished, before its closing records reach its checkout:
+`orchestrate status` and `status` list it as `closed` (`finished_elsewhere`),
+`story availability` answers `finished`, and `story claim` and `story reserve`
+are refused with `STORY_COMPLETED_ON_REMOTE`. Working on it again is a
+person's decision: `story claim --force --reason <why> --actor-type human`.
+Versions before 0.31.0 do not know `completed`: they report the story's shared
+records as untrustworthy and refuse to claim it, never as free.
+`gate check --lifecycle-complete` reports `closing_records` and warns while the
+story's final receipt is not on the remote base branch yet (read from the last
+fetch).
 
 ```bash
 node bin/agentic-sdlc.mjs story claim --root <project> --id ST-001 --agent <host-agent> --branch feature/ST-001
@@ -1402,7 +1417,7 @@ node bin/agentic-sdlc.mjs story release --root <project> --id ST-001
 node bin/agentic-sdlc.mjs story availability --root <project> --id ST-001 --json
 ```
 
-Read-only: it only updates the remote-tracking branches with a fetch, unless status sync is off (`orchestration_policy.status_sync.mode: off` or `AGENTIC_SDLC_STATUS_SYNC=off`). Run it right before `task start`. It returns `verdict` (`free`, `claimed_here`, `reserved_here`, `reserved_elsewhere`, `claimed_elsewhere`, `remote_work_without_claim`, `untrustworthy`), `safe_to_start` (true only for `free`, `claimed_here`, `reserved_here`), `holder`, `expired_reservation`, and `remote_work`.
+Read-only: it only updates the remote-tracking branches with a fetch, unless status sync is off (`orchestration_policy.status_sync.mode: off` or `AGENTIC_SDLC_STATUS_SYNC=off`). Run it right before `task start`. It returns `verdict` (`free`, `claimed_here`, `reserved_here`, `reserved_elsewhere`, `claimed_elsewhere`, `finished`, `remote_work_without_claim`, `untrustworthy`), `safe_to_start` (true only for `free`, `claimed_here`, `reserved_here`), `holder`, `expired_reservation`, `completed`, and `remote_work`.
 
 For a story nobody claimed or reserved, a remote-tracking branch whose name names the story id (`ST-1` does not match `ST-10`; a longer id wins) and that has commits not yet on the base branch (`orchestration_policy.merge_drift.base_branch`, or the remote's default branch) produces a plain-language warning, also in `status` and `orchestrate status` as `unclaimed_remote_work`. It never blocks. Configuration, under `orchestration_policy.unclaimed_remote_work`:
 

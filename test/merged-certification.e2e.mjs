@@ -131,14 +131,17 @@ function appendTrace(project, storyId, type, outcome, evidence) {
 // Git fixtures
 // ---------------------------------------------------------------------------
 
-function initializeGitProject(project, { projectName = "Merged certification" } = {}) {
+function initializeGitProject(project, { projectName = "Merged certification", claimsRemote = null } = {}) {
   mustRun(["init", "--root", project, "--project-name", projectName], project);
   // The test remote is a public repository the test cannot write to, so claims
-  // stay on this computer and status is never synced through it.
+  // stay on this computer (or go to a local bare repository standing in for
+  // the team's remote) and status is never synced through it.
   applyProjectConfig(project, (config) => {
     config.orchestration_policy = {
       ...config.orchestration_policy,
-      coordination: { ...config.orchestration_policy?.coordination, mode: "local_only" },
+      coordination: claimsRemote
+        ? { ...config.orchestration_policy?.coordination, mode: "required", remote: "claims" }
+        : { ...config.orchestration_policy?.coordination, mode: "local_only" },
       status_sync: { ...config.orchestration_policy?.status_sync, mode: "off" },
     };
   });
@@ -153,6 +156,12 @@ function initializeGitProject(project, { projectName = "Merged certification" } 
   mustGit(project, ["branch", "-M", "main"]);
   mustGit(project, ["remote", "add", "origin", REMOTE_URL]);
   mustGit(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
+  if (claimsRemote) {
+    mustGit(project, ["remote", "add", "claims", claimsRemote]);
+    mustGit(project, ["push", "--quiet", "claims", "main"]);
+    mustGit(project, ["fetch", "--quiet", "claims"]);
+    mustGit(project, ["remote", "set-head", "claims", "main"]);
+  }
 }
 
 /** Deterministic pull request number per suffix, so two stories never collide. */
@@ -227,6 +236,7 @@ function sealPullRequestStory(project, {
   files = { "src/feature.mjs": "export const feature = 1;\n" },
   writePaths = DEFAULT_WRITE_PATHS,
   existingProject = false,
+  claimsRemote = null,
 } = {}) {
   assert.ok(suffix, "suffix is required");
   const requirementId = `REQ-${suffix}`;
@@ -240,7 +250,7 @@ function sealPullRequestStory(project, {
   const evidenceDir = writePaths[0];
   const authorizationId = `AUTH-${suffix}-STORY-ACTIONS`;
 
-  if (!existingProject) initializeGitProject(project);
+  if (!existingProject) initializeGitProject(project, { claimsRemote });
   mustGit(project, ["checkout", "-b", branch]);
 
   mustRun([
@@ -766,4 +776,21 @@ test("a merged story cannot be certified again when its merge commit is not in t
     `${result.stdout}\n${result.stderr}`,
     new RegExp(`Story ${story.storyId} was merged as ${mergeSha.slice(0, 12)} but that commit is not in this clone or is not an ancestor of HEAD; fetch the base branch and run the gate again\\.`, "u"),
   );
+});
+
+test("a story released after its delivery finished is shared as completed, so other computers never offer it again", () => {
+  const claims = temporaryDirectory("shared-claims-remote");
+  mustGit(claims, ["init", "--bare"]);
+  const project = temporaryDirectory("shared-completion");
+  const story = sealPullRequestStory(project, { suffix: "SHARE-A", claimsRemote: claims });
+  const record = JSON.parse(mustGit(claims, ["log", "-1", "--format=%B", `refs/agentic-sdlc/claims/${story.storyId}/000001/release`]));
+  assert.equal(record.status, "completed");
+  assert.equal(record.completion.terminal_status, "ready_for_review");
+  assert.equal(record.completion.delivery_kind, "pull_request");
+  assert.equal(record.completion.close_receipt_hash, story.closeReceipt.receipt_hash);
+  // The closing records are written by the gate itself: until they are pushed, the gate says so.
+  assert.equal(story.certification.closing_records.checked, true);
+  assert.equal(story.certification.closing_records.on_remote, false);
+  assert.equal(story.certification.closing_records.branch, "main");
+  assert.equal(story.certification.closing_records.path, `.sdlc/gates/${story.storyId}-final.json`);
 });

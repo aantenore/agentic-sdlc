@@ -7,6 +7,8 @@ import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { AGENT_HOSTS, AGENT_HOST_OVERRIDE_ENV } from "../lib/agent-host.mjs";
+import { serializeSharedPayload } from "../lib/shared-ref-records.mjs";
+import { buildSharedReleasePayload } from "../lib/story-claim-shared-state.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = path.join(REPOSITORY_ROOT, "bin", "agentic-sdlc.mjs");
@@ -722,4 +724,62 @@ test("a ready story nobody claimed, with a branch naming it on the remote, is re
   // Once claimed, the branch is the claim's work: no warning.
   mustRunJson(claim(first, "ST-REPLAN-002", "alice"), first);
   assert.equal(mustRunJson(["status", "--root", first], first).unclaimed_remote_work, undefined);
+});
+
+/** Ends a shared claim on the remote the way a computer that finished the story's delivery does. */
+function publishFinishedRelease(remote, storyId, epoch, claimantId, status, completion = null) {
+  const payload = buildSharedReleasePayload({
+    storyId, epoch, claimantId, status, reason: "Delivery finished", releasedAt: new Date().toISOString(), agent: "alice", completion,
+  });
+  const tree = spawnSync("git", ["-C", remote, "mktree"], { input: "", encoding: "utf8" }).stdout.trim();
+  const commit = spawnSync("git", ["-C", remote, "commit-tree", tree, "-F", "-"], {
+    input: serializeSharedPayload(payload),
+    encoding: "utf8",
+    env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.invalid", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.invalid" },
+  }).stdout.trim();
+  git(remote, ["update-ref", `refs/agentic-sdlc/claims/${storyId}/${String(epoch).padStart(6, "0")}/release`, commit]);
+}
+
+test("a story finished on another computer is never offered again, even before its closing records arrive", () => {
+  const { first, second, remote } = sharedProject("finished", ["ST-1", "ST-2"]);
+  const claimed = mustRunJson(claim(first, "ST-1", "alice"), first);
+  publishFinishedRelease(remote, "ST-1", 1, claimed.claim.shared_claim.claimant_id, "completed", {
+    delivery_id: "DEL-1", delivery_kind: "pull_request", terminal_status: "merged", merge_commit: "a".repeat(40),
+  });
+
+  const orchestration = mustRunJson(["orchestrate", "status", "--root", second], second);
+  const finished = orchestration.stories.find((story) => story.id === "ST-1");
+  assert.equal(finished.orchestration_state, "closed");
+  assert.equal(finished.finished_elsewhere, true);
+  assert.equal(finished.shared_claim.state, "completed");
+  assert.equal(finished.shared_claim.completed.terminal_status, "merged");
+  assert.equal(orchestration.summary.available, 1);
+  assert.match(mustRun(["orchestrate", "status", "--root", second], second).stdout, /ST-1: finished on another computer \(merged\)/u);
+  const status = mustRunJson(["status", "--root", second], second, { AGENTIC_SDLC_STATUS_SYNC: "off" });
+  assert.deepEqual(status.work.ready_story_ids, ["ST-2"]);
+  const availability = mustRunJson(["story", "availability", "--root", second, "--id", "ST-1"], second, { AGENTIC_SDLC_STATUS_SYNC: "off" });
+  assert.equal(availability.verdict, "finished");
+  assert.equal(availability.safe_to_start, false);
+
+  const refused = mustRefuseJson(claim(second, "ST-1", "bob"), second);
+  assert.equal(refused.error.code, "STORY_COMPLETED_ON_REMOTE");
+  assert.match(refused.error.message, /it is finished .*its delivery finished \(merged as aaaaaaaaaaaa\)/u);
+  assert.equal(mustRefuseJson(["story", "reserve", "--root", second, "--id", "ST-1", "--agent", "bob"], second).error.code, "STORY_COMPLETED_ON_REMOTE");
+  assert.equal(claimFile(second, "ST-1"), null);
+  assert.match(mustRefuseJson(claim(second, "ST-1", "bob", ["--force"]), second).error.message, /after its delivery finished/u);
+  assert.equal(claimFile(second, "ST-1"), null);
+
+  // Only a person decides to work on a finished story again, with a reason.
+  const reopened = mustRunJson(claim(second, "ST-1", "bob", ["--force", "--reason", "The merged change must be redone", "--actor-type", "human"]), second);
+  assert.equal(reopened.claim.shared_claim.epoch, 2);
+});
+
+test("a story closed by supersede or cancel on another computer is finished there too", () => {
+  const { first, second, remote } = sharedProject("closed-elsewhere", ["ST-1"]);
+  const claimed = mustRunJson(claim(first, "ST-1", "alice"), first);
+  publishFinishedRelease(remote, "ST-1", 1, claimed.claim.shared_claim.claimant_id, "closed");
+  const finished = mustRunJson(["orchestrate", "status", "--root", second], second).stories.find((story) => story.id === "ST-1");
+  assert.equal(finished.orchestration_state, "closed");
+  assert.equal(finished.shared_claim.completed.status, "closed");
+  assert.equal(mustRefuseJson(claim(second, "ST-1", "bob"), second).error.code, "STORY_COMPLETED_ON_REMOTE");
 });
