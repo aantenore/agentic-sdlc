@@ -698,6 +698,8 @@ test("a ready story nobody claimed, with a branch naming it on the remote, is re
   git(second, ["add", "replan.txt"]);
   git(second, ["commit", "--quiet", "-m", "wip: replan"]);
   git(second, ["push", "--quiet", "origin", "feature/ST-REPLAN-002"]);
+  // The suite runner turns status sync off: fetch as status would.
+  git(first, ["fetch", "--quiet", "origin"]);
 
   const availability = mustRunJson(["story", "availability", "--root", first, "--id", "ST-REPLAN-002"], first);
   assert.equal(availability.verdict, "remote_work_without_claim");
