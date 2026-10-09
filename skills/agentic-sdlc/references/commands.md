@@ -1717,6 +1717,17 @@ node bin/agentic-sdlc.mjs optimization run --root <project> --proposal ASSESS-00
 node bin/agentic-sdlc.mjs optimization run --root <project> --command-json '["git","diff","--binary"]' --exact
 ```
 
+A command is stopped (exit code 124) after `--timeout` in total (default 30m)
+or once it has printed nothing for `--idle-timeout` (default 10m), together with
+everything it started: a long command keeps printing, a hung one goes silent.
+Durations read as `90s`, `10m`, `2h`; `0` turns a limit off;
+`AGENTIC_SDLC_RUN_TIMEOUT` and `AGENTIC_SDLC_RUN_IDLE_TIMEOUT` change the
+defaults. Every local git call the CLI makes stops after
+`AGENTIC_SDLC_GIT_TIMEOUT_SECONDS` (default 300, `0` for none) with the likely
+cause, never waits at a credential prompt, and a command running longer than
+5s says on stderr that it is still working (`AGENTIC_SDLC_PROGRESS=off`
+silences it; stdout and `--json` output are unchanged).
+
 The default native fallback handles an unavailable or unsupported RTK provider
 without claiming savings. Unknown commands, mutations, unsafe Git output flags,
 external `rg` preprocessors, and executable paths are rejected rather than
