@@ -1116,7 +1116,9 @@ function buildCliRuntimeHandlerRegistry() {
   const call = (handler) => project(({ context, options }) => handler(context, options));
   // Read-only reports answer repeated Git questions once per run.
   const report = (handler) => project(({ context, options }) =>
-    withReadSnapshot(() => handler(context, options)));
+    withReadSnapshot(() => handler(context, options), {
+      fastChecks: String(process.env.AGENTIC_SDLC_STATUS_CHECKS || "fast").trim().toLowerCase() !== "full",
+    }));
 
   return createCommandHandlerRegistry({
     help: bootstrap(({ options, resolution }) => {

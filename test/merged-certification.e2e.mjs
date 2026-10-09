@@ -38,6 +38,8 @@ function run(args, project, options = {}) {
   for (const key of ["CI", "GITHUB_ACTIONS", "GITHUB_ACTOR", "CODEX_AGENT_NAME", "CODEX_THREAD_ID", "CODEX_USER_ID", "CLAUDECODE", "AGENTIC_SDLC_AGENT_HOST"]) {
     delete env[key];
   }
+  // These scenarios check the full re-verification that fast status skips.
+  env.AGENTIC_SDLC_STATUS_CHECKS = "full";
   Object.assign(env, options.env || {});
   return spawnSync(process.execPath, [CLI, ...args], {
     cwd: project,
