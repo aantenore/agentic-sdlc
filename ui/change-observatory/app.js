@@ -105,12 +105,21 @@ const api = new ObservatoryApi({
   accessToken,
 });
 
+function readExpertPreference() {
+  try {
+    return window.localStorage?.getItem("observatory.expertOpen") === "1";
+  } catch {
+    return false;
+  }
+}
+
 const state = {
   model: null,
   view: viewFromHash(),
   filters: { iteration: "", phase: "" },
   explore: defaultExploreState(),
   live: false,
+  expertOpen: readExpertPreference(),
   inspectorOpen: false,
   liveTimer: null,
   quietLoading: false,
@@ -128,6 +137,8 @@ const state = {
   rawReturnFocus: null,
   dependencies: null,
   dependencyKey: null,
+  sharedClaims: null,
+  sharedClaimsKey: null,
 };
 const loadCoordinator = new LatestRequestCoordinator();
 
@@ -214,6 +225,10 @@ function preferredSelection(model, portfolioProjectId = null) {
   );
 }
 
+// Views that need SDLC vocabulary sit in a "More details" group that stays
+// closed unless the reader opens it or one of those views is showing.
+const EVERYDAY_VIEWS = new Set(["overview", "stories", "activity", "map"]);
+
 function updateNavigation() {
   document.querySelectorAll("[data-view]").forEach((button) => {
     const active = button.dataset.view === state.view;
@@ -221,6 +236,10 @@ function updateNavigation() {
     if (active) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   });
+  const expertOpen = state.expertOpen || !EVERYDAY_VIEWS.has(state.view);
+  const group = document.querySelector("#nav-expert");
+  if (group) group.hidden = !expertOpen;
+  document.querySelector('[data-action="toggle-expert"]')?.setAttribute("aria-expanded", String(expertOpen));
 }
 
 function render() {
@@ -322,6 +341,23 @@ function applyProjectModel(model, {
     state.selectedId = state.selectedItem ? recordSelectionKey(state.selectedItem) : null;
   }
   loadDependencies(model, portfolioProjectId);
+  loadSharedClaims(portfolioProjectId);
+}
+
+// Who holds each story on the shared remote, as this computer last saw it.
+// Optional: without it the views keep the recorded states.
+async function loadSharedClaims(portfolioProjectId) {
+  try {
+    const claims = await api.loadClaims(portfolioProjectId);
+    if (state.modelProjectId !== portfolioProjectId) return;
+    const key = JSON.stringify(claims);
+    if (key === state.sharedClaimsKey) return;
+    state.sharedClaimsKey = key;
+    state.sharedClaims = claims.length ? claims : null;
+    render();
+  } catch {
+    // Older servers have no claims endpoint.
+  }
 }
 
 // The recorded dependency graph feeds the project plan and the "waiting"
@@ -329,21 +365,25 @@ function applyProjectModel(model, {
 const DEPENDENCY_GRAPH_PATH = ".sdlc/dependencies/graph.json";
 
 async function loadDependencies(model, portfolioProjectId) {
+  // The record list is capped on large projects, so a missing graph record
+  // does not prove the plan is missing; the compact endpoint decides.
   const record = model.records?.find((candidate) => candidate.path === DEPENDENCY_GRAPH_PATH);
-  if (!record) {
-    state.dependencies = null;
-    state.dependencyKey = null;
-    return;
-  }
-  const key = `${portfolioProjectId ?? ""}|${record.timestamp ?? ""}|${record.sizeBytes ?? ""}`;
+  const key = `${portfolioProjectId ?? ""}|${record?.timestamp ?? ""}|${record?.sizeBytes ?? ""}|${model.generatedAt ?? ""}`;
   if (state.dependencyKey === key) return;
-  const href = rawHrefForPath(DEPENDENCY_GRAPH_PATH, portfolioProjectId);
-  if (!href) return;
   state.dependencyKey = key;
   try {
-    const data = await api.loadSourceData(href);
+    let edges = await api.loadDependencyEdges(portfolioProjectId);
+    if (edges === null) {
+      // Older server: read the graph record itself.
+      const href = record ? rawHrefForPath(DEPENDENCY_GRAPH_PATH, portfolioProjectId) : null;
+      edges = href ? await api.loadSourceData(href) : null;
+      edges = edges ? normalizeDependencyEdges(edges) : [];
+    } else {
+      edges = normalizeDependencyEdges({ edges });
+    }
     if (state.modelProjectId !== portfolioProjectId || state.dependencyKey !== key) return;
-    const edges = normalizeDependencyEdges(data);
+    // Keep the same array when nothing changed so cached plan work is reused.
+    if (JSON.stringify(state.dependencies ?? []) === JSON.stringify(edges)) return;
     state.dependencies = edges.length ? edges : null;
     render();
   } catch {
@@ -387,6 +427,8 @@ function clearProjectModel() {
   state.explore = defaultExploreState();
   state.dependencies = null;
   state.dependencyKey = null;
+  state.sharedClaims = null;
+  state.sharedClaimsKey = null;
 }
 
 function clearProjectPresentation() {
@@ -589,6 +631,7 @@ async function loadPortfolioProject(projectId, {
 
 function setView(view) {
   if (!VALID_VIEWS.has(view) || (portfolioMode && !state.model)) return;
+  if (state.view !== view) state.explore.pages = 1;
   state.view = view;
   state.inspectorOpen = false;
   if (window.location.hash !== `#${view}`) window.history.pushState(null, "", `#${view}`);
@@ -762,6 +805,15 @@ function handleClick(event) {
     case "toggle-live":
       setLive(!state.live);
       break;
+    case "toggle-expert":
+      state.expertOpen = !(state.expertOpen || !EVERYDAY_VIEWS.has(state.view));
+      try {
+        window.localStorage?.setItem("observatory.expertOpen", state.expertOpen ? "1" : "0");
+      } catch {
+        // Storage may be unavailable; the choice then lasts for this visit.
+      }
+      updateNavigation();
+      break;
     default:
       handleExploreAction(actionElement);
   }
@@ -814,6 +866,7 @@ function handleExploreAction(element) {
       break;
     case "set-story-state":
       explore.storyState = data.storyState || "all";
+      explore.pages = 1;
       render();
       break;
     case "toggle-kind": {
@@ -846,6 +899,10 @@ function handleExploreAction(element) {
       break;
     case "timeline-more":
       explore.pages += 1;
+      render();
+      break;
+    case "plan-all":
+      explore.planAll = true;
       render();
       break;
     case "open-map":
@@ -890,7 +947,10 @@ function handleChange(event) {
   }
   const exploreField = event.target.dataset?.explore;
   if (exploreField && exploreField !== "query" && state.model) {
-    if (exploreField === "sort") state.explore.sort = event.target.value;
+    if (exploreField === "sort") {
+      state.explore.sort = event.target.value;
+      state.explore.pages = 1;
+    }
     if (exploreField === "storyId") {
       state.explore.storyId = event.target.value;
       state.explore.pages = 1;

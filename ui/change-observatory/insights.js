@@ -19,6 +19,8 @@ export const INSIGHT_SETTINGS = Object.freeze({
   recentActivityHours: 6,
   recentEventCount: 8,
   timelinePageSize: 60,
+  storyPageSize: 50,
+  planStoryLimit: 120,
   storyEventPreviewCount: 12,
   mapColumnLimit: 8,
   liveRefreshSeconds: 30,
@@ -181,8 +183,35 @@ function dossierItemKeys(iteration) {
   return keys;
 }
 
+// Titles are read on every sort comparison; remember them per iteration.
+const titleCache = new WeakMap();
+
 export function storyTitleText(iteration) {
-  return readableRecordedTitle(iteration?.title) ?? displayTextForItem(iteration).title;
+  if (iteration === null || typeof iteration !== "object") {
+    return readableRecordedTitle(iteration?.title) ?? displayTextForItem(iteration).title;
+  }
+  if (!titleCache.has(iteration)) {
+    titleCache.set(iteration, readableRecordedTitle(iteration.title) ?? displayTextForItem(iteration).title);
+  }
+  return titleCache.get(iteration);
+}
+
+// Edges grouped by both ends, so large plans avoid scanning every edge per story.
+const edgeIndexCache = new WeakMap();
+
+export function edgeIndex(edges) {
+  if (edgeIndexCache.has(edges)) return edgeIndexCache.get(edges);
+  const from = new Map();
+  const to = new Map();
+  for (const edge of edges) {
+    if (!from.has(edge.from)) from.set(edge.from, []);
+    from.get(edge.from).push(edge);
+    if (!to.has(edge.to)) to.set(edge.to, []);
+    to.get(edge.to).push(edge);
+  }
+  const index = { from, to };
+  edgeIndexCache.set(edges, index);
+  return index;
 }
 
 // Dependency edges as recorded in .sdlc/dependencies/graph.json: "from"
@@ -210,14 +239,63 @@ export function normalizeDependencyEdges(data) {
 
 // Adds prerequisites, dependents, and a "waiting" state for work that has
 // not started because a recorded prerequisite is not delivered yet.
+// Shared claims say who works on a story from another computer; a story whose
+// delivery finished elsewhere is done even before its records arrive here.
+export function applySharedClaims(stories, claims = []) {
+  if (!claims?.length) return stories;
+  const byStory = new Map(claims.filter((claim) => claim?.storyId).map((claim) => [claim.storyId, claim]));
+  return stories.map((story) => {
+    const claim = byStory.get(story.id);
+    if (!claim) return story;
+    if (["claimed", "reserved"].includes(claim.state) && !["delivered", "replaced", "stopped"].includes(story.state)) {
+      return { ...story, state: claim.state === "claimed" ? "live" : story.state, holder: claim };
+    }
+    if (claim.state === "completed" && !["delivered", "replaced", "stopped"].includes(story.state)) {
+      return { ...story, state: claim.completion === "closed" ? "stopped" : "delivered", holder: null };
+    }
+    return story;
+  });
+}
+
+const CHANGE_REQUEST_TARGET = /^(?:CR|Change request|Richiesta di modifica)\b[^:]{0,40}?\b(REQ-[A-Z0-9][A-Z0-9._-]*)/iu;
+
+// A change request names the requirement it changes in its title ("CR su
+// REQ-X: ..."); the stories that delivered that requirement are being changed.
+export function changeRequestLinks(stories) {
+  const byRequirement = new Map();
+  for (const story of stories) {
+    for (const requirementId of story.iteration?.dossier?.links?.requirementIds ?? []) {
+      if (!byRequirement.has(requirementId)) byRequirement.set(requirementId, []);
+      byRequirement.get(requirementId).push(story.id);
+    }
+  }
+  const changes = new Map();
+  const changedBy = new Map();
+  for (const story of stories) {
+    const target = CHANGE_REQUEST_TARGET.exec(String(story.iteration?.title ?? ""))?.[1];
+    if (!target) continue;
+    for (const id of byRequirement.get(target) ?? []) {
+      if (id === story.id) continue;
+      changes.set(story.id, [...(changes.get(story.id) ?? []), id]);
+      changedBy.set(id, [...(changedBy.get(id) ?? []), story.id]);
+    }
+  }
+  return stories.map((story) => ({
+    ...story,
+    changes: changes.get(story.id) ?? [],
+    changedBy: changedBy.get(story.id) ?? [],
+  }));
+}
+
 export function applyDependencies(stories, edges = [], {
   now = Date.now(),
   recentHours = INSIGHT_SETTINGS.recentActivityHours,
 } = {}) {
   const byId = new Map(stories.map((story) => [story.id, story]));
+  const index = edgeIndex(edges);
   return stories.map((story) => {
-    const prerequisites = edges.filter((edge) => edge.from === story.id && byId.has(edge.to)).map((edge) => edge.to);
-    const dependents = edges.filter((edge) => edge.to === story.id && byId.has(edge.from)).map((edge) => edge.from);
+    const prerequisites = (index.from.get(story.id) ?? []).filter((edge) => byId.has(edge.to)).map((edge) => edge.to);
+    const dependents = (index.to.get(story.id) ?? []).filter((edge) => byId.has(edge.from)).map((edge) => edge.from);
     const waitingOn = prerequisites.filter((id) => byId.get(id).state !== "delivered");
     const recent = story.lastActivity !== null && story.lastActivity !== undefined
       && now - story.lastActivity <= recentHours * 3_600_000;
@@ -236,13 +314,14 @@ export function applyDependencies(stories, edges = [], {
 // waits for sits to its left. Rows are ordered to keep lines short.
 export function planLayout(stories, edges) {
   const byId = new Map(stories.map((story) => [story.id, story]));
+  const index = edgeIndex(edges);
   const depth = new Map();
   const visiting = new Set();
   const depthOf = (id) => {
     if (depth.has(id)) return depth.get(id);
     if (visiting.has(id)) return 0;
     visiting.add(id);
-    const prerequisites = edges.filter((edge) => edge.from === id && byId.has(edge.to));
+    const prerequisites = (index.from.get(id) ?? []).filter((edge) => byId.has(edge.to));
     const value = prerequisites.length ? 1 + Math.max(...prerequisites.map((edge) => depthOf(edge.to))) : 0;
     visiting.delete(id);
     depth.set(id, value);
@@ -251,22 +330,22 @@ export function planLayout(stories, edges) {
   for (const story of stories) depthOf(story.id);
   const columns = [];
   for (const story of stories) {
-    const index = depth.get(story.id);
-    if (!columns[index]) columns[index] = [];
-    columns[index].push(story);
+    const column = depth.get(story.id);
+    if (!columns[column]) columns[column] = [];
+    columns[column].push(story);
   }
   const row = new Map();
-  columns.forEach((column, index) => {
-    const weight = (story) => {
-      const rows = edges.filter((edge) => edge.from === story.id && row.has(edge.to)).map((edge) => row.get(edge.to));
-      return rows.length ? rows.reduce((sum, value) => sum + value, 0) / rows.length : Number.POSITIVE_INFINITY;
-    };
+  columns.forEach((column, columnIndex) => {
+    const weights = new Map(column.map((story) => {
+      const rows = (index.from.get(story.id) ?? []).filter((edge) => row.has(edge.to)).map((edge) => row.get(edge.to));
+      return [story.id, rows.length ? rows.reduce((sum, value) => sum + value, 0) / rows.length : Number.POSITIVE_INFINITY];
+    }));
     column.sort((left, right) => {
-      if (index === 0) {
+      if (columnIndex === 0) {
         return (right.dependents?.length ?? 0) - (left.dependents?.length ?? 0)
           || storyTitleText(left.iteration).localeCompare(storyTitleText(right.iteration));
       }
-      return weight(left) - weight(right)
+      return (weights.get(left.id) - weights.get(right.id) || 0)
         || storyTitleText(left.iteration).localeCompare(storyTitleText(right.iteration));
     });
     column.forEach((story, position) => row.set(story.id, position));
@@ -276,9 +355,10 @@ export function planLayout(stories, edges) {
 
 export function relatedChain(storyId, edges) {
   const chain = new Set([storyId]);
+  const index = edgeIndex(edges);
   const walk = (id, key, next) => {
-    for (const edge of edges) {
-      if (edge[key] === id && !chain.has(edge[next])) {
+    for (const edge of index[key].get(id) ?? []) {
+      if (!chain.has(edge[next])) {
         chain.add(edge[next]);
         walk(edge[next], key, next);
       }
@@ -440,24 +520,61 @@ export function activityBuckets(events, {
   return { unit, buckets };
 }
 
-export function searchableText(item) {
+// Search ignores case, accents, and punctuation, so "st replan 001",
+// "ST-REPLAN-001", and "replan" all find the same story.
+export function normalizeSearchText(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/\p{M}+/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+export function queryTerms(query) {
+  return normalizeSearchText(query).split(" ").filter(Boolean);
+}
+
+// Normalized text is cached per record and language: typing never rebuilds it.
+const searchCache = new WeakMap();
+
+function searchFields(item) {
+  if (!item || typeof item !== "object") return { id: "", head: "", body: "" };
+  const locale = getLocale();
+  const cached = searchCache.get(item);
+  if (cached?.locale === locale) return cached;
   const display = displayTextForItem(item);
-  return [
-    display.title,
-    display.summary,
-    item?.title,
-    item?.summary,
-    item?.id,
-    item?.storyId,
-    t(actionLabel(item) ?? ""),
-  ].filter(Boolean).join(" ").toLowerCase();
+  const fields = {
+    locale,
+    id: normalizeSearchText(item.id ?? ""),
+    head: normalizeSearchText([display.title, item.title, item.id, item.storyId].filter(Boolean).join(" ")),
+    body: normalizeSearchText([display.summary, item.summary, t(actionLabel(item) ?? "")].filter(Boolean).join(" ")),
+  };
+  searchCache.set(item, fields);
+  return fields;
+}
+
+export function searchableText(item) {
+  const fields = searchFields(item);
+  return `${fields.head} ${fields.body}`.trim();
+}
+
+// 0 = no match, 1 = matches the text, 2 = every word is in the title or ID,
+// 3 = the whole query is in the title or ID, 4 = the whole query is in the ID.
+export function searchScore(item, query) {
+  const terms = queryTerms(query);
+  if (!terms.length) return 1;
+  const { id, head, body } = searchFields(item);
+  const phrase = terms.join(" ");
+  if (id.includes(phrase)) return 4;
+  if (head.includes(phrase)) return 3;
+  if (terms.every((term) => head.includes(term))) return 2;
+  const all = `${head} ${body}`;
+  return terms.every((term) => all.includes(term)) ? 1 : 0;
 }
 
 export function matchesQuery(item, query) {
-  const terms = String(query ?? "").toLowerCase().split(/\s+/u).filter(Boolean);
-  if (!terms.length) return true;
-  const text = searchableText(item);
-  return terms.every((term) => text.includes(term));
+  return searchScore(item, query) > 0;
 }
 
 export function filterEvents(events, {

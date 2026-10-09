@@ -17,6 +17,8 @@ import {
   STORY_STATES,
   actionLabel,
   applyDependencies,
+  applySharedClaims,
+  changeRequestLinks,
   planLayout,
   relatedChain,
   storyTitleText,
@@ -27,6 +29,9 @@ import {
   formatDay,
   lineageGraph,
   matchesQuery,
+  normalizeSearchText,
+  queryTerms,
+  searchScore,
   phaseTotals,
   projectEvents,
   relativeTime,
@@ -66,13 +71,17 @@ export function defaultExploreState() {
 const insightCache = new WeakMap();
 const NO_EDGES = Object.freeze([]);
 
-export function insightsFor(model, edges = NO_EDGES) {
+export function insightsFor(model, edges = NO_EDGES, claims = NO_EDGES) {
   let cached = insightCache.get(model);
-  if (!cached || cached.edges !== edges) {
+  if (!cached || cached.edges !== edges || cached.claims !== claims) {
     const events = projectEvents(model);
-    const stories = applyDependencies(storyInsights(model, events), edges);
+    const stories = changeRequestLinks(applyDependencies(
+      applySharedClaims(storyInsights(model, events), claims),
+      edges,
+    ));
     cached = {
       edges,
+      claims,
       events,
       stories,
       storiesById: new Map(stories.map((story) => [story.id, story])),
@@ -100,6 +109,47 @@ function storyTitle(story) {
 
 function edgesOf(state) {
   return state.dependencies ?? NO_EDGES;
+}
+
+function claimsOf(state) {
+  return state.sharedClaims ?? NO_EDGES;
+}
+
+// Text with the searched words marked; matching ignores case and accents.
+function highlighted(text, query, className = "") {
+  const value = String(text ?? "");
+  const terms = queryTerms(query);
+  const element = node("span", { className });
+  if (!terms.length || !value) {
+    element.textContent = value;
+    return element;
+  }
+  let folded = "";
+  const origin = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const part = normalizeSearchText(value[index]) || " ";
+    for (const char of part) {
+      folded += char;
+      origin.push(index);
+    }
+  }
+  const marked = new Array(value.length).fill(false);
+  for (const term of terms) {
+    let at = folded.indexOf(term);
+    while (at !== -1) {
+      for (let offset = 0; offset < term.length; offset += 1) marked[origin[at + offset]] = true;
+      at = folded.indexOf(term, at + term.length);
+    }
+  }
+  let start = 0;
+  for (let index = 1; index <= value.length; index += 1) {
+    if (index === value.length || marked[index] !== marked[start]) {
+      const piece = value.slice(start, index);
+      element.append(marked[start] ? node("mark", { text: piece }) : document.createTextNode(piece));
+      start = index;
+    }
+  }
+  return element;
 }
 
 function panel(title, description, body, { className = "", actions = [] } = {}) {
@@ -236,8 +286,8 @@ function eventRow(event, state, { showStory = true, storiesById = null, showDate
         kindChip(event.kind),
         event.kind === "check" ? outcomeBadge(event.item) : null,
       ]),
-      node("strong", { className: "event-title", text: headline }),
-      summary ? node("span", { className: "event-summary", text: summary }) : null,
+      node("strong", { className: "event-title" }, [highlighted(headline, state.explore?.query)]),
+      summary ? highlighted(summary, state.explore?.query, "event-summary") : null,
       story ? node("span", { className: "event-story" }, [
         stateDot(story.state),
         node("span", { text: storyTitle(story) }),
@@ -503,6 +553,14 @@ function storyCard(story, storiesById) {
 
 // One plain sentence about where a story stands, in the reader's words.
 function storyNextText(story, storiesById) {
+  const changer = (story.changedBy ?? []).map((id) => storiesById?.get(id))
+    .find((entry) => entry && !["delivered", "replaced", "stopped"].includes(entry.state));
+  if (story.state === "delivered" && changer) {
+    return `${t(changer.state === "live" ? "Being changed by" : "Change planned in")} ${storyTitle(changer)}`;
+  }
+  if (story.state === "live" && story.holder) {
+    return `${t("Worked on by")} ${story.holder.holder ?? story.holder.agent ?? t("another computer")}`;
+  }
   const replacementId = story.iteration?.closure?.replacementId;
   if (story.state === "replaced" && replacementId) {
     const successor = storiesById?.get(replacementId);
@@ -565,7 +623,7 @@ function progressBar(stateCounts, total) {
 }
 
 export function dashboardView(model, state) {
-  const insight = insightsFor(model, edgesOf(state));
+  const insight = insightsFor(model, edgesOf(state), claimsOf(state));
   const { stories, stateCounts, health, events } = insight;
   const lastEvent = events.find((event) => event.time !== null);
   const active = stories.filter((story) => story.state === "live" || story.recent);
@@ -739,11 +797,13 @@ function storyRow(story, state, insight) {
   }, [
     icon("chevron", "story-chevron"),
     node("span", { className: "story-main" }, [
-      node("strong", { className: "story-title", text: storyTitle(story) }),
+      node("strong", { className: "story-title" }, [highlighted(storyTitle(story), exploreState.query)]),
       node("span", { className: "story-sub" }, [
         stateBadge(story.state, { recent: story.recent }),
-        node("span", { text: ["waiting", "replaced"].includes(story.state) ? storyNextText(story, insight.storiesById) : relativeTime(story.lastActivity) }),
-        node("span", { className: "story-id", text: story.id }),
+        node("span", { text: ["waiting", "replaced"].includes(story.state) || story.holder || story.changedBy?.length
+          ? storyNextText(story, insight.storiesById)
+          : relativeTime(story.lastActivity) }),
+        highlighted(story.id, exploreState.query, "story-id"),
       ]),
     ]),
     phaseTrack(story),
@@ -763,6 +823,8 @@ function storyRow(story, state, insight) {
     story.iteration?.closure?.replacementId
       ? storyLinks("Replaced by", [story.iteration.closure.replacementId], insight)
       : null,
+    storyLinks("Changes the work of", story.changes, insight),
+    storyLinks("Being changed by", story.changedBy, insight),
     storyLinks("Needs first", story.prerequisites, insight),
     storyLinks("Unlocks", story.dependents, insight),
     node("div", { className: "story-actions" }, [
@@ -786,12 +848,26 @@ function storyRow(story, state, insight) {
 }
 
 export function storiesView(model, state) {
-  const insight = insightsFor(model, edgesOf(state));
+  const insight = insightsFor(model, edgesOf(state), claimsOf(state));
   const exploreState = explore(state);
-  const visible = sortStories(insight.stories.filter((story) =>
-    (exploreState.storyState === "all" || story.state === exploreState.storyState)
-    && (!exploreState.query || matchesQuery(story.iteration, exploreState.query)
-      || story.events.some((event) => matchesQuery(event.item, exploreState.query)))), exploreState.sort);
+  const query = exploreState.query;
+  const scored = insight.stories
+    .filter((story) => exploreState.storyState === "all" || story.state === exploreState.storyState)
+    .map((story) => ({
+      story,
+      score: !query ? 1 : (searchScore(story.iteration, query) * 2
+        || (story.events.some((event) => matchesQuery(event.item, query)) ? 1 : 0)),
+    }))
+    .filter((entry) => entry.score > 0);
+  // With a search, stories whose own name matches come first.
+  const ordered = sortStories(scored.map((entry) => entry.story), exploreState.sort);
+  const scoreOf = new Map(scored.map((entry) => [entry.story.id, entry.score]));
+  const visible = query
+    ? ordered.map((story, index) => ({ story, index })).sort((left, right) =>
+      scoreOf.get(right.story.id) - scoreOf.get(left.story.id) || left.index - right.index).map((entry) => entry.story)
+    : ordered;
+  // Rows are built a page at a time so very large projects stay responsive.
+  const shownStories = visible.slice(0, INSIGHT_SETTINGS.storyPageSize * exploreState.pages);
   const chips = node("div", { className: "chip-row", attrs: { role: "group", "aria-label": t("Filter by status") } }, [
     chip("All", { active: exploreState.storyState === "all", count: insight.stories.length, dataset: { action: "set-story-state", storyState: "all" } }),
     ...STORY_STATES.filter((entry) => insight.stateCounts[entry.key]).map((entry) => chip(entry.label, {
@@ -811,7 +887,14 @@ export function storiesView(model, state) {
       "Stories",
       "Each row is one piece of work; open it to see its steps and activity",
       visible.length
-        ? node("ul", { className: "story-list" }, visible.map((story) => storyRow(story, state, insight)))
+        ? node("div", {}, [
+          node("ul", { className: "story-list" }, shownStories.map((story) => storyRow(story, state, insight))),
+          visible.length > shownStories.length
+            ? node("div", { className: "stream-more" }, [
+              linkButton(`${t("Show more")} (${visible.length - shownStories.length})`, { action: "timeline-more" }),
+            ])
+            : null,
+        ])
         : emptyMessage("No story matches these filters.", "Clear the search or pick another status."),
       { actions: [node("span", { className: "panel-count", text: `${visible.length} / ${insight.stories.length}` })] },
     ),
@@ -840,7 +923,7 @@ function dayKey(time) {
 }
 
 export function activityView(model, state) {
-  const insight = insightsFor(model, edgesOf(state));
+  const insight = insightsFor(model, edgesOf(state), claimsOf(state));
   const exploreState = explore(state);
   const scoped = filterEvents(insight.events, {
     query: exploreState.query,
@@ -955,7 +1038,7 @@ const COLUMN_KIND = Object.freeze({
 // through a bracket, and related-record links appear only for the selection.
 // That keeps a story with dozens of records readable.
 export function mapView(model, state) {
-  const insight = insightsFor(model, edgesOf(state));
+  const insight = insightsFor(model, edgesOf(state), claimsOf(state));
   const exploreState = explore(state);
   const stories = insight.stories;
   if (!stories.length) return emptyMessage("No story has been recorded yet.");
@@ -999,11 +1082,25 @@ const PLAN_LAYOUT = Object.freeze({
 
 // The project plan: every story is a box, and a line runs from the work it
 // needs to the work it unlocks. Selecting a box lights up its whole chain.
+// A plan with hundreds of boxes is unreadable and slow to draw. Above the
+// limit, finished work that unlocks nothing still open is left out.
+function planStoriesFor(stories, showAll) {
+  if (showAll || stories.length <= INSIGHT_SETTINGS.planStoryLimit) return { stories, hidden: 0 };
+  const byId = new Map(stories.map((story) => [story.id, story]));
+  const kept = stories.filter((story) => story.state !== "delivered"
+    || story.changedBy?.length
+    || story.dependents.some((id) => byId.get(id)?.state !== "delivered"));
+  // When everything is finished there is nothing left to focus on.
+  if (!kept.length) return { stories, hidden: 0 };
+  return { stories: kept, hidden: stories.length - kept.length };
+}
+
 function planView(state, insight) {
   const exploreState = explore(state);
   const edges = edgesOf(state);
   const layout = PLAN_LAYOUT;
-  const plan = planLayout(insight.stories, edges);
+  const planStories = planStoriesFor(insight.stories, exploreState.planAll);
+  const plan = planLayout(planStories.stories, edges);
   const focus = insight.storiesById.has(exploreState.planFocus) ? exploreState.planFocus : null;
   const chain = focus ? relatedChain(focus, plan.edges) : null;
   const step = layout.nodeHeight + layout.rowGap;
@@ -1013,7 +1110,7 @@ function planView(state, insight) {
   const height = top + tallest * step + layout.padding;
   const positions = new Map();
   const titleCounts = new Map();
-  for (const story of insight.stories) titleCounts.set(storyTitle(story), (titleCounts.get(storyTitle(story)) ?? 0) + 1);
+  for (const story of planStories.stories) titleCounts.set(storyTitle(story), (titleCounts.get(storyTitle(story)) ?? 0) + 1);
   const duplicateTitles = new Set([...titleCounts].filter(([, count]) => count > 1).map(([title]) => title));
   const headers = svgNode("g", { className: "map-headers" });
   const nodes = svgNode("g", { className: "map-nodes" });
@@ -1036,7 +1133,7 @@ function planView(state, insight) {
       const shared = duplicateTitles.has(title);
       const detail = [
         shared ? story.id : null,
-        story.state === "delivered" || (story.state === "idle" && !story.waitingOn.length)
+        (story.state === "delivered" && !story.changedBy?.length) || (story.state === "idle" && !story.waitingOn.length)
           ? t(STATE_BY_KEY.get(story.state).label)
           : storyNextText(story, insight.storiesById),
       ].filter(Boolean).join(" · ");
@@ -1131,6 +1228,12 @@ function planView(state, insight) {
       "Read it left to right: each story starts when the ones before it are delivered.",
       node("div", {}, [
         focusBar,
+        planStories.hidden
+          ? node("p", { className: "plan-hint" }, [
+            node("span", { text: `${t("Large plan: finished work is hidden.")} ${countText(planStories.hidden, "story hidden", "stories hidden")}. ` }),
+            linkButton("Show everything", { action: "plan-all" }),
+          ])
+          : null,
         node("div", { className: "map-scroll", attrs: { tabindex: "0", "aria-label": t("Project plan") } }, [svg]),
       ]),
     ),

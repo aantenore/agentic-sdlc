@@ -3932,3 +3932,45 @@ button.kpi-tile:hover {
 .plan-node[data-state="replaced"] .plan-node-stripe { fill: var(--state-stopped); }
 .plan-node[data-state="replaced"] .map-node-box { fill: var(--surface-muted); stroke-dasharray: 4 3; }
 .phase-track { grid-template-columns: none; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; }
+
+/* Search matches */
+mark {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: rgb(255 214 10 / 45%);
+  color: inherit;
+}
+
+/* "More details": the expert views, closed until the reader asks. */
+.nav-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 14px 0 4px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-group-toggle:hover { background: var(--surface-muted); color: var(--ink); }
+
+.nav-group-chevron {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  transform: rotate(-90deg);
+  transition: transform 140ms ease;
+}
+
+.nav-group-toggle[aria-expanded="true"] .nav-group-chevron { transform: none; }
+.nav-expert[hidden] { display: none; }
