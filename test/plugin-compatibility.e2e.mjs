@@ -10,10 +10,13 @@ import {
   PLUGIN_VERSION,
   buildRequirementRecord,
   comparePluginVersions,
+  configKeyFeature,
   evaluateRequirements,
   pluginUpdateCommand,
   requiresNewerPlugin,
+  unknownConfigKeyLine,
 } from "../lib/plugin-compatibility.mjs";
+import { validateSdlcConfig } from "../lib/engine/project.mjs";
 import {
   buildSharedClaimPayload,
   buildSharedReleasePayload,
@@ -153,4 +156,17 @@ test("a shared record that declares a newer plugin is not interpreted and asks f
   ]);
   const problems = [...interpreted.stories.values()].flatMap((state) => state.problems);
   assert.ok(problems.some((text) => /newer plugin version \(999\.0\.0 or later\); update the plugin: claude plugin/u.test(text)), problems.join("\n"));
+});
+
+test("configuration keys declare the plugin version that introduced them", () => {
+  assert.equal(configKeyFeature("orchestration_policy.story_records.in_branch").since, "0.35.0");
+  assert.equal(configKeyFeature("orchestration_policy.merge_drift.open_state").since, "0.35.0");
+  assert.equal(configKeyFeature("orchestration_policy.merge_drift.base_branch"), null);
+  assert.match(unknownConfigKeyLine(["a.b"]), /does not know: a\.b\. If a newer plugin added them, update the plugin: claude plugin/u);
+});
+
+test("an unknown configuration key names the plugin update", () => {
+  const config = JSON.parse(fs.readFileSync(path.join(repoRoot, "templates", "sdlc-config.json"), "utf8"));
+  config.orchestration_policy = { ...(config.orchestration_policy || {}), future_option: true };
+  assert.throws(() => validateSdlcConfig(config), /orchestration_policy\.future_option.*update the plugin: claude plugin/su);
 });
