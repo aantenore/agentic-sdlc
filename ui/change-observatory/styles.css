@@ -3683,6 +3683,8 @@ button.kpi-tile:hover {
    ------------------------------------------------------------------ */
 :root {
   --state-waiting: #a0662a;
+  --state-abandoned: #c2560c;
+  --state-parked: #7a6aa8;
 }
 
 #app[data-active-view="overview"] .diagnostics-region,
@@ -3701,6 +3703,14 @@ button.kpi-tile:hover {
 }
 
 .state-dot[data-state="waiting"] { background: var(--state-waiting); }
+.state-dot[data-state="abandoned"] { background: var(--state-abandoned); }
+.state-dot[data-state="parked"] { background: var(--state-parked); }
+.state-badge[data-state="abandoned"] { background: rgb(194 86 12 / 12%); color: var(--state-abandoned); }
+.state-badge[data-state="parked"] { background: rgb(122 106 168 / 12%); color: var(--state-parked); }
+.progress-segment[data-state="abandoned"] { fill: var(--state-abandoned); }
+.progress-segment[data-state="parked"] { fill: var(--state-parked); }
+.progress-key[data-state="abandoned"] .progress-swatch { background: var(--state-abandoned); }
+.progress-key[data-state="parked"] .progress-swatch { background: var(--state-parked); }
 .state-badge[data-state="waiting"] { background: rgb(160 102 42 / 12%); color: var(--state-waiting); }
 
 /* Hero: one big sentence, one bar, one line of context. */
