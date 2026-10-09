@@ -4717,6 +4717,82 @@ test("a started story closes only after every delivery ended without delivered w
   assert.equal(mustRunJson(["status", "--root", project]).summary.closed_work, 1);
 });
 
+test("a story whose delivery was revoked before it started can be closed", () => {
+  const storyId = "ST-CLOSE-REVOKED";
+  const profileId = "AUT-CLOSE-REVOKED";
+  const project = tmpProject("revoked-unstarted-closure");
+  initializeAutonomyProject(project);
+  createApprovedImplementationContract(project, {
+    storyId,
+    contractId: "CONTRACT-CLOSE-REVOKED",
+    profileId,
+  });
+  const releaseRoot = path.join(project, "local-release");
+  const releaseOutput = path.join(releaseRoot, "app");
+  fs.mkdirSync(releaseOutput, { recursive: true });
+  mustRunJson([
+    "autonomy", "delivery", "propose",
+    "--root", project,
+    "--id", profileId,
+    "--delivery", "LOCAL-CLOSE-REVOKED",
+    "--kind", "local_release",
+    "--story", storyId,
+    "--contract", "CONTRACT-CLOSE-REVOKED",
+    "--requirement", "REQ-AUTONOMY",
+    "--level", "checkpointed",
+    "--target-root", releaseRoot,
+    "--write-path", releaseOutput,
+    "--smoke-test", '["node","--version"]',
+    "--rollback", "Restore the previous local release.",
+  ]);
+  mustRunJson([
+    "autonomy", "delivery", "approve",
+    "--root", project,
+    "--id", profileId,
+    "--phase", "implementation",
+    ...humanApproval("Approve the exact local delivery"),
+  ]);
+  const cancelArgs = [
+    "story", "cancel",
+    "--root", project,
+    "--id", storyId,
+    "--reason", "The work moves to a new story",
+    ...humanApproval("Cancel the replaced story"),
+  ];
+  mustFail(cancelArgs, /delivery AUT-CLOSE-REVOKED is still available; end it first .*autonomy delivery revoke --id AUT-CLOSE-REVOKED/su);
+  mustFail([
+    "autonomy", "delivery", "close",
+    "--root", project,
+    "--id", profileId,
+    "--terminal-status", "cancelled",
+    "--reason", "Never started",
+    ...humanApproval("Close the delivery as cancelled"),
+  ], /never started ends with 'autonomy delivery revoke --id AUT-CLOSE-REVOKED/u);
+  const evidencePath = path.join(project, "src", "revocation-approval.txt");
+  fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
+  fs.writeFileSync(evidencePath, "revocation approval evidence\n", "utf8");
+  mustRunJson([
+    "autonomy", "delivery", "revoke",
+    "--root", project,
+    "--id", profileId,
+    "--reason", "The delivery never started and is no longer needed.",
+    "--approval-evidence", "src/revocation-approval.txt",
+    ...humanApproval("Revoke the unstarted delivery"),
+  ]);
+  const closed = mustRunJson(cancelArgs);
+  assert.equal(closed.status, "cancelled");
+  const closure = JSON.parse(fs.readFileSync(path.join(project, ".sdlc", "stories", storyId, "closure.json"), "utf8"));
+  const [delivery] = closure.subject.started_work.deliveries;
+  assert.equal(delivery.terminal_status, "revoked");
+  assert.equal(delivery.close_receipt, null);
+  assert.match(delivery.revocation.sha256, /^[a-f0-9]{64}$/u);
+  assert.equal(
+    fs.existsSync(path.join(project, ".sdlc", "compatibility")),
+    true,
+  );
+  assert.equal(mustRunJson(["status", "--root", project]).summary.closed_work, 1);
+});
+
 test("package-manager local smoke cannot fall back to the parent source package", {
   skip: hostSupportsLocalSmokeSandbox()
     ? false

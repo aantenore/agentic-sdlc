@@ -87,7 +87,13 @@
               "id": { "type": "string", "minLength": 1 },
               "profile_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
               "terminal_status": { "enum": ["cancelled", "closed", "revoked", "rolled_back", "superseded"] },
-              "close_receipt": { "$ref": "#/$defs/file_ref" }
+              "close_receipt": {
+                "oneOf": [
+                  { "type": "null" },
+                  { "$ref": "#/$defs/file_ref" }
+                ]
+              },
+              "revocation": { "$ref": "#/$defs/file_ref" }
             },
             "additionalProperties": false
           }
