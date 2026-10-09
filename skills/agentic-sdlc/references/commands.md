@@ -1383,7 +1383,7 @@ functional or test evidence; record those with `story complete-step` or
 `trace append`. The older `--evidence` spelling remains accepted by
 `output link` only as a compatibility alias for the same render-only input.
 
-When a duplicate new output or structure override is intentionally approved, run `output link` with `--decision-id` and `--rationale` as a human or CI actor. The CLI records the approved decision in the registry:
+When `output link` fails with a duplicate-output error, either use `--mode delta` (with `--base-artifact`) or `--mode reuse`, or record an approved exception in the same call: pass a new `--decision-id` plus `--rationale` (or `--approval-evidence`), `--actor-type human` and `--approval-source`. In short, run `output link` with `--decision-id` and `--rationale` as a human or CI actor. The CLI records the approved decision in the registry:
 
 ```bash
 node bin/agentic-sdlc.mjs output link \

@@ -7026,7 +7026,7 @@ test("output duplicate new is blocked before registry write without matching dec
       "--requirement",
       "REQ-001",
     ],
-    /duplicates requirements already covered/,
+    /duplicates requirements already covered[\s\S]*--mode delta[\s\S]*--base-artifact[\s\S]*--mode reuse[\s\S]*--decision-id DEC-output-override-001 --rationale[\s\S]*--actor-type human --approval-source explicit-user/,
   );
   mustFail(
     [
@@ -9336,6 +9336,24 @@ test("dependency graph blocks orchestration and strict gate until upstream is sa
   const storyData = readJson(storyPath);
   writeJson(storyPath, { ...storyData, status: "implementation", phase: "implementation" });
   mustFail(["gate", "check", "--root", project, "--story", "ST-002", "--strict"], /depends on ST-001/);
+});
+
+test("dependency propose accepts repeated --requirement and propagates requirement_ids to edges", () => {
+  const project = tmpProject("dependency-multi-requirement");
+  initProject(project);
+  story(project, "ST-001");
+  story(project, "ST-002");
+  const proposed = JSON.parse(mustRun([
+    "dependency", "propose", "--root", project, "--id", "DEP-MULTI",
+    "--requirement", "REQ-A", "--requirement", "REQ-B",
+    "--edge", "ST-002:ST-001:blocks:implementation:done", "--json",
+  ]).stdout);
+  assert.equal(proposed.dependency.requirement_id, "REQ-A");
+  assert.deepEqual(proposed.dependency.requirement_ids, ["REQ-A", "REQ-B"]);
+  mustRun(["dependency", "approve", "--root", project, "--id", "DEP-MULTI", ...humanApproval("Approved multi requirement dependency")]);
+  const graph = readJson(path.join(project, ".sdlc", "dependencies", "graph.json"));
+  assert.equal(graph.edges[0].requirement_id, "REQ-A");
+  assert.deepEqual(graph.edges[0].requirement_ids, ["REQ-A", "REQ-B"]);
 });
 
 test("invalid lifecycle receipt cannot satisfy a lifecycle dependency from raw story state", () => {
