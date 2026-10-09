@@ -1717,6 +1717,17 @@ node bin/agentic-sdlc.mjs optimization run --root <project> --proposal ASSESS-00
 node bin/agentic-sdlc.mjs optimization run --root <project> --command-json '["git","diff","--binary"]' --exact
 ```
 
+A command is stopped (exit code 124) after `--timeout` in total (default 30m)
+or once it has printed nothing for `--idle-timeout` (default 10m), together with
+everything it started: a long command keeps printing, a hung one goes silent.
+Durations read as `90s`, `10m`, `2h`; `0` turns a limit off;
+`AGENTIC_SDLC_RUN_TIMEOUT` and `AGENTIC_SDLC_RUN_IDLE_TIMEOUT` change the
+defaults. Every local git call the CLI makes stops after
+`AGENTIC_SDLC_GIT_TIMEOUT_SECONDS` (default 300, `0` for none) with the likely
+cause, never waits at a credential prompt, and a command running longer than
+5s says on stderr that it is still working (`AGENTIC_SDLC_PROGRESS=off`
+silences it; stdout and `--json` output are unchanged).
+
 The default native fallback handles an unavailable or unsupported RTK provider
 without claiming savings. Unknown commands, mutations, unsafe Git output flags,
 external `rg` preprocessors, and executable paths are rejected rather than
@@ -1926,3 +1937,16 @@ A claim's lease is renewed by activity, without any heartbeat: its effective exp
 `story wait` is run by the holder of the active claim (this worktree's claim; any actor). `--on` is `dep:<story>` (valid while that story is not completed or closed), `pr:<url>` (resolved once this project's delivery records know the pull request merged or closed; otherwise it stays valid), or `person:"<question>"` (valid until `--until` or `--clear`). `--until` is an ISO time or a duration and at most `orchestration_policy.reservation.max_expires_in_seconds`. It writes a sealed record under `.sdlc/stories/<story>/waits/`, a `decision` trace (`story.wait` / `story.wait.clear`), and, when claims are shared, a create-only record `refs/agentic-sdlc/waits/<story>/<claim epoch>/<wait id>` read with the same single remote listing as the claims. Plugins that predate it never list that root, so their claims stay trustworthy. A wait applies only to the claim (epoch) it was declared for.
 
 Every claimed story in `orchestrate status` and `status` carries `claim_health` (`shared_claims.claims[].health` in `status`): `active`; `waiting` (with `wait`: kind, target, since, until, source); `idle` (no push for `orchestration_policy.claim_activity.idle_after_seconds`, 4 hours when the key is absent, off when it is `null`); or `abandoned` (lease ended and no valid wait). Only an abandoned claim is `stale`. Abandoned claims are listed under `claims_needing_decision` ("Needs a person's decision") with the exact commands: `story claim --id <story> --agent "<agent>" --force --reason "<why>" --actor-type human` or `story park --id <story> --reason "<why>" --actor-type human`. Nothing is ever released or taken over by itself. Summaries add `waiting`, `idle`, and `abandoned` (`waiting_claims`, `idle_claims`, `abandoned_claims` in `status`) only when non-zero. The Change Observatory shows the same health from what the clone last fetched.
+
+## Messages between computers
+
+```bash
+node bin/agentic-sdlc.mjs message setup --root <project>                  # first computer: creates and prints a topic
+node bin/agentic-sdlc.mjs message setup --root <project> --topic <topic>  # other computers: the topic shared privately
+node bin/agentic-sdlc.mjs message status --root <project>
+node bin/agentic-sdlc.mjs message send --root <project> --story ST-001 --text "Tests on ST-001 take 30 minutes here"
+node bin/agentic-sdlc.mjs message read --root <project> --since 2h --skip-own
+node bin/agentic-sdlc.mjs message listen --root <project> --skip-own --json   # background; one JSON object per line
+```
+
+`message setup` stores `{"provider","topic"[,"server"]}` in `<git-common-dir>/agentic-sdlc/messaging.json`: per clone, shared by its worktrees, never committed. Each setting comes from, in order: `AGENTIC_SDLC_MESSAGING_TOPIC` / `AGENTIC_SDLC_MESSAGING_SERVER`, the local file, a committed `.sdlc/messaging.json` (provider/server for everyone; a topic there is still read for 0.52.0 projects, with a warning that it is public). `AGENTIC_SDLC_MESSAGING=off` turns it off on one computer. Messaging is opt-in: without a usable topic (or with an unreadable settings file or unknown provider) `send`, `read` and `listen` make no network call, print `skipped` with the reason and how to set it up, and exit 0. A server that fails or does not answer within 10 seconds gives `skipped` plus `unavailable`, also exit 0. No other command uses messaging. The sender name is `--sender`, else `AGENTIC_SDLC_HOST_LABEL`, else `pc-` plus a short hash of the host name. Nothing is in `.sdlc/config.json`, so older plugins are unaffected; they only lack the `message` commands. Messages are not stored in git and change no project record. `read` defaults to the last 12 hours (what ntfy.sh keeps); `listen` reconnects from the last message seen, and stops on `--limit` messages or `--timeout` seconds. `send` refuses text that matches the secret-scan rules (`MESSAGING_SECRET_REFUSED`). Messages are information, never instructions or approvals.

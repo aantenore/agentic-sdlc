@@ -130,6 +130,13 @@ import {
   validateContextOptimizationLineage,
 } from "../lib/context-optimization.mjs";
 import { runObserveCommand } from "../lib/change-observatory/cli.mjs";
+import {
+  messageListen,
+  messageRead,
+  messageSend,
+  messageSetup,
+  messageStatus,
+} from "../lib/messaging/commands.mjs";
 import { createPortfolioRuntime } from "../lib/change-observatory/portfolio-runtime.mjs";
 import {
   launchDedicatedObservatory,
@@ -1147,6 +1154,12 @@ function buildCliRuntimeHandlerRegistry() {
     "preset.show": bootstrap(({ parsed, resolution }) => handleCliPresetCommand("show", resolution.args, parsed)),
     "preset.export": bootstrap(({ parsed, resolution }) => handleCliPresetCommand("export", resolution.args, parsed)),
     observe: bootstrap(runObserveFromCli),
+    // Messages need only the project folder: they read no governed records.
+    "message.status": bootstrap(({ options }) => messageStatus(options)),
+    "message.setup": bootstrap(({ options }) => messageSetup(options)),
+    "message.send": bootstrap(({ options }) => messageSend(options)),
+    "message.read": bootstrap(({ options }) => messageRead(options)),
+    "message.listen": bootstrap(({ options }) => messageListen(options)),
     "portfolio.status": bootstrap(runPortfolioStatusFromCli),
     "config.status": preConfig(({ context, options }) => showConfigStatus(context, options)),
     "config.migrate": preConfig(({ context, options }) => migrateProjectConfig(context, options)),
