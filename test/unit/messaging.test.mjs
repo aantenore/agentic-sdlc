@@ -223,3 +223,14 @@ test("send refuses text that looks like a secret", async () => {
     await ntfy.close();
   }
 });
+
+test("the Observatory never shows or serves messaging settings", async () => {
+  const { buildObservatoryViewModel } = await import("../../lib/change-observatory/normalizer.mjs");
+  const { readSourceRecord } = await import("../../lib/change-observatory/source-reader.mjs");
+  const root = projectDir("shared");
+  fs.writeFileSync(path.join(root, ".sdlc/project.json"), JSON.stringify({ project_id: "P-1", name: "Demo" }));
+  const model = JSON.stringify(await buildObservatoryViewModel(root));
+  assert.doesNotMatch(model, /messaging\.json/u);
+  assert.equal(model.includes(TOPIC), false);
+  await assert.rejects(readSourceRecord(root, ".sdlc/messaging.json"), /settings/u);
+});
