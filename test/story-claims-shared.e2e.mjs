@@ -155,11 +155,12 @@ function initializeRepository(project) {
  * One project shared by two computers: published to a bare repository that
  * stands in for the team's remote, and cloned into a second working copy.
  */
-function sharedProject(label, storyIds = ["ST-1"]) {
+function sharedProject(label, storyIds = ["ST-1"], { before = null } = {}) {
   const first = temporaryDirectory(`${label}-first`);
   mustRun(["init", "--root", first, "--project-name", "Shared claims"], first);
   initializeRepository(first);
   prepareStories(first, storyIds);
+  if (before) before(first);
   git(first, ["add", "-A"]);
   git(first, ["commit", "--quiet", "-m", "test: approved specs and breakdown"]);
   const remote = temporaryDirectory(`${label}-remote`);
@@ -606,4 +607,117 @@ test("a claim deleted from the remote, or ended there, no longer counts as held"
   assert.equal(outdated.orchestration_state, "available");
   assert.equal(outdated.shared_claim.local_claim_outdated, true);
   assert.match(mustRun(["orchestrate", "status", "--root", second], second).stdout, /ST-2: the claim file that came with git names a claim the remote has ended/u);
+});
+
+/** A story that is not started and waits on ST-1 (a hard dependency), so it can be reserved but not started. */
+function blockedStory(project) {
+  mustRun([
+    "story", "create", "--root", project, "--id", "ST-B", "--title", "Story ST-B",
+    "--acceptance", "The result is observable", "--phase", "design", "--status", "ready",
+  ], project);
+  mustRun(["dependency", "propose", "--root", project, "--id", "DEP-B", "--edge", "ST-B:ST-1:blocks:implementation:done"], project);
+  mustRun(["dependency", "approve", "--root", project, "--id", "DEP-B", ...humanApproval("Approve the dependency")], project);
+}
+
+test("a blocked story reserved on one computer: the other sees who and until when, and its claim needs a person", () => {
+  const { first, second, remote } = sharedProject("reserve", ["ST-1", "ST-2"], { before: blockedStory });
+  const reserved = mustRunJson(["story", "reserve", "--root", first, "--id", "ST-B", "--agent", "alice", "--expires-in", "2d"], first);
+  assert.equal(reserved.status, "reserved");
+  assert.equal(reserved.shared_reservation.epoch, 1);
+  const record = remoteRecord(remote, "refs/agentic-sdlc/claims/ST-B/000001/claim");
+  assert.equal(record.reservation, true);
+  assert.equal(record.task_start, null);
+  assert.equal(claimFile(first, "ST-B"), null, "a reservation writes nothing in the project");
+  assert.equal(git(first, ["status", "--porcelain"]), "");
+
+  const orchestration = mustRunJson(["orchestrate", "status", "--root", second], second);
+  const storyB = orchestration.stories.find((story) => story.id === "ST-B");
+  assert.equal(storyB.orchestration_state, "blocked", "a reservation keeps a blocked story blocked");
+  assert.equal(storyB.shared_claim.holder.reservation, true);
+  assert.equal(storyB.shared_claim.holder.agent, "alice");
+  assert.equal(storyB.shared_claim.holder.expires_at, reserved.expires_at);
+  const orchestrationText = mustRun(["orchestrate", "status", "--root", second, "--locale", "it"], second).stdout;
+  assert.match(orchestrationText, new RegExp(`ST-B: blocked, riservata da alice fino a ${reserved.expires_at}`, "u"));
+  const statusText = mustRun(["status", "--root", second, "--locale", "it"], second, { AGENTIC_SDLC_STATUS_SYNC: "off" }).stdout;
+  assert.match(statusText, /riservata da alice fino a/u);
+  const status = mustRunJson(["status", "--root", second], second, { AGENTIC_SDLC_STATUS_SYNC: "off" });
+  assert.equal(status.shared_claims.claims.find((claim) => claim.story_id === "ST-B").reservation, true);
+
+  // A started story reserved elsewhere is not offered as available, and its claim is refused.
+  mustRunJson(["story", "reserve", "--root", first, "--id", "ST-2", "--agent", "alice"], first);
+  const seen = mustRunJson(["orchestrate", "status", "--root", second], second).stories.find((story) => story.id === "ST-2");
+  assert.equal(seen.orchestration_state, "claimed");
+  const refused = mustRefuseJson(claim(second, "ST-2", "bob"), second);
+  assert.equal(refused.error.code, "STORY_CLAIM_HELD_ELSEWHERE");
+  assert.match(refused.error.message, /already reserved/u);
+  const again = mustRefuseJson(["story", "reserve", "--root", second, "--id", "ST-2", "--agent", "bob"], second);
+  assert.equal(again.error.code, "STORY_CLAIM_HELD_ELSEWHERE");
+  const availability = mustRunJson(["story", "availability", "--root", second, "--id", "ST-2"], second, { AGENTIC_SDLC_STATUS_SYNC: "off" });
+  assert.equal(availability.verdict, "reserved_elsewhere");
+  assert.equal(availability.safe_to_start, false);
+  // A person can take it over, with a reason, as for any claim.
+  const takenOver = mustRunJson([...claim(second, "ST-2", "bob"), "--force", "--reason", "Alice is away", "--actor-type", "human"], second);
+  assert.equal(takenOver.shared_claim.took_over.agent, "alice");
+
+  // The reserving computer's claim turns its reservation into the claim.
+  mustRunJson(["story", "reserve", "--root", first, "--id", "ST-1", "--agent", "alice"], first);
+  assert.equal(mustRunJson(["story", "availability", "--root", first, "--id", "ST-1"], first, { AGENTIC_SDLC_STATUS_SYNC: "off" }).verdict, "reserved_here");
+  const converted = mustRunJson(claim(first, "ST-1", "alice"), first);
+  assert.equal(converted.shared_claim.epoch, 2);
+  assert.equal(remoteRecord(remote, "refs/agentic-sdlc/claims/ST-1/000001/release").status, "transferred");
+});
+
+test("a reservation ends by itself when it expires and earlier with story release", () => {
+  const { first, second, remote } = sharedProject("reserve-expiry", ["ST-1"]);
+  mustRunJson(["story", "reserve", "--root", first, "--id", "ST-1", "--agent", "alice", "--expires-at", new Date(Date.now() + 2_000).toISOString()], first);
+  assert.equal(mustRefuseJson(claim(second, "ST-1", "bob"), second).error.code, "STORY_CLAIM_HELD_ELSEWHERE");
+  spawnSync(process.execPath, ["-e", "setTimeout(() => {}, 2500)"]);
+  const expired = mustRunJson(["orchestrate", "status", "--root", second], second).stories.find((story) => story.id === "ST-1");
+  assert.equal(expired.orchestration_state, "available");
+  assert.equal(expired.shared_claim.expired_reservation.agent, "alice");
+  const claimed = mustRunJson(claim(second, "ST-1", "bob"), second);
+  assert.equal(claimed.shared_claim.epoch, 2);
+  assert.equal(remoteRecord(remote, "refs/agentic-sdlc/claims/ST-1/000001/release").reason, "the reservation expired");
+  mustRun(["story", "release", "--root", second, "--id", "ST-1"], second);
+
+  // Released early by its own computer; one made elsewhere needs a person and a reason.
+  mustRunJson(["story", "reserve", "--root", first, "--id", "ST-1", "--agent", "alice"], first);
+  const otherRelease = run(["story", "release", "--root", second, "--id", "ST-1", "--json"], second);
+  assert.notEqual(otherRelease.status, 0);
+  const released = mustRunJson(["story", "release", "--root", first, "--id", "ST-1"], first);
+  assert.equal(released.shared_reservation.status, "released");
+  assert.equal(mustRunJson(["story", "availability", "--root", second, "--id", "ST-1"], second, { AGENTIC_SDLC_STATUS_SYNC: "off" }).verdict, "free");
+});
+
+test("a ready story nobody claimed, with a branch naming it on the remote, is reported before anyone starts it", () => {
+  const { first, second, remote } = sharedProject("remote-work", ["ST-REPLAN-002", "ST-REPLAN-0021"]);
+  git(remote, ["symbolic-ref", "HEAD", "refs/heads/main"]);
+  git(first, ["remote", "set-head", "origin", "--auto"]);
+  git(second, ["checkout", "--quiet", "-b", "feature/ST-REPLAN-002"]);
+  fs.writeFileSync(path.join(second, "replan.txt"), "work in progress\n");
+  git(second, ["add", "replan.txt"]);
+  git(second, ["commit", "--quiet", "-m", "wip: replan"]);
+  git(second, ["push", "--quiet", "origin", "feature/ST-REPLAN-002"]);
+
+  const availability = mustRunJson(["story", "availability", "--root", first, "--id", "ST-REPLAN-002"], first);
+  assert.equal(availability.verdict, "remote_work_without_claim");
+  assert.equal(availability.safe_to_start, false);
+  assert.equal(availability.remote_work.branches[0].branch, "feature/ST-REPLAN-002");
+  assert.equal(availability.remote_work.branches[0].ahead_of_base, 1);
+  const italian = mustRun(["story", "availability", "--root", first, "--id", "ST-REPLAN-002", "--locale", "it"], first).stdout;
+  assert.match(italian, /ST-REPLAN-002 non è prenotata ma sul remote c'è il branch feature\/ST-REPLAN-002 aggiornato (poco fa|\d+ minut[oi] fa): forse qualcuno ci sta già lavorando/u);
+  assert.equal(mustRunJson(["story", "availability", "--root", first, "--id", "ST-REPLAN-0021"], first).verdict, "free", "ST-REPLAN-002 does not name ST-REPLAN-0021");
+
+  const status = mustRunJson(["status", "--root", first], first);
+  assert.deepEqual(status.unclaimed_remote_work.map((item) => item.story_id), ["ST-REPLAN-002"]);
+  const statusText = mustRun(["status", "--root", first, "--locale", "it"], first).stdout;
+  const [primary, details] = statusText.split("Dettagli tecnici (facoltativi):");
+  assert.match(primary, /story non prenotate hanno già lavoro sul remote/u);
+  assert.match(details || statusText, /ST-REPLAN-002 non è prenotata/u);
+  const orchestration = mustRunJson(["orchestrate", "status", "--root", first], first);
+  assert.equal(orchestration.unclaimed_remote_work[0].story_id, "ST-REPLAN-002");
+
+  // Once claimed, the branch is the claim's work: no warning.
+  mustRunJson(claim(first, "ST-REPLAN-002", "alice"), first);
+  assert.equal(mustRunJson(["status", "--root", first], first).unclaimed_remote_work, undefined);
 });

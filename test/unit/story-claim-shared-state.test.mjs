@@ -74,6 +74,8 @@ test("orchestration policy shares claims through origin by default and validates
     status_list_limit: 5,
     claim_identity: { git_user: false, host_label_env: "AGENTIC_SDLC_HOST_LABEL" },
     claim_activity: { mode: "git", idle_after_seconds: null },
+    reservation: { default_expires_in_seconds: 86_400, max_expires_in_seconds: 2_592_000 },
+    unclaimed_remote_work: { mode: "git", pull_requests: "off", recent_within_seconds: null },
   });
   const configured = orchestrationPolicy({
     orchestration_policy: { stale_claim_after_seconds: 3600, coordination: { mode: "required", remote: "upstream", timeout_seconds: 5 } },
@@ -104,6 +106,11 @@ test("orchestration policy shares claims through origin by default and validates
     { claim_identity: { host_label_env: "host label" } },
     { claim_activity: { mode: "heartbeat" } },
     { claim_activity: { idle_after_seconds: 10 } },
+    { reservation: { default_expires_in_seconds: 10 } },
+    { reservation: { default_expires_in_seconds: 7200, max_expires_in_seconds: 3600 } },
+    { unclaimed_remote_work: { mode: "provider" } },
+    { unclaimed_remote_work: { pull_requests: "gitlab" } },
+    { unclaimed_remote_work: { recent_within_seconds: 5 } },
   ]) {
     assert.throws(() => orchestrationPolicy({ orchestration_policy: value }), /orchestration_policy\./u, JSON.stringify(value));
   }
@@ -272,4 +279,21 @@ test("a shared claim records who made it only when the project opted in", () => 
   assert.equal("identity" in empty, false);
   // Records written with an identity stay readable as claims.
   assert.equal(stateOf([claimRecord("ST-1", 1, { identity: { host: "pc-2" } })], "ST-1").active.identity.host, "pc-2");
+});
+
+test("a reservation is a claim record that older readers also see as held, and it ends by itself when it expires", () => {
+  const reservation = claimRecord("ST-1", 1, { reservation: true, contract: null, taskStart: null, expiresAt: "2026-10-08T13:00:00.000Z" });
+  const state = stateOf([reservation], "ST-1");
+  assert.equal(state.active.reservation, true);
+  assert.deepEqual(state.problems, []);
+  assert.match(describeSharedHolder(state.active), /^reserved by agent-1 .* until 2026-10-08T13:00:00\.000Z$/u);
+  const held = sharedClaimView(state, null, { nowMs: NOW });
+  assert.equal(held.state, "claimed");
+  assert.equal(held.holder.reservation, true);
+  const later = sharedClaimView(state, null, { nowMs: Date.parse("2026-10-08T13:00:01.000Z") });
+  assert.equal(later.state, "free");
+  assert.equal(later.holder, null);
+  assert.equal(later.expired_reservation.agent, "agent-1");
+  // An ordinary claim keeps its payload unchanged: no reservation key.
+  assert.equal("reservation" in JSON.parse(claimRecord("ST-1", 1).message), false);
 });

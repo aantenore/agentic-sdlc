@@ -71,7 +71,7 @@ claimed again.
 
 1. Publish the approved specs: requirements, story breakdown, contracts, and task starts, committed and pushed to the shared branch.
 2. On each computer, pull that branch and run `orchestrate status --json`; stories claimed on any computer show as `claimed` with holder and branch.
-3. Claim one `available` story with `story claim` before editing; a refusal names who holds it.
+3. Run `story availability --id <story> --json`, then claim one `available` story with `story claim` at the start of development, before editing; a refusal names who holds it.
 4. Create the story branch, work, push, and open the story's pull request (or complete its local release).
 5. Release the claim when done or handed off; if the release was not shared, run `story release` again once the remote is reachable.
 
@@ -89,7 +89,21 @@ Claims are per story, so two stories in progress can both change one file. `stor
 
 When both stories change a shared file (for example `src/index.ts` exporting each feature), let the first one merge, then bring the second branch up to date by fast-forward (no own commits yet) or rebase onto the base branch; do not create a merge commit, `git.commit` refuses it. The second story's perimeter is the files its own commits touched: commits of other stories' merged deliveries are left out, while its own edit of the shared file still counts. If the first story was merged on GitHub outside the plugin, run `autonomy delivery reconcile` for it first. `git.commit` and `git.push` refuse a branch carrying commits that are neither the story's own nor part of a merged delivery, and name the commit to return to with `git reset --keep <sha>`.
 
-Prefer starting parallel stories at integration time, from the main that already holds what merged before them. When stories were started from the same earlier main and one merges, the others are not blocked: after `baseline refresh`, a story whose start predates that merge (also through a replacement delivery, which keeps the first task start) passes the context check without the merged files on its branch, and its task preflight does not bind them. Its own changes stay checked by its perimeter; fast-forward or rebase onto main when it needs the merged work.
+Run `task start` and `story claim` at the start of development, not at integration time. Since commit 2e9c3ef, a story's perimeter counts only its own commits once other stories merged, so the shared claim can protect the work from the first moment. Use `story reserve` when the story cannot start yet. When stories were started from the same earlier main and one merges, the others are not blocked: after `baseline refresh`, a story whose start predates that merge (also through a replacement delivery, which keeps the first task start) passes the context check without the merged files on its branch, and its task preflight does not bind them. Its own changes stay checked by its perimeter; fast-forward or rebase onto main when it needs the merged work.
+
+### Reserve a story before it can start
+
+`story reserve --id <story> --agent <name> [--expires-in <90m|12h|3d|1w>] [--expires-at <ISO time>] [--branch <planned-branch>]` books a story that cannot start yet, for example because its dependencies are not satisfied. It needs no task start, writes nothing in the project, and fixes no starting point: the perimeter and its base stay those of the later `task start`.
+
+The reservation is a shared claim record marked `"reservation": true`, so older plugin versions treat it as a claim. It belongs to the computer, not to one worktree. Other computers see "reserved by X until Y"; their `story claim` is refused with `STORY_CLAIM_HELD_ELSEWHERE`, and only a person takes it over, like a claim. Your own `story claim`, run after `task start`, turns the reservation into the claim.
+
+A reservation always expires (default 24 hours, maximum 30 days, set in `orchestration_policy.reservation`); after that the story is free without a takeover. `story release --id <story>` ends it earlier. It is refused (`STORY_RESERVE_NOT_SHARED`) when claims are not shared or the remote cannot be reached.
+
+Before `task start`, run `story availability --id <story> --json`. If `safe_to_start` is false, stop, tell the user who holds or reserved the story, or which branch or pull request names it and how recently, and ask whether to proceed. Never decide for them and never retry with `--force`.
+
+### Work on the remote that nobody claimed
+
+For a story nobody claimed or reserved, `status`, `orchestrate status`, and `story availability` warn when a remote-tracking branch names the story id and has commits not yet on the base branch. With `orchestration_policy.unclaimed_remote_work.pull_requests: github-cli`, open pull requests naming the story are read too. The warning never blocks; the decision stays with the person. Show it to the user as printed and ask whether to continue.
 
 ## Parent Orchestrator Chat
 

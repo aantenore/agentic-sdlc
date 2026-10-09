@@ -272,6 +272,25 @@
           },
           "additionalProperties": false
         },
+        "reservation": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "default_expires_in_seconds": { "type": "integer", "minimum": 60, "maximum": 31536000 },
+            "max_expires_in_seconds": { "type": "integer", "minimum": 60, "maximum": 31536000 }
+          },
+          "additionalProperties": false
+        },
+        "unclaimed_remote_work": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "mode": { "enum": ["git", "off"] },
+            "pull_requests": { "enum": ["off", "github-cli"] },
+            "recent_within_seconds": { "type": ["integer", "null"], "minimum": 60, "maximum": 31536000 }
+          },
+          "additionalProperties": false
+        },
         "merge_drift": {
           "type": "object",
           "properties": {
