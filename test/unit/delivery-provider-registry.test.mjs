@@ -344,6 +344,56 @@ test("github-cli preserves exact merge precondition and completion verification"
   ), "provider_completion_unproven");
 });
 
+test("github-cli finds a merge whatever the letter case of owner and repository", () => {
+  // Approved records keep the repository in lower case; gh reports its real case.
+  let merged = false;
+  const open = {
+    url: "https://github.com/AliceGibellato/TravelOps/pull/1",
+    state: "OPEN",
+    isDraft: false,
+    headRefOid: SHA.head,
+    headRefName: "feature/ST-FOUND-001",
+    baseRefName: "main",
+    baseRefOid: SHA.base,
+  };
+  const runner = () => JSON.stringify(merged
+    ? { ...open, state: "MERGED", mergedAt: "2026-07-18T10:00:30.000Z", mergeCommit: { oid: SHA.merge } }
+    : open);
+  const registry = createProviderRegistry([createGitHubCliProvider({ commandRunner: runner })]);
+  const subject = {
+    repository: "github.com/alicegibellato/travelops",
+    pr_url: "https://github.com/alicegibellato/travelops/pull/1",
+    head_branch: "feature/ST-FOUND-001",
+    base_branch: "main",
+    base_sha: SHA.base,
+    source_sha: SHA.head,
+    authorized_at: TIME.authorized,
+  };
+  const precondition = registry.observePrecondition(
+    "github-cli",
+    operation("PR-MERGE-CASE", "pull_request.merge", subject),
+  );
+  assert.equal(precondition.proof.pr_url, subject.pr_url);
+  merged = true;
+  const completion = registry.verifyCompletion(
+    "github-cli",
+    operation("PR-MERGE-CASE", "pull_request.merge", subject, TIME.completed),
+    precondition,
+  );
+  assert.equal(completion.proof.merge_commit_sha, SHA.merge);
+  assert.equal(
+    canonicalGitHubPullRequestUrl("https://github.com/AliceGibellato/TravelOps.git/pull/1"),
+    "https://github.com/alicegibellato/travelops/pull/1",
+  );
+  // A branch name is case-sensitive on the remote, so it still has to match exactly.
+  merged = false;
+  open.headRefName = "feature/st-found-001";
+  assertProviderError(() => registry.observePrecondition(
+    "github-cli",
+    operation("PR-MERGE-CASE-BRANCH", "pull_request.merge", subject),
+  ), "provider_precondition_unproven");
+});
+
 test("github-cli proves create and update without exposing mutation commands", () => {
   const body = "updated body";
   const bodyHash = crypto.createHash("sha256").update(body, "utf8").digest("hex");
