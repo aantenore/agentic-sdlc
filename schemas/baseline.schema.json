@@ -37,7 +37,8 @@
         "approved",
         "provisionally_approved",
         "stale",
-        "rejected"
+        "rejected",
+        "withdrawn"
       ]
     },
     "summary": {
@@ -174,6 +175,19 @@
         "type": "object",
         "additionalProperties": true
       }
+    },
+    "withdrawal": {
+      "type": "object",
+      "required": ["reason", "previous_status", "withdrawn_at", "withdrawn_by", "approval"],
+      "properties": {
+        "reason": { "type": "string", "minLength": 1 },
+        "previous_status": { "type": "string" },
+        "withdrawn_at": { "type": "string" },
+        "withdrawn_by": { "type": "object", "additionalProperties": true },
+        "approval": { "type": "object", "additionalProperties": true },
+        "shared_ref": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
     },
     "audit": {
       "$ref": "common.schema.json#/$defs/audit"

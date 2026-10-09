@@ -79,6 +79,12 @@ function git(directory, args) {
   return result.stdout.trim();
 }
 
+function commitFile(directory, relativePath, content) {
+  fs.writeFileSync(path.join(directory, relativePath), content, "utf8");
+  git(directory, ["add", "--", relativePath]);
+  git(directory, ["commit", "--quiet", "-m", `test: ${relativePath}`]);
+}
+
 function remoteRefreshRefs(remote) {
   const result = spawnSync("git", ["ls-remote", remote, "refs/agentic-sdlc/baseline-refresh/*"], { encoding: "utf8" });
   return result.stdout.split("\n").filter(Boolean).map((line) => line.split("\t")[1]).sort();
@@ -127,8 +133,9 @@ test("three computers refreshing the same baseline at the same moment: exactly o
   git(third, ["config", "user.name", "Baseline E2E"]);
   git(third, ["config", "user.email", "baseline-e2e@example.invalid"]);
   const computers = [first, second, third];
+  // Each computer commits its own change on the base branch; a refresh reads committed work only.
   computers.forEach((project, index) => {
-    fs.writeFileSync(path.join(project, "src", `change-${index}.mjs`), `export const change = ${index};\n`, "utf8");
+    commitFile(project, `src/change-${index}.mjs`, `export const change = ${index};\n`);
   });
 
   const results = await Promise.all(computers.map((project) =>
@@ -192,7 +199,7 @@ test("three computers refreshing the same baseline at the same moment: exactly o
 test("a refresh on a computer without a reachable remote writes nothing in a shared project", () => {
   const { first } = sharedBaselineProject("unreachable");
   git(first, ["remote", "set-url", "origin", path.join(first, "missing-remote.git")]);
-  fs.writeFileSync(path.join(first, "src", "extra.mjs"), "export const extra = 1;\n", "utf8");
+  commitFile(first, "src/extra.mjs", "export const extra = 1;\n");
   const refused = run(["baseline", "refresh", "--root", first, "--from", "BASELINE-INITIAL", "--json"], first);
   assert.notEqual(refused.status, 0);
   assert.match(refused.stdout + refused.stderr, /another computer may already have refreshed it/u);
@@ -215,11 +222,11 @@ function setCoordination(project, coordination) {
 test("a successor made offline is an orphan once another computer recorded the refresh, and is never approved", () => {
   const { first, second } = sharedBaselineProject("orphan");
   setCoordination(second, { mode: "local_only" });
-  fs.writeFileSync(path.join(second, "src", "offline.mjs"), "export const offline = true;\n", "utf8");
+  commitFile(second, "src/offline.mjs", "export const offline = true;\n");
   mustRun(["baseline", "refresh", "--root", second, "--from", "BASELINE-INITIAL"], second);
   assert.equal(fs.existsSync(path.join(second, ".sdlc", "baseline", "BASELINE-INITIAL-R2.json")), true);
 
-  fs.writeFileSync(path.join(first, "src", "online.mjs"), "export const online = true;\n", "utf8");
+  commitFile(first, "src/online.mjs", "export const online = true;\n");
   mustRun(["baseline", "refresh", "--root", first, "--from", "BASELINE-INITIAL"], first);
 
   setCoordination(second, { mode: "auto" });
