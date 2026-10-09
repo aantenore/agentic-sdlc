@@ -1314,7 +1314,7 @@ node bin/agentic-sdlc.mjs index rebuild --root <target-project>
 
 ## `reports/`
 
-Gate, audit, or quality reports. Reports are durable review evidence and should be committed when they support a gate or release decision. Generate gate reports with `gate check --out .sdlc/reports/<name>.json` or `.md`. Temporary report scratch files can use `.tmp` and stay ignored.
+Gate, audit, or quality reports. Reports are durable review evidence and should be committed when they support a gate or release decision. Generate gate reports with `gate check --out .sdlc/reports/<name>.json` or `.md`. A saved lifecycle-complete JSON report keeps the verdict, checks, and warnings, and names the freshness proof by its hash and counts with `details_path` pointing to the final receipt under `.sdlc/gates/`, which holds the full per-file proof (in italiano: il report salvato resta compatto, i dettagli per file stanno nella ricevuta finale). Temporary report scratch files can use `.tmp` and stay ignored.
 
 ## `operations/`
 

@@ -20,6 +20,7 @@ import {
 } from "../lib/runtime/host.mjs";
 import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
 import { syncProjectForStatus } from "../lib/engine/status-sync.mjs";
+import { withReadSnapshot } from "../lib/engine/read-snapshot.mjs";
 import { reconcileExternalMerge } from "../lib/engine/external-merge.mjs";
 import { fileURLToPath } from "node:url";
 import {
@@ -1109,6 +1110,9 @@ function buildCliRuntimeHandlerRegistry() {
   const preConfig = (handle) => cliHandler("pre-config", handle);
   const project = (handle) => cliHandler("project", handle);
   const call = (handler) => project(({ context, options }) => handler(context, options));
+  // Read-only reports answer repeated Git questions once per run.
+  const report = (handler) => project(({ context, options }) =>
+    withReadSnapshot(() => handler(context, options)));
 
   return createCommandHandlerRegistry({
     help: bootstrap(({ options, resolution }) => {
@@ -1264,10 +1268,10 @@ function buildCliRuntimeHandlerRegistry() {
     "index.rebuild": call(rebuildIndex),
     "kb.search": project(({ context, options, resolution }) => searchKnowledgeBase(context, options, resolution.args)),
     "gate.check": call(gateCheck),
-    "orchestrate.status": call(showOrchestrationStatus),
-    "orchestrate.plan": call(showOrchestrationPlan),
+    "orchestrate.status": report(showOrchestrationStatus),
+    "orchestrate.plan": report(showOrchestrationPlan),
     "route.decide": call(decideRoute),
-    status: call(showStatus),
+    status: report(showStatus),
   });
 }
 
