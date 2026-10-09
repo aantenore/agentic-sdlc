@@ -1048,6 +1048,7 @@ import {
 } from "../lib/engine/review-shared.mjs";
 import {
   refreshBaseline,
+  withdrawBaselineRefresh,
 } from "../lib/engine/baseline-refresh.mjs";
 import {
   confirmStoryOverlap,
@@ -1133,6 +1134,7 @@ function buildCliRuntimeHandlerRegistry() {
     "baseline.propose": call(proposeBaseline),
     "baseline.approve": call(approveBaseline),
     "baseline.refresh": call(refreshBaseline),
+    "baseline.refresh.withdraw": call(withdrawBaselineRefresh),
     "baseline.status": call(showBaselineStatus),
     "assessment.proposal.prepare": call(prepareAssessmentProposal),
     "assessment.proposal.approve": call(approveAssessmentProposal),

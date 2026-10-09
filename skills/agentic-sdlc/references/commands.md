@@ -74,6 +74,20 @@ node bin/agentic-sdlc.mjs baseline approve \
   --summary "Confirmed current-state baseline"
 ```
 
+After delivered work, record the new project state with `baseline refresh --from <approved-baseline-id>` from the base branch with its changes committed. The refresh is refused on a story branch that is not merged yet and over uncommitted changes inside the baseline scope; tell the user to switch to the base branch (`git switch main`), pull, and run it again. Use `--allow-non-base-branch` or `--allow-uncommitted-changes` only when the user explicitly confirms that this checkout is the project state to record. If a proposed refresh must not replace its predecessor (for example it was taken from a story branch), withdraw it after the user agrees instead of approving it:
+
+```bash
+node bin/agentic-sdlc.mjs baseline refresh withdraw \
+  --root <project> \
+  --id BASELINE-INITIAL-R2 \
+  --reason "Recorded from an unmerged story branch" \
+  --actor-type human \
+  --approval-source explicit-user \
+  --summary "Withdraw the refresh taken from the story branch"
+```
+
+The withdrawn record stays as history and its shared claim on the git remote is released, so the next refresh of the predecessor works on every computer. Add `--from <baseline-id>` when the proposed record is not on this computer.
+
 ## Approval Governance
 
 Approval commands require a formal source. `--actor-type human` alone is not enough.

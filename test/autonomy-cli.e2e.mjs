@@ -7430,7 +7430,11 @@ test("a merged delivery refreshes its baseline without a new approval while othe
 
   // A change no delivered story produced is proposed for a person's review.
   fs.writeFileSync(path.join(project, "README.md"), "# Autonomy E2E\n\nEdited by hand.\n", "utf8");
-  const manual = mustRunJson(["baseline", "refresh", "--root", project, "--from", "BASELINE-INITIAL-R2"]);
+  // The hand edit is not committed: recording it as it is takes an explicit choice.
+  const refusedManual = run(["baseline", "refresh", "--root", project, "--from", "BASELINE-INITIAL-R2", "--json"]);
+  assert.notEqual(refusedManual.status, 0);
+  assert.match(refusedManual.stdout + refusedManual.stderr, /changes that are not committed: README\.md/u);
+  const manual = mustRunJson(["baseline", "refresh", "--root", project, "--from", "BASELINE-INITIAL-R2", "--allow-uncommitted-changes"]);
   assert.equal(manual.status, "proposed");
   assert.equal(manual.auto_approved, false);
   assert.deepEqual(manual.unexplained, [{ path: "README.md", change: "changed" }]);
