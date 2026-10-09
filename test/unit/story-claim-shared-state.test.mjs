@@ -303,3 +303,26 @@ test("a reservation is a claim record that older readers also see as held, and i
   // An ordinary claim keeps its payload unchanged: no reservation key.
   assert.equal("reservation" in JSON.parse(claimRecord("ST-1", 1).message), false);
 });
+
+test("a release made after the story's delivery finished leaves the story completed, not free", () => {
+  assert.equal("completion" in JSON.parse(releaseRecord("ST-1", 1).message), false, "plain releases keep their original shape");
+  const completion = { delivery_id: "DEL-1", delivery_kind: "pull_request", terminal_status: "merged", merge_commit: "c".repeat(40), extra: "dropped" };
+  const record = releaseRecord("ST-1", 1, { status: "completed", completion });
+  assert.deepEqual(JSON.parse(record.message).completion, {
+    delivery_id: "DEL-1", delivery_kind: "pull_request", terminal_status: "merged", closed_at: null, merge_commit: "c".repeat(40), close_receipt_hash: null,
+  });
+  const state = stateOf([claimRecord("ST-1", 1), record], "ST-1");
+  assert.equal(state.active, null);
+  assert.equal(state.completed.status, "completed");
+  const view = sharedClaimView(state, null, { nowMs: NOW });
+  assert.equal(view.state, "completed");
+  assert.equal(view.completed.terminal_status, "merged");
+  assert.equal(view.completed.agent, "agent-1");
+
+  // A story closed by supersede or cancel is finished too; a later claim (a person's decision) holds it again.
+  const closed = stateOf([claimRecord("ST-1", 1), releaseRecord("ST-1", 1, { status: "closed" })], "ST-1");
+  assert.equal(sharedClaimView(closed, null, { nowMs: NOW }).completed.status, "closed");
+  const reopened = stateOf([claimRecord("ST-1", 1), record, claimRecord("ST-1", 2)], "ST-1");
+  assert.equal(reopened.completed, null);
+  assert.equal(sharedClaimView(reopened, null, { nowMs: NOW }).state, "claimed");
+});

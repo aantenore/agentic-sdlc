@@ -556,9 +556,11 @@ A claim file and its `claim.lock` only serialize processes that share one checko
 | Ref on the remote | Created by | Meaning |
 |---|---|---|
 | `refs/agentic-sdlc/claims/<story>/<epoch>/claim` | `story claim` | who holds the story: agent, branch, a claimant id for this claim, the approved contract and task start it is bound to, claim and expiry time |
-| `refs/agentic-sdlc/claims/<story>/<epoch>/release` | `story release`, `story complete-step --release-claim`, `story prepare-handoff --release-claim`, `story supersede`/`cancel` of a started story, a takeover | how and when that claim ended (`released`, `transferred`, `cancelled`, `closed`, or `taken_over` with who took over and why) |
+| `refs/agentic-sdlc/claims/<story>/<epoch>/release` | `story release`, `story complete-step --release-claim`, `story prepare-handoff --release-claim`, `story supersede`/`cancel` of a started story, a takeover | how and when that claim ended (`released`, `transferred`, `cancelled`, `closed` for a superseded or cancelled story, `completed` once the story's delivery is finished, with how it finished, or `taken_over` with who took over and why) |
 
 Each ref is created with a push that the remote accepts only if the ref does not exist yet (`--force-with-lease=<ref>:`), to the remote's fetch address, without hooks or signing, in the C locale, and bounded by `timeout_seconds`. A story is free when its latest epoch has a release (or it has none); claiming it creates the next epoch. Of two computers claiming the same epoch at the same moment, exactly one push is accepted: the other is refused with who holds the story, on which branch, and since when, and writes nothing. `story claim` writes `claim.json` (with the shared record under `shared_claim`) only after the remote accepted the claim.
+
+A story whose latest claim ended as `completed` or `closed` is finished for every computer, even one whose checkout does not have its closing records yet: `orchestrate status` and `status` list it as `closed` and never offer it, `story claim` and `story reserve` are refused with `STORY_COMPLETED_ON_REMOTE`, and only a person may claim it again (`--force --reason`, human or CI actor). Versions before 0.32.0 do not know `completed` and report those records as untrustworthy, so they refuse the claim too. `gate check --lifecycle-complete` warns while the story's final receipt is not on the remote base branch.
 
 Releases are written on this computer first and then shared, so a release that cannot reach the remote only keeps the story reserved for everyone else a little longer; `story release` run again shares it. Taking over a story held elsewhere is a person's decision: `story claim --force --reason <why>` with a human or CI actor, refused inside an agent's session. The takeover is recorded in the release record, so the previous holder's `orchestrate status` and `status` say who took the story over, when, and why.
 
@@ -608,7 +610,7 @@ The result is a plain-language warning, for example "ST-REPLAN-002 is not reserv
 
 #### Checking a story before starting it
 
-`story availability --id <story> [--json]` is read-only: it only updates the remote-tracking branches with a fetch, unless status sync is off (`orchestration_policy.status_sync.mode: off` or `AGENTIC_SDLC_STATUS_SYNC=off`). It returns a `verdict` (`free`, `claimed_here`, `reserved_here`, `reserved_elsewhere`, `claimed_elsewhere`, `remote_work_without_claim`, or `untrustworthy`), `safe_to_start` (true only for `free`, `claimed_here`, and `reserved_here`), and the details: `holder`, `expired_reservation`, and `remote_work`. Run it right before `task start`.
+`story availability --id <story> [--json]` is read-only: it only updates the remote-tracking branches with a fetch, unless status sync is off (`orchestration_policy.status_sync.mode: off` or `AGENTIC_SDLC_STATUS_SYNC=off`). It returns a `verdict` (`free`, `claimed_here`, `reserved_here`, `reserved_elsewhere`, `claimed_elsewhere`, `finished`, `remote_work_without_claim`, or `untrustworthy`), `safe_to_start` (true only for `free`, `claimed_here`, and `reserved_here`), and the details: `holder`, `expired_reservation`, `completed`, and `remote_work`. Run it right before `task start`.
 
 #### Split the work across machines, step by step
 
