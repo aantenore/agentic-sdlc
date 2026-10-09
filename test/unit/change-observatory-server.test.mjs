@@ -5,6 +5,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import zlib from "node:zlib";
 
 import {
   buildObservatoryViewModel,
@@ -658,6 +659,42 @@ test("serves revision-aware ETags and honors conditional GET and HEAD requests",
   assert.equal(denied.headers.etag, undefined);
 });
 
+test("compresses the view model for clients that accept gzip and keeps the same ETag", async (t) => {
+  const fixture = await createServerFixture(t);
+  const running = await startObservatoryServer({
+    projectRoot: fixture.projectRoot,
+    assetRoot: fixture.assetRoot,
+  });
+  t.after(() => running.close());
+
+  const plain = await request(running, "/api/v1/observatory");
+  assert.equal(plain.statusCode, 200);
+  assert.equal(plain.headers["content-encoding"], undefined);
+  assert.equal(plain.headers.vary, "Accept-Encoding");
+  assert.equal(Number(plain.headers["content-length"]), plain.receivedBytes);
+
+  const compressed = await request(running, "/api/v1/observatory", {
+    headers: { "Accept-Encoding": "br;q=1, gzip;q=0.8" },
+  });
+  assert.equal(compressed.statusCode, 200);
+  assert.equal(compressed.headers["content-encoding"], "gzip");
+  assert.equal(compressed.headers.etag, plain.headers.etag);
+  assert.equal(Number(compressed.headers["content-length"]), compressed.receivedBytes);
+  assert.ok(compressed.receivedBytes < plain.receivedBytes);
+  assert.equal(compressed.body, plain.body);
+
+  const refused = await request(running, "/api/v1/observatory", {
+    headers: { "Accept-Encoding": "gzip;q=0" },
+  });
+  assert.equal(refused.headers["content-encoding"], undefined);
+  assert.equal(refused.body, plain.body);
+
+  const unchanged = await request(running, "/api/v1/observatory", {
+    headers: { "Accept-Encoding": "gzip", "If-None-Match": plain.headers.etag },
+  });
+  assert.equal(unchanged.statusCode, 304);
+});
+
 test("shares concurrent model builds and invalidates only for canonical evidence", async (t) => {
   const fixture = await createServerFixture(t);
   let releaseBuild;
@@ -910,7 +947,11 @@ function request(running, requestPath, {
       const chunks = [];
       incoming.on("data", (chunk) => chunks.push(chunk));
       incoming.on("end", () => {
-        const body = Buffer.concat(chunks).toString("utf8");
+        const received = Buffer.concat(chunks);
+        const bytes = incoming.headers["content-encoding"] === "gzip" && received.length > 0
+          ? zlib.gunzipSync(received)
+          : received;
+        const body = bytes.toString("utf8");
         let json = null;
         if ((incoming.headers["content-type"] ?? "").startsWith("application/json") && body) {
           json = JSON.parse(body);
@@ -918,6 +959,7 @@ function request(running, requestPath, {
         resolve({
           statusCode: incoming.statusCode,
           headers: incoming.headers,
+          receivedBytes: received.length,
           body,
           json,
         });

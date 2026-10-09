@@ -249,7 +249,7 @@ reads from the URL fragment and keeps in session memory.
 | `/api/v1/live` | None | Is the local HTTP process answering? This check does not read project evidence. |
 | `/api/v1/health` | None | Compatibility alias for the same shallow liveness check. |
 | `/api/v1/ready` | Bearer token | Can the pinned project/UI boundaries and current canonical read model be validated now? Returns `503` when not ready. |
-| `/api/v1/observatory` | Bearer token | Returns the normalized read model, with `ETag` and conditional `304` support. |
+| `/api/v1/observatory` | Bearer token | Returns the normalized read model, with `ETag` and conditional `304` support. Clients that send `Accept-Encoding: gzip` (every browser) receive it compressed, usually at a tenth of its size or less. |
 | `/api/v1/source?path=...` | Bearer token | Returns one allowed, bounded, presentation-redacted source record. |
 | `/api/v1/portfolio` | Bearer token | In explicit portfolio mode, returns the bounded manifest-order summary without project paths or raw-source references. |
 | `/api/v1/portfolio/project?project=...` | Bearer token | Lazily returns one selected project view from the loaded manifest. |
@@ -431,6 +431,11 @@ pattern should be as narrow as its contract and can never disable a known
 credential detector or an explicit privacy rule.
 
 The server keeps one serialized read model for the current canonical revision. Concurrent requests share one rebuild, and subsequent requests receive a strong `ETag`; an unchanged conditional `GET` or `HEAD` returns `304` without serializing or transferring the model again. Before every reuse, the server rechecks the project boundary and a deterministic, bounded snapshot of canonical source content. Changes during a rebuild cause a retry rather than publishing a mixed revision. Derived cache and index directories never participate in the revision.
+
+The model is compressed once per revision for clients that accept gzip; the
+`ETag` and the decoded JSON are the same either way. In italiano: il modello
+viene compresso una sola volta per revisione e il browser lo riceve più
+leggero, senza cambiare né l'`ETag` né il contenuto.
 
 Portfolio project runtimes use an access-ordered LRU with eight cached projects
 by default and no more than four concurrent summary reads. Evicted runtimes
