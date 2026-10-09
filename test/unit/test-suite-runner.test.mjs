@@ -81,6 +81,18 @@ test("runner returns a nonzero status for test failures and stream errors", asyn
   const failure = await runMainWithEvent("test:fail", { name: "failed test" });
   assert.equal(failure.code, 1);
   assert.equal(failure.stderr, "");
+  assert.match(failure.stdout, /# Failing tests \(1\):\n# - failed test\n/u);
+
+  // The summary names the file and repeats the cause, so a log cut at the top still shows it.
+  const detailed = await runMainWithEvent("test:fail", {
+    name: "detailed test",
+    file: path.join(PROJECT_ROOT, "test", "example.e2e.mjs"),
+    line: 12,
+    details: { error: Object.assign(new Error("wrapper"), { cause: new Error("ENOENT: no such file") }) },
+  });
+  assert.match(detailed.stdout, /# - test\/example\.e2e\.mjs:12 detailed test\n#   Error: ENOENT: no such file/u);
+  const parent = await runMainWithEvent("test:fail", { name: "parent", details: { error: { failureType: "subtestsFailed" } } });
+  assert.doesNotMatch(parent.stdout, /Failing tests/u);
 
   const error = await runMainWithEvent("error", new Error("runner exploded"));
   assert.equal(error.code, 1);
