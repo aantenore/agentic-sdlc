@@ -67,6 +67,7 @@ test("orchestration policy shares claims through origin by default and validates
     coordination: { mode: "auto", remote: "origin", timeout_seconds: 20 },
     stale_claim_after_seconds: null,
     delivered_overlap: { write_scope: "confirm", context: "warn", confirmation_actor: "any", claim: "warn" },
+    status_sync: { mode: "fetch" },
   });
   const configured = orchestrationPolicy({
     orchestration_policy: { stale_claim_after_seconds: 3600, coordination: { mode: "required", remote: "upstream", timeout_seconds: 5 } },
@@ -85,6 +86,8 @@ test("orchestration policy shares claims through origin by default and validates
     { delivered_overlap: { write_scope: "block" } },
     { delivered_overlap: { confirmation_actor: "agent" } },
     { delivered_overlap: { claim: "confirm" } },
+    { status_sync: "pull" },
+    { status_sync: { mode: "rebase" } },
   ]) {
     assert.throws(() => orchestrationPolicy({ orchestration_policy: value }), /orchestration_policy\./u, JSON.stringify(value));
   }
