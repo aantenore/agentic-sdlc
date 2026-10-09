@@ -245,7 +245,7 @@ test("a released story can be claimed again, and a release made offline is share
   assert.equal(offline.claim.status, "released");
   assert.equal(offline.shared_release.status, "not_shared");
   assert.doesNotMatch(JSON.stringify(offline.shared_release), new RegExp(path.basename(remote), "u"));
-  fs.renameSync(path.join(remote, "HEAD-away"), path.join(remote, "HEAD"));
+  fs.renameSync(`${remote}-away`, remote);
   assert.equal(mustRefuseJson(claim(first, "ST-1", "alice"), first).error.code, "STORY_CLAIM_HELD_ELSEWHERE");
   const synced = mustRunJson(["story", "release", "--root", second, "--id", "ST-1"], second);
   assert.equal(synced.already_released, true);
@@ -370,7 +370,7 @@ test("an unreachable remote refuses the claim; local_only and a project without 
   const local = mustRunJson(claim(first, "ST-1", "alice"), first);
   assert.equal(local.claim.shared_claim, undefined);
   assert.equal(local.shared_claim, undefined);
-  fs.renameSync(path.join(remote, "HEAD-away"), path.join(remote, "HEAD"));
+  fs.renameSync(`${remote}-away`, remote);
   assert.deepEqual(remoteClaimRefs(remote), []);
 
   const required = temporaryDirectory("required");
