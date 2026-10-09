@@ -18,4 +18,6 @@ Rules for this command:
 - If the project has no `.sdlc` directory yet, say so and offer `init` or `onboard` instead of guessing.
 - Report, in this order: the current outcome, what it changes in practice, the decision that needs a person, what stays protected, and the next step.
 - If the output includes a tool suggestion, add it after the next step in one plain sentence: it only names installed tools that fit the work, and it approves, binds, and installs nothing.
+- `status` first brings the clone up to date as `orchestration_policy.status_sync.mode` says (`off`, `fetch` by default, or `pull`, which only fast-forwards a branch with no local commits ahead). `--sync off|fetch|pull` overrides it for one run. If the remote cannot be reached, it only warns; say so.
+- If the output lists a pull request merged outside the plugin (`merged_outside_plugin`), tell the user plainly that the plugin did not do that merge, and give the `autonomy delivery reconcile` command it prints for them to run in their own terminal. Never run it yourself.
 - Add `--json` only when the output feeds another tool.

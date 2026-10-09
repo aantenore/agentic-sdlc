@@ -19,6 +19,7 @@ import {
 } from "../lib/runtime/host.mjs";
 import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
 import { syncProjectForStatus } from "../lib/engine/status-sync.mjs";
+import { reconcileExternalMerge } from "../lib/engine/external-merge.mjs";
 import { fileURLToPath } from "node:url";
 import {
   formatSchemaErrors,
@@ -1166,6 +1167,7 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.delivery.revoke": call(revokeDeliveryAutonomy),
     "autonomy.delivery.action": call(evaluateDeliveryAction),
     "autonomy.delivery.close": call(closeDeliveryAutonomy),
+    "autonomy.delivery.reconcile": call(reconcileExternalMerge),
     "autonomy.delivery.status": call(showDeliveryAutonomy),
     "autonomy.delivery.explain": call(explainDeliveryAutonomy),
     "autonomy.delivery.checks": call(showDeliveryChecks),

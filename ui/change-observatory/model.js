@@ -747,6 +747,7 @@ const DELIVERED_ITERATION_STATUSES = new Set([
   "completed",
   "closed",
   "merged",
+  "merged_externally",
 ]);
 
 function iterationStatusKey(iteration) {

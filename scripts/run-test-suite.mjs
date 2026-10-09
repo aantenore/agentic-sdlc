@@ -189,6 +189,8 @@ export async function main({
       );
     }
     expectedFileCount = files.length;
+    // Status must not fetch the fixtures' real remotes during a test run.
+    env.AGENTIC_SDLC_STATUS_SYNC ??= "off";
     testStream = runTests({ concurrency, files });
     testStream.on("test:pass", () => {
       completedTestCount += 1;

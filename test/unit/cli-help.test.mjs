@@ -468,7 +468,7 @@ test("hierarchical help shows only the selected group's immediate children", () 
   assert.equal(Object.isFrozen(model), true);
   assert.equal(Object.isFrozen(model.commands[0]), true);
   assert.equal(model.command.kind, "group");
-  assert.deepEqual(model.commands.map((entry) => entry.name), ["action", "approve", "checks", "close", "explain", "propose", "revoke", "status"]);
+  assert.deepEqual(model.commands.map((entry) => entry.name), ["action", "approve", "checks", "close", "explain", "propose", "reconcile", "revoke", "status"]);
   assert.equal(model.commands.some((entry) => entry.path === "requirement approve"), false);
 });
 

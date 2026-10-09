@@ -349,3 +349,21 @@ test("interpreters, brace globs, and git's own ref storage do not get past the g
     assert.equal(evaluatePreToolUse(shell(command)), null, command);
   }
 });
+
+test("only a person acknowledges a merge made outside the plugin", () => {
+  for (const command of [
+    "node bin/agentic-sdlc.mjs autonomy delivery reconcile --id AUT-1 --pr-url https://github.com/o/r/pull/1 --actor-type human",
+    "npx agentic-sdlc autonomy delivery \"reconcile\" --id AUT-1",
+  ]) {
+    const verdict = evaluatePreToolUse(shell(command));
+    assert.equal(verdict?.decision, "deny", command);
+    assert.match(verdict.reason, /ask the user to run this exact command themselves/u);
+  }
+  assert.equal(evaluatePreToolUse(shell("cat .sdlc/autonomy/executions/AUT-1/external-merge.json")), null);
+  assert.equal(evaluatePreToolUse(shell("rm .sdlc/autonomy/executions/AUT-1/external-merge.json"))?.decision, "deny");
+  assert.equal(evaluatePreToolUse({
+    tool_name: "Write",
+    tool_input: { file_path: ".sdlc/autonomy/executions/AUT-1/external-merge.json", content: "{}" },
+  })?.decision, "deny");
+  assert.equal(evaluatePreToolUse(shell("node bin/agentic-sdlc.mjs autonomy delivery status --id AUT-1")), null);
+});

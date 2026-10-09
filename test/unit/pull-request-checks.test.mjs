@@ -102,12 +102,24 @@ function completeFacts() {
   };
 }
 
+function externalMerge() {
+  return {
+    pr_url: "https://github.com/acme/travelops/pull/1",
+    merge_commit_sha: "c".repeat(40),
+    merged_by: "alice",
+    merged_at: "2026-05-01T13:00:00Z",
+    acknowledged_by: "alice",
+    acknowledged_at: "2026-05-01T13:05:00.000Z",
+    evidence: [".sdlc/autonomy/executions/AUT-1/external-merge.json"],
+  };
+}
+
 function rowFor(model, kind) {
   return model.checks.filter((check) => check.kind === kind);
 }
 
 test("every check kind and status the model can emit is declared", () => {
-  const model = buildPullRequestChecks(completeFacts());
+  const model = buildPullRequestChecks({ ...completeFacts(), external_merge: externalMerge() });
   assert.equal(model.schema_version, PULL_REQUEST_CHECKS_SCHEMA);
   assert.deepEqual([...new Set(model.checks.map((check) => check.kind))].sort(), [...CHECK_KINDS].sort());
   for (const check of model.checks) assert.ok(CHECK_STATUSES.includes(check.status), check.status);
@@ -120,7 +132,11 @@ test("every check kind and status the model can emit is declared", () => {
     "final_gate",
     "standing_approval",
     "budget_decision",
+    "external_merge",
   ]);
+  const markdown = renderPullRequestChecksMarkdown(model);
+  assert.match(markdown, /\| Merged outside the plugin \| \[PASS\] \| Merged as `cccccccccccc` by alice at 2026-05-01T13:00:00Z outside the plugin; acknowledged by alice/u);
+  assert.match(renderPullRequestChecksMarkdown(model, { locale: "it" }), /\| Merge fuori dal plugin \| \[SUPERATO\] \| Unita come/u);
 });
 
 test("a delivery with no records reports every check as not run, never as passed", () => {
@@ -129,6 +145,7 @@ test("a delivery with no records reports every check as not run, never as passed
   assert.deepEqual(model.summary, { pass: 0, fail: 0, not_run: 7 });
   assert.ok(model.checks.every((check) => check.status === "not_run"));
   assert.equal(rowFor(model, "standing_approval").length, 0, "no standing approval row when none is used");
+  assert.equal(rowFor(model, "external_merge").length, 0, "no external merge row when the plugin merged or nothing merged");
   const markdown = renderPullRequestChecksMarkdown(model);
   assert.match(markdown, /\| Tests \| \[NOT RUN\] \| No test run is recorded for this delivery\. \| none \|/u);
   assert.match(markdown, /No smoke test run is recorded/u);

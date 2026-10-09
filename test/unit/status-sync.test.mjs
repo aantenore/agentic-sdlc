@@ -51,7 +51,7 @@ test("fetch reports work merged elsewhere without changing the checkout", (t) =>
   commit(b, "other.txt", "merged elsewhere\n");
   git(b, "push", "-q", "origin", "main");
   const head = git(a, "rev-parse", "HEAD");
-  const sync = syncProjectForStatus(context, {});
+  const sync = syncProjectForStatus(context, {}, {});
   assert.equal(sync.mode, "fetch");
   assert.equal(sync.outcome, "fetched");
   assert.equal(sync.upstream, "origin/main");
@@ -65,7 +65,7 @@ test("pull fast-forwards only a branch that is strictly behind", (t) => {
   const { a, b, context } = twoClones(t);
   commit(b, "other.txt", "merged elsewhere\n");
   git(b, "push", "-q", "origin", "main");
-  const pulled = syncProjectForStatus(context, { sync: "pull" });
+  const pulled = syncProjectForStatus(context, { sync: "pull" }, {});
   assert.equal(pulled.outcome, "pulled");
   assert.equal(pulled.pulled_commits, 1);
   assert.equal(pulled.head_changed, true);
@@ -76,7 +76,7 @@ test("pull fast-forwards only a branch that is strictly behind", (t) => {
   git(b, "push", "-q", "origin", "main");
   commit(a, "local.txt", "local\n");
   const head = git(a, "rev-parse", "HEAD");
-  const diverged = syncProjectForStatus(context, { sync: "pull" });
+  const diverged = syncProjectForStatus(context, { sync: "pull" }, {});
   assert.equal(diverged.outcome, "fetched");
   assert.equal(diverged.reason, "diverged");
   assert.equal(git(a, "rev-parse", "HEAD"), head);
@@ -85,12 +85,14 @@ test("pull fast-forwards only a branch that is strictly behind", (t) => {
 test("an unreachable remote is a warning and off reads the clone as it is", (t) => {
   const { a, context } = twoClones(t);
   git(a, "remote", "set-url", "origin", path.join(a, "missing.git"));
-  const failed = syncProjectForStatus(context, {});
+  const failed = syncProjectForStatus(context, {}, {});
   assert.equal(failed.outcome, "failed");
   assert.match(statusSyncLine(failed), /cannot be reached/u);
   assert.equal(syncProjectForStatus(context, { sync: "off" }).outcome, "skipped");
   assert.throws(() => syncProjectForStatus(context, { sync: "rebase" }), /--sync/u);
+  assert.equal(syncProjectForStatus(context, {}, { AGENTIC_SDLC_STATUS_SYNC: "off" }).outcome, "skipped");
+  assert.throws(() => syncProjectForStatus(context, {}, { AGENTIC_SDLC_STATUS_SYNC: "rebase" }), /AGENTIC_SDLC_STATUS_SYNC/u);
   const plain = fs.mkdtempSync(path.join(os.tmpdir(), "status-sync-plain-"));
   t.after(() => fs.rmSync(plain, { recursive: true, force: true }));
-  assert.equal(syncProjectForStatus({ root: plain, config: {} }, {}).reason, "not_a_git_repository");
+  assert.equal(syncProjectForStatus({ root: plain, config: {} }, {}, {}).reason, "not_a_git_repository");
 });
