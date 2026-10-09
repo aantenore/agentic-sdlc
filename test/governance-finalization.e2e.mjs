@@ -845,6 +845,19 @@ test("a canonical story workflow cannot leave the current phase before its story
     /no completed canonical story step/u,
   );
 
+  mustFail([
+    "story", "complete-step",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--step", "analysis",
+    "--summary", "Analysis completed before the workflow entered the phase.",
+    "--authorization", fixture.storyActionAuthorizationId,
+  ], project, /step 'analysis' belongs to phase 'analysis', but its workflow is in phase 'discovery'/u);
+  assert.equal(
+    fs.existsSync(path.join(project, `.sdlc/stories/${fixture.storyId}/steps/analysis.json`)),
+    false,
+  );
+
   mustRun([
     "story", "complete-step",
     "--root", project,
@@ -2514,6 +2527,16 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   );
   assert.match(readyToCertifyStatus.next_action.command, /^node /u);
   assert.doesNotMatch(readyToCertifyStatus.next_action.command, /^agentic-sdlc /u);
+
+  // A step of a later phase is refused while the workflow is still in release.
+  mustFail([
+    "story", "complete-step",
+    "--root", project,
+    "--id", fixture.storyId,
+    "--step", "operations",
+    "--summary", "Operations tracking acknowledged too early",
+    "--authorization", fixture.storyActionAuthorizationId,
+  ], project, /step 'operations' belongs to phase 'operations', but its workflow is in phase 'release'/u);
 
   // Release evidence is complete, but the configured lifecycle now ends at
   // operations, not release: advance the workflow and complete its step

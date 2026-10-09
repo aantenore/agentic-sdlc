@@ -218,6 +218,7 @@ import {
   workspaceChangeMatchesPreflight,
 } from "../lib/execution-context-preflight.mjs";
 import { openCanonicalQuerySession } from "../lib/canonical-query-session.mjs";
+import { archiveProject } from "../lib/engine/project-archive.mjs";
 import { initializeCreatedLock } from "../lib/created-lock-file.mjs";
 import {
   IDENTITY_STAT_OPTIONS,
@@ -1047,6 +1048,7 @@ import {
 } from "../lib/engine/review-shared.mjs";
 import {
   refreshBaseline,
+  withdrawBaselineRefresh,
 } from "../lib/engine/baseline-refresh.mjs";
 import {
   confirmStoryOverlap,
@@ -1123,6 +1125,7 @@ function buildCliRuntimeHandlerRegistry() {
     "config.status": preConfig(({ context, options }) => showConfigStatus(context, options)),
     "config.migrate": preConfig(({ context, options }) => migrateProjectConfig(context, options)),
     init: preConfig(({ context, options }) => initProject(context, options)),
+    "project.archive": preConfig(({ context, options }) => archiveProject(context, options)),
     doctor: preConfig(({ context, options }) => runDoctor(context, options)),
     "optimization.status": call(showOptimizationStatus),
     "optimization.capture": call(captureOptimizationFromCommand),
@@ -1131,6 +1134,7 @@ function buildCliRuntimeHandlerRegistry() {
     "baseline.propose": call(proposeBaseline),
     "baseline.approve": call(approveBaseline),
     "baseline.refresh": call(refreshBaseline),
+    "baseline.refresh.withdraw": call(withdrawBaselineRefresh),
     "baseline.status": call(showBaselineStatus),
     "assessment.proposal.prepare": call(prepareAssessmentProposal),
     "assessment.proposal.approve": call(approveAssessmentProposal),
@@ -1391,6 +1395,15 @@ async function main() {
         // Deliberate bootstrap exception: only the exact reviewed plan hash may
         // enter migrateProjectConfig's transactional grant. The current config
         // is the object being repaired, so it cannot authorize its own repair.
+        await registry.dispatch(resolution, { ...invocation, context });
+        return;
+      }
+      if (resolution?.canonical_action === "project.archive" && parsed.options.apply === true) {
+        // Deliberate bootstrap exception: the archive moves the very records
+        // that hold the governance policy and then re-runs the first-time
+        // bootstrap, which cannot nest inside an active governance context.
+        // The command itself refuses agents, published or shared state, a
+        // stale plan hash, and anything but a person or CI approval.
         await registry.dispatch(resolution, { ...invocation, context });
         return;
       }

@@ -586,6 +586,9 @@ test("files created after baseline approval make the baseline stale until it is 
     "--root", project,
     "--from", "BASELINE-INITIAL",
     "--summary", "The project now includes the feature module.",
+    // The fixture keeps local edits that were never committed; recording them
+    // as they are is an explicit choice for the person's review.
+    "--allow-uncommitted-changes",
   ], project);
   assert.equal(refreshed.status, "proposed");
   assert.deepEqual(refreshed.unexplained, [{ path: "src/feature.mjs", change: "added" }]);

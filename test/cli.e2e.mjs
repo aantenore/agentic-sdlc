@@ -7026,7 +7026,7 @@ test("output duplicate new is blocked before registry write without matching dec
       "--requirement",
       "REQ-001",
     ],
-    /duplicates requirements already covered/,
+    /duplicates requirements already covered[\s\S]*--mode delta[\s\S]*--base-artifact[\s\S]*--mode reuse[\s\S]*--decision-id DEC-output-override-001 --rationale[\s\S]*--actor-type human --approval-source explicit-user/,
   );
   mustFail(
     [
@@ -9336,6 +9336,24 @@ test("dependency graph blocks orchestration and strict gate until upstream is sa
   const storyData = readJson(storyPath);
   writeJson(storyPath, { ...storyData, status: "implementation", phase: "implementation" });
   mustFail(["gate", "check", "--root", project, "--story", "ST-002", "--strict"], /depends on ST-001/);
+});
+
+test("dependency propose accepts repeated --requirement and propagates requirement_ids to edges", () => {
+  const project = tmpProject("dependency-multi-requirement");
+  initProject(project);
+  story(project, "ST-001");
+  story(project, "ST-002");
+  const proposed = JSON.parse(mustRun([
+    "dependency", "propose", "--root", project, "--id", "DEP-MULTI",
+    "--requirement", "REQ-A", "--requirement", "REQ-B",
+    "--edge", "ST-002:ST-001:blocks:implementation:done", "--json",
+  ]).stdout);
+  assert.equal(proposed.dependency.requirement_id, "REQ-A");
+  assert.deepEqual(proposed.dependency.requirement_ids, ["REQ-A", "REQ-B"]);
+  mustRun(["dependency", "approve", "--root", project, "--id", "DEP-MULTI", ...humanApproval("Approved multi requirement dependency")]);
+  const graph = readJson(path.join(project, ".sdlc", "dependencies", "graph.json"));
+  assert.equal(graph.edges[0].requirement_id, "REQ-A");
+  assert.deepEqual(graph.edges[0].requirement_ids, ["REQ-A", "REQ-B"]);
 });
 
 test("invalid lifecycle receipt cannot satisfy a lifecycle dependency from raw story state", () => {
@@ -13039,4 +13057,104 @@ test("npm package installs as a complete reusable plugin", async (t) => {
     assert.equal(stopped.signal, null);
     assert.match(observatoryStdout, /"event":"observatory\.stopped"/);
   }
+});
+
+test("complete-step prefers the output link recorded under the current contract", () => {
+  const project = tmpProject("current-contract-output-scope");
+  initProject(project);
+  const id = "ST-SCOPED-OUTPUT";
+  story(project, id, ["--requirement", "REQ-001", "--phase", "design", "--status", "ready"]);
+  createApprovedTemplate(project, "functional-analysis");
+  mustRun([
+    "contract", "create", "--root", project,
+    "--phase", "design",
+    "--story", id,
+    "--id", `contract-${id}-design`,
+    "--context-summary", "Ready design contract",
+    "--qa", "Who approves?|Owner",
+    "--output-ref", "functional-analysis:functional-analysis-v1:new:design",
+  ]);
+  mustRun(["contract", "approve", "--root", project, "--id", `contract-${id}-design`, ...humanApproval("Approved contract")]);
+  startStoryTask(project, id, "design");
+  mustRun([
+    "output", "link", "--root", project,
+    "--story", id,
+    "--type", "functional-analysis",
+    "--artifact", writeArtifact(project, `.sdlc/requirements/${id}-first.md`),
+    "--template", "functional-analysis-v1",
+    "--mode", "new",
+    "--requirement", "REQ-001",
+  ]);
+  const registryPath = path.join(project, ".sdlc", "output-contracts", "registry.json");
+  const firstLink = readJson(registryPath).links.find((link) => link.story_id === id);
+  assert.equal(firstLink.contract_id, `contract-${id}-design`);
+  const second = writeArtifact(project, `.sdlc/requirements/${id}-second.md`);
+  mustRun([
+    "output", "link", "--root", project,
+    "--story", id,
+    "--type", "functional-analysis",
+    "--artifact", second,
+    "--template", "functional-analysis-v1",
+    "--mode", "new",
+    "--requirement", "REQ-001",
+    "--decision-id", "DEC-SCOPED-OUTPUT",
+    "--rationale", "A second document is intentionally linked",
+    ...humanApproval("Approve the second output"),
+  ]);
+  const completeArgs = [
+    "story", "complete-step", "--root", project,
+    "--id", id,
+    "--step", "design",
+    "--type", "functional-analysis",
+    "--summary", "Design complete",
+  ];
+  // Both links belong to the current contract: still ambiguous, with a way out.
+  mustFail(completeArgs, /found 2\..*--supersedes <link-id>/su);
+  // The first link was recorded by an earlier, replaced contract (for example a
+  // cancelled delivery): only the current contract's link counts.
+  const registry = readJson(registryPath);
+  registry.links.find((link) => link.id === firstLink.id).contract_id = `contract-${id}-cancelled`;
+  writeJson(registryPath, registry);
+  mustRun(completeArgs);
+});
+
+test("output link --supersedes replaces an earlier link of the same story and type", () => {
+  const project = tmpProject("output-link-supersedes");
+  initProject(project);
+  const id = "ST-SUPERSEDED-OUTPUT";
+  createStrictReadyStory(project, id);
+  const registryPath = path.join(project, ".sdlc", "output-contracts", "registry.json");
+  const firstLink = readJson(registryPath).links.find((link) => link.story_id === id);
+  const second = writeArtifact(project, `.sdlc/requirements/${id}-second.md`);
+  const linkArgs = [
+    "output", "link", "--root", project, "--json",
+    "--story", id,
+    "--type", "functional-analysis",
+    "--artifact", second,
+    "--template", "functional-analysis-v1",
+    "--mode", "new",
+    "--requirement", "REQ-001",
+    "--supersedes", firstLink.id,
+  ];
+  mustFail(linkArgs, /--supersedes requires --rationale/u);
+  mustFail(
+    [...linkArgs, "--rationale", "Replace the first document"],
+    /requires --actor-type human/u,
+  );
+  const link = JSON.parse(mustRun([
+    ...linkArgs,
+    "--rationale", "Replace the first document",
+    "--actor-type", "human",
+  ]).stdout).link;
+  assert.equal(link.supersedes, firstLink.id);
+  const superseded = readJson(registryPath).links.find((candidate) => candidate.id === firstLink.id);
+  assert.equal(superseded.superseded_by, link.id);
+  assert.equal(superseded.superseded_reason, "Replace the first document");
+  mustRun([
+    "story", "complete-step", "--root", project,
+    "--id", id,
+    "--step", "design",
+    "--type", "functional-analysis",
+    "--summary", "Design complete with the replacement document",
+  ]);
 });

@@ -409,6 +409,24 @@ Common pauses are handled as follows:
 
 For installation failure, use the exact `restore` command returned by the installer transaction. Do not manually delete or overwrite an uncertain destination. See [Portable Installation](portable-install.md) for install-specific recovery.
 
+## Starting Over A Project Nobody Has Seen
+
+`.sdlc` keeps permanent approvals and usage history, so neither you nor your agent can delete it. If a project was never published or shared and you want a clean start, archive it instead. Ask your agent to show the plan, or run it yourself:
+
+```bash
+node <plugin-root>/bin/agentic-sdlc.mjs project archive
+```
+
+The plan changes nothing. If anything shows the project was shared (shared refs, a remote that holds project state or already has `.sdlc` in a pushed commit, deliveries, or recorded pushes and merges), it refuses and says why: archiving would hide state that other copies still rely on. Otherwise you apply it in your own terminal with the plan hash, your reason, and your own words:
+
+```bash
+node <plugin-root>/bin/agentic-sdlc.mjs project archive --apply --plan-hash <sha256> \
+  --reason "Restart before first publication" \
+  --actor-type human --approval-source explicit-user --summary "Archive this project and start again" --reinit
+```
+
+`.sdlc` is moved, never deleted, to `.sdlc-archive/ARCHIVE-<timestamp>-<hash>/sdlc/`, together with a manifest of who archived it, when, why, and a hash of the archived tree. `--reinit` then creates a fresh project that keeps that manifest and a trace entry. `.sdlc-archive/` is ignored by git; keep or remove it yourself when you no longer need it.
+
 ## What A Finished Result Means
 
 A completed delivery reports:

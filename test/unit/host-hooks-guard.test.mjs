@@ -367,3 +367,32 @@ test("only a person acknowledges a merge made outside the plugin", () => {
   })?.decision, "deny");
   assert.equal(evaluatePreToolUse(shell("node bin/agentic-sdlc.mjs autonomy delivery status --id AUT-1")), null);
 });
+
+test("only a person archives a project, and archived records are never changed by hand", () => {
+  for (const command of [
+    "node bin/agentic-sdlc.mjs project archive --apply --plan-hash abc --reason x --actor-type human",
+    "npx agentic-sdlc project \"archive\" --reinit --apply",
+  ]) {
+    const verdict = evaluatePreToolUse(shell(command));
+    assert.equal(verdict?.decision, "deny", command);
+    assert.match(verdict.reason, /ask them to run this exact command themselves/u);
+  }
+  // The plan is read-only and stays open to agents.
+  assert.equal(evaluatePreToolUse(shell("node bin/agentic-sdlc.mjs project archive --json")), null);
+  assert.equal(evaluatePreToolUse(shell("cat .sdlc-archive/ARCHIVE-1/archive-manifest.json")), null);
+  assert.equal(evaluatePreToolUse(shell("ls .sdlc-archive")), null);
+  for (const command of [
+    "rm -rf .sdlc-archive",
+    "mv .sdlc-archive/ARCHIVE-1 /tmp/x",
+    "echo {} > .sdlc-archive/ARCHIVE-1/archive-manifest.json",
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command))?.decision, "deny", command);
+  }
+  assert.equal(evaluatePreToolUse({
+    tool_name: "Write",
+    tool_input: { file_path: "/work/p/.sdlc-archive/ARCHIVE-1/archive-manifest.json", content: "{}" },
+  })?.decision, "deny");
+  // The raw shell still cannot do what the command does.
+  assert.equal(evaluatePreToolUse(shell("mv .sdlc .sdlc-archive/x"))?.decision, "deny");
+  assert.equal(evaluatePreToolUse(shell("rm -rf .sdlc"))?.decision, "deny");
+});

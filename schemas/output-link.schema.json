@@ -58,6 +58,39 @@
         "null"
       ]
     },
+    "contract_id": {
+      "description": "Story contract that was current when the link was recorded.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "supersedes": {
+      "description": "Earlier output link of the same story and type replaced by this one.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "superseded_by": {
+      "description": "Output link that replaced this one; a superseded link no longer satisfies contract output refs.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "superseded_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "superseded_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "source_paths": {
       "type": "array",
       "items": {

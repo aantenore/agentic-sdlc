@@ -50,6 +50,7 @@
     "material_scope": { "$ref": "delivery-execution-profile.schema.json#/properties/material_scope" },
     "material_scope_hash": { "$ref": "delivery-execution-profile.schema.json#/properties/material_scope_hash" },
     "requested_level": { "$ref": "delivery-execution-profile.schema.json#/properties/requested_level" },
+    "effective_level": { "$ref": "delivery-execution-profile.schema.json#/properties/effective_level" },
     "phase_levels": { "$ref": "delivery-execution-profile.schema.json#/properties/phase_levels" },
     "constraints": { "$ref": "delivery-execution-profile.schema.json#/properties/constraints" },
     "checkpoints": { "$ref": "delivery-execution-profile.schema.json#/properties/checkpoints" },
@@ -176,6 +177,14 @@
     },
     {
       "if": { "properties": { "requested_level": { "const": "checkpointed" } }, "required": ["requested_level"] },
+      "then": { "properties": { "phase_levels": { "$ref": "delivery-execution-profile.schema.json#/$defs/checkpointed_phase_levels" } } }
+    },
+    {
+      "if": { "properties": { "effective_level": { "const": "supervised" } }, "required": ["effective_level"] },
+      "then": { "properties": { "phase_levels": { "$ref": "delivery-execution-profile.schema.json#/$defs/supervised_phase_levels" } } }
+    },
+    {
+      "if": { "properties": { "effective_level": { "const": "checkpointed" } }, "required": ["effective_level"] },
       "then": { "properties": { "phase_levels": { "$ref": "delivery-execution-profile.schema.json#/$defs/checkpointed_phase_levels" } } }
     }
   ],

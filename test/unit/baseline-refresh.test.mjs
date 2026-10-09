@@ -3,11 +3,18 @@ import test from "node:test";
 
 import {
   baselineDeltaEntries,
+  baselineRefreshSharedRef,
+  baselineRefreshWithdrawalRef,
+  buildBaselineRefreshSharedPayload,
+  buildBaselineRefreshWithdrawalPayload,
   computeBaselineDelta,
   explainBaselineDelta,
+  liveBaselines,
   pathInsideEveryScope,
+  resolveBaselineRefreshClaims,
   sameBaselineDelta,
 } from "../../lib/baseline-refresh.mjs";
+import { serializeSharedPayload } from "../../lib/shared-ref-records.mjs";
 
 const A = "a".repeat(64);
 const B = "b".repeat(64);
@@ -145,4 +152,29 @@ test("a later merge that only carried a file along does not take the credit from
   });
   const { explanations } = explainBaselineDelta(delta, { "src/a.mjs": A }, [delivery("ST-2", ["src/b.mjs"]), delivery("ST-1", ["src/a.mjs"])]);
   assert.equal(explanations[0].story_id, "ST-1");
+});
+
+test("a withdrawn successor releases its generation; a mismatched withdrawal releases nothing", () => {
+  const record = (ref, payload) => ({ ref, objectName: "0".repeat(40), message: serializeSharedPayload(payload) });
+  const successor = (id, hash) => buildBaselineRefreshSharedPayload({ previousBaselineId: "B", successorId: id, refreshHash: hash, createdAt: "t" });
+  const withdrawal = (id, hash, generation) => buildBaselineRefreshWithdrawalPayload({
+    previousBaselineId: "B", successorId: id, refreshHash: hash, generation, reason: "story branch", withdrawnBy: { type: "human", id: "u" }, withdrawnAt: "t",
+  });
+  assert.deepEqual(resolveBaselineRefreshClaims([], "B"), { open: null, nextGeneration: 0, withdrawn: [] });
+  const claimed = [record(baselineRefreshSharedRef("B"), successor("B-R2", A))];
+  assert.equal(resolveBaselineRefreshClaims(claimed, "B").open.payload.successor_id, "B-R2");
+  const released = [...claimed, record(baselineRefreshWithdrawalRef("B"), withdrawal("B-R2", A, 0))];
+  const free = resolveBaselineRefreshClaims(released, "B");
+  assert.equal(free.open, null);
+  assert.equal(free.nextGeneration, 1);
+  assert.deepEqual(free.withdrawn.map((item) => item.successor.successor_id), ["B-R2"]);
+  assert.equal(baselineRefreshSharedRef("B", 1), "refs/agentic-sdlc/baseline-refresh/B/successor-1");
+  const next = resolveBaselineRefreshClaims([...released, record(baselineRefreshSharedRef("B", 1), successor("B-R3", B))], "B");
+  assert.deepEqual([next.open.generation, next.open.payload.successor_id], [1, "B-R3"]);
+  // A withdrawal naming other content, or another successor, keeps the claim open.
+  const wrongHash = resolveBaselineRefreshClaims([...claimed, record(baselineRefreshWithdrawalRef("B"), withdrawal("B-R2", C, 0))], "B");
+  assert.equal(wrongHash.open.payload.successor_id, "B-R2");
+  const wrongId = resolveBaselineRefreshClaims([...claimed, record(baselineRefreshWithdrawalRef("B"), withdrawal("B-R9", A, 0))], "B");
+  assert.equal(wrongId.open.payload.successor_id, "B-R2");
+  assert.equal(liveBaselines([{ id: "B" }, { id: "B-R2", status: "withdrawn" }]).length, 1);
 });

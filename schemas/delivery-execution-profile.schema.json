@@ -63,6 +63,10 @@
     "material_scope": { "type": "object", "minProperties": 1 },
     "material_scope_hash": { "$ref": "#/$defs/sha256" },
     "requested_level": { "$ref": "#/$defs/autonomy_level" },
+    "effective_level": {
+      "description": "The level enforced for this delivery: requested_level capped by the approved requirement ceiling and contract boundary. Absent on older profiles, which enforce requested_level.",
+      "$ref": "#/$defs/autonomy_level"
+    },
     "phase_levels": { "$ref": "#/$defs/phase_levels" },
     "constraints": { "$ref": "#/$defs/constraints" },
     "checkpoints": {
@@ -158,6 +162,28 @@
       "if": {
         "properties": { "requested_level": { "const": "checkpointed" } },
         "required": ["requested_level"]
+      },
+      "then": {
+        "properties": {
+          "phase_levels": { "$ref": "#/$defs/checkpointed_phase_levels" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "effective_level": { "const": "supervised" } },
+        "required": ["effective_level"]
+      },
+      "then": {
+        "properties": {
+          "phase_levels": { "$ref": "#/$defs/supervised_phase_levels" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "effective_level": { "const": "checkpointed" } },
+        "required": ["effective_level"]
       },
       "then": {
         "properties": {

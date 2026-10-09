@@ -74,6 +74,20 @@ node bin/agentic-sdlc.mjs baseline approve \
   --summary "Confirmed current-state baseline"
 ```
 
+After delivered work, record the new project state with `baseline refresh --from <approved-baseline-id>` from the base branch with its changes committed. The refresh is refused on a story branch that is not merged yet and over uncommitted changes inside the baseline scope; tell the user to switch to the base branch (`git switch main`), pull, and run it again. Use `--allow-non-base-branch` or `--allow-uncommitted-changes` only when the user explicitly confirms that this checkout is the project state to record. If a proposed refresh must not replace its predecessor (for example it was taken from a story branch), withdraw it after the user agrees instead of approving it:
+
+```bash
+node bin/agentic-sdlc.mjs baseline refresh withdraw \
+  --root <project> \
+  --id BASELINE-INITIAL-R2 \
+  --reason "Recorded from an unmerged story branch" \
+  --actor-type human \
+  --approval-source explicit-user \
+  --summary "Withdraw the refresh taken from the story branch"
+```
+
+The withdrawn record stays as history and its shared claim on the git remote is released, so the next refresh of the predecessor works on every computer. Add `--from <baseline-id>` when the proposed record is not on this computer.
+
 ## Approval Governance
 
 Approval commands require a formal source. `--actor-type human` alone is not enough.
@@ -373,7 +387,7 @@ node bin/agentic-sdlc.mjs autonomy delivery revoke \
 
 `autonomy delivery explain` and `status` state, for a pull request, whether a code review is needed before merge and where that comes from: `project_policy` (the project requires one for every pull request), `delivery_profile` (the user chose it for this story), `standing_approval`, `change` (changed after approval), or `project_default` (a profile created before the choice existed). When a review is required they also show how many of the reviews recorded on this computer are valid for the current head ("N of M"). In JSON this is `code_review` in `explain` and `code_review_before_merge` in `status`, which lists every open pull-request delivery with its requirement.
 
-Before approving, review the complete proposed JSON: requirement ceiling, selected level, target identity, allowed actions, write paths, automatic phases, checkpoints, exception triggers, merge/deploy exclusions, expiry, and the non-reuse boundary. In `audit_only`, a requested `bounded-autonomous` profile evaluates only as `checkpointed`, including for local releases. Effective `bounded-autonomous` requires an external host/CI to sign the exact profile-approval subject with Ed25519, `authority_policy.mode: host_verified`, the public key in `authority_policy.trusted_host_keys`, and `--host-receipt-file <path.json>` on `autonomy delivery approve`. The CLI verifies that receipt; it cannot self-issue trusted authority.
+Before approving, review the complete proposed JSON: requirement ceiling, selected level, target identity, allowed actions, write paths, automatic phases, checkpoints, exception triggers, merge/deploy exclusions, expiry, and the non-reuse boundary. A `--level` above the most restrictive requirement ceiling or the approved contract level is not refused: the profile keeps it as `requested_level` and stores `effective_level`, the choice capped by that ceiling and contract; the proposal `review` shows `effective_level` and `level_capped_by`, and the guidance says the choice was capped. Every enforcement point uses `effective_level`, never `requested_level`. An unknown `--level` is refused. In `audit_only`, a requested `bounded-autonomous` profile evaluates only as `checkpointed`, including for local releases. Effective `bounded-autonomous` requires an external host/CI to sign the exact profile-approval subject with Ed25519, `authority_policy.mode: host_verified`, the public key in `authority_policy.trusted_host_keys`, and `--host-receipt-file <path.json>` on `autonomy delivery approve`. The CLI verifies that receipt; it cannot self-issue trusted authority.
 
 Before task start, verify that the approved profile ID equals the planned `delivery_execution_profile_id` in the already approved contract. Supply that profile to the evaluator. `supervised` always requires confirmation. For another effective level, task start is automatic only when the current phase is listed under `autonomy_policy.presets.<level>.automatic_phases`; otherwise rerun the displayed checkpoint with `--confirm-start` or a matching authorization. The stock `checkpointed` preset makes analysis, design, implementation, and validation automatic but keeps release actions checkpointed. Do not rewrite the contract:
 
@@ -1224,6 +1238,33 @@ git commit ...
 
 Leave the repository's `user.name` and `user.email` as the person's identity. Do not set the agent identity in the repository Git configuration: the person's review would carry it and would not be independent.
 
+## Archive And Restart A Never-Published Project
+
+`.sdlc` holds permanent approvals and consumption records, so the host hooks forbid every deletion inside it. When a project that was never published must start over, `project archive` moves `.sdlc` aside instead. It never deletes or copies-then-deletes.
+
+```bash
+node bin/agentic-sdlc.mjs project archive --root <project>
+```
+
+The plan changes nothing. It reports whether anything shows the project was published or shared, how many files would move, the hash of the tree, and the plan hash. It refuses, and lists why, when any of these exist:
+
+- a ref under `refs/agentic-sdlc/`, `refs/agentic-sdlc-shared/`, `refs/agentic-sdlc-local/`, or `refs/worktree/agentic-sdlc`;
+- shared project state on any configured git remote, or a remote that cannot be reached to confirm there is none;
+- `.sdlc` committed in history that a remote-tracking branch already contains;
+- delivery execution records, or delivery usage and standing-approval consumption records;
+- trace events recording a push, pull request, or merge.
+
+The person applies the plan from their own terminal. An agent session is refused, and the host hook asks the agent to hand over the exact command:
+
+```bash
+node bin/agentic-sdlc.mjs project archive --root <project> --apply --plan-hash <sha256> \
+  --reason "Restart before first publication" \
+  --actor-type human --approval-source explicit-user --summary "<the person's words>" \
+  [--reinit [--project-name "<name>"] [--project-id <id>]]
+```
+
+The tree moves to `.sdlc-archive/ARCHIVE-<timestamp>-<hash8>/sdlc/` with `archive-manifest.json` beside it (who, when, why, the approval, and the hash of the archived tree, re-checked after the move). `.sdlc-archive/` ignores itself in git and is protected by the host hook from shell deletion and edits. A stale plan hash, a missing reason, or a non-human approval stops the command before anything moves. Without `--reinit`, run `init` afterwards; with it, the fresh `.sdlc` keeps the manifest at `.sdlc/decisions/project-archive-<id>.json` and a `project.archive` decision in `traces/project.jsonl`.
+
 ## Acknowledge A Merge Made Outside The Plugin
 
 When a person merges a plugin-managed pull request directly on GitHub, the plugin does not see it. `status` detects the clear cases without writing anything: a head covered by the delivery's receipts is already on the remote base branch (payload key `merged_outside_plugin`), and `status` prints the command below. A squash or rebase merge leaves no trace in git, so `status` cannot detect it, but `reconcile` still works.
@@ -1418,7 +1459,7 @@ functional or test evidence; record those with `story complete-step` or
 `trace append`. The older `--evidence` spelling remains accepted by
 `output link` only as a compatibility alias for the same render-only input.
 
-When a duplicate new output or structure override is intentionally approved, run `output link` with `--decision-id` and `--rationale` as a human or CI actor. The CLI records the approved decision in the registry:
+When `output link` fails with a duplicate-output error, either use `--mode delta` (with `--base-artifact`) or `--mode reuse`, or record an approved exception in the same call: pass a new `--decision-id` plus `--rationale` (or `--approval-evidence`), `--actor-type human` and `--approval-source`. In short, run `output link` with `--decision-id` and `--rationale` as a human or CI actor. The CLI records the approved decision in the registry:
 
 ```bash
 node bin/agentic-sdlc.mjs output link \

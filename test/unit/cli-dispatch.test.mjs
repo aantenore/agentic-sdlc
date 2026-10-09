@@ -47,7 +47,7 @@ test("resolver uses the longest exact path and preserves canonical aliases", () 
   assert.equal(resolveCommand("does not exist"), null);
 });
 
-test("exactly seven commands derive conditional mutation intent from runtime options", () => {
+test("exactly eight commands derive conditional mutation intent from runtime options", () => {
   const conditional = listCommandPaths()
     .filter((commandPath) => findCommand(commandPath).mutation.mode === "when-option")
     .sort();
@@ -57,6 +57,7 @@ test("exactly seven commands derive conditional mutation intent from runtime opt
     "gate check",
     "migration active",
     "migration identity",
+    "project archive",
     "report activity",
     "report query",
   ]);
@@ -73,7 +74,7 @@ test("exactly seven commands derive conditional mutation intent from runtime opt
     assert.equal(commandMutationIntent(findCommand(commandPath), { out: "report.json" }), true, commandPath);
     assert.equal(commandMutationIntent(findCommand(commandPath), { out: "" }), false, commandPath);
   }
-  for (const commandPath of ["config migrate", "migration active"]) {
+  for (const commandPath of ["config migrate", "migration active", "project archive"]) {
     assert.equal(commandMutationIntent(findCommand(commandPath), { apply: true }), true, commandPath);
     assert.equal(commandMutationIntent(findCommand(commandPath), { apply: false }), false, commandPath);
   }
