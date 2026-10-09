@@ -1,0 +1,21 @@
+{
+  "schema_version": "plugin-compatibility:v1",
+  "marketplace": "aantenore",
+  "update_command": "claude plugin marketplace update {marketplace} && claude plugin update {plugin}@{marketplace}",
+  "features": {
+    "shared-claim-completed": {
+      "since": "0.32.0",
+      "summary": "Finished stories shared as completed on the remote"
+    },
+    "merge-drift-open-state": {
+      "since": "0.35.0",
+      "summary": "Merged stories still open kept apart from ready work",
+      "config_keys": ["orchestration_policy.merge_drift.open_state"]
+    },
+    "story-records-policy": {
+      "since": "0.35.0",
+      "summary": "Story records carried in pull requests and published after merge",
+      "config_keys": ["orchestration_policy.story_records"]
+    }
+  }
+}
