@@ -1387,6 +1387,21 @@ Story records move only through recorded lifecycle steps. A pull request merged 
 
 Nothing is recorded: complete the story with `story complete-step` until it closes, and, when a started delivery exists, a person acknowledges the merge with `autonomy delivery reconcile`. `mode: off` turns the check off. When no base branch can be found, `merged_but_open_check` says so.
 
+A story found merged while its records show it ready is never ready to start: `status`, `orchestrate status`, and `orchestrate plan` list it as `merged_open` (`summary.merged_open`, `merged_open_work` in `status`), and no tool suggestion names it (`merge_drift.open_state: available` keeps the earlier behaviour). When this branch has none of its work records (no claim, no completed step), the item carries `records_absent` and `merged_by` (the merged-in commit's author and branch), the advice says to recover the records from that computer with `story publish-records`, and `story claim` is refused with `STORY_ALREADY_MERGED`; only a person may claim it anyway (`--force --reason`, human or CI actor).
+
+### Story records travel with the pull request
+
+`orchestration_policy.story_records`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `in_branch` | `include` | `git.commit`, `git.push`, and `pull_request.*` accept the story's records (`.sdlc` paths that name the story or no other story) outside the code's write scope; the action details list them as `story_record_paths`. `.sdlc/config.json`, caches, and another story's records stay refused. `exclude` restores the earlier behaviour. |
+| `before_pull_request` | `warn` | `pull_request.create` and `pull_request.update` check that the head carries `.sdlc/stories/<id>/claim.json` and a completed step: `warn` lists what is missing (`story_records_missing`), `refuse` refuses the checkpoint, `off` skips the check. |
+| `publish_branch_prefix` | `sdlc-records/` | Branch that `story publish-records` pushes. |
+| `publish_pull_request` | `off` | `github-cli` opens the pull request of that branch with the GitHub CLI; `off` only pushes it. |
+
+`story publish-records --id <story>` publishes what the story's work left on this computer after its pull request (final receipt, release of the claim, later steps): it fetches the remote base branch, builds one commit on top of it (or of an earlier unmerged publication) with the story's records the base branch lacks, through a private index, and pushes it as `<prefix><story>`. The checkout, its index, and its branches are not changed. A record the base branch changed after this work started is left out and listed as `skipped`. Nothing is ever deleted on the base branch.
+
 ## Claims Seen From Other Computers
 
 `status` and `orchestrate status` show, for each claim held on another computer:

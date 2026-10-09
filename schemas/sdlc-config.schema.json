@@ -319,7 +319,8 @@
             "principle": { "type": "string" },
             "in_branch": { "enum": ["include", "exclude"] },
             "before_pull_request": { "enum": ["warn", "refuse", "off"] },
-            "publish_branch_prefix": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$" }
+            "publish_branch_prefix": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$" },
+            "publish_pull_request": { "enum": ["off", "github-cli"] }
           },
           "additionalProperties": false
         },

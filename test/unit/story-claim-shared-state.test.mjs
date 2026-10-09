@@ -71,7 +71,7 @@ test("orchestration policy shares claims through origin by default and validates
     delivered_overlap: { write_scope: "confirm", context: "warn", confirmation_actor: "any", claim: "warn" },
     status_sync: { mode: "fetch" },
     merge_drift: { mode: "git", base_branch: null, match_commit_subject: true, max_commits_scanned: 500, open_state: "merged_open" },
-    story_records: { in_branch: "include", before_pull_request: "warn", publish_branch_prefix: "sdlc-records/" },
+    story_records: { in_branch: "include", before_pull_request: "warn", publish_branch_prefix: "sdlc-records/", publish_pull_request: "off" },
     status_list_limit: 5,
     claim_identity: { git_user: false, host_label_env: "AGENTIC_SDLC_HOST_LABEL" },
     claim_activity: { mode: "git", idle_after_seconds: null },

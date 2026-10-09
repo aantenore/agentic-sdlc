@@ -213,3 +213,39 @@ test("a story merged without its records is never ready, its claim is refused, a
   assert.match(refused.error.message, /already merged into main .* by agente-cat-001, branch feature\/ST-CAT-001/u);
   assert.equal(mustRunJson(claim(second, "ST-CAT-002", "bob"), second).claim.story_id, "ST-CAT-002");
 });
+
+test("the computer that did the work publishes the story's records as their own branch, and once merged every computer has them", () => {
+  const { first, second } = sharedProject("publish-records", ["ST-CAT-001", "ST-CAT-002"]);
+  git(first, ["remote", "set-head", "origin", "main"]);
+  git(second, ["remote", "set-head", "origin", "main"]);
+  mustRun(claim(first, "ST-CAT-001", "agente-cat-001"), first);
+  git(first, ["checkout", "--quiet", "-b", "feature/ST-CAT-001"]);
+  fs.mkdirSync(path.join(first, "src"), { recursive: true });
+  fs.writeFileSync(path.join(first, "src", "catalog.mjs"), "export const catalog = [];\n", "utf8");
+  git(first, ["add", "src/catalog.mjs"]);
+  git(first, ["commit", "--quiet", "-m", "feat: catalog"]);
+  git(first, ["push", "--quiet", "origin", "feature/ST-CAT-001"]);
+  git(second, ["fetch", "--quiet", "origin"]);
+  git(second, ["merge", "--quiet", "--no-ff", "-m", "Merge pull request #12 from travelops/feature/ST-CAT-001", "origin/feature/ST-CAT-001"]);
+  git(second, ["push", "--quiet", "origin", "main"]);
+  mustRun(["story", "release", "--root", first, "--id", "ST-CAT-001", "--reason", "Merged"], first);
+
+  const before = git(first, ["status", "--porcelain"]);
+  const published = mustRunJson(["story", "publish-records", "--root", first, "--id", "ST-CAT-001"], first);
+  assert.equal(published.status, "published");
+  assert.equal(published.branch, "sdlc-records/ST-CAT-001");
+  assert.ok(published.published.includes(".sdlc/stories/ST-CAT-001/claim.json"), JSON.stringify(published.published));
+  assert.equal(published.published.some((item) => item.includes("ST-CAT-002")), false);
+  assert.equal(git(first, ["status", "--porcelain"]), before, "the checkout is not changed");
+  assert.equal(git(first, ["rev-parse", "--abbrev-ref", "HEAD"]), "feature/ST-CAT-001");
+  // Nothing new: publishing again leaves the branch where it is.
+  assert.equal(mustRunJson(["story", "publish-records", "--root", first, "--id", "ST-CAT-001"], first).commit, published.commit);
+
+  git(second, ["fetch", "--quiet", "origin"]);
+  git(second, ["merge", "--quiet", "--no-ff", "-m", "Merge pull request #13 from travelops/sdlc-records/ST-CAT-001", "origin/sdlc-records/ST-CAT-001"]);
+  git(second, ["push", "--quiet", "origin", "main"]);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(second, ".sdlc", "stories", "ST-CAT-001", "claim.json"), "utf8")).status, "released");
+  const status = mustRunJson(["status", "--root", second], second);
+  assert.deepEqual(status.work.ready_story_ids, ["ST-CAT-002"]);
+  assert.equal(status.merged_but_open[0].records_absent, undefined);
+});

@@ -13,7 +13,7 @@ const invalid = (message) => {
 };
 
 test("story records travel on the story branch by default and the policy validates its values", () => {
-  assert.deepEqual(storyRecordsPolicy(undefined, invalid), { in_branch: "include", before_pull_request: "warn", publish_branch_prefix: "sdlc-records/" });
+  assert.deepEqual(storyRecordsPolicy(undefined, invalid), { in_branch: "include", before_pull_request: "warn", publish_branch_prefix: "sdlc-records/", publish_pull_request: "off" });
   assert.equal(storyRecordsPolicy({ before_pull_request: "refuse" }, invalid).before_pull_request, "refuse");
   for (const value of ["yes", { in_branch: "all" }, { before_pull_request: "block" }, { publish_branch_prefix: "../x" }]) {
     assert.throws(() => storyRecordsPolicy(value, invalid), /orchestration_policy\.story_records/u, JSON.stringify(value));
