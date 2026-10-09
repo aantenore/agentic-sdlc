@@ -49,8 +49,10 @@ const KIND_COLLECTIONS = Object.freeze({
 export const STORY_STATES = Object.freeze([
   Object.freeze({ key: "live", label: "In progress" }),
   Object.freeze({ key: "blocked", label: "Blocked" }),
+  Object.freeze({ key: "abandoned", label: "Needs a decision" }),
   Object.freeze({ key: "open", label: "Started" }),
   Object.freeze({ key: "waiting", label: "Waiting" }),
+  Object.freeze({ key: "parked", label: "Parked" }),
   Object.freeze({ key: "delivered", label: "Delivered" }),
   Object.freeze({ key: "idle", label: "Not started" }),
   Object.freeze({ key: "replaced", label: "Replaced" }),
@@ -123,8 +125,10 @@ export function storyState(iteration) {
   if (iteration?.closure?.event === "superseded") return "replaced";
   if (iteration?.closure) return "stopped";
   if (relevance === "superseded") return "stopped";
+  if (iteration?.parked) return "parked";
   if (phases.some((phase) => phase.status === "blocked")) return "blocked";
   if (relevance === "delivered") return "delivered";
+  if (iteration?.claimExpired) return "abandoned";
   if (iteration?.claimed || phases.some((phase) => phase.status === "inProgress")) return "live";
   if (relevance === "active") return "open";
   return "idle";
@@ -239,7 +243,12 @@ export function applySharedClaims(stories, claims = []) {
   return stories.map((story) => {
     const claim = byStory.get(story.id);
     if (!claim) return story;
-    if (["claimed", "reserved"].includes(claim.state) && !["delivered", "replaced", "stopped"].includes(story.state)) {
+    if (["delivered", "replaced", "stopped"].includes(story.state) && claim.state !== "completed") return story;
+    if (claim.state === "parked") return { ...story, state: "parked", holder: claim };
+    // A reservation past its expiry has ended by itself; an expired claim still holds the story.
+    if (claim.state === "reserved" && claim.expired) return story;
+    if (claim.state === "claimed" && claim.expired) return { ...story, state: "abandoned", holder: claim };
+    if (["claimed", "reserved"].includes(claim.state)) {
       return { ...story, state: claim.state === "claimed" ? "live" : story.state, holder: claim };
     }
     if (claim.state === "completed" && !["delivered", "replaced", "stopped"].includes(story.state)) {
