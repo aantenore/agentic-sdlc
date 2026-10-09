@@ -37,6 +37,8 @@ import {
   setLocale,
   t,
 } from "./i18n.js";
+import { defaultExploreState } from "./visuals.js";
+import { INSIGHT_SETTINGS } from "./insights.js";
 
 const locale = setLocale(localeFromLocation(window.location));
 applyDocumentLocale(document, locale);
@@ -46,6 +48,9 @@ const UNKNOWN_PROJECT = "Unknown project";
 
 const VALID_VIEWS = new Set([
   "overview",
+  "stories",
+  "activity",
+  "map",
   "timeline",
   "contracts",
   "decisions",
@@ -53,9 +58,15 @@ const VALID_VIEWS = new Set([
   "intent-evidence",
   "verification",
 ]);
+// Visual views keep the evidence inspector closed until a record is chosen,
+// so charts and maps get the full width.
+const VISUAL_VIEWS = new Set(["overview", "stories", "activity", "map"]);
 const VIEW_LABELS = Object.freeze({
   overview: "Overview",
-  timeline: "Timeline",
+  stories: "Stories",
+  activity: "Timeline",
+  map: "Map",
+  timeline: "Story dossier",
   contracts: "Contracts",
   decisions: "Decisions",
   changes: "Changes",
@@ -97,6 +108,11 @@ const state = {
   model: null,
   view: viewFromHash(),
   filters: { iteration: "", phase: "" },
+  explore: defaultExploreState(),
+  live: false,
+  inspectorOpen: false,
+  liveTimer: null,
+  quietLoading: false,
   selectedIterationId: null,
   selectedId: null,
   selectedItem: null,
@@ -215,14 +231,27 @@ function render() {
   ) return;
   setProjectWorkspaceContext(state.model.project.name);
   updateNavigation();
+  elements.app.dataset.activeView = state.view;
+  const focusedExplore = captureExploreFocus();
   if (hasMissingKnowledgeBase(state.model)) {
     renderKnowledgeBaseMissing(elements.primary, state.model);
   } else {
     renderPrimary(elements.primary, state.model, state);
   }
+  restoreExploreFocus(focusedExplore);
   renderInspector(elements.inspector, state.selectedItem, {
     portfolioProjectId: state.portfolioProjectId,
   });
+  const inspectorOpen = !VISUAL_VIEWS.has(state.view) || state.inspectorOpen;
+  elements.app.dataset.inspector = inspectorOpen ? "open" : "closed";
+  if (inspectorOpen && VISUAL_VIEWS.has(state.view)) {
+    const close = document.createElement("button");
+    close.className = "inspector-close";
+    close.setAttribute("type", "button");
+    close.dataset.action = "close-inspector";
+    close.textContent = t("Close details");
+    elements.inspector.append(close);
+  }
 }
 
 async function loadModel({ preserveSelection = false } = {}) {
@@ -299,6 +328,24 @@ function captureProjectSelection(portfolioProjectId) {
   };
 }
 
+// Re-rendering replaces the search box; keep typing uninterrupted.
+function captureExploreFocus() {
+  const active = document.activeElement;
+  const name = active?.dataset?.explore;
+  if (!name || !elements.primary.contains?.(active)) return null;
+  return { name, start: active.selectionStart ?? null, end: active.selectionEnd ?? null };
+}
+
+function restoreExploreFocus(focused) {
+  if (!focused) return;
+  const target = elements.primary.querySelector(`[data-explore="${focused.name}"]`);
+  if (!target) return;
+  target.focus?.({ preventScroll: true });
+  if (focused.start !== null && typeof target.setSelectionRange === "function") {
+    target.setSelectionRange(focused.start, focused.end ?? focused.start);
+  }
+}
+
 function clearProjectModel() {
   state.model = null;
   state.modelProjectId = null;
@@ -306,6 +353,7 @@ function clearProjectModel() {
   state.selectedId = null;
   state.selectedIterationId = null;
   state.records = new Map();
+  state.explore = defaultExploreState();
 }
 
 function clearProjectPresentation() {
@@ -366,6 +414,7 @@ function renderPortfolioHome({ focus = false, historyMode = "none" } = {}) {
   state.portfolioProjectId = null;
   resetRawForProjectChange();
   state.view = "overview";
+  delete elements.app.dataset.activeView;
   writePortfolioLocation(null, historyMode);
   setPortfolioHomeContext();
   renderPortfolioControls(state.portfolioSummary);
@@ -508,6 +557,7 @@ async function loadPortfolioProject(projectId, {
 function setView(view) {
   if (!VALID_VIEWS.has(view) || (portfolioMode && !state.model)) return;
   state.view = view;
+  state.inspectorOpen = false;
   if (window.location.hash !== `#${view}`) window.history.pushState(null, "", `#${view}`);
   if (window.matchMedia("(max-width: 720px)").matches) setNavigationOpen(false);
   render();
@@ -519,6 +569,7 @@ function selectRecord(id) {
   if (!item) return;
   state.selectedId = id;
   state.selectedItem = item;
+  state.inspectorOpen = true;
   render();
 }
 
@@ -671,6 +722,112 @@ function handleClick(event) {
     case "close-raw":
       closeRaw();
       break;
+    case "close-inspector":
+      state.inspectorOpen = false;
+      render();
+      break;
+    case "toggle-live":
+      setLive(!state.live);
+      break;
+    default:
+      handleExploreAction(actionElement);
+  }
+}
+
+function numberOrNull(value) {
+  const number = Number(value);
+  return value !== undefined && value !== "" && Number.isFinite(number) ? number : null;
+}
+
+function goToView(view, { storyId, storyState, kinds } = {}) {
+  const explore = state.explore;
+  explore.pages = 1;
+  if (storyId !== undefined) explore.storyId = storyId;
+  if (storyState !== undefined) explore.storyState = storyState;
+  if (kinds !== undefined) explore.kinds = kinds ? new Set(kinds.split(",")) : null;
+  if (view === state.view) render();
+  else setView(view);
+}
+
+// Views added for visual exploration share one action vocabulary so every
+// chart, chip, and card stays keyboard reachable through plain buttons.
+function handleExploreAction(element) {
+  if (!state.model) return;
+  const explore = state.explore;
+  const data = element.dataset;
+  switch (data.action) {
+    case "go-view":
+      explore.range = null;
+      explore.query = "";
+      goToView(data.targetView, {
+        storyId: data.storyId ?? (data.targetView === "activity" ? "" : undefined),
+        storyState: data.storyState,
+        kinds: data.kinds ?? (data.targetView === "activity" ? "" : undefined),
+      });
+      break;
+    case "open-story":
+      explore.expanded.add(data.storyId);
+      explore.storyState = "all";
+      explore.query = "";
+      goToView("stories");
+      break;
+    case "toggle-story":
+      if (explore.expanded.has(data.storyId)) explore.expanded.delete(data.storyId);
+      else explore.expanded.add(data.storyId);
+      render();
+      break;
+    case "set-story-state":
+      explore.storyState = data.storyState || "all";
+      render();
+      break;
+    case "toggle-kind": {
+      const all = ["request", "agreement", "change", "decision", "check"];
+      const kinds = new Set(explore.kinds ?? all);
+      if (kinds.has(data.kind)) kinds.delete(data.kind);
+      else kinds.add(data.kind);
+      explore.kinds = kinds.size === all.length || kinds.size === 0 ? null : kinds;
+      explore.pages = 1;
+      render();
+      break;
+    }
+    case "select-range": {
+      const start = numberOrNull(data.rangeStart);
+      const end = numberOrNull(data.rangeEnd);
+      if (start === null || end === null) return;
+      explore.range = explore.range?.start === start ? null : { start, end };
+      explore.pages = 1;
+      if (state.view !== "activity") goToView("activity");
+      else render();
+      break;
+    }
+    case "clear-filters":
+      explore.query = "";
+      explore.kinds = null;
+      explore.range = null;
+      explore.storyId = "";
+      explore.pages = 1;
+      render();
+      break;
+    case "timeline-more":
+      explore.pages += 1;
+      render();
+      break;
+    case "open-map":
+      explore.mapStoryId = data.storyId;
+      goToView("map");
+      break;
+    case "open-dossier":
+      state.selectedIterationId = data.iterationId;
+      goToView("timeline");
+      break;
+    case "map-zoom": {
+      const steps = { in: 1.25, out: 0.8 };
+      explore.mapZoom = data.zoom === "reset"
+        ? 1
+        : Math.min(2.5, Math.max(0.5, (explore.mapZoom || 1) * (steps[data.zoom] ?? 1)));
+      render();
+      break;
+    }
   }
 }
 
@@ -681,6 +838,17 @@ function handleChange(event) {
     } else {
       loadPortfolioProject(event.target.value, { historyMode: "push" });
     }
+    return;
+  }
+  const exploreField = event.target.dataset?.explore;
+  if (exploreField && exploreField !== "query" && state.model) {
+    if (exploreField === "sort") state.explore.sort = event.target.value;
+    if (exploreField === "storyId") {
+      state.explore.storyId = event.target.value;
+      state.explore.pages = 1;
+    }
+    if (exploreField === "mapStoryId") state.explore.mapStoryId = event.target.value;
+    render();
     return;
   }
   const filter = event.target.dataset.filter;
@@ -711,7 +879,73 @@ function handleNavigationKeydown(event) {
   buttons[next].focus();
 }
 
+let queryTimer = null;
+
+function handleInput(event) {
+  if (event.target?.dataset?.explore !== "query" || !state.model) return;
+  const value = event.target.value;
+  clearTimeout(queryTimer);
+  queryTimer = setTimeout(() => {
+    state.explore.query = value;
+    state.explore.pages = 1;
+    render();
+  }, 160);
+}
+
+// Chart bars and map boxes are SVG groups with role="button"; give them the
+// same Enter/Space behaviour as real buttons.
+function activateRoleButton(event) {
+  if (event.key !== "Enter" && event.key !== " ") return false;
+  const target = event.target;
+  if (target?.getAttribute?.("role") !== "button" || target.tagName === "BUTTON") return false;
+  event.preventDefault?.();
+  handleClick({ target });
+  return true;
+}
+
+function setLive(enabled) {
+  state.live = enabled;
+  clearInterval(state.liveTimer);
+  state.liveTimer = enabled
+    ? setInterval(quietReload, INSIGHT_SETTINGS.liveRefreshSeconds * 1000)
+    : null;
+  const toggle = document.querySelector('[data-action="toggle-live"]');
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", String(enabled));
+    toggle.classList.toggle("is-on", enabled);
+  }
+  if (enabled) quietReload();
+}
+
+// Live updates re-read the evidence without loading screens or resets, so
+// the reader keeps their place while new records appear.
+async function quietReload() {
+  if (state.quietLoading || !state.model || document.hidden) return;
+  const projectId = state.modelProjectId;
+  if (portfolioMode && !projectId) return;
+  state.quietLoading = true;
+  try {
+    const loaded = portfolioMode ? await api.loadProject(projectId) : await api.load();
+    if (!state.model || state.modelProjectId !== projectId) return;
+    const project = state.portfolioSummary?.projects.find((item) => item.id === projectId);
+    const model = project ? withManifestProjectName(loaded, project) : loaded;
+    applyProjectModel(model, {
+      portfolioProjectId: projectId,
+      preservedSelection: captureProjectSelection(projectId),
+    });
+    if (!portfolioMode) renderSummary(elements.summary, model);
+    renderDiagnostics(elements.diagnostics, model.diagnostics);
+    render();
+    setApiStatus("Read-only · live", "ready");
+  } catch {
+    setApiStatus("Live updates paused", "warning");
+  } finally {
+    state.quietLoading = false;
+  }
+}
+
 function handleDocumentKeydown(event) {
+  if (activateRoleButton(event)) return;
   if (event.key !== "Escape" || !state.rawExpanded) return;
   event.preventDefault?.();
   closeRaw();
@@ -720,9 +954,12 @@ function handleDocumentKeydown(event) {
 document.addEventListener("click", handleClick);
 document.addEventListener("keydown", handleDocumentKeydown);
 document.addEventListener("change", handleChange);
+document.addEventListener("input", handleInput);
 elements.navigation.addEventListener("keydown", handleNavigationKeydown);
 function synchronizeLocation() {
-  state.view = viewFromHash();
+  const view = viewFromHash();
+  if (view !== state.view) state.inspectorOpen = false;
+  state.view = view;
   if (!portfolioMode) {
     render();
     return;

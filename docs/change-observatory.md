@@ -23,19 +23,29 @@ nothing anywhere. This is what to expect the first time.
    copy the full link from the terminal again. The key is kept only for the
    current browser tab (session storage), so a **new tab or window needs the
    full link again**.
-4. **Press Refresh to see new records.** The page does not update by itself.
-   After your agent records something new, use the **Refresh** button at the top.
+4. **Press Refresh to see new records, or turn on Live updates.** By default the
+   page does not update by itself: after your agent records something new, use
+   the **Refresh** button at the top. **Live updates** re-reads the records
+   every 30 seconds while the tab is visible, without losing your place.
 5. **Find your way around.** Each view answers one question:
 
    | View | What it is for |
    | --- | --- |
-   | Overview | The short story: what was asked, what changed, and why it was decided, plus the lineage matrix. |
-   | Timeline | Each piece of work step by step, from the request to verification. |
+   | Overview | A dashboard: how many stories are in progress or delivered, activity over time, check results, the stories being worked on now, and the latest activity. Every tile and bar opens the matching filtered view. |
+   | Stories | Every piece of work as one row with its six steps; a pulsing segment is a step in progress. Search, filter by status, sort, and open a row to see its activity and jump to its map, timeline, or dossier. |
+   | Timeline | Everything that was recorded, newest first and grouped by day. Search, filter by type or story, and click a bar of the activity chart to focus on one period. Selecting an entry shows its evidence. |
+   | Map | The lineage of one story, from the request to the checks. Every line is a recorded link; related records are drawn for the selected box only. Zoom in or out, and select a box to see its evidence. |
+   | Story dossier | Each piece of work step by step, from the request to verification, plus the phase-by-phase lineage matrix. Old `#timeline` links open this view. |
    | Contracts | The agreed boundaries and how they changed over time. |
    | Decisions | Choices that were made, with the reasons and the alternatives that were rejected. |
    | Changes | What was actually changed, grouped by the intent behind it. |
    | Intent evidence | Optional, content-free notes about what an agent was asked to do. It is empty unless that recording is turned on, and an empty view is normal. |
    | Verification | The checks and gates that were run, and what they showed. |
+
+   The visual views only read the recorded history. A story's state comes from
+   its recorded steps (in progress, blocked, started, delivered, not started, or
+   stopped), and the charts are drawn in the page itself without any external
+   library or network request.
 
 6. **If something goes wrong.** A port that is already in use is reported with
    the suggestion to use `--port 0`. `--host` accepts only `127.0.0.1`; other
