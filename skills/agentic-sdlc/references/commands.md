@@ -788,7 +788,7 @@ story as finished, before its closing records reach its checkout:
 `story availability` answers `finished`, and `story claim` and `story reserve`
 are refused with `STORY_COMPLETED_ON_REMOTE`. Working on it again is a
 person's decision: `story claim --force --reason <why> --actor-type human`.
-Versions before 0.31.0 do not know `completed`: they report the story's shared
+Versions before 0.32.0 do not know `completed`: they report the story's shared
 records as untrustworthy and refuse to claim it, never as free.
 `gate check --lifecycle-complete` reports `closing_records` and warns while the
 story's final receipt is not on the remote base branch yet (read from the last
