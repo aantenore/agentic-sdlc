@@ -317,6 +317,11 @@ stays open once chosen.
   that `status` and the claim commands keep (`GET /api/v1/claims`); it never
   contacts the remote. A delivered story that a change request is changing
   says so ("Being changed by ...").
+- **Stories not pulled yet.** Stories another computer recorded on the shared
+  base branch, but missing from this copy, are listed as "New on another
+  computer" (`GET /api/v1/remote-stories`). They are read from the
+  remote-tracking branch that `status` fetches; nothing is fetched or changed
+  by the Observatory.
 - **Search** ignores accents, case, and ID punctuation (`st replan 001` finds
   `ST-REPLAN-001`), ranks ID and title matches first, and highlights matches.
 - **Large projects.** Lists render a page at a time with **Show more**. A plan

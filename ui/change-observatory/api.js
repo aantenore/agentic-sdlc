@@ -184,6 +184,17 @@ export class ObservatoryApi {
     return Array.isArray(payload?.claims) ? payload.claims : [];
   }
 
+  // Stories on the remote base branch that this computer has not pulled.
+  // Optional: an older server answers 404 and nothing is added.
+  async loadRemoteStories(portfolioProjectId = null, { signal } = {}) {
+    const href = portfolioProjectId === null
+      ? "/api/v1/remote-stories"
+      : `/api/v1/portfolio/remote-stories?project=${encodeURIComponent(portfolioProjectId)}`;
+    const response = await this.#request(href, { signal, headers: { Accept: "application/json" } });
+    const payload = await parseJsonResponse(response, "remote stories");
+    return Array.isArray(payload?.stories) ? payload.stories : [];
+  }
+
   // Compact dependency edges of the project plan. Returns null when the
   // server predates this endpoint, so callers can read the graph record.
   async loadDependencyEdges(portfolioProjectId = null, { signal } = {}) {

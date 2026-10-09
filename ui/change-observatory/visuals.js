@@ -17,6 +17,7 @@ import {
   STORY_STATES,
   actionLabel,
   applyDependencies,
+  addRemoteStories,
   applySharedClaims,
   changeRequestLinks,
   planLayout,
@@ -71,17 +72,18 @@ export function defaultExploreState() {
 const insightCache = new WeakMap();
 const NO_EDGES = Object.freeze([]);
 
-export function insightsFor(model, edges = NO_EDGES, claims = NO_EDGES) {
+export function insightsFor(model, edges = NO_EDGES, claims = NO_EDGES, remote = NO_EDGES) {
   let cached = insightCache.get(model);
-  if (!cached || cached.edges !== edges || cached.claims !== claims) {
+  if (!cached || cached.edges !== edges || cached.claims !== claims || cached.remote !== remote) {
     const events = projectEvents(model);
     const stories = changeRequestLinks(applyDependencies(
-      applySharedClaims(storyInsights(model, events), claims),
+      applySharedClaims(addRemoteStories(storyInsights(model, events), remote), claims),
       edges,
     ));
     cached = {
       edges,
       claims,
+      remote,
       events,
       stories,
       storiesById: new Map(stories.map((story) => [story.id, story])),
@@ -113,6 +115,10 @@ function edgesOf(state) {
 
 function claimsOf(state) {
   return state.sharedClaims ?? NO_EDGES;
+}
+
+function remoteOf(state) {
+  return state.remoteStories ?? NO_EDGES;
 }
 
 // Text with the searched words marked; matching ignores case and accents.
@@ -561,6 +567,7 @@ function storyNextText(story, storiesById) {
   if (story.state === "live" && story.holder) {
     return `${t("Worked on by")} ${story.holder.holder ?? story.holder.agent ?? t("another computer")}`;
   }
+  if (story.remoteOnly) return t("New on another computer: update this copy to see its details");
   const replacementId = story.iteration?.closure?.replacementId;
   if (story.state === "replaced" && replacementId) {
     const successor = storiesById?.get(replacementId);
@@ -623,7 +630,7 @@ function progressBar(stateCounts, total) {
 }
 
 export function dashboardView(model, state) {
-  const insight = insightsFor(model, edgesOf(state), claimsOf(state));
+  const insight = insightsFor(model, edgesOf(state), claimsOf(state), remoteOf(state));
   const { stories, stateCounts, health, events } = insight;
   const lastEvent = events.find((event) => event.time !== null);
   const active = stories.filter((story) => story.state === "live" || story.recent);
@@ -800,7 +807,7 @@ function storyRow(story, state, insight) {
       node("strong", { className: "story-title" }, [highlighted(storyTitle(story), exploreState.query)]),
       node("span", { className: "story-sub" }, [
         stateBadge(story.state, { recent: story.recent }),
-        node("span", { text: ["waiting", "replaced"].includes(story.state) || story.holder || story.changedBy?.length
+        node("span", { text: ["waiting", "replaced"].includes(story.state) || story.holder || story.changedBy?.length || story.remoteOnly
           ? storyNextText(story, insight.storiesById)
           : relativeTime(story.lastActivity) }),
         highlighted(story.id, exploreState.query, "story-id"),
@@ -848,7 +855,7 @@ function storyRow(story, state, insight) {
 }
 
 export function storiesView(model, state) {
-  const insight = insightsFor(model, edgesOf(state), claimsOf(state));
+  const insight = insightsFor(model, edgesOf(state), claimsOf(state), remoteOf(state));
   const exploreState = explore(state);
   const query = exploreState.query;
   const scored = insight.stories
@@ -923,7 +930,7 @@ function dayKey(time) {
 }
 
 export function activityView(model, state) {
-  const insight = insightsFor(model, edgesOf(state), claimsOf(state));
+  const insight = insightsFor(model, edgesOf(state), claimsOf(state), remoteOf(state));
   const exploreState = explore(state);
   const scoped = filterEvents(insight.events, {
     query: exploreState.query,
@@ -1038,7 +1045,7 @@ const COLUMN_KIND = Object.freeze({
 // through a bracket, and related-record links appear only for the selection.
 // That keeps a story with dozens of records readable.
 export function mapView(model, state) {
-  const insight = insightsFor(model, edgesOf(state), claimsOf(state));
+  const insight = insightsFor(model, edgesOf(state), claimsOf(state), remoteOf(state));
   const exploreState = explore(state);
   const stories = insight.stories;
   if (!stories.length) return emptyMessage("No story has been recorded yet.");

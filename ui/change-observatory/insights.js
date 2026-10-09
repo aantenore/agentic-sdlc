@@ -241,6 +241,40 @@ export function normalizeDependencyEdges(data) {
 // not started because a recorded prerequisite is not delivered yet.
 // Shared claims say who works on a story from another computer; a story whose
 // delivery finished elsewhere is done even before its records arrive here.
+// Stories another computer recorded on the shared base branch that this
+// checkout has not pulled yet. They carry only what the remote record says.
+export function addRemoteStories(stories, remote = []) {
+  if (!remote?.length) return stories;
+  const known = new Set(stories.map((story) => story.id));
+  const added = remote.filter((entry) => entry?.storyId && !known.has(entry.storyId)).map((entry) => {
+    const time = Date.parse(entry.recordedAt ?? entry.createdAt ?? "");
+    const iteration = {
+      id: entry.storyId,
+      type: "story",
+      title: entry.title ?? entry.storyId,
+      status: entry.status ?? null,
+      phase: entry.phase ?? null,
+      timestamp: entry.recordedAt ?? entry.createdAt ?? null,
+      requirementIds: entry.requirementIds ?? [],
+      sourceRefs: [],
+      phases: [],
+    };
+    return {
+      id: entry.storyId,
+      iteration,
+      state: "idle",
+      remoteOnly: true,
+      phases: PHASES.map((phase) => ({ phase, status: "missing", provenance: "missing", sourceRefs: [] })),
+      completed: 0,
+      livePhase: null,
+      counts: Object.fromEntries(EVENT_KINDS.map((kind) => [kind.key, 0])),
+      events: [],
+      lastActivity: Number.isFinite(time) ? time : null,
+    };
+  });
+  return added.length ? [...stories, ...added] : stories;
+}
+
 export function applySharedClaims(stories, claims = []) {
   if (!claims?.length) return stories;
   const byStory = new Map(claims.filter((claim) => claim?.storyId).map((claim) => [claim.storyId, claim]));

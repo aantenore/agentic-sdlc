@@ -459,6 +459,7 @@ const ITALIAN = Object.freeze({
   "stories hidden": "storie nascoste",
   "Large plan: finished work is hidden.": "Piano molto grande: il lavoro concluso è nascosto.",
   "Show everything": "Mostra tutto",
+  "New on another computer: update this copy to see its details": "Nuova su un altro computer: aggiorna questa copia per vederne i dettagli",
   "Open story": "Apri la storia",
   "Clear selection": "Annulla selezione",
   "Select a story to light up what it needs and what it unlocks.": "Tocca una storia per evidenziare cosa le serve e cosa sblocca.",
