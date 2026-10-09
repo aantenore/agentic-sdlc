@@ -1299,7 +1299,11 @@ function buildCliRuntimeHandlerRegistry() {
     "report.query": call(reportQuery),
     "index.rebuild": call(rebuildIndex),
     "kb.search": project(({ context, options, resolution }) => searchKnowledgeBase(context, options, resolution.args)),
-    "gate.check": call(gateCheck),
+    // A gate answers repeated Git questions once per run; the lifecycle-complete
+    // gate writes and re-checks the final receipt, so it keeps reading live.
+    "gate.check": project(({ context, options }) => (options["lifecycle-complete"] === true
+      ? gateCheck(context, options)
+      : withReadSnapshot(() => gateCheck(context, options)))),
     "orchestrate.status": report(showOrchestrationStatus),
     "orchestrate.plan": report(showOrchestrationPlan),
     "route.decide": call(decideRoute),
