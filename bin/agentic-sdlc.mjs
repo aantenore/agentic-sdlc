@@ -21,7 +21,11 @@ import {
 import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
 import { syncProjectForStatus } from "../lib/engine/status-sync.mjs";
 import { assertPluginSatisfiesProject } from "../lib/engine/plugin-compatibility.mjs";
-import { sealedReceiptTrustEnabled, withReadSnapshot } from "../lib/engine/read-snapshot.mjs";
+import {
+  sealedReceiptTrustEnabled,
+  withReadSnapshot,
+  withSealedReceiptTrust,
+} from "../lib/engine/read-snapshot.mjs";
 import { reconcileExternalMerge } from "../lib/engine/external-merge.mjs";
 import { fileURLToPath } from "node:url";
 import {
@@ -988,6 +992,7 @@ import {
   approveDeliveryAutonomy,
   closeDeliveryAutonomy,
   evaluateDeliveryAction,
+  deliveryProfileStoryIds,
   explainDeliveryAutonomy,
   proposeDeliveryAutonomy,
   releaseStoryClaim,
@@ -1129,6 +1134,10 @@ function buildCliRuntimeHandlerRegistry() {
   const preConfig = (handle) => cliHandler("pre-config", handle);
   const project = (handle) => cliHandler("project", handle);
   const call = (handler) => project(({ context, options }) => handler(context, options));
+  // Commands that write a story's records read Git live but trust the other
+  // stories' sealed final receipts; `storyIds` names the stories they verify.
+  const storyWrite = (handler, storyIds) => project(({ context, options }) =>
+    withSealedReceiptTrust(storyIds(context, options), () => handler(context, options)));
   // Read-only reports answer repeated Git questions once per run.
   const report = (handler) => project(({ context, options }) =>
     withReadSnapshot(() => handler(context, options), {
@@ -1208,7 +1217,7 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.delivery.propose": call(proposeDeliveryAutonomy),
     "autonomy.delivery.approve": call(approveDeliveryAutonomy),
     "autonomy.delivery.revoke": call(revokeDeliveryAutonomy),
-    "autonomy.delivery.action": call(evaluateDeliveryAction),
+    "autonomy.delivery.action": storyWrite(evaluateDeliveryAction, deliveryProfileStoryIds),
     "autonomy.delivery.close": call(closeDeliveryAutonomy),
     "autonomy.delivery.reconcile": call(reconcileExternalMerge),
     "autonomy.delivery.status": call(showDeliveryAutonomy),
@@ -1235,7 +1244,8 @@ function buildCliRuntimeHandlerRegistry() {
     "story.overlap": report(showStoryOverlap),
     "story.overlap.confirm": call(confirmStoryOverlap),
     "story.base.acknowledge": call(acknowledgeStoryBaseCommit),
-    "story.complete-step": call(completeStoryStep),
+    "story.complete-step": storyWrite(completeStoryStep, (context, options) =>
+      (options.id ? [normalizeId(String(options.id))] : [])),
     "story.prepare-handoff": call(prepareStoryHandoff),
     "story.handoff.close": call(closeHandoff),
     "story.handoff": call(createStoryHandoff),
@@ -1303,9 +1313,16 @@ function buildCliRuntimeHandlerRegistry() {
     // trusts the other stories' sealed final receipts while verifying its own
     // in full (AGENTIC_SDLC_STATUS_CHECKS=full verifies them all). The
     // lifecycle-complete gate writes and re-checks the final receipt, so it
-    // keeps reading live.
+    // keeps reading live and only trusts the other stories' sealed receipts.
     "gate.check": project(({ context, options }) => (options["lifecycle-complete"] === true
-      ? gateCheck(context, options)
+      ? withSealedReceiptTrust(
+        options.story
+          && !options["release-manifest"]
+          && String(options.scope || "story") === "story"
+          ? [normalizeId(String(options.story))]
+          : [],
+        () => gateCheck(context, options),
+      )
       : withReadSnapshot(() => gateCheck(context, options), {
         fastChecks: Boolean(options.story)
           && !options["release-manifest"]
