@@ -12,11 +12,11 @@ const invalid = (message) => {
 };
 
 test("merge drift is on by default and validates its values", () => {
-  assert.deepEqual(mergeDriftPolicy(undefined, invalid), { mode: "git", base_branch: null, match_commit_subject: true, max_commits_scanned: 500 });
+  assert.deepEqual(mergeDriftPolicy(undefined, invalid), { mode: "git", base_branch: null, match_commit_subject: true, max_commits_scanned: 500, open_state: "merged_open" });
   assert.deepEqual(mergeDriftPolicy({ mode: "off", base_branch: "release/2.x", max_commits_scanned: 50 }, invalid), {
-    mode: "off", base_branch: "release/2.x", match_commit_subject: true, max_commits_scanned: 50,
+    mode: "off", base_branch: "release/2.x", match_commit_subject: true, max_commits_scanned: 50, open_state: "merged_open",
   });
-  for (const value of ["git", { mode: "provider" }, { base_branch: "a..b" }, { match_commit_subject: 1 }, { max_commits_scanned: 1.5 }]) {
+  for (const value of ["git", { mode: "provider" }, { base_branch: "a..b" }, { match_commit_subject: 1 }, { max_commits_scanned: 1.5 }, { open_state: "closed" }]) {
     assert.throws(() => mergeDriftPolicy(value, invalid), /orchestration_policy\.merge_drift/u, JSON.stringify(value));
   }
 });

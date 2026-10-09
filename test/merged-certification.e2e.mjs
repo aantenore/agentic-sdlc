@@ -131,7 +131,7 @@ function appendTrace(project, storyId, type, outcome, evidence) {
 // Git fixtures
 // ---------------------------------------------------------------------------
 
-function initializeGitProject(project, { projectName = "Merged certification", claimsRemote = null } = {}) {
+function initializeGitProject(project, { projectName = "Merged certification", claimsRemote = null, storyRecords = null } = {}) {
   mustRun(["init", "--root", project, "--project-name", projectName], project);
   // The test remote is a public repository the test cannot write to, so claims
   // stay on this computer (or go to a local bare repository standing in for
@@ -143,6 +143,7 @@ function initializeGitProject(project, { projectName = "Merged certification", c
         ? { ...config.orchestration_policy?.coordination, mode: "required", remote: "claims" }
         : { ...config.orchestration_policy?.coordination, mode: "local_only" },
       status_sync: { ...config.orchestration_policy?.status_sync, mode: "off" },
+      ...(storyRecords ? { story_records: storyRecords } : {}),
     };
   });
   mustGit(project, ["init"]);
@@ -237,6 +238,8 @@ function sealPullRequestStory(project, {
   writePaths = DEFAULT_WRITE_PATHS,
   existingProject = false,
   claimsRemote = null,
+  includeRecords = false,
+  storyRecords = null,
 } = {}) {
   assert.ok(suffix, "suffix is required");
   const requirementId = `REQ-${suffix}`;
@@ -250,7 +253,7 @@ function sealPullRequestStory(project, {
   const evidenceDir = writePaths[0];
   const authorizationId = `AUTH-${suffix}-STORY-ACTIONS`;
 
-  if (!existingProject) initializeGitProject(project, { claimsRemote });
+  if (!existingProject) initializeGitProject(project, { claimsRemote, storyRecords });
   mustGit(project, ["checkout", "-b", branch]);
 
   mustRun([
@@ -434,7 +437,7 @@ function sealPullRequestStory(project, {
   );
   const headSha = commitPaths(
     project,
-    [...Object.keys(files), summaryArtifact, proof],
+    [...Object.keys(files), summaryArtifact, proof, ...(includeRecords ? [".sdlc"] : [])],
     `feat: ${suffix.toLowerCase()}`,
   );
   const story = { storyId, profileId, branch, prUrl, headSha };
@@ -793,4 +796,22 @@ test("a story released after its delivery finished is shared as completed, so ot
   assert.equal(story.certification.closing_records.on_remote, false);
   assert.equal(story.certification.closing_records.branch, "main");
   assert.equal(story.certification.closing_records.path, `.sdlc/gates/${story.storyId}-final.json`);
+});
+
+test("a pull request carries the story's records with its code, and one without them is refused when the project asks", () => {
+  const withRecords = temporaryDirectory("records-in-pr");
+  const story = sealPullRequestStory(withRecords, {
+    suffix: "REC-A",
+    includeRecords: true,
+    storyRecords: { before_pull_request: "refuse" },
+  });
+  const carried = mustGit(withRecords, ["ls-tree", "-r", "--name-only", story.headSha, "--", `.sdlc/stories/${story.storyId}/`]);
+  assert.match(carried, new RegExp(`stories/${story.storyId}/claim\\.json`, "u"));
+  assert.equal(story.certification.status, "passed");
+
+  const withoutRecords = temporaryDirectory("records-missing");
+  assert.throws(
+    () => sealPullRequestStory(withoutRecords, { suffix: "REC-B", storyRecords: { before_pull_request: "refuse" } }),
+    /does not carry the story's records/u,
+  );
 });

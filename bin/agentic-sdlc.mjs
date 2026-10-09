@@ -994,6 +994,9 @@ import {
   showStoryAvailability,
 } from "../lib/engine/story-reservation.mjs";
 import {
+  publishStoryRecords,
+} from "../lib/engine/story-records-publish.mjs";
+import {
   showBaselineStatus,
   showBreakdownStatus,
   showCacheStatus,
@@ -1201,6 +1204,7 @@ function buildCliRuntimeHandlerRegistry() {
     "story.release": call(releaseStoryClaim),
     "story.reserve": call(reserveStory),
     "story.availability": call(showStoryAvailability),
+    "story.publish-records": call(publishStoryRecords),
     "story.overlap": call(showStoryOverlap),
     "story.overlap.confirm": call(confirmStoryOverlap),
     "story.base.acknowledge": call(acknowledgeStoryBaseCommit),
