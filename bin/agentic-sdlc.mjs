@@ -21,7 +21,7 @@ import {
 import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
 import { syncProjectForStatus } from "../lib/engine/status-sync.mjs";
 import { assertPluginSatisfiesProject } from "../lib/engine/plugin-compatibility.mjs";
-import { withReadSnapshot } from "../lib/engine/read-snapshot.mjs";
+import { sealedReceiptTrustEnabled, withReadSnapshot } from "../lib/engine/read-snapshot.mjs";
 import { reconcileExternalMerge } from "../lib/engine/external-merge.mjs";
 import { fileURLToPath } from "node:url";
 import {
@@ -1132,7 +1132,7 @@ function buildCliRuntimeHandlerRegistry() {
   // Read-only reports answer repeated Git questions once per run.
   const report = (handler) => project(({ context, options }) =>
     withReadSnapshot(() => handler(context, options), {
-      fastChecks: String(process.env.AGENTIC_SDLC_STATUS_CHECKS || "fast").trim().toLowerCase() !== "full",
+      fastChecks: sealedReceiptTrustEnabled(),
     }));
 
   return createCommandHandlerRegistry({
@@ -1309,9 +1309,8 @@ function buildCliRuntimeHandlerRegistry() {
       : withReadSnapshot(() => gateCheck(context, options), {
         fastChecks: Boolean(options.story)
           && !options["release-manifest"]
-          && !options["release-manifest"]
           && String(options.scope || "story") === "story"
-          && String(process.env.AGENTIC_SDLC_STATUS_CHECKS || "fast").trim().toLowerCase() !== "full",
+          && sealedReceiptTrustEnabled(),
         verifyStoryId: options.story ? normalizeId(String(options.story)) : null,
       }))),
     "orchestrate.status": report(showOrchestrationStatus),
