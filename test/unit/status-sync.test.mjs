@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { DELIVERY_COMMIT_TRACKING_ROOT, pinDeliveryCommits } from "../../lib/engine/delivery-commits.mjs";
 import { forgetSharedRefState } from "../../lib/engine/shared-refs.mjs";
 import { statusSyncLine, syncProjectForStatus } from "../../lib/engine/status-sync.mjs";
 import { parseAheadBehind, statusSyncPolicy } from "../../lib/status-sync.mjs";
@@ -95,4 +96,60 @@ test("an unreachable remote is a warning and off reads the clone as it is", (t) 
   const plain = fs.mkdtempSync(path.join(os.tmpdir(), "status-sync-plain-"));
   t.after(() => fs.rmSync(plain, { recursive: true, force: true }));
   assert.equal(syncProjectForStatus({ root: plain, config: {} }, {}, {}).reason, "not_a_git_repository");
+});
+
+test("status fetches a delivered commit that a squash merge left on no branch", (t) => {
+  const { a, b } = twoClones(t);
+  // b delivers on a feature branch, pushes it, then the branch is squashed and deleted.
+  git(b, "checkout", "-q", "-b", "feature");
+  commit(b, "feature.txt", "story work\n");
+  const delivered = git(b, "rev-parse", "HEAD");
+  const before = git(b, "rev-parse", "HEAD~1");
+  git(b, "push", "-q", "origin", "feature");
+  git(b, "push", "-q", "origin", "--delete", "feature");
+  git(b, "checkout", "-q", "main");
+  // The receipt is a record on main, so a sees it without the commit.
+  const sdlcRoot = path.join(a, ".sdlc");
+  fs.mkdirSync(path.join(sdlcRoot, "autonomy", "actions"), { recursive: true });
+  fs.writeFileSync(path.join(sdlcRoot, "autonomy", "actions", "AUT-ACT-1.json"), JSON.stringify({
+    action: "git.commit",
+    action_details: { commit: { before_sha: before, after_sha: delivered } },
+  }));
+  const context = { root: a, sdlcRoot, config: {} };
+  assert.throws(() => git(a, "cat-file", "-e", `${delivered}^{commit}`));
+  // The finishing computer pins it; a fetches it from the pin.
+  const pinned = pinDeliveryCommits({ root: b }, { url: git(b, "remote", "get-url", "origin"), shas: [delivered, before], timeoutSeconds: 20 });
+  assert.equal(pinned.error, null);
+  assert.equal(pinned.pinned, 2);
+  assert.equal(pinDeliveryCommits({ root: b }, { url: git(b, "remote", "get-url", "origin"), shas: [delivered], timeoutSeconds: 20 }).pinned, 0);
+  const sync = syncProjectForStatus(context, {}, {});
+  assert.equal(sync.delivery_commits.missing, 1);
+  assert.equal(sync.delivery_commits.recovered, 1);
+  assert.deepEqual(sync.delivery_commits.unavailable, []);
+  assert.equal(git(a, "rev-parse", `${DELIVERY_COMMIT_TRACKING_ROOT}/${delivered}`), delivered);
+  assert.equal(syncProjectForStatus(context, {}, {}).delivery_commits.missing, 0);
+});
+
+test("status fetches an unpinned delivered commit by its ID while the remote still has it", (t) => {
+  const { a, b } = twoClones(t);
+  git(b, "checkout", "-q", "-b", "feature");
+  commit(b, "feature.txt", "story work\n");
+  const delivered = git(b, "rev-parse", "HEAD");
+  // Still reachable on the remote (as a pull-request ref would keep it), but never fetched by a.
+  git(b, "push", "-q", "origin", "HEAD:refs/pull/14/head");
+  const sdlcRoot = path.join(a, ".sdlc");
+  fs.mkdirSync(path.join(sdlcRoot, "autonomy", "actions"), { recursive: true });
+  fs.writeFileSync(path.join(sdlcRoot, "autonomy", "actions", "AUT-ACT-1.json"), JSON.stringify({
+    action: "git.commit",
+    action_details: { commit: { before_sha: git(b, "rev-parse", "HEAD~1"), after_sha: delivered } },
+  }));
+  fs.writeFileSync(path.join(sdlcRoot, "autonomy", "actions", "AUT-ACT-2.json"), JSON.stringify({
+    action: "git.commit",
+    action_details: { commit: { before_sha: delivered, after_sha: "e".repeat(40) } },
+  }));
+  const sync = syncProjectForStatus({ root: a, sdlcRoot, config: {} }, {}, {});
+  assert.equal(sync.delivery_commits.missing, 2);
+  assert.equal(sync.delivery_commits.recovered, 1);
+  assert.deepEqual(sync.delivery_commits.unavailable, ["e".repeat(40)]);
+  assert.equal(git(a, "cat-file", "-t", delivered), "commit");
 });
