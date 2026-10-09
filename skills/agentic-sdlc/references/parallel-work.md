@@ -87,6 +87,10 @@ expiry, is listed as `stale`.
 
 Claims are per story, so two stories in progress can both change one file. `story claim` warns when another story in progress has a write scope that shares files with the one being claimed. Whichever story merges second must review the other's merged change first: `story overlap --id <story>` lists the changes other stories merged after it started, and `story overlap confirm --id <story> --summary <what was checked>` records the review; until then `pull_request.merge` is refused and the strict story gate reports each change. `orchestration_policy.delivered_overlap` can turn this into a warning or off, or require a person to confirm.
 
+When both stories change a shared file (for example `src/index.ts` exporting each feature), let the first one merge, then bring the second branch up to date by fast-forward (no own commits yet) or rebase onto the base branch; do not create a merge commit, `git.commit` refuses it. The second story's perimeter is the files its own commits touched: commits of other stories' merged deliveries are left out, while its own edit of the shared file still counts. If the first story was merged on GitHub outside the plugin, run `autonomy delivery reconcile` for it first. `git.commit` and `git.push` refuse a branch carrying commits that are neither the story's own nor part of a merged delivery, and name the commit to return to with `git reset --keep <sha>`.
+
+Prefer starting parallel stories at integration time, from the main that already holds what merged before them. When stories were started from the same earlier main and one merges, the others are not blocked: after `baseline refresh`, a story whose start predates that merge (also through a replacement delivery, which keeps the first task start) passes the context check without the merged files on its branch, and its task preflight does not bind them. Its own changes stay checked by its perimeter; fast-forward or rebase onto main when it needs the merged work.
+
 ## Parent Orchestrator Chat
 
 A parent chat can coordinate several worker chats without editing their story files directly:
