@@ -174,6 +174,7 @@ export async function main({
   let failed = false;
   let completedTestCount = 0;
   let expectedFileCount = 0;
+  const failures = [];
 
   try {
     const concurrency = parseTestConcurrency(env[TEST_CONCURRENCY_ENV]);
@@ -192,9 +193,10 @@ export async function main({
     testStream.on("test:pass", () => {
       completedTestCount += 1;
     });
-    testStream.on("test:fail", () => {
+    testStream.on("test:fail", (data) => {
       completedTestCount += 1;
       failed = true;
+      if (data?.details?.error?.failureType !== "subtestsFailed") failures.push(data);
     });
     testStream.on("error", (error) => {
       failed = true;
@@ -216,10 +218,29 @@ export async function main({
     streamError ||= error;
   }
 
+  if (failures.length > 0) {
+    // Repeated at the end, where a truncated CI log still shows them.
+    stdout.write(failureSummary(failures));
+  }
   if (streamError) {
     stderr.write(`Test runner error: ${formatError(streamError)}\n`);
   }
   return failed ? 1 : 0;
+}
+
+const FAILURE_SUMMARY_LINES = 40;
+
+export function failureSummary(failures) {
+  const lines = [`# Failing tests (${failures.length}):`];
+  for (const failure of failures) {
+    const where = failure?.file ? `${projectRelativePath(failure.file)}${failure.line ? `:${failure.line}` : ""} ` : "";
+    lines.push(`# - ${where}${failure?.name || "unnamed test"}`);
+    const error = failure?.details?.error;
+    const cause = error?.cause instanceof Error ? error.cause : error;
+    const text = cause ? formatError(cause) : "";
+    for (const line of text.split(/\r?\n/u).slice(0, FAILURE_SUMMARY_LINES)) lines.push(`#   ${line}`);
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 function formatError(error) {

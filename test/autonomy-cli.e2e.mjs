@@ -7440,3 +7440,143 @@ test("a merged delivery refreshes its baseline without a new approval while othe
   assert.notEqual(gate.status, 0, gate.stdout);
   assert.match(gate.stdout, /which no longer proves it/u);
 });
+
+test("a story that started before another story merged changes to its files is reviewed before it merges", () => {
+  const project = tmpProject("delivered-overlap");
+  initializeAutonomyProject(project);
+  // Switching branches must check out the committed bytes, which the baseline compares.
+  mustGit(project, ["config", "core.autocrlf", "false"]);
+  fs.mkdirSync(path.join(project, "src"), { recursive: true });
+  fs.writeFileSync(path.join(project, "src", "app.mjs"), "export const status = \"legacy\";\n", "utf8");
+  fs.writeFileSync(path.join(project, "README.md"), "# Autonomy E2E\n\nLegacy status service.\n", "utf8");
+  mustGit(project, ["add", "--", "src/app.mjs", "README.md"]);
+  mustGit(project, ["commit", "-m", "test: establish the reviewed project state"]);
+  mustGit(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
+  mustRunJson(["baseline", "propose", "--root", project, "--id", "BASELINE-INITIAL", "--document", "README.md", "--source", "src"]);
+  mustRunJson(["baseline", "approve", "--root", project, "--id", "BASELINE-INITIAL", ...humanApproval("The snapshot is accurate")]);
+
+  // Two stories start from the same state, both allowed to change src.
+  const stories = [
+    { storyId: "ST-FIRST", contractId: "CONTRACT-FIRST", profileId: "AUT-FIRST", pr: 990001, branch: "codex/pr-1", outputMode: "new" },
+    { storyId: "ST-SECOND", contractId: "CONTRACT-SECOND", profileId: "AUT-SECOND", pr: 990002, branch: "codex/pr-2", outputMode: null },
+  ];
+  const claims = [];
+  mustGit(project, ["branch", "codex/pr-2"]);
+  for (const story of stories) {
+    mustGit(project, ["checkout", "-q", story.branch]);
+    createApprovedImplementationContract(project, story);
+    mustRunJson([
+      "autonomy", "delivery", "propose",
+      "--root", project,
+      "--id", story.profileId,
+      "--delivery", `PR-${story.storyId}`,
+      "--kind", "pull_request", "--code-review", "not-required", "--code-review-actor-type", "human", "--code-review-approval-source", "explicit-user", "--code-review-summary", "No review needed for this story",
+      "--story", story.storyId,
+      "--contract", story.contractId,
+      "--requirement", "REQ-AUTONOMY",
+      "--level", "checkpointed",
+      "--repository", "aantenore/agentic-sdlc",
+      "--base", "main",
+      "--head", story.branch,
+      "--write-path", "src",
+      "--allow-action", "pull_request.merge",
+      "--merge-allowed",
+    ]);
+    mustRunJson(["autonomy", "delivery", "approve", "--root", project, "--id", story.profileId, ...humanApproval("Approve this exact merge delivery")]);
+    assert.equal(mustRunJson([
+      "task", "start", "--root", project, "--intent-json", taskIntent(story.storyId), "--delivery-profile", story.profileId,
+    ]).execution_allowed, true);
+    claims.push(mustRunJson(["story", "claim", "--root", project, "--id", story.storyId, "--agent", "codex", "--branch", `codex/${story.storyId}`]));
+  }
+  assert.equal(claims[0].overlapping_stories, undefined);
+  assert.deepEqual(claims[1].overlapping_stories, [{ story_id: "ST-FIRST", shared_paths: ["src"] }]);
+
+  const merge = (story, files) => {
+    mustGit(project, ["checkout", "-q", story.branch]);
+    // A branch brings in what main already merged before its own change.
+    mustGit(project, ["merge", "-q", "--ff-only", "refs/remotes/origin/main"]);
+    for (const [name, content] of Object.entries(files)) fs.writeFileSync(path.join(project, "src", name), content, "utf8");
+    fs.writeFileSync(path.join(project, "src", `${story.storyId}-proof.txt`), `${story.storyId} merge head\n`, "utf8");
+    fs.writeFileSync(path.join(project, "src", `${story.storyId}-approval.txt`), `${story.storyId} merge approval\n`, "utf8");
+    fs.writeFileSync(path.join(project, "src", `${story.storyId}-summary.md`), `# Implementation summary\n\n${story.storyId}.\n`, "utf8");
+    mustGit(project, ["add", "--", "src"]);
+    mustGit(project, ["commit", "-m", `test: deliver ${story.storyId}`]);
+    const headSha = mustGit(project, ["rev-parse", "HEAD"]);
+    if (story.outputMode) {
+      mustRun([
+        "output", "link", "--root", project, "--story", story.storyId, "--type", "implementation-summary",
+        "--artifact", `src/${story.storyId}-summary.md`, "--template", "implementation-summary-v1", "--mode", story.outputMode, "--requirement", "REQ-AUTONOMY",
+      ]);
+    }
+    const prUrl = `https://github.com/aantenore/agentic-sdlc/pull/${story.pr}`;
+    const openState = {
+      state: "OPEN", url: prUrl, headSha, headBranch: story.branch, baseBranch: "main",
+      baseSha: mustGit(project, ["rev-parse", "refs/remotes/origin/main"]),
+    };
+    recordIndependentReview(project, story.profileId);
+    const authorize = () => run([
+      "autonomy", "delivery", "action", "--root", project, "--id", story.profileId, "--action", "pull_request.merge",
+      "--pr-url", prUrl, "--confirm-action", "--approval-evidence", `src/${story.storyId}-approval.txt`, "--json",
+      ...humanApproval("Approve this exact open PR merge checkpoint"),
+    ], { env: fakeGitHubEnv(project, openState) });
+    return { headSha, openState, authorize };
+  };
+  const complete = (story, fixture, authorization) => {
+    mustGit(project, ["update-ref", "refs/remotes/origin/main", fixture.headSha]);
+    return mustRunJson([
+      "autonomy", "delivery", "action", "--root", project, "--id", story.profileId, "--action", "pull_request.merge",
+      "--outcome", "passed", "--evidence", `src/${story.storyId}-proof.txt`,
+    ], {
+      env: fakeGitHubEnv(project, {
+        ...fixture.openState,
+        state: "MERGED",
+        mergedAt: new Date(Date.parse(authorization.action_receipt.authorized_at) + 1_000).toISOString(),
+        mergeSha: fixture.headSha,
+      }),
+    });
+  };
+
+  // The first story merges with nothing to review.
+  const first = merge(stories[0], { "app.mjs": "export const status = \"ready\";\n" });
+  const firstAuthorization = first.authorize();
+  assert.equal(firstAuthorization.status, 0, firstAuthorization.stdout + firstAuthorization.stderr);
+  assert.equal(complete(stories[0], first, JSON.parse(firstAuthorization.stdout)).lifecycle_status, "terminal");
+
+  // The second story brings the merged change into its branch and changes the same file.
+  const second = merge(stories[1], { "app.mjs": "export const status = \"ready\";\nexport const detail = \"second\";\n" });
+  const overlap = mustRunJson(["story", "overlap", "--root", project, "--id", "ST-SECOND"]);
+  assert.equal(overlap.status, "review_needed");
+  assert.deepEqual(overlap.unconfirmed.map((item) => [item.path, item.kind, item.story_id]), [
+    ["src/ST-FIRST-approval.txt", "write_scope", "ST-FIRST"],
+    ["src/ST-FIRST-proof.txt", "write_scope", "ST-FIRST"],
+    ["src/ST-FIRST-summary.md", "write_scope", "ST-FIRST"],
+    ["src/app.mjs", "write_scope", "ST-FIRST"],
+  ]);
+  const gate = run(["gate", "check", "--root", project, "--scope", "story", "--story", "ST-SECOND", "--strict", "--json"]);
+  assert.match(gate.stdout, /ST-FIRST changed src\/app\.mjs \(inside its write scope, merge [0-9a-f]{12}\) after story ST-SECOND started/u);
+  const blocked = second.authorize();
+  assert.notEqual(blocked.status, 0);
+  assert.match(blocked.stdout + blocked.stderr, /cannot merge yet: work merged by other stories after it started/u);
+
+  const review = mustRunJson([
+    "story", "overlap", "confirm", "--root", project, "--id", "ST-SECOND",
+    "--summary", "Kept the ready status from ST-FIRST and re-ran the status tests",
+  ]);
+  assert.equal(review.status, "recorded");
+  assert.equal(review.review.overlaps.length, 4);
+  assert.equal(mustRunJson(["story", "overlap", "--root", project, "--id", "ST-SECOND"]).status, "clear");
+  const reviewedGate = run(["gate", "check", "--root", project, "--scope", "story", "--story", "ST-SECOND", "--strict", "--json"]);
+  assert.doesNotMatch(reviewedGate.stdout, /after story ST-SECOND started/u);
+  const allowed = second.authorize();
+  assert.equal(allowed.status, 0, allowed.stdout + allowed.stderr);
+  assert.equal(complete(stories[1], second, JSON.parse(allowed.stdout)).lifecycle_status, "terminal");
+
+  // The refresh credits both stories for the file they both changed.
+  const refreshed = mustRunJson(["baseline", "refresh", "--root", project, "--from", "BASELINE-INITIAL"]);
+  assert.equal(refreshed.status, "approved", JSON.stringify(refreshed.unexplained));
+  const successor = JSON.parse(fs.readFileSync(path.join(project, ".sdlc", "baseline", "BASELINE-INITIAL-R2.json"), "utf8"));
+  const app = successor.refresh.explanations.find((item) => item.path === "src/app.mjs");
+  assert.equal(app.story_id, "ST-SECOND");
+  assert.deepEqual(app.also_changed_by.map((item) => item.story_id), ["ST-FIRST"]);
+  assert.equal(successor.refresh.explanations.find((item) => item.path === "src/ST-FIRST-proof.txt").story_id, "ST-FIRST");
+});

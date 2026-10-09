@@ -108,3 +108,41 @@ test("each delivery reads every delta path inside its scope at once, newest deli
   // The newest delivery explains everything, so the older one is never read.
   assert.deepEqual(prefetches, [["ST-NEW", ["src/a.mjs", "src/b.mjs"]]]);
 });
+
+test("a path two stories changed credits the other one too, but not work already in the previous snapshot", () => {
+  const delta = { added: [], changed: ["src/a.mjs"], removed: [] };
+  const delivery = (storyId, closedAt, changed, bytes) => ({
+    story_id: storyId,
+    delivery_profile_id: `AUT-${storyId}`,
+    merge_commit_sha: storyId.at(-1).repeat(40),
+    closed_at: closedAt,
+    write_scopes: [["src"]],
+    changedPaths: () => changed,
+    contentSha256: () => bytes,
+  });
+  const evidences = [
+    delivery("ST-2", "2026-01-03T00:00:00.000Z", ["src/a.mjs"], B),
+    delivery("ST-1", "2026-01-02T00:00:00.000Z", ["src/a.mjs"], A),
+    delivery("ST-0", "2025-12-31T00:00:00.000Z", ["src/a.mjs"], C),
+    delivery("ST-3", "2026-01-02T00:00:00.000Z", ["src/b.mjs"], C),
+  ];
+  const { explanations } = explainBaselineDelta(delta, { "src/a.mjs": B }, evidences, { since: "2026-01-01T00:00:00.000Z" });
+  assert.equal(explanations[0].story_id, "ST-2");
+  assert.deepEqual(explanations[0].also_changed_by, [{ story_id: "ST-1", delivery_profile_id: "AUT-ST-1", merge_commit_sha: "1".repeat(40) }]);
+  // Without a previous snapshot time the record keeps its earlier shape.
+  assert.equal(explainBaselineDelta(delta, { "src/a.mjs": B }, evidences).explanations[0].also_changed_by, undefined);
+});
+
+test("a later merge that only carried a file along does not take the credit from the delivery that changed it", () => {
+  const delta = { added: ["src/a.mjs"], changed: [], removed: [] };
+  const delivery = (storyId, changed) => ({
+    story_id: storyId,
+    delivery_profile_id: `AUT-${storyId}`,
+    merge_commit_sha: storyId.at(-1).repeat(40),
+    write_scopes: [["src"]],
+    changedPaths: () => changed,
+    contentSha256: () => A,
+  });
+  const { explanations } = explainBaselineDelta(delta, { "src/a.mjs": A }, [delivery("ST-2", ["src/b.mjs"]), delivery("ST-1", ["src/a.mjs"])]);
+  assert.equal(explanations[0].story_id, "ST-1");
+});

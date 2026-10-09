@@ -83,6 +83,10 @@ session); the release record tells the previous holder who took over and why.
 A claim older than `orchestration_policy.stale_claim_after_seconds`, or past its
 expiry, is listed as `stale`.
 
+### Stories that change the same files
+
+Claims are per story, so two stories in progress can both change one file. `story claim` warns when another story in progress has a write scope that shares files with the one being claimed. Whichever story merges second must review the other's merged change first: `story overlap --id <story>` lists the changes other stories merged after it started, and `story overlap confirm --id <story> --summary <what was checked>` records the review; until then `pull_request.merge` is refused and the strict story gate reports each change. `orchestration_policy.delivered_overlap` can turn this into a warning or off, or require a person to confirm.
+
 ## Parent Orchestrator Chat
 
 A parent chat can coordinate several worker chats without editing their story files directly:
