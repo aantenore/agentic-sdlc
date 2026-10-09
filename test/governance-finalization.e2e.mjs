@@ -5803,6 +5803,9 @@ test("records merged by hand from two computers keep a story workflow readable w
   assert.notEqual(story.orchestration_state, "blocked");
   assert.deepEqual(story.project_history?.verified, false);
   assert.equal(story.blockers.some((entry) => /final lifecycle receipt/u.test(entry)), false);
+  // The displayed phase follows the workflow, not the phase the story record was created with.
+  assert.equal(story.progress_source, "workflow");
+  assert.equal(typeof story.progress_phase, "string");
 });
 
 test("a whole-history workflow check explains a diverged project history with its concrete error and correction", () => {
@@ -5860,4 +5863,13 @@ test("a certified story stays completed after another computer's history is copi
   assert.equal(story.orchestration_state, "terminal");
   assert.equal(story.project_history.verified, false);
   assert.equal(status.summary.completed_work, 1);
+
+  // With the whole-history check the story is blocked while its delivery is
+  // finished; status explains the two counts instead of contradicting itself.
+  setWorkflowHistoryCheck(project, "project");
+  const strict = statusStory(project, certified.storyId);
+  assert.equal(strict.story.orchestration_state, "blocked");
+  assert.equal(strict.status.summary.completed_work, 0);
+  const text = mustRun(["status", "--root", project], project).stdout;
+  assert.match(text, /Count note: 1 deliveries are finished according to their delivery records, but only 0 stories/u);
 });

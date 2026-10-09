@@ -990,6 +990,20 @@
           "go",
           "next"
         ],
+        "weak_tags": [
+          "csharp",
+          "dotnet",
+          "java",
+          "javascript",
+          "kotlin",
+          "node",
+          "php",
+          "python",
+          "ruby",
+          "rust",
+          "swift",
+          "typescript"
+        ],
         "aliases": {
           "go": [
             "golang"
