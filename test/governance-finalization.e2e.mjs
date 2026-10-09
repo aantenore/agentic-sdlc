@@ -1859,7 +1859,12 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     outputType: "implementation-summary",
     outputPhase: "implementation",
     additionalOutputRefs: [{ type: "release-notes", phase: "release" }],
-    configureProject: (target) => configureCustomPhase(target, customPhase),
+    // Every drift below must block the story, the reopen behaviour; the
+    // default stale behaviour has its own tests.
+    configureProject: (target) => {
+      configureCustomPhase(target, customPhase);
+      setCertificationDriftMode(target, "reopen");
+    },
     deliveryKind: "local_release",
     storyActionUses: 12,
     beforeTaskStart: ({ storyId }) => {
