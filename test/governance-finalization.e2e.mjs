@@ -21,7 +21,7 @@ const CLI = path.join(REPOSITORY_ROOT, "bin", "agentic-sdlc.mjs");
 const TEMPORARY_PROJECTS = new Set();
 // A blocked lifecycle refuses a claim and names its concrete cause.
 const LIFECYCLE_CLAIM_REFUSAL =
-  /cannot be claimed: (?:story workflow|the story workflow|the current story workflow|story record|final lifecycle receipt|invalid)/u;
+  /cannot be claimed: (?:story workflow|the story workflow|the current story workflow|story record|final lifecycle receipt|a record of the story itself|invalid)/u;
 
 after(() => {
   if (process.env.AGENTIC_SDLC_KEEP_TEST_TMP === "1") return;
