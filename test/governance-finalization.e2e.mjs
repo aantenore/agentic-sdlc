@@ -19,6 +19,9 @@ import { currentHost, setHost } from "../lib/runtime/host.mjs";
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = path.join(REPOSITORY_ROOT, "bin", "agentic-sdlc.mjs");
 const TEMPORARY_PROJECTS = new Set();
+// A blocked lifecycle refuses a claim and names its concrete cause.
+const LIFECYCLE_CLAIM_REFUSAL =
+  /cannot be claimed: (?:story workflow|the story workflow|the current story workflow|story record|final lifecycle receipt|invalid)/u;
 
 after(() => {
   if (process.env.AGENTIC_SDLC_KEEP_TEST_TMP === "1") return;
@@ -1131,7 +1134,7 @@ test("pre-task workflow binding tamper remains fail-closed across status, schedu
           "--root", project,
           "--id", storyId,
           "--agent", "pre-task-tamper-agent",
-        ], project, /invalid or unreadable final lifecycle receipt/u);
+        ], project, LIFECYCLE_CLAIM_REFUSAL);
         mustFail([
           "story", "claim",
           "--root", project,
@@ -1139,7 +1142,7 @@ test("pre-task workflow binding tamper remains fail-closed across status, schedu
           "--agent", "pre-task-tamper-agent",
           "--force",
           "--actor-type", "human",
-        ], project, /invalid or unreadable final lifecycle receipt/u);
+        ], project, LIFECYCLE_CLAIM_REFUSAL);
         assert.equal(fs.existsSync(path.join(project, claimPath)), false);
         assert.equal(fs.existsSync(path.join(project, taskStartPath)), false);
         assert.equal(
@@ -1272,7 +1275,7 @@ test("pre-task multi-run binding tamper cannot fall back to an older workflow", 
           "--root", project,
           "--id", storyId,
           "--agent", "pre-task-multi-run-tamper-agent",
-        ], project, /invalid or unreadable final lifecycle receipt/u);
+        ], project, LIFECYCLE_CLAIM_REFUSAL);
         mustFail([
           "story", "claim",
           "--root", project,
@@ -1280,7 +1283,7 @@ test("pre-task multi-run binding tamper cannot fall back to an older workflow", 
           "--agent", "pre-task-multi-run-tamper-agent",
           "--force",
           "--actor-type", "human",
-        ], project, /invalid or unreadable final lifecycle receipt/u);
+        ], project, LIFECYCLE_CLAIM_REFUSAL);
         assert.equal(fs.existsSync(path.join(project, claimPath)), false);
         assert.equal(fs.existsSync(path.join(project, taskStartPath)), false);
         assert.equal(
@@ -1511,7 +1514,7 @@ test("pre-task missing workflow instances root remains fail-closed and recovers 
           "--root", project,
           "--id", storyId,
           "--agent", "pre-task-missing-root-agent",
-        ], project, /invalid or unreadable final lifecycle receipt/u);
+        ], project, LIFECYCLE_CLAIM_REFUSAL);
         mustFail([
           "story", "claim",
           "--root", project,
@@ -1519,7 +1522,7 @@ test("pre-task missing workflow instances root remains fail-closed and recovers 
           "--agent", "pre-task-missing-root-agent",
           "--force",
           "--actor-type", "human",
-        ], project, /invalid or unreadable final lifecycle receipt/u);
+        ], project, LIFECYCLE_CLAIM_REFUSAL);
         assert.equal(fs.existsSync(path.join(project, claimPath)), false);
         assert.equal(fs.existsSync(path.join(project, taskStartPath)), false);
         assert.equal(
@@ -2618,7 +2621,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
       "--root", project,
       "--id", fixture.storyId,
       "--agent", `${label}-agent`,
-    ], project, /invalid or unreadable final lifecycle receipt/u);
+    ], project, LIFECYCLE_CLAIM_REFUSAL);
     mustFail([
       "story", "claim",
       "--root", project,
@@ -2626,7 +2629,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
       "--agent", `${label}-agent`,
       "--force",
       "--actor-type", "human",
-    ], project, /invalid or unreadable final lifecycle receipt/u);
+    ], project, LIFECYCLE_CLAIM_REFUSAL);
     assert.deepEqual(readJson(project, releasedClaimPath), releasedClaim);
   };
 
@@ -3885,7 +3888,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--root", project,
     "--id", fixture.storyId,
     "--agent", "task-start-tamper-agent",
-  ], project, /invalid or unreadable final lifecycle receipt/u);
+  ], project, LIFECYCLE_CLAIM_REFUSAL);
   mustFail([
     "story", "claim",
     "--root", project,
@@ -3893,7 +3896,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--agent", "task-start-tamper-agent",
     "--force",
     "--actor-type", "human",
-  ], project, /invalid or unreadable final lifecycle receipt/u);
+  ], project, LIFECYCLE_CLAIM_REFUSAL);
   assert.deepEqual(readJson(project, claimPath), claimBeforeRejectedReplay);
   writeProjectFile(
     project,
@@ -3972,7 +3975,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--root", project,
     "--id", fixture.storyId,
     "--agent", "replay-agent",
-  ], project, /invalid or unreadable final lifecycle receipt/u);
+  ], project, LIFECYCLE_CLAIM_REFUSAL);
   mustFail([
     "story", "claim",
     "--root", project,
@@ -3980,7 +3983,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--agent", "replay-agent",
     "--force",
     "--actor-type", "human",
-  ], project, /invalid or unreadable final lifecycle receipt/u);
+  ], project, LIFECYCLE_CLAIM_REFUSAL);
   assert.deepEqual(readJson(project, claimPath), claimBeforeRejectedReplay);
   writeProjectFile(
     project,
@@ -4033,7 +4036,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--root", project,
     "--id", fixture.storyId,
     "--agent", "replay-agent",
-  ], project, /invalid or unreadable final lifecycle receipt/u);
+  ], project, LIFECYCLE_CLAIM_REFUSAL);
 
   const {
     freshness_proof: ignoredFreshnessProof,
@@ -4113,7 +4116,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--root", project,
     "--id", fixture.storyId,
     "--agent", "downgrade-replay-agent",
-  ], project, /invalid or unreadable final lifecycle receipt/u);
+  ], project, LIFECYCLE_CLAIM_REFUSAL);
   mustFail([
     "story", "claim",
     "--root", project,
@@ -4121,7 +4124,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--agent", "downgrade-replay-agent",
     "--force",
     "--actor-type", "human",
-  ], project, /invalid or unreadable final lifecycle receipt/u);
+  ], project, LIFECYCLE_CLAIM_REFUSAL);
   assert.deepEqual(readJson(project, claimPath), claimBeforeDowngradeReplay);
 
   const finalReceiptAbsolutePath = path.join(project, finalReceiptPath);
@@ -4284,7 +4287,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
       "--id", fixture.storyId,
       "--agent", "post-certification-freshness-agent",
       ...forceArgs,
-    ], project, /invalid or unreadable final lifecycle receipt/u);
+    ], project, LIFECYCLE_CLAIM_REFUSAL);
   }
   assert.deepEqual(readJson(project, claimPath), claimBeforeDowngradeReplay);
 
@@ -5732,4 +5735,129 @@ test("a credential committed during a governed workflow blocks the validation ga
     "--lifecycle-complete", "--json",
   ], project, /no secret scan for the current project state/u);
   assert.ok(!lifecycle.stdout.includes(plantedToken));
+});
+
+// Another computer starts from the same records and appends its own project
+// history; its new lines are then copied onto this branch by hand, so the
+// shared history no longer verifies as one chain.
+function appendHistoryFromAnotherComputer(project, label) {
+  const tracePath = path.join(project, ".sdlc/traces/project.jsonl");
+  const commonHistory = fs.readFileSync(tracePath, "utf8");
+  const otherComputer = cloneTemporaryProject(project, `${label}-other-computer`);
+  for (const [root, id] of [[otherComputer, `REQ-${label.toUpperCase()}-OTHER`], [project, `REQ-${label.toUpperCase()}-HERE`]]) {
+    mustRun([
+      "requirement", "propose",
+      "--root", root,
+      "--id", id,
+      "--title", `Work recorded as ${id}`,
+      "--summary", "Recorded in parallel on two computers.",
+      "--acceptance", "The parallel requirement exists.",
+      "--autonomy-ceiling", "supervised",
+      "--write-path", "docs",
+    ], root);
+  }
+  const otherHistory = fs.readFileSync(path.join(otherComputer, ".sdlc/traces/project.jsonl"), "utf8");
+  assert.ok(otherHistory.startsWith(commonHistory));
+  fs.appendFileSync(tracePath, otherHistory.slice(commonHistory.length), "utf8");
+  const verify = run(["trace", "verify", "--root", project, "--json"], project);
+  assert.notEqual(verify.status, 0, "the shared project history must still report the divergence");
+}
+
+function setWorkflowHistoryCheck(project, check) {
+  const config = readJson(project, ".sdlc/config.json");
+  config.orchestration_policy = { ...config.orchestration_policy, workflow_history: { check } };
+  writeProjectFile(project, ".sdlc/config.json", `${JSON.stringify(config, null, 2)}\n`);
+  pinProjectConfig(project);
+}
+
+function startParallelTraceStory(project, suffix) {
+  const storyId = `ST-${suffix}`;
+  const workflowInstanceId = `delivery-${suffix.toLowerCase()}`;
+  prepareGovernedDeliveryStoryBeforeTaskStart(project, { suffix });
+  mustRun([
+    "workflow", "instance", "start",
+    "--root", project,
+    "--id", workflowInstanceId,
+    "--definition", "software-project",
+    "--definition-version", "3",
+    "--story", storyId,
+    "--actor", "workflow-e2e-ci",
+    "--actor-type", "ci",
+  ], project);
+  return { storyId, workflowInstanceId };
+}
+
+function statusStory(project, storyId) {
+  const status = mustRunJson(["status", "--root", project, "--full"], project);
+  return { status, story: status.orchestration.stories.find((entry) => entry.id === storyId) };
+}
+
+test("records merged by hand from two computers keep a story workflow readable when only the shared project history diverges", () => {
+  const project = temporaryProject("parallel-trace-merge");
+  const { storyId } = startParallelTraceStory(project, "PARALLEL-TRACE-MERGE");
+  assert.notEqual(statusStory(project, storyId).story.lifecycle_source, "invalid_story_workflow");
+
+  appendHistoryFromAnotherComputer(project, "parallel-trace-merge");
+  const { story } = statusStory(project, storyId);
+  assert.notEqual(story.lifecycle_source, "invalid_story_workflow");
+  assert.notEqual(story.orchestration_state, "blocked");
+  assert.deepEqual(story.project_history?.verified, false);
+  assert.equal(story.blockers.some((entry) => /final lifecycle receipt/u.test(entry)), false);
+});
+
+test("a whole-history workflow check explains a diverged project history with its concrete error and correction", () => {
+  const project = temporaryProject("parallel-trace-strict");
+  const { storyId } = startParallelTraceStory(project, "PARALLEL-TRACE-STRICT");
+  setWorkflowHistoryCheck(project, "project");
+  appendHistoryFromAnotherComputer(project, "parallel-trace-strict");
+  const { story } = statusStory(project, storyId);
+  assert.equal(story.orchestration_state, "blocked");
+  assert.equal(story.lifecycle_source, "invalid_story_workflow");
+  assert.equal(story.lifecycle_reason, "project_history_integrity");
+  assert.ok(story.lifecycle_errors.some((entry) => /audit trace is invalid|failed integrity verification/u.test(entry)));
+  assert.equal(story.lifecycle_remedy.command, "trace verify");
+  assert.match(story.blockers[0], /shared project history .*no longer verifies/u);
+  assert.equal(story.blockers.some((entry) => /final lifecycle receipt/u.test(entry)), false);
+  mustFail([
+    "story", "claim", "--root", project, "--id", storyId, "--agent", "parallel-agent",
+  ], project, /cannot be claimed: story workflow records cannot be trusted/u);
+});
+
+test("a workflow whose own records are missing after a manual copy stays blocked with the exact missing record", () => {
+  const project = temporaryProject("parallel-trace-missing");
+  const { storyId, workflowInstanceId } = startParallelTraceStory(project, "PARALLEL-TRACE-MISSING");
+  const tracePath = path.join(project, ".sdlc/traces/project.jsonl");
+  const kept = fs.readFileSync(tracePath, "utf8").split("\n")
+    .filter((line) => !(line.includes("workflow.instance.start") && line.includes(workflowInstanceId)));
+  fs.writeFileSync(tracePath, kept.join("\n"), "utf8");
+  const { story } = statusStory(project, storyId);
+  assert.equal(story.orchestration_state, "blocked");
+  assert.equal(story.lifecycle_source, "invalid_story_workflow");
+  assert.ok(story.lifecycle_errors.some((entry) => /start trace/u.test(entry)), JSON.stringify(story.lifecycle_errors));
+  assert.ok(story.lifecycle_remedy);
+});
+
+test("a certified story stays completed after another computer's history is copied onto its branch", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox for terminal local release evidence",
+}, () => {
+  const project = temporaryProject("parallel-trace-certified");
+  const certified = certifyLocalReleaseStory(project, {
+    suffix: "PAR-CERT",
+    allowedWritePaths: ["docs", "src"],
+    evidenceDir: "docs",
+    files: { "src/feature.mjs": "export const feature = 1;\n" },
+    releaseProof: "first release\n",
+  });
+  assert.equal(statusStory(project, certified.storyId).story.lifecycle_source, "workflow_final_receipt");
+  appendHistoryFromAnotherComputer(project, "parallel-trace-certified");
+  const { status, story } = statusStory(project, certified.storyId);
+  assert.equal(story.lifecycle_source, "workflow_final_receipt", JSON.stringify({
+    reason: story.lifecycle_reason,
+    errors: story.lifecycle_errors,
+  }));
+  assert.equal(story.orchestration_state, "terminal");
+  assert.equal(story.project_history.verified, false);
+  assert.equal(status.summary.completed_work, 1);
 });

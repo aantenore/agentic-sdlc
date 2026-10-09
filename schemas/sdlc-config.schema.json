@@ -291,6 +291,14 @@
           },
           "additionalProperties": false
         },
+        "workflow_history": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "check": { "enum": ["workflow", "project"] }
+          },
+          "additionalProperties": false
+        },
         "merge_drift": {
           "type": "object",
           "properties": {
