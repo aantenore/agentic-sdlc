@@ -871,7 +871,7 @@ node bin/agentic-sdlc.mjs dependency status --root <project> --story ST-002
 node bin/agentic-sdlc.mjs story deps --root <project> --id ST-002
 ```
 
-A dependency edge is `from:to:type:blocks:required_state`. The required state `merged` (for example `ST-002:ST-001:blocks:implementation:merged`) is satisfied only when the upstream story's pull request is merged, by the plugin or by an acknowledged external merge; a delivery that is only `ready_for_review` does not satisfy it.
+A dependency edge is `from:to:type:blocks:required_state`. The required state `merged` (for example `ST-002:ST-001:blocks:implementation:merged`) is satisfied only when the upstream story's pull request is merged, by the plugin or by an acknowledged external merge; a delivery that is only `ready_for_review` does not satisfy it. A verified merge stays satisfied even when the upstream story's final certification later reads as stale, for example because the dependent story edits files the upstream story certified.
 
 Breakdowns and dependencies are proposed first, then approved by a human/CI actor or by delegated automation when the user explicitly gave a matching approval level. Hard dependency scopes block orchestration and strict gates; soft dependencies remain visible as warnings. When upstream artifacts change, record a `dependency.revalidate` trace on downstream stories after review.
 

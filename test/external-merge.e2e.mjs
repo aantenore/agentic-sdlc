@@ -274,6 +274,13 @@ test("a person acknowledges a merge made on GitHub and the story counts as merge
   const delivery = deliveryStatus(project);
   assert.equal(JSON.stringify(delivery).includes("merged_externally"), true);
   assert.deepEqual(dependencyBlockers(project), [], "the merged dependency is satisfied");
+  // A final receipt that no longer verifies (for example because the dependent
+  // story edited files it certified) does not undo a verified merge.
+  const finalReceiptPath = path.join(project, ".sdlc", "gates", `${STORY_ID}-final.json`);
+  fs.mkdirSync(path.dirname(finalReceiptPath), { recursive: true });
+  fs.writeFileSync(finalReceiptPath, "{ stale", "utf8");
+  assert.deepEqual(dependencyBlockers(project), [], "a stale upstream certification keeps the merge satisfied");
+  fs.rmSync(finalReceiptPath);
   const afterStatus = mustRunJson(["status", "--root", project]);
   assert.equal(afterStatus.merged_outside_plugin, undefined, "an acknowledged merge is no longer reported");
 

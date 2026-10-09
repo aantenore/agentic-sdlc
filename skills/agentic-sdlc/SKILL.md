@@ -211,7 +211,7 @@ The dedicated assessment journey remains the exception described above: it packa
    node <plugin-root>/bin/agentic-sdlc.mjs dependency propose --root <target-project> --id DEP-REQ-001 --edge ST-002:ST-001:requires_artifact:validation:artifact_linked
    ```
 
-   An edge whose required state is `merged` (for example `ST-002:ST-001:blocks:implementation:merged`) is satisfied only when the upstream story's pull request is merged, by the plugin or by an acknowledged external merge (`autonomy delivery reconcile`). A pull request that is only `ready_for_review` is not enough.
+   An edge whose required state is `merged` (for example `ST-002:ST-001:blocks:implementation:merged`) is satisfied only when the upstream story's pull request is merged, by the plugin or by an acknowledged external merge (`autonomy delivery reconcile`). A pull request that is only `ready_for_review` is not enough. A verified merge stays satisfied even when the upstream story's final certification later reads as stale, for example because the dependent story edits files the upstream story certified.
 
    If the user later replaces or drops planned stories that were never started, record that decision instead of leaving them as blocked work: `story supersede --from-breakdown BD-REQ-001 --by <delivering-story>` (or `--id <story-id>`) or `story cancel --id <story-id>`, each with `--reason` and a formal approval from the user. Story records are not rewritten. A started story closes only on its own with `--id`, after every delivery bound to it ended `cancelled` or `rolled_back` (never with an active delivery or delivered work); the closure releases its claim. See `references/commands.md`.
 
