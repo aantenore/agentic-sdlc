@@ -1297,6 +1297,41 @@ The story then counts as delivered. `gate check --strict --lifecycle-complete` m
 
 `status --sync off|fetch|pull` overrides the setting for one run; the `AGENTIC_SDLC_STATUS_SYNC` environment variable overrides it for one environment, such as a CI job. When the remote cannot be reached, `status` only warns and reports the clone as it is.
 
+When the current branch is behind its upstream after the fetch, or the remote cannot be reached, the first line under the outcome says so ("Attention: this copy is N commit(s) behind origin/main (M project record(s) changed there); the counts below may be out of date"), because every count is read from this copy. `workspace_sync.records_behind` counts the `.sdlc` files the upstream changed.
+
+## What Status Names
+
+Besides the counts, `status` names the work, each list bounded by `orchestration_policy.status_list_limit` (default 5):
+
+- `Ready to start`: stories nobody holds and nothing blocks (`work.ready_story_ids`).
+- `Blocked`: each blocked story with its first blocker (`work.blocked`); `orchestrate status` prints every blocker under each blocked story.
+- `To refresh`: records the agent rebuilds itself, with the command that does it (`work.refresh`). No approval is needed; they are refreshed when the agent runs that command, not by themselves.
+
+`status --full --json` adds every pending decision, refresh item, and the whole orchestration snapshot.
+
+## Follow A Dependency Chain
+
+`story deps --id ST-001` lists the direct dependencies. `story deps --id ST-001 --transitive` follows every unsatisfied dependency upstream and ends with the root causes: unsatisfied upstream stories that wait on nothing themselves. Each story is expanded once, and a cycle is printed as `CYCLE A -> B -> A` instead of looping. JSON: `chain` (from, to, depth, satisfied, message), `root_causes`, `cycles`.
+
+## Work Merged But Still Open
+
+Story records move only through recorded lifecycle steps. A pull request merged by hand, or by an agent that stopped before recording completion, leaves the story open on every computer. `status` reports such stories (`merged_but_open`), read-only and from git alone, after its fetch:
+
+- the remote base branch is `orchestration_policy.merge_drift.base_branch`, or the remote's default branch (`refs/remotes/<remote>/HEAD`; `git remote set-head <remote> --auto` sets it);
+- a first-parent commit of it merges one of the story's branches (`parallel_work.branch_patterns`, or the claim's branch), or, with `match_commit_subject` (default true), its subject names the story id as a whole word;
+- commits that change only `.sdlc` records and reverts never count; `max_commits_scanned` (default 500) bounds the history read.
+
+Nothing is recorded: complete the story with `story complete-step` until it closes, and, when a started delivery exists, a person acknowledges the merge with `autonomy delivery reconcile`. `mode: off` turns the check off. When no base branch can be found, `merged_but_open_check` says so.
+
+## Claims Seen From Other Computers
+
+`status` and `orchestrate status` show, for each claim held on another computer:
+
+- the agent label, plus the git `user.name` when `orchestration_policy.claim_identity.git_user` is true, and the computer's label when the environment variable named by `claim_identity.host_label_env` (default `AGENTIC_SDLC_HOST_LABEL`) is set on the claiming computer. Nothing personal is recorded by default: a shared claim is an immutable record every reader of the remote sees, and the host name is never read;
+- its last sign of life, read from git (`orchestration_policy.claim_activity.mode: git`): the last commit on the claim's branch as the remote has it, and how many commits that branch is ahead of the base branch. There is no heartbeat. `claim_activity.idle_after_seconds` marks a claim idle once that commit is older; it is a notice and never frees the story.
+
+A claim is stale when it expires (`claim_policy.default_ttl_seconds`, 24 hours by default) or, when set, once it is older than `orchestration_policy.stale_claim_after_seconds`; both are compared with the reading computer's clock. Claim records on the remote live under `refs/agentic-sdlc/claims/` (`git ls-remote origin 'refs/agentic-sdlc/claims/*'`); `refs/agentic-sdlc-shared/` is only this clone's local copy of the records it has seen. A record gone from the remote stays in that copy as evidence and is reported as a problem, but no longer counts as a held claim; a claim file that came with git whose claim the remote ended or no longer has is reported as outdated and the story counts as free.
+
 ## Print The Pull-Request Checks Table
 
 Use `autonomy delivery checks` to print the checks that were actually recorded for one pull-request delivery as a Markdown table, ready to paste into the pull-request description. It only reads: nothing is re-run, repaired, or approved.

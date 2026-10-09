@@ -519,3 +519,86 @@ test("ownership cannot be rebuilt from the public claim record", () => {
   assert.equal(mustRefuseJson(claim(second, "ST-1", "bob", ["--force", "--actor-type", "human"]), second).error.message.includes("requires --reason"), true);
   assert.deepEqual(remoteClaimRefs(remote), ["refs/agentic-sdlc/claims/ST-1/000001/claim"]);
 });
+
+test("status names other computers' claims with their identity and last push, and reports work merged but still open", () => {
+  const { first, second, remote } = sharedProject("status-detail", ["ST-1", "ST-2", "ST-3"]);
+  // As a hosted remote does, the remote names its default branch; the second clone learns it.
+  git(remote, ["symbolic-ref", "HEAD", "refs/heads/main"]);
+  git(second, ["remote", "set-head", "origin", "--auto"]);
+  setOrchestration(first, { claim_identity: { git_user: true } });
+  git(first, ["add", "-A"]);
+  git(first, ["commit", "--quiet", "-m", "test: record claim identity"]);
+  git(first, ["push", "--quiet", "origin", "main"]);
+  git(second, ["pull", "--quiet", "--ff-only"]);
+
+  // The second computer works on ST-1 and pushes its branch.
+  git(second, ["checkout", "--quiet", "-b", "feature/ST-1"]);
+  fs.writeFileSync(path.join(second, "feature-1.txt"), "work\n", "utf8");
+  git(second, ["add", "feature-1.txt"]);
+  git(second, ["commit", "--quiet", "-m", "wip: first slice"]);
+  git(second, ["push", "--quiet", "origin", "feature/ST-1"]);
+  mustRun(claim(second, "ST-1", "claude-code"), second, { AGENTIC_SDLC_HOST_LABEL: "pc-bob" });
+  const record = remoteRecord(remote, "refs/agentic-sdlc/claims/ST-1/000001/claim");
+  assert.deepEqual(record.identity, { user: "Claims E2E", host: "pc-bob" });
+
+  git(first, ["fetch", "--quiet", "origin"]);
+  const orchestration = mustRunJson(["orchestrate", "status", "--root", first], first);
+  const held = orchestration.stories.find((story) => story.id === "ST-1");
+  assert.equal(held.orchestration_state, "claimed");
+  assert.deepEqual(held.shared_claim.holder.identity, { user: "Claims E2E", host: "pc-bob" });
+  assert.equal(held.shared_claim.activity.branch_on_remote, true);
+  const human = mustRun(["orchestrate", "status", "--root", first], first).stdout;
+  assert.match(human, /ST-1: claimed by claude-code \(Claims E2E, pc-bob\) on feature\/ST-1 \(on another computer since [^;]+; last commit on the remote /u);
+
+  const status = mustRunJson(["status", "--root", first], first);
+  assert.deepEqual(status.work.ready_story_ids, ["ST-2", "ST-3"]);
+  const shared = status.shared_claims.claims.find((item) => item.story_id === "ST-1");
+  assert.deepEqual(shared.identity, { user: "Claims E2E", host: "pc-bob" });
+  assert.equal(shared.activity.branch_on_remote, true);
+  assert.match(mustRun(["status", "--root", first], first).stdout, /Ready to start: ST-2, ST-3/u);
+
+  // ST-3 is merged into main by hand, without any recorded lifecycle step.
+  fs.writeFileSync(path.join(first, "feature-3.txt"), "done\n", "utf8");
+  git(first, ["add", "feature-3.txt"]);
+  git(first, ["commit", "--quiet", "-m", "feat(st-3): ST-3 delivered"]);
+  git(first, ["push", "--quiet", "origin", "main"]);
+  git(second, ["checkout", "--quiet", "main"]);
+  const behind = mustRunJson(["status", "--root", second, "--sync", "fetch"], second);
+  assert.equal(behind.workspace_sync.behind, 1);
+  assert.equal(behind.workspace_sync.records_behind, 0);
+  const drift = behind.merged_but_open.find((item) => item.story_id === "ST-3");
+  assert.ok(drift, JSON.stringify(behind.merged_but_open));
+  assert.equal(drift.evidence, "commit_subject");
+  assert.equal(drift.base_branch, "main");
+  const behindHuman = mustRun(["status", "--root", second, "--sync", "fetch"], second).stdout;
+  assert.match(behindHuman, /Attention: this copy is 1 commit\(s\) behind origin\/main/u);
+  assert.match(behindHuman, /ST-3: appears merged into main/u);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(second, ".sdlc", "stories", "ST-3", "story.json"), "utf8")).status, "ready",
+    "status never changes a story record");
+});
+
+test("a claim deleted from the remote, or ended there, no longer counts as held", () => {
+  const { first, second, remote } = sharedProject("status-ghost", ["ST-1", "ST-2"]);
+  mustRun(claim(second, "ST-1", "bob"), second);
+  assert.equal(mustRunJson(["orchestrate", "status", "--root", first], first).summary.claimed, 1);
+  git(remote, ["update-ref", "-d", "refs/agentic-sdlc/claims/ST-1/000001/claim"]);
+  const after = mustRunJson(["orchestrate", "status", "--root", first], first);
+  assert.equal(after.summary.claimed, 0);
+  const ghost = after.stories.find((story) => story.id === "ST-1");
+  assert.equal(ghost.shared_claim.state, "untrustworthy");
+  assert.match(ghost.shared_claim.problems.join("\n"), /gone from the remote/u);
+
+  // The claim file travels with git: a copy whose claim the remote ended is not a claim.
+  mustRun(claim(first, "ST-2", "alice"), first);
+  git(first, ["add", "-A"]);
+  git(first, ["commit", "--quiet", "-m", "test: claim ST-2"]);
+  git(first, ["push", "--quiet", "origin", "main"]);
+  mustRun(["story", "release", "--root", first, "--id", "ST-2", "--reason", "Done"], first);
+  git(second, ["pull", "--quiet", "--ff-only"]);
+  assert.equal(claimFile(second, "ST-2").status, "active");
+  const copied = mustRunJson(["orchestrate", "status", "--root", second], second);
+  const outdated = copied.stories.find((story) => story.id === "ST-2");
+  assert.equal(outdated.orchestration_state, "available");
+  assert.equal(outdated.shared_claim.local_claim_outdated, true);
+  assert.match(mustRun(["orchestrate", "status", "--root", second], second).stdout, /ST-2: the claim file that came with git names a claim the remote has ended/u);
+});

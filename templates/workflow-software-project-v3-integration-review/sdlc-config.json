@@ -1285,8 +1285,9 @@
     "default_ttl_seconds": 86400
   },
   "orchestration_policy": {
-    "principle": "Parallel work across several computers is safe only when every computer sees the same story claims. coordination decides where claims are recorded: auto shares them through this git remote when it exists and keeps them on this computer otherwise; required refuses to claim without the remote; local_only never shares them, for a project worked on from one computer only. A shared claim is created on the remote before the claim file, and when sharing applies and the remote cannot be reached, story claim is refused, because claiming is the start of work. Releases, handoffs, and closures publish a release record so the story can be claimed again; taking over a claim held elsewhere is a person's decision, recorded on the remote for the previous holder to see. stale_claim_after_seconds lists a claim as stale in orchestrate status once it is that old, even before it expires; null means only its expiry counts.",
+    "principle": "Parallel work across several computers is safe only when every computer sees the same story claims. coordination decides where claims are recorded: auto shares them through this git remote when it exists and keeps them on this computer otherwise; required refuses to claim without the remote; local_only never shares them, for a project worked on from one computer only. A shared claim is created on the remote before the claim file, and when sharing applies and the remote cannot be reached, story claim is refused, because claiming is the start of work. Releases, handoffs, and closures publish a release record so the story can be claimed again; taking over a claim held elsewhere is a person's decision, recorded on the remote for the previous holder to see. stale_claim_after_seconds lists a claim as stale in orchestrate status once it is that old, even before it expires; null means only its expiry counts. status_list_limit bounds how many stories or records status names in each of its lists (ready, blocked, records to refresh, merged but still open).",
     "stale_claim_after_seconds": null,
+    "status_list_limit": 5,
     "coordination": {
       "mode": "auto",
       "remote": "origin",
@@ -1295,6 +1296,23 @@
     "status_sync": {
       "principle": "status first brings this clone up to date, so it reports what other computers merged. fetch updates only the remote-tracking branches and never changes files; pull also fast-forwards the current branch when it is strictly behind its upstream and git can do so without touching local changes; off reads the clone as it is. A remote that cannot be reached is a warning, never an error. The remote is the current branch's own remote, or coordination.remote.",
       "mode": "fetch"
+    },
+    "claim_identity": {
+      "principle": "A shared claim is an immutable record every reader of the remote sees, so beyond the agent label it records who made it only when the project opts in. git_user true adds the git user.name of the claiming computer. host_label_env names an environment variable each computer may set to a label of its choice (the host name is never read); when it is set, the label is added. Both are shown by status and orchestrate status next to the agent.",
+      "git_user": false,
+      "host_label_env": "AGENTIC_SDLC_HOST_LABEL"
+    },
+    "claim_activity": {
+      "principle": "There is no heartbeat: a claim's last sign of life is read from git. With mode git, status and orchestrate status show, for each claim held on another computer, the last commit on the claim's branch as the remote has it (after status_sync) and how many commits it is ahead of the base branch. idle_after_seconds marks a claim idle when that last commit is older; it is only a notice and never frees the story (that stays stale_claim_after_seconds and the claim's expiry). null never marks a claim idle; off turns the check off.",
+      "mode": "git",
+      "idle_after_seconds": null
+    },
+    "merge_drift": {
+      "principle": "Story records move only through recorded lifecycle steps, so work merged by hand, or by an agent that stopped before recording completion, leaves a story open. status reports open stories whose work is already on the remote base branch, read from git only after status_sync: a first-parent commit that merges one of the story's branches or, when match_commit_subject is true, whose subject names the story id. Commits that change only project records and reverts never count. It never changes a record. base_branch null means the remote's default branch; max_commits_scanned bounds the history read; off turns the check off.",
+      "mode": "git",
+      "base_branch": null,
+      "match_commit_subject": true,
+      "max_commits_scanned": 500
     },
     "delivered_overlap": {
       "principle": "Stories started from the same project state can both change one area. When another story's merged delivery changed a file inside this story's write scope after this story started, write_scope decides what happens before this story merges: confirm requires an overlap review (story overlap confirm) that names each such change, warn only reports it, off ignores it. context applies the same choice to files this story only read. confirmation_actor any lets the agent working on the story record the review; human requires a person. claim warn lists other stories in progress whose write scope overlaps when a story is claimed; it never blocks a claim.",
