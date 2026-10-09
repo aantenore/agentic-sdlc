@@ -24,3 +24,4 @@ Rules for this command:
 - If the output lists a story merged but still open (`merged_but_open`), tell the user which story looks merged and at which commit, and that its record still shows it open; status never closes it.
 - If the output lists a pull request merged outside the plugin (`merged_outside_plugin`), tell the user plainly that the plugin did not do that merge, and give the `autonomy delivery reconcile` command it prints for them to run in their own terminal. Never run it yourself.
 - Add `--json` only when the output feeds another tool.
+- `status` also shows story reservations, and warns about unclaimed stories that have work on the remote; the warning never blocks.

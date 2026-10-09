@@ -988,6 +988,10 @@ import {
   showDeliveryChecks,
 } from "../lib/engine/delivery-checks.mjs";
 import {
+  reserveStory,
+  showStoryAvailability,
+} from "../lib/engine/story-reservation.mjs";
+import {
   showBaselineStatus,
   showBreakdownStatus,
   showCacheStatus,
@@ -1187,6 +1191,8 @@ function buildCliRuntimeHandlerRegistry() {
     "story.acceptance.add": call(addStoryAcceptance),
     "story.claim": call(claimStory),
     "story.release": call(releaseStoryClaim),
+    "story.reserve": call(reserveStory),
+    "story.availability": call(showStoryAvailability),
     "story.overlap": call(showStoryOverlap),
     "story.overlap.confirm": call(confirmStoryOverlap),
     "story.complete-step": call(completeStoryStep),

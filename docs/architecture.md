@@ -576,12 +576,46 @@ Whether a claim was made here is decided only by an ownership record the claimin
 
 `remote` (default `origin`) names the git remote and `timeout_seconds` (default 20) bounds each call. A project that is not a git repository keeps its claims on this computer. Claiming is the start of work, so an unreachable remote refuses the claim with a plain explanation; `local_only` is the escape for a project worked on from one computer only. Projects without the `orchestration_policy` block use these defaults. The plugin's hooks refuse forging, deleting, or rewriting these refs by hand.
 
+#### Reserving a story that cannot start yet
+
+`story reserve --id <story> --agent <name> [--expires-in <90m|12h|3d|1w>] [--expires-at <ISO time>] [--branch <planned-branch>]` books a story before it can start, for example while its dependencies are not satisfied. It needs no task start and no satisfied dependency, and it writes nothing in the project (no `claim.json`, no trace). It fixes no starting point, so the delivery perimeter and its base stay those of the later `task start`.
+
+A reservation is a shared claim record marked `"reservation": true`, stored in the same create-only refs as claims: `refs/agentic-sdlc/claims/<story>/<epoch>/claim`, with `contract` and `task_start` set to null. Older plugin versions read it as an ordinary claim, so they also refuse to claim the story.
+
+Ownership of a reservation belongs to the computer (the clone), not to one worktree. It is kept in `refs/agentic-sdlc-local/reservations/<remote>/<story>/<epoch>`, never pushed or fetched, and visible to every worktree of that clone.
+
+On other computers, `status` and `orchestrate status` show "reserved by X until Y". A reserved story that is blocked stays `blocked`; an available story reserved elsewhere is listed as `claimed` and is never offered as available. Their `story claim` is refused with `STORY_CLAIM_HELD_ELSEWHERE`, and so is their `story reserve`. A person can take the story over exactly like a claim, with `story claim --id <story> --agent <name> --force --reason "<why>" --actor-type human` in their own terminal (refused inside an agent session).
+
+On the reserving computer, `story claim` (run after its `task start`) turns the reservation into the claim: the reservation epoch gets a release record with status `transferred`, and the claim takes the next epoch. `story release --id <story>` on a story with only a reservation ends it; a reservation made on another computer needs a person and `--reason`, as for claims.
+
+A reservation always expires. The default is `orchestration_policy.reservation.default_expires_in_seconds` (86400) and the maximum is `orchestration_policy.reservation.max_expires_in_seconds` (2592000). An expired reservation ends by itself: the story is free again without a takeover, `status` notes "the reservation by X expired at Y", and the next claim or reservation records its release with the reason "the reservation expired".
+
+`story reserve` is refused with `STORY_RESERVE_NOT_SHARED` when claims are not shared (no remote, or `coordination.mode` is `local_only`), and when the remote cannot be reached.
+
+#### Work on the remote that nobody claimed
+
+For a story nobody claimed or reserved (state available or blocked), `status`, `orchestrate status`, and `story availability` look at the remote-tracking branches, after the fetch of `status`, for a branch whose name names the story id and that has commits not yet on the base branch. The base branch is `orchestration_policy.merge_drift.base_branch`, or the remote's default branch. Letters and digits do not continue the id, so `ST-1` does not match `ST-10`, and a longer id wins over a shorter one it contains.
+
+With `pull_requests: github-cli`, open pull requests whose title or head branch names the story are also read through the GitHub CLI (`gh pr list`), when it is installed and signed in; a failure becomes a warning note. This is an optional provider adapter; git is the base.
+
+The result is a plain-language warning, for example "ST-REPLAN-002 is not reserved, but the remote has the branch feature/ST-REPLAN-002 updated 20 minutes ago: someone may already be working on it." It never blocks; the decision stays with the person. The JSON field is `unclaimed_remote_work` in `status` and `orchestrate status`.
+
+| `orchestration_policy.unclaimed_remote_work` | Values | Default |
+|---|---|---|
+| `mode` | `git`, `off` | `git` |
+| `pull_requests` | `off`, `github-cli` | `off` |
+| `recent_within_seconds` | `null` or 60 to 31536000 | `null` |
+
+#### Checking a story before starting it
+
+`story availability --id <story> [--json]` is read-only: it only updates the remote-tracking branches with a fetch, unless status sync is off (`orchestration_policy.status_sync.mode: off` or `AGENTIC_SDLC_STATUS_SYNC=off`). It returns a `verdict` (`free`, `claimed_here`, `reserved_here`, `reserved_elsewhere`, `claimed_elsewhere`, `remote_work_without_claim`, or `untrustworthy`), `safe_to_start` (true only for `free`, `claimed_here`, and `reserved_here`), and the details: `holder`, `expired_reservation`, and `remote_work`. Run it right before `task start`.
+
 #### Split the work across machines, step by step
 
 1. **Publish the approved specs.** On the first computer, approve the requirements, story breakdown, contracts, and task starts (each story ready to claim), commit `.sdlc/`, and push the branch everyone starts from (for example `main`). Keep `orchestration_policy.coordination.mode` at `auto` (or `required`).
 2. **Pull on every computer.** Each computer clones or pulls that branch, so all of them read the same stories, contracts, and dependency graph.
 3. **Pick a free lane.** On each computer, run `agentic-sdlc orchestrate status --json` (or `orchestrate plan --json`). Stories claimed on any computer show as `claimed` with holder and branch; hard dependencies keep blocked stories out of the `available` list.
-4. **Claim before editing.** Run `agentic-sdlc story claim --id <story> --agent <name> --branch feature/<story>`. If another computer won the race or already holds it, the command says who and where; pick another available story.
+4. **Check, then claim at the start of development.** Run `agentic-sdlc story availability --id <story> --json`; if `safe_to_start` is false, stop and ask the person before going on. Then run `task start` and `agentic-sdlc story claim --id <story> --agent <name> --branch feature/<story>` at the start of development, not at integration time, so the shared claim protects the work from the first moment. If another computer won the race or already holds it, the command says who and where; pick another available story. When the story cannot start yet, book it with `story reserve` and claim it later from the same computer.
 5. **Branch and work.** Create the story branch, implement, record traces and steps, and push the branch.
 6. **Open the pull request.** Deliver the story through its own pull request or local release, as the delivery profile says.
 7. **Release or hand off.** When the story is complete or handed to another computer, release the claim (`story release`, or `--release-claim` on `story complete-step` / `story prepare-handoff`). If the release says it was not shared, run `story release --id <story>` again once the remote can be reached.

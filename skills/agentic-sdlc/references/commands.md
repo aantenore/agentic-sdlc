@@ -1332,6 +1332,35 @@ Nothing is recorded: complete the story with `story complete-step` until it clos
 
 A claim is stale when it expires (`claim_policy.default_ttl_seconds`, 24 hours by default) or, when set, once it is older than `orchestration_policy.stale_claim_after_seconds`; both are compared with the reading computer's clock. Claim records on the remote live under `refs/agentic-sdlc/claims/` (`git ls-remote origin 'refs/agentic-sdlc/claims/*'`); `refs/agentic-sdlc-shared/` is only this clone's local copy of the records it has seen. A record gone from the remote stays in that copy as evidence and is reported as a problem, but no longer counts as a held claim; a claim file that came with git whose claim the remote ended or no longer has is reported as outdated and the story counts as free.
 
+## Reserve A Story
+
+```bash
+node bin/agentic-sdlc.mjs story reserve --root <project> --id ST-001 --agent <name> --expires-in 3d --branch feature/ST-001
+node bin/agentic-sdlc.mjs story release --root <project> --id ST-001
+```
+
+`story reserve --id <story> --agent <name> [--expires-in <90m|12h|3d|1w>] [--expires-at <ISO time>] [--branch <planned-branch>]` books a story before it can start. It needs no task start and no satisfied dependency, and writes nothing in the project. The reservation is a shared claim record marked `"reservation": true` under `refs/agentic-sdlc/claims/<story>/<epoch>/claim`; the computer's ownership is kept in `refs/agentic-sdlc-local/reservations/<remote>/<story>/<epoch>`, never pushed or fetched.
+
+- Other computers see "reserved by X until Y" in `status` and `orchestrate status`; their `story claim` and `story reserve` are refused (`STORY_CLAIM_HELD_ELSEWHERE`). A person takes it over with `story claim --force --reason "<why>" --actor-type human`.
+- The reserving computer's `story claim` converts it: the reservation epoch gets a release with status `transferred`, and the claim takes the next epoch.
+- It always expires: default `orchestration_policy.reservation.default_expires_in_seconds` (86400), maximum `max_expires_in_seconds` (2592000). An expired reservation frees the story by itself.
+- `story release --id <story>` ends a reservation; one made on another computer needs a person and `--reason`.
+- Refused with `STORY_RESERVE_NOT_SHARED` when claims are not shared (no remote, or `coordination.mode: local_only`) and when the remote cannot be reached.
+
+## Check A Story Before Starting It
+
+```bash
+node bin/agentic-sdlc.mjs story availability --root <project> --id ST-001 --json
+```
+
+Read-only: it only updates the remote-tracking branches with a fetch, unless status sync is off (`orchestration_policy.status_sync.mode: off` or `AGENTIC_SDLC_STATUS_SYNC=off`). Run it right before `task start`. It returns `verdict` (`free`, `claimed_here`, `reserved_here`, `reserved_elsewhere`, `claimed_elsewhere`, `remote_work_without_claim`, `untrustworthy`), `safe_to_start` (true only for `free`, `claimed_here`, `reserved_here`), `holder`, `expired_reservation`, and `remote_work`.
+
+For a story nobody claimed or reserved, a remote-tracking branch whose name names the story id (`ST-1` does not match `ST-10`; a longer id wins) and that has commits not yet on the base branch (`orchestration_policy.merge_drift.base_branch`, or the remote's default branch) produces a plain-language warning, also in `status` and `orchestrate status` as `unclaimed_remote_work`. It never blocks. Configuration, under `orchestration_policy.unclaimed_remote_work`:
+
+- `mode`: `git` (default) or `off`.
+- `pull_requests`: `off` (default) or `github-cli`, which reads open pull requests whose title or head branch names the story through `gh pr list`, when installed and signed in; a failure becomes a warning note.
+- `recent_within_seconds`: `null` (default) or 60 to 31536000.
+
 ## Print The Pull-Request Checks Table
 
 Use `autonomy delivery checks` to print the checks that were actually recorded for one pull-request delivery as a Markdown table, ready to paste into the pull-request description. It only reads: nothing is re-run, repaired, or approved.
