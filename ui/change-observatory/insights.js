@@ -28,7 +28,7 @@ export const EVENT_KINDS = Object.freeze([
   Object.freeze({ key: "request", label: "Requests", singular: "Request" }),
   Object.freeze({ key: "agreement", label: "Agreements", singular: "Agreement" }),
   Object.freeze({ key: "change", label: "Changes", singular: "Change" }),
-  Object.freeze({ key: "decision", label: "Decisions", singular: "Decision" }),
+  Object.freeze({ key: "decision", label: "Decisions", singular: "Decision made" }),
   Object.freeze({ key: "check", label: "Checks", singular: "Check" }),
 ]);
 
