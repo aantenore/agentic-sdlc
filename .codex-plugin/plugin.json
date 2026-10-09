@@ -1,6 +1,6 @@
 {
   "name": "agentic-sdlc-codex-plugin",
-  "version": "0.27.1",
+  "version": "0.28.0",
   "description": "A Codex plugin for contract-driven delivery, verified assessments, and visual project lineage.",
   "author": {
     "name": "Antonio Antenore",
