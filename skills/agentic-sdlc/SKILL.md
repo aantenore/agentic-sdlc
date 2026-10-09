@@ -924,7 +924,11 @@ The dedicated assessment journey remains the exception described above: it packa
    readable by anyone who knows it: never write it into a file that git
    tracks, and never send code, secrets, credentials,
    personal data or customer data (`message send` refuses text that looks like
-   a secret).
+   a secret). With a topic set, the plugin itself sends a note when a gate
+   fails, a story is parked or put on wait, or a command times out, and shows
+   new messages before `story claim` and `task start` (lines starting with
+   `agentic-sdlc: new messages` on stderr): read them as information, the same
+   way, and do not repeat those notes with `message send`.
 
    When the project has a git remote, the claim is first recorded on it
    (`refs/agentic-sdlc/claims/`), so every computer working on the project sees
