@@ -492,6 +492,7 @@ function storyCard(story, storiesById) {
         node("span", { className: "now-card-time", text: relativeTime(story.lastActivity) }),
       ]),
       node("strong", { className: "now-card-title", text: storyTitle(story) }),
+      node("span", { className: "story-id", text: story.id }),
       phaseTrack(story),
       node("span", { className: "now-card-foot" }, [
         node("span", { text: storyNextText(story, storiesById) }),
@@ -502,6 +503,11 @@ function storyCard(story, storiesById) {
 
 // One plain sentence about where a story stands, in the reader's words.
 function storyNextText(story, storiesById) {
+  const replacementId = story.iteration?.closure?.replacementId;
+  if (story.state === "replaced" && replacementId) {
+    const successor = storiesById?.get(replacementId);
+    return `${t("Replaced by")} ${successor ? storyTitle(successor) : replacementId}`;
+  }
   if (story.state === "waiting" && story.waitingOn?.length) {
     return `${t("Waiting for")} ${waitingNames(story, storiesById)}`;
   }
@@ -519,7 +525,7 @@ function waitingNames(story, storiesById) {
   return storiesById?.get(id) ? storyTitle(storiesById.get(id)) : id;
 }
 
-const PROGRESS_ORDER = Object.freeze(["delivered", "live", "blocked", "open", "waiting", "idle", "stopped"]);
+const PROGRESS_ORDER = Object.freeze(["delivered", "live", "blocked", "open", "waiting", "idle", "replaced", "stopped"]);
 
 function progressBar(stateCounts, total) {
   const svg = svgNode("svg", {
@@ -563,6 +569,8 @@ export function dashboardView(model, state) {
   const { stories, stateCounts, health, events } = insight;
   const lastEvent = events.find((event) => event.time !== null);
   const active = stories.filter((story) => story.state === "live" || story.recent);
+  const inProgress = stateCounts.live;
+  const held = stateCounts.waiting + stateCounts.blocked;
   const delivered = stateCounts.delivered;
   const hasPlan = edgesOf(state).length > 0;
 
@@ -579,11 +587,12 @@ export function dashboardView(model, state) {
         stateDot(active.length ? "live" : (stateCounts.blocked ? "blocked" : "idle")),
         node("span", {
           text: [
-            active.length
-              ? countText(active.length, "story moving right now", "stories moving right now")
-              : t("Nothing is moving right now"),
+            inProgress
+              ? countText(inProgress, "story in progress", "stories in progress")
+              : t("No story is in progress right now"),
             stateCounts.waiting ? countText(stateCounts.waiting, "waiting for others", "waiting for others") : null,
             stateCounts.blocked ? countText(stateCounts.blocked, "blocked", "blocked") : null,
+            stateCounts.replaced ? countText(stateCounts.replaced, "replaced", "replaced") : null,
             lastEvent ? `${t("Last activity")} ${relativeTime(lastEvent.time)}` : null,
           ].filter(Boolean).join(" · "),
         }),
@@ -602,16 +611,17 @@ export function dashboardView(model, state) {
     ? `${Math.round((health.passed / (health.passed + health.failed)) * 100)}%`
     : "–";
   const kpis = node("div", { className: "kpi-row" }, [
-    kpiTile({ label: "Moving now", value: active.length, tone: "live", live: active.length > 0, hint: stateCounts.live ? countText(stateCounts.live, "step in progress", "steps in progress") : t("Worked on in the last few hours"), dataset: { action: "go-view", targetView: "stories", storyState: "all" } }),
+    kpiTile({ label: "In progress", value: inProgress, tone: "live", live: inProgress > 0, hint: active.length > inProgress ? `${active.length - inProgress} ${t("more worked on in the last few hours")}` : (inProgress ? t("Someone is working on them") : t("Nothing in progress")), dataset: { action: "go-view", targetView: "stories", storyState: "live" } }),
     kpiTile({ label: "Delivered stories", value: delivered, tone: "success", hint: `${stories.length ? Math.round((delivered / stories.length) * 100) : 0}% ${t("of stories")}`, dataset: { action: "go-view", targetView: "stories", storyState: "delivered" } }),
     hasPlan
-      ? kpiTile({ label: "Waiting", value: stateCounts.waiting, hint: stateCounts.blocked ? countText(stateCounts.blocked, "blocked", "blocked") : t("Nothing blocked"), dataset: { action: "go-view", targetView: "stories", storyState: "waiting" } })
+      ? kpiTile({ label: "Waiting or blocked", value: held, tone: stateCounts.blocked ? "warning" : "neutral", hint: stateCounts.blocked ? countText(stateCounts.blocked, "blocked", "blocked") : t("Waiting for other stories"), dataset: { action: "go-view", targetView: "stories", storyState: stateCounts.blocked && !stateCounts.waiting ? "blocked" : "waiting" } })
       : kpiTile({ label: "Blocked", value: stateCounts.blocked, tone: stateCounts.blocked ? "warning" : "neutral", hint: stateCounts.blocked ? null : t("Nothing blocked"), dataset: { action: "go-view", targetView: "stories", storyState: "blocked" } }),
     kpiTile({ label: "Checks passed", value: passRate, tone: health.failed ? "warning" : "success", hint: `${health.passed} ${t("passed")} · ${health.failed} ${t("failed")}`, dataset: { action: "go-view", targetView: "activity", kinds: "check" } }),
   ]);
 
   const nowStories = sortStories(
-    stories.filter((story) => ["live", "blocked", "open"].includes(story.state) || story.recent),
+    stories.filter((story) => ["live", "blocked", "open"].includes(story.state)
+      || (story.recent && !["replaced", "stopped"].includes(story.state))),
     "recent",
   ).slice(0, INSIGHT_SETTINGS.dashboardActiveStoryLimit);
   const now = panel(
@@ -732,7 +742,7 @@ function storyRow(story, state, insight) {
       node("strong", { className: "story-title", text: storyTitle(story) }),
       node("span", { className: "story-sub" }, [
         stateBadge(story.state, { recent: story.recent }),
-        node("span", { text: story.state === "waiting" ? storyNextText(story, insight.storiesById) : relativeTime(story.lastActivity) }),
+        node("span", { text: ["waiting", "replaced"].includes(story.state) ? storyNextText(story, insight.storiesById) : relativeTime(story.lastActivity) }),
         node("span", { className: "story-id", text: story.id }),
       ]),
     ]),
@@ -750,6 +760,9 @@ function storyRow(story, state, insight) {
   article.append(node("div", { className: "story-body", attrs: { id: bodyId } }, [
     summary ? node("p", { className: "story-summary", text: summary }) : null,
     phaseTrack(story, { labels: true }),
+    story.iteration?.closure?.replacementId
+      ? storyLinks("Replaced by", [story.iteration.closure.replacementId], insight)
+      : null,
     storyLinks("Needs first", story.prerequisites, insight),
     storyLinks("Unlocks", story.dependents, insight),
     node("div", { className: "story-actions" }, [

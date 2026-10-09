@@ -408,6 +408,15 @@ const ITALIAN = Object.freeze({
   "Map": "Mappa",
   "Story dossier": "Dossier della storia",
   "Records": "Prove",
+  "Replaced": "Sostituita",
+  "Replaced by": "Sostituita da",
+  "replaced": "sostituite",
+  "more worked on in the last few hours": "altre lavorate nelle ultime ore",
+  "Someone is working on them": "Qualcuno ci sta lavorando",
+  "Nothing in progress": "Niente in corso",
+  "Waiting or blocked": "In attesa o bloccate",
+  "Waiting for other stories": "Aspettano altre storie",
+  "Operations": "Esercizio",
   "Waiting": "In attesa",
   "Waiting for": "In attesa di",
   "Next step": "Prossimo passo",
@@ -770,20 +779,76 @@ const EXECUTABLE_COMMAND_LINE = /(?:^|[\s("'`])(?:npm|npx|pnpm|yarn|node|bun|den
 // A recorded title that only carries an ID as a prefix ("CR on REQ-7: new
 // filters") keeps its readable part instead of falling back to a generic
 // label. Anything still technical after that returns null.
-export function readableRecordedTitle(value) {
-  const text = String(value ?? "").trim();
+// Plain words for internal vocabulary, so a recorded sentence keeps its
+// meaning instead of being replaced by a generic fallback.
+const INTERNAL_TERM_WORDS = Object.freeze([
+  [/\bbounded[-_ ]autonomous\b/giu, "bounded autonomy"],
+  [/\bcheckpointed\b/giu, "step-by-step"],
+  [/\bcheckpoint_required\b/giu, "checkpoint required"],
+  [/\baudit_only\b/giu, "audit only"],
+  [/\bhost_verified\b/giu, "verified on this computer"],
+  [/\bexecution[ _-]?profiles?\b/giu, "working agreement"],
+  [/\bprofiles?\b/giu, "working agreement"],
+  [/\breceipts?\b/giu, "confirmation"],
+  [/\bceilings?\b/giu, "limit"],
+  [/\bschemas?\b/giu, "format"],
+  [/\bhash(?:es)?\b/giu, "fingerprint"],
+  [/\breason[ _-]?codes?\b/giu, "reason"],
+]);
+const DANGLING_WORDS = /\s+(?:for|on|of|to|in|at|by|from|with|su|per|di|del|della|dello|da|a|in|con|e|and|:)\s*$/iu;
+
+const STRIPPABLE_RECORD_ID = /\b[A-Z][A-Z0-9]{1,20}-[A-Za-z0-9][A-Za-z0-9._:-]*/u;
+
+function globalPattern(pattern) {
+  return new RegExp(pattern.source, `${pattern.flags.replace("g", "")}g`);
+}
+
+/**
+ * Recorded text with only the technical fragments removed or translated:
+ * record IDs, absolute paths, and command lines are dropped, internal terms
+ * become plain words. Returns null when nothing readable is left.
+ */
+export function humanizeRecordedText(value) {
+  let text = String(value ?? "").trim();
   if (!text) return null;
   if (!containsInternalPrimaryText(text)) return text;
-  const prefixed = text.match(/^([^:]{1,80}):\s*(.+)$/u);
-  const candidate = prefixed && containsInternalPrimaryText(prefixed[1])
-    ? prefixed[2]
-    : text.replace(new RegExp(CANONICAL_RECORD_ID.source, "gu"), " ");
-  const cleaned = candidate
+  const prefixed = text.match(/^([^:]{1,80}):\s*(.+)$/su);
+  // "CR on REQ-EDIT-001: wider edits" keeps only its readable subject.
+  if (prefixed && globalPattern(STRIPPABLE_RECORD_ID).test(prefixed[1])
+    && prefixed[1].replace(globalPattern(STRIPPABLE_RECORD_ID), "").trim().split(/\s+/u).filter(Boolean).length <= 2
+    && humanizeRecordedText(prefixed[2])) {
+    text = prefixed[2];
+  }
+  text = text
+    .replace(globalPattern(EXECUTABLE_COMMAND_LINE), (match) => `${match.match(/^[\s("'`]/u)?.[0] ?? ""}a command`)
+    .replace(globalPattern(WINDOWS_UNC_PATH), (match) => `${match.match(/^[\s("'`]/u)?.[0] ?? ""}a file`)
+    .replace(globalPattern(WINDOWS_DRIVE_PATH), "a file")
+    .replace(globalPattern(POSIX_ABSOLUTE_PATH), (match) => `${match.match(/^[\s("'`]/u)?.[0] ?? ""}a file`)
+    .replace(/[\w.-]*(?:\/[\w.-]+)+/gu, (match) => (STRIPPABLE_RECORD_ID.test(match) ? "a file" : match))
+    .replace(globalPattern(STRIPPABLE_RECORD_ID), " ")
+    .replace(globalPattern(CANONICAL_RECORD_ID), " ");
+  for (const [pattern, words] of INTERNAL_TERM_WORDS) text = text.replace(pattern, words);
+  text = text
+    .replace(/\b[a-z]+(?:_[a-z]+)+\b/gu, (match) => match.replaceAll("_", " "))
+    .replace(/\b(?:git|gh|npm|docker)\.([a-z]{3,})\b/gu, "$1")
+    .replace(/\b([a-z]{3,})\.([a-z]{3,})\b/gu, "$1 $2")
+    .replace(/\(\s*\)|\[\s*\]/gu, " ")
+    .replace(/\s+([,.;:)])/gu, "$1")
+    .replace(/([,;:])(?:\s*[,;:])+/gu, "$1")
     .replace(/\s{2,}/gu, " ")
-    .replace(/^[\s:;,.–-]+|[\s:;,–-]+$/gu, "")
+    .replace(/^[\s:;,.–-]+/u, "")
     .trim();
-  if (cleaned.length < 4 || containsInternalPrimaryText(cleaned)) return null;
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/[\s:;,–-]+$/u, "").replace(DANGLING_WORDS, "").trim();
+  } while (text !== previous);
+  if (text.length < 4 || containsInternalPrimaryText(text)) return null;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+export function readableRecordedTitle(value) {
+  return humanizeRecordedText(value);
 }
 
 function containsInternalPrimaryText(value) {
@@ -875,15 +940,11 @@ export function displayTextForItem(item) {
   }
 
   const fallback = recordPresentation(item);
-  const recordedTitle = String(item?.title ?? "").trim();
-  const recordedSummary = String(item?.summary ?? "").trim();
+  const recordedTitle = humanizeRecordedText(item?.title);
+  const recordedSummary = humanizeRecordedText(item?.summary);
   return {
-    title: recordedTitle && !containsInternalPrimaryText(recordedTitle)
-      ? localizePlaceholder(recordedTitle)
-      : t(fallback.kind),
-    summary: recordedSummary && !containsInternalPrimaryText(recordedSummary)
-      ? localizePlaceholder(recordedSummary)
-      : t(fallback.summary),
+    title: recordedTitle ? localizePlaceholder(recordedTitle) : t(fallback.kind),
+    summary: recordedSummary ? localizePlaceholder(recordedSummary) : t(fallback.summary),
     status: projectedStatus(item),
   };
 }

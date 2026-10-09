@@ -44,11 +44,20 @@ nothing anywhere. This is what to expect the first time.
 
    The visual views only read the recorded history. A story's state comes from
    its recorded steps (in progress, blocked, started, delivered, not started, or
-   stopped). A story that has not started and depends on work that is not
-   delivered yet is shown as waiting. The charts are drawn in the page itself
+   stopped). The steps are the phases of the software-project workflow,
+   operations included. A story with an active claim is in progress; a story
+   that has not started and depends on work that is not delivered yet is
+   shown as waiting; a story closed with `story supersede` is shown as
+   replaced, with a link to the story that took over. These are the same
+   rules `status` uses, so the counts match. The charts are drawn in the page itself
    without any external library or network request. Evidence warnings and raw
    record controls stay on the detailed record views, so the everyday views
-   remain uncluttered.
+   remain uncluttered. The warnings banner appears only for problems a reader
+   can act on (for example a record that cannot be read) and starts closed;
+   routine notes from normal plugin use, such as links to contracts, plain-text
+   evidence, or older records without a schema version, stay in its technical
+   details. Titles and summaries that contain record IDs, paths, or commands
+   keep their readable words; only the technical fragment is removed.
 
 6. **If something goes wrong.** A port that is already in use is reported with
    the suggestion to use `--port 0`. `--host` accepts only `127.0.0.1`; other

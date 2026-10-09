@@ -17,7 +17,8 @@ import {
   storyInsights,
   storyState,
 } from "../../ui/change-observatory/insights.js";
-import { readableRecordedTitle } from "../../ui/change-observatory/i18n.js";
+import { humanizeRecordedText, readableRecordedTitle } from "../../ui/change-observatory/i18n.js";
+import { isActionableDiagnostic } from "../../ui/change-observatory/components.js";
 import { normalizeViewModel, recordSelectionKey } from "../../ui/change-observatory/model.js";
 import { defaultExploreState } from "../../ui/change-observatory/visuals.js";
 import {
@@ -66,7 +67,7 @@ function item(id, type, extra = {}) {
 }
 
 function phases(statuses) {
-  return ["discovery", "analysis", "design", "implementation", "validation", "release"]
+  return ["discovery", "analysis", "design", "implementation", "validation", "release", "operations"]
     .map((phase, index) => ({ phase, status: statuses[index] ?? "missing", provenance: "recorded", sourceRefs: [] }));
 }
 
@@ -145,6 +146,30 @@ test("recorded dependencies add a waiting state, a plan order, and a highlightab
   const plan = planLayout(stories, edges);
   assert.deepEqual(plan.columns.map((column) => column.map((story) => story.id).sort()), [["ST-A", "ST-D"], ["ST-B"], ["ST-C"]]);
   assert.deepEqual([...relatedChain("ST-B", edges)].sort(), ["ST-A", "ST-B", "ST-C"]);
+});
+
+test("recorded text drops or translates only its technical fragments", () => {
+  assert.equal(
+    humanizeRecordedText("Approved checkpointed autonomy for pull_request PR-UX-001 on main"),
+    "Approved step-by-step autonomy for pull request on main",
+  );
+  assert.equal(humanizeRecordedText("Use npm test before continuing."), "Use a command before continuing.");
+  assert.equal(humanizeRecordedText("Completed git.push for exact delivery PR-CAT-001"), "Completed push for exact delivery");
+  assert.equal(humanizeRecordedText("APR-20261009155944347-f4a10d"), null);
+});
+
+test("closed and claimed stories follow the same rules as status", () => {
+  const phasesOf = (statuses) => phases(statuses);
+  assert.equal(storyState({ status: "ready", closure: { event: "superseded", replacementId: "ST-B" }, phases: phasesOf(["complete", "inProgress"]) }), "replaced");
+  assert.equal(storyState({ status: "ready", closure: { event: "cancelled" }, phases: phasesOf([]) }), "stopped");
+  assert.equal(storyState({ status: "ready", claimed: true, phases: phasesOf(["complete", "complete", "complete"]) }), "live");
+});
+
+test("only diagnostics a reader can act on raise the evidence banner", () => {
+  assert.equal(isActionableDiagnostic({ code: "schema_version_missing", severity: "info" }), false);
+  assert.equal(isActionableDiagnostic({ code: "dossier_link_target_missing", severity: "warning" }), false);
+  assert.equal(isActionableDiagnostic({ code: "invalid_json", severity: "warning" }), true);
+  assert.equal(isActionableDiagnostic({ code: "file_too_large", severity: "error" }), true);
 });
 
 test("titles that start with record IDs keep their readable part", () => {
