@@ -691,6 +691,19 @@ test("a reservation ends by itself when it expires and earlier with story releas
   assert.equal(mustRunJson(["story", "availability", "--root", second, "--id", "ST-1"], second, { AGENTIC_SDLC_STATUS_SYNC: "off" }).verdict, "free");
 });
 
+test("reserving again from the same computer renews the reservation", () => {
+  const { first, second, remote } = sharedProject("reserve-renew", ["ST-1"]);
+  const firstReservation = mustRunJson(["story", "reserve", "--root", first, "--id", "ST-1", "--agent", "alice", "--expires-in", "1d"], first);
+  const renewed = mustRunJson(["story", "reserve", "--root", first, "--id", "ST-1", "--agent", "alice", "--expires-in", "3d"], first);
+  assert.equal(renewed.shared_reservation.epoch, 2);
+  assert.equal(renewed.shared_reservation.renewed_reservation.expires_at, firstReservation.expires_at);
+  assert.ok(Date.parse(renewed.expires_at) > Date.parse(firstReservation.expires_at));
+  const release = remoteRecord(remote, "refs/agentic-sdlc/claims/ST-1/000001/release");
+  assert.equal(release.status, "transferred");
+  assert.match(release.reason, /renewed/u);
+  assert.equal(mustRefuseJson(["story", "reserve", "--root", second, "--id", "ST-1", "--agent", "bob"], second).error.code, "STORY_CLAIM_HELD_ELSEWHERE");
+});
+
 test("a ready story nobody claimed, with a branch naming it on the remote, is reported before anyone starts it", () => {
   const { first, second, remote } = sharedProject("remote-work", ["ST-REPLAN-002", "ST-REPLAN-0021"]);
   git(remote, ["symbolic-ref", "HEAD", "refs/heads/main"]);

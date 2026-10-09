@@ -1499,6 +1499,7 @@ node bin/agentic-sdlc.mjs story release --root <project> --id ST-001
 - Other computers see "reserved by X until Y" in `status` and `orchestrate status`; their `story claim` and `story reserve` are refused (`STORY_CLAIM_HELD_ELSEWHERE`). A person takes it over with `story claim --force --reason "<why>" --actor-type human`.
 - The reserving computer's `story claim` converts it: the reservation epoch gets a release with status `transferred`, and the claim takes the next epoch.
 - It always expires: default `orchestration_policy.reservation.default_expires_in_seconds` (86400), maximum `max_expires_in_seconds` (2592000). An expired reservation frees the story by itself.
+- Running `story reserve` again from the computer that holds it renews it: the old epoch gets a release with status `transferred` ("renewed") and a new reservation starts now with the new expiry (since 0.58.0; earlier plugins refused with `STORY_ALREADY_RESERVED_HERE`).
 - `story release --id <story>` ends a reservation; one made on another computer needs a person and `--reason`.
 - Inside an agent session a computer keeps one reservation at a time (`STORY_RESERVE_ONE_PER_COMPUTER`): reserve only this computer's next story, never other computers' work.
 - Refused with `STORY_RESERVE_NOT_SHARED` when claims are not shared (no remote, or `coordination.mode: local_only`) and when the remote cannot be reached.
