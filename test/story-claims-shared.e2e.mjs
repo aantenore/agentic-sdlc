@@ -555,7 +555,9 @@ test("status names other computers' claims with their identity and last push, an
   const shared = status.shared_claims.claims.find((item) => item.story_id === "ST-1");
   assert.deepEqual(shared.identity, { user: "Claims E2E", host: "pc-bob" });
   assert.equal(shared.activity.branch_on_remote, true);
-  assert.match(mustRun(["status", "--root", first], first).stdout, /Ready to start: ST-2, ST-3/u);
+  const statusText = mustRun(["status", "--root", first], first).stdout;
+  assert.doesNotMatch(statusText.split("Technical details (optional):")[0], /\bST-\d/u, "story ids stay out of the primary lines");
+  assert.match(statusText, /- Ready to start: ST-2, ST-3/u);
 
   // ST-3 is merged into main by hand, without any recorded lifecycle step.
   fs.writeFileSync(path.join(first, "feature-3.txt"), "done\n", "utf8");
@@ -571,8 +573,11 @@ test("status names other computers' claims with their identity and last push, an
   assert.equal(drift.evidence, "commit_subject");
   assert.equal(drift.base_branch, "main");
   const behindHuman = mustRun(["status", "--root", second, "--sync", "fetch"], second).stdout;
-  assert.match(behindHuman, /Attention: this copy is 1 commit\(s\) behind origin\/main/u);
-  assert.match(behindHuman, /ST-3: appears merged into main/u);
+  const [primary, details] = behindHuman.split("Technical details (optional):");
+  assert.match(primary, /^Outcome: /u, "status keeps its own plain-language outcome");
+  assert.match(primary, /Attention: this copy is 1 commit\(s\) behind origin\/main/u);
+  assert.match(primary, /Attention: 1 story appears already merged into the main branch but still open/u);
+  assert.match(details, /ST-3: appears merged into main/u);
   assert.equal(JSON.parse(fs.readFileSync(path.join(second, ".sdlc", "stories", "ST-3", "story.json"), "utf8")).status, "ready",
     "status never changes a story record");
 });
