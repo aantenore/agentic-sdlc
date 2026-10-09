@@ -783,3 +783,48 @@ test("a story closed by supersede or cancel on another computer is finished ther
   assert.equal(finished.shared_claim.completed.status, "closed");
   assert.equal(mustRefuseJson(claim(second, "ST-1", "bob"), second).error.code, "STORY_COMPLETED_ON_REMOTE");
 });
+
+test("inside an agent's session a computer claims and reserves only its own work; a person can still assign more", () => {
+  const { first, second } = sharedProject("own-work", ["ST-1", "ST-2", "ST-3"]);
+  const session = { CLAUDECODE: "1" };
+  mustRunJson(claim(first, "ST-1", "alice"), first, session);
+  const secondClaim = mustRefuseJson(claim(first, "ST-2", "bob"), first, session);
+  assert.equal(secondClaim.error.code, "STORY_CLAIM_ONE_PER_WORKTREE");
+  assert.match(secondClaim.error.message, /ST-1 \(alice\)/u);
+  assert.equal(claimFile(first, "ST-2"), null);
+  // Another computer claims its own story freely.
+  mustRunJson(claim(second, "ST-2", "bob"), second, session);
+
+  // One reservation per computer: the next one, not every computer's.
+  mustRunJson(["story", "reserve", "--root", first, "--id", "ST-3", "--agent", "alice"], first, session);
+  mustRun(["story", "release", "--root", first, "--id", "ST-3"], first, session);
+  mustRunJson(["story", "reserve", "--root", first, "--id", "ST-3", "--agent", "alice"], first, session);
+  assert.equal(
+    mustRefuseJson(["story", "reserve", "--root", first, "--id", "ST-2", "--agent", "bob"], first, session).error.code,
+    "STORY_RESERVE_ONE_PER_COMPUTER",
+  );
+  assert.equal(
+    mustRefuseJson(["story", "reserve", "--root", second, "--id", "ST-1", "--agent", "carol"], second, session).error.code,
+    "STORY_CLAIM_HELD_ELSEWHERE",
+  );
+
+  // Outside an agent's session a person decides.
+  mustRun(["story", "release", "--root", first, "--id", "ST-3"], first);
+  mustRunJson(claim(first, "ST-3", "carol"), first);
+
+  // Finishing (releasing) the own story frees the worktree for the next one.
+  mustRun(["story", "release", "--root", second, "--id", "ST-2"], second, session);
+  mustRun(["story", "release", "--root", first, "--id", "ST-3"], first);
+  mustRun(["story", "release", "--root", first, "--id", "ST-1"], first, session);
+  mustRunJson(claim(first, "ST-2", "alice"), first, session);
+});
+
+test("a story claimed on another computer cannot be cancelled from here until its claim ends", () => {
+  const { first, second } = sharedProject("cancel-held", ["ST-1"]);
+  mustRunJson(claim(first, "ST-1", "alice"), first);
+  const refused = mustRefuseJson([
+    "story", "cancel", "--root", second, "--id", "ST-1", "--reason", "Not needed", ...humanApproval("Cancel ST-1"),
+  ], second);
+  assert.match(refused.error.message, /ST-1 is held on another computer \(alice/u);
+  assert.match(refused.error.message, /story release --id ST-1 --reason/u);
+});

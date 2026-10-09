@@ -829,6 +829,16 @@ human or CI actor, and is refused inside an agent session
 (`STORY_CLAIM_TAKEOVER_NEEDS_PERSON`). The release record names who took over
 and why; the previous holder's `orchestrate status` and `status` show it.
 
+Inside an agent session a computer acts only on its own work: `story claim` is
+refused (`STORY_CLAIM_ONE_PER_WORKTREE`) while this worktree holds an active shared
+claim on another story, and `story reserve` (`STORY_RESERVE_ONE_PER_COMPUTER`)
+while this computer holds another unexpired reservation; finish or release it
+first, or a person runs the command in their own terminal. `story cancel` and
+`story supersede` refuse a story claimed or reserved on another computer until
+its holder releases it (or a person does, with `story release --reason`).
+Records are unchanged, so older plugins on other computers keep working; they
+apply these refusals once updated.
+
 `orchestration_policy.coordination.mode` is `auto` (default: share when the
 remote exists, otherwise keep claims on this computer), `required` (refuse to
 claim without the remote), or `local_only` (never share, for one computer
@@ -1424,6 +1434,7 @@ node bin/agentic-sdlc.mjs story release --root <project> --id ST-001
 - The reserving computer's `story claim` converts it: the reservation epoch gets a release with status `transferred`, and the claim takes the next epoch.
 - It always expires: default `orchestration_policy.reservation.default_expires_in_seconds` (86400), maximum `max_expires_in_seconds` (2592000). An expired reservation frees the story by itself.
 - `story release --id <story>` ends a reservation; one made on another computer needs a person and `--reason`.
+- Inside an agent session a computer keeps one reservation at a time (`STORY_RESERVE_ONE_PER_COMPUTER`): reserve only this computer's next story, never other computers' work.
 - Refused with `STORY_RESERVE_NOT_SHARED` when claims are not shared (no remote, or `coordination.mode: local_only`) and when the remote cannot be reached.
 
 ## Check A Story Before Starting It
