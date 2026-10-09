@@ -20,6 +20,7 @@ import {
 } from "../lib/runtime/host.mjs";
 import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
 import { syncProjectForStatus } from "../lib/engine/status-sync.mjs";
+import { assertPluginSatisfiesProject } from "../lib/engine/plugin-compatibility.mjs";
 import { withReadSnapshot } from "../lib/engine/read-snapshot.mjs";
 import { reconcileExternalMerge } from "../lib/engine/external-merge.mjs";
 import { fileURLToPath } from "node:url";
@@ -1407,6 +1408,8 @@ async function main() {
       context.statusSync = statusSync;
     }
     if (handler?.stage === "pre-config") {
+      // Doctor reports the plugin version check itself.
+      if (resolution.canonical_action !== "doctor") assertPluginSatisfiesProject(context, resolution, parsed.options);
       if (resolution?.canonical_action === "config.migrate" && parsed.options.apply === true) {
         // Deliberate bootstrap exception: only the exact reviewed plan hash may
         // enter migrateProjectConfig's transactional grant. The current config
@@ -1427,6 +1430,8 @@ async function main() {
       return;
     }
     assertConfigAllowsCommand(context, resolution, parsed.options, parsed.positionals);
+    // Records written by a newer plugin stop changes here and warn on reads.
+    assertPluginSatisfiesProject(context, resolution, parsed.options);
     if (!resolution || !handler) {
       failUsage(`Unknown command: ${parsed.positionals.slice(0, 2).join(" ")}`);
     }
