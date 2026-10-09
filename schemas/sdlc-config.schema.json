@@ -76,6 +76,10 @@
         "auto_approve_explained_refresh": {
           "type": "boolean"
         },
+        "ignored_files": {
+          "description": "exclude (default) leaves out files Git ignores, nested .gitignore files included; include also discovers them.",
+          "enum": ["exclude", "include"]
+        },
         "source_roots": {
           "type": "array",
           "uniqueItems": true,
@@ -295,7 +299,8 @@
           "type": "object",
           "properties": {
             "principle": { "type": "string" },
-            "mode": { "enum": ["stale", "reopen"] }
+            "mode": { "enum": ["stale", "reopen"] },
+            "ignored_files": { "enum": ["exclude", "include"] }
           },
           "additionalProperties": false
         },

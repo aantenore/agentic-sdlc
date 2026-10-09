@@ -170,3 +170,30 @@ test("baseline roots come from the project policy and fall back to the shared de
   });
   assert.deepEqual(discovered.paths, ["services/billing/b.cs", "src/a.mjs"]);
 });
+
+test("discovery leaves out what Git ignores without entering ignored folders", (t) => {
+  const project = fixture();
+  t.after(() => fs.rmSync(project.root, { recursive: true, force: true }));
+  project.write("apps/web/page.tsx");
+  project.write("apps/web/next-env.d.ts");
+  project.write("apps/web/.next-cache/chunk.js");
+  project.write("apps/web/layout.tsx");
+  const gitVisible = {
+    files: new Set(["apps/web/page.tsx", "apps/web/layout.tsx"]),
+    directories: new Set([".", "apps", "apps/web"]),
+  };
+
+  const result = discoverBaselineSourcePaths({
+    projectRoot: project.root,
+    requestedPaths: ["apps", "apps/web/next-env.d.ts"],
+    policy: { source_extensions: [".tsx", ".ts", ".js"] },
+    gitVisible,
+  });
+
+  // A file requested by name stays included.
+  assert.deepEqual(result.paths, ["apps/web/layout.tsx", "apps/web/next-env.d.ts", "apps/web/page.tsx"]);
+  assert.deepEqual(result.excluded, [
+    { path: "apps/web/.next-cache/", reason: "git_ignored" },
+    { path: "apps/web/next-env.d.ts", reason: "git_ignored" },
+  ]);
+});

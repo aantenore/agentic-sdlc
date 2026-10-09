@@ -102,11 +102,19 @@ scope) changed afterwards, typically through later work merged on the base
 branch. A stale story that counts as completed is closed to new evidence;
 `status` lists it under `stale_certifications` with the changed paths, the
 story projection reports `lifecycle_source: workflow_final_receipt_stale`, and
-`workflow instance status` shows `final_receipt_stale`. Set
-`orchestration_policy.certification_drift.mode` to `reopen` to keep the
-earlier behaviour, where such a receipt is invalid and asks for
-recertification. A receipt whose identity checks fail (workflow records,
-task-start binding, lifecycle evidence) is always invalid.
+`workflow instance status` shows `final_receipt_stale`. Records are never
+rewritten. Set `orchestration_policy.certification_drift.mode` to `reopen` to
+keep the earlier behaviour, where such a receipt is invalid and asks for
+recertification. Files Git ignores (any `.gitignore`, including nested ones,
+`.git/info/exclude`, and `core.excludesFile`) are not project files: they are
+never read, never enter a certification, and never make one stale, while a
+file in the same folder that Git does not ignore is still checked. Set
+`orchestration_policy.certification_drift.ignored_files` to `include` to read
+ignored files inside the write scope as well, as before. A receipt whose identity checks fail (workflow records,
+task-start binding, lifecycle evidence) is always invalid. Evidence a story recorded (test,
+release, and delivery evidence files) and its linked output artifacts are not
+superseded: keep them in story-scoped paths that later stories do not
+overwrite.
 
 A final certification after it is sealed follows four rules. Records are
 never rewritten; the rules only decide how a receipt is read.
@@ -140,10 +148,7 @@ never rewritten; the rules only decide how a receipt is read.
 4. **Missing or rewritten history is named.** A certified commit absent from
    the clone gives `final_receipt_check:certified_commit_missing`; one that is
    no longer an ancestor of HEAD gives
-   `final_receipt_check:certified_history_rewritten`. Neither is ever stale. Evidence a story recorded (test,
-release, and delivery evidence files) and its linked output artifacts are not
-superseded: keep them in story-scoped paths that later stories do not
-overwrite.
+   `final_receipt_check:certified_history_rewritten`. Neither is ever stale.
 
 The normal user experiences this chain as an explained sequence of decisions
 and results. Codex prepares the structured inputs and runs the CLI; record IDs,
@@ -302,7 +307,7 @@ agentic-sdlc baseline refresh --from BASELINE-INITIAL
 
 The refresh never rewrites the approved baseline. It creates a new revision (`BASELINE-INITIAL-R2`, then `-R3`, …) that records every added, changed, and removed file compared with its predecessor, and the story that produced each change. Work that started from the previous revision keeps its own reference; new work starts from the successor.
 
-A change counts as delivered when a merged pull-request delivery started from the previous baseline, the path lies inside every write scope its requirements approved, and the merged commit holds exactly the bytes the new snapshot records. When every change is delivered and `baseline_policy.auto_approve_explained_refresh` is `true`, the successor is approved by that project policy and nothing is asked. Any other change (a manual edit, a file outside the approved scopes, a local release, a commit missing from this clone) leaves the successor proposed, lists those files under "Needs Review" in its report, and waits for a normal `baseline approve`.
+A change counts as delivered when a merged pull-request delivery started from the previous baseline, the path lies inside every write scope its requirements approved, and the merged commit holds exactly the bytes the new snapshot records. When every change is delivered and `baseline_policy.auto_approve_explained_refresh` is `true`, the successor is approved by that project policy and nothing is asked. Any other change (a manual edit, a file outside the approved scopes, a local release, a commit missing from this clone) leaves the successor proposed, lists those files under "Needs Review" in its report, and waits for a normal `baseline approve`. Baseline discovery, refresh, and freshness checks follow Git's ignore rules (nested `.gitignore` files, `.git/info/exclude`, `core.excludesFile`): an ignored folder is not entered, an ignored file is not read, and a file an earlier snapshot hashed before Git ignored it is set aside under `refresh.ignored_paths` instead of counting as a change. Files named explicitly with `--source` stay bound. Set `baseline_policy.ignored_files` to `include` for the earlier behaviour.
 
 The strict gate re-verifies a policy approval from the records every time: the delta must match the two snapshots, every change must still be attributed to a merged delivery, the predecessor must rest on a person's or CI approval, and, when the merged commit is in the clone, its bytes must match. Projects created before this setting existed keep asking for every refresh until they opt in through `config migrate`.
 
