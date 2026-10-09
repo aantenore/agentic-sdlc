@@ -901,7 +901,8 @@ The dedicated assessment journey remains the exception described above: it packa
 
    **Messages between computers.** When `message status` says messaging is on
    (a topic stored with `message setup --topic <topic>`, or
-   `AGENTIC_SDLC_MESSAGING_TOPIC`), read recent notes from the other computers when you start
+   `AGENTIC_SDLC_MESSAGING_TOPIC`; otherwise skip messaging, it is optional and
+   the `message` commands only report that it is not set up), read recent notes from the other computers when you start
    (`message read --skip-own`) and, for long work, keep
    `message listen --skip-own --json` running in the background with its output
    in a file you check between steps. Send a short note with
