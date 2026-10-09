@@ -1299,11 +1299,21 @@ function buildCliRuntimeHandlerRegistry() {
     "report.query": call(reportQuery),
     "index.rebuild": call(rebuildIndex),
     "kb.search": project(({ context, options, resolution }) => searchKnowledgeBase(context, options, resolution.args)),
-    // A gate answers repeated Git questions once per run; the lifecycle-complete
-    // gate writes and re-checks the final receipt, so it keeps reading live.
+    // A gate answers repeated Git questions once per run and, for one story,
+    // trusts the other stories' sealed final receipts while verifying its own
+    // in full (AGENTIC_SDLC_STATUS_CHECKS=full verifies them all). The
+    // lifecycle-complete gate writes and re-checks the final receipt, so it
+    // keeps reading live.
     "gate.check": project(({ context, options }) => (options["lifecycle-complete"] === true
       ? gateCheck(context, options)
-      : withReadSnapshot(() => gateCheck(context, options)))),
+      : withReadSnapshot(() => gateCheck(context, options), {
+        fastChecks: Boolean(options.story)
+          && !options["release-manifest"]
+          && !options["release-manifest"]
+          && String(options.scope || "story") === "story"
+          && String(process.env.AGENTIC_SDLC_STATUS_CHECKS || "fast").trim().toLowerCase() !== "full",
+        verifyStoryId: options.story ? normalizeId(String(options.story)) : null,
+      }))),
     "orchestrate.status": report(showOrchestrationStatus),
     "orchestrate.plan": report(showOrchestrationPlan),
     "route.decide": call(decideRoute),
