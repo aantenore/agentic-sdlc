@@ -313,6 +313,16 @@
           },
           "additionalProperties": false
         },
+        "story_records": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "in_branch": { "enum": ["include", "exclude"] },
+            "before_pull_request": { "enum": ["warn", "refuse", "off"] },
+            "publish_branch_prefix": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$" }
+          },
+          "additionalProperties": false
+        },
         "merge_drift": {
           "type": "object",
           "properties": {
