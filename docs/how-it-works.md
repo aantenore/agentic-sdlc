@@ -267,6 +267,19 @@ Several computers can deliver and refresh at the same time. Before writing anyth
 
 A refresh line can grow without limit. Each refresh pins the approval hash of its predecessor and names the approval by a person or CI that the line rests on (`refresh.anchor_baseline_ref`), so checking a refresh approved from delivered work reads three records whatever the length of the line: the refresh, its predecessor, and that anchor; every earlier refresh was verified in full while it was the active baseline. Commands that only need the identity, order, status, or refresh links of baselines read them from a derived index (`.sdlc/indexes/baseline-index.json`, not versioned, rebuilt from the records whenever one changes), and a refreshed baseline that no work brief cites is not re-read by the project gate. Delivered work is matched newest first, and each delivery reads every changed path of its scope from Git in one batch. A baseline record is redacted one section at a time for the trace, so projects above about 4,500 files are not refused by the redaction limits; raise `baseline_policy.max_discovered_files` above its default of 5,000 to describe larger projects. `node scripts/benchmark-baseline-scale.mjs` measures these paths on synthetic projects.
 
+#### Several stories changing the same files
+
+Git merges text, not intentions. When two stories start from the same project state and both change one area, the second to merge was planned and checked without the first one's change, even if the merge is clean. Before `pull_request.merge` is authorized, the story is compared with every other story's merged delivery of the same baseline line that is not in the commit it started from (read from `git rev-list` of that commit). The files each such merge changed (`git diff-tree` against its first parent) that fall inside this story's write scope are overlaps to review; files it only read from its baseline are reported as context changes.
+
+```bash
+agentic-sdlc story overlap --id ST-SECOND
+agentic-sdlc story overlap confirm --id ST-SECOND --summary "Rebased on the status change and re-ran the status tests"
+```
+
+`story overlap confirm` records a review under `.sdlc/stories/<story>/overlap-reviews/` that names each change by path, delivering story, merge commit, and exact bytes, with a trace event; a later change to the same file needs a new review. Until then the strict story gate lists each unreviewed change and the merge authorization is refused. `orchestration_policy.delivered_overlap` sets the behavior: `write_scope` and `context` take `confirm`, `warn`, or `off` (defaults `confirm` and `warn`), `confirmation_actor` is `any` or `human`, and `claim` (`warn` or `off`) lists, when a story is claimed, the other stories in progress whose write scope shares files with it. The claim warning never blocks: locking files would serialize parallel work.
+
+When several stories changed one path since the previous revision, the refresh attributes it to the newest delivery that changed it (not one that only carried it along) and lists the others in `also_changed_by`, which the strict gate verifies like the main attribution.
+
 The directories read by default are listed in `baseline_policy.source_roots` and `baseline_policy.test_roots` when the project sets them, and otherwise in the shared defaults (`src`, `app`, `lib`, `packages`, `services`, `cmd`, `internal`, `pkg`, `test`, `tests`, and similar). File types come from `baseline_policy.source_extensions`.
 
 ### Checkpoint 2: approve one complete tranche

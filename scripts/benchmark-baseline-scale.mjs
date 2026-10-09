@@ -3,6 +3,7 @@
 // It drives the CLI only, so the same script runs against any checkout:
 //   node scripts/benchmark-baseline-scale.mjs [--cli path/to/bin/agentic-sdlc.mjs]
 //     [--files 5000] [--revisions 1000] [--revision-files 1000] [--chain 100]
+//     [--deliveries 200]
 // Every scenario builds its own temporary project and removes it afterwards.
 import { execFileSync, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -22,6 +23,7 @@ const LARGE_FILES = Number(option("files", 5000));
 const REVISIONS = Number(option("revisions", 1000));
 const REVISION_FILES = Number(option("revision-files", 1000));
 const CHAIN = Number(option("chain", 100));
+const DELIVERIES = Number(option("deliveries", 200));
 
 function stableJson(value) {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
@@ -202,6 +204,41 @@ try {
   execFileSync("git", ["-C", repo, "cat-file", "--batch"], { input: paths.map((sourcePath) => `HEAD:${sourcePath}\n`).join(""), maxBuffer: 1 << 30 });
   const batch = performance.now() - started;
   results.git_reads = { paths: paths.length, one_process_per_path_ms: Math.round(perPath), one_batch_ms: Math.round(batch) };
+
+  // 5. Overlap check before a merge: the story started before many deliveries
+  // merged, and each one changed a few files of the same area.
+  const { findDeliveredOverlaps } = await import(new URL("../lib/delivered-overlap.mjs", import.meta.url));
+  const git = (...gitArgs) => execFileSync("git", ["-C", repo, "-c", "user.name=bench", "-c", "user.email=bench@example.invalid", ...gitArgs]).toString().trim();
+  const start = git("rev-parse", "HEAD");
+  const merges = [];
+  for (let index = 0; index < DELIVERIES; index += 1) {
+    for (let file = 0; file < 5; file += 1) {
+      const sourcePath = paths[(index * 5 + file) % paths.length];
+      fs.writeFileSync(path.join(repo, sourcePath), `export const value = ${index};\n`);
+    }
+    git("commit", "-qam", `delivery ${index}`);
+    merges.push(git("rev-parse", "HEAD"));
+  }
+  started = performance.now();
+  const ancestors = new Set(git("rev-list", start).split("\n"));
+  const deliveries = merges.map((sha, index) => ({
+    story_id: `ST-${index}`,
+    delivery_profile_id: `AUT-${index}`,
+    merge_commit_sha: sha,
+    seen: ancestors.has(sha),
+    changed_paths: git("diff-tree", "-r", "--name-only", "--no-commit-id", `${sha}^1`, sha).split("\n").filter(Boolean),
+    contentSha256: () => "0".repeat(64),
+  }));
+  const { overlaps } = findDeliveredOverlaps({
+    story_id: "ST-LATE",
+    write_scopes: [["src/module-1", "src/module-2"]],
+    context_hashes: Object.fromEntries(paths.map((sourcePath) => [sourcePath, "1".repeat(64)])),
+  }, deliveries);
+  results.delivered_overlap = {
+    deliveries: DELIVERIES,
+    overlaps: overlaps.length,
+    check_ms: Math.round(performance.now() - started),
+  };
 } finally {
   for (const directory of cleanup) fs.rmSync(directory, { recursive: true, force: true });
 }

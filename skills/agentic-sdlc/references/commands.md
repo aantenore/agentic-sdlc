@@ -766,6 +766,16 @@ node bin/agentic-sdlc.mjs story release --root <project> --id ST-001 --reason "D
 node bin/agentic-sdlc.mjs story claim --root <project> --id ST-001 --agent <name> --branch feature/ST-001 --force --reason "<why>" --actor-type human
 ```
 
+When another story in progress has a write scope that shares files with the
+claimed story, `story claim` lists it under `overlapping_stories`. Before
+`pull_request.merge`, changes other stories merged after this story started
+inside its write scope must be reviewed:
+
+```bash
+node bin/agentic-sdlc.mjs story overlap --root <project> --id ST-002 --json
+node bin/agentic-sdlc.mjs story overlap confirm --root <project> --id ST-002 --summary "Rebased on ST-001 and re-ran the tests"
+```
+
 Taking over a story held on another computer needs `--force`, `--reason`, and a
 human or CI actor, and is refused inside an agent session
 (`STORY_CLAIM_TAKEOVER_NEEDS_PERSON`). The release record names who took over

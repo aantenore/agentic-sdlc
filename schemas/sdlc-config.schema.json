@@ -236,6 +236,17 @@
             "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 300 }
           },
           "additionalProperties": false
+        },
+        "delivered_overlap": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "write_scope": { "enum": ["confirm", "warn", "off"] },
+            "context": { "enum": ["confirm", "warn", "off"] },
+            "confirmation_actor": { "enum": ["any", "human"] },
+            "claim": { "enum": ["warn", "off"] }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

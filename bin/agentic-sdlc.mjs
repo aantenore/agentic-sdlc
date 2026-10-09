@@ -1047,6 +1047,10 @@ import {
   refreshBaseline,
 } from "../lib/engine/baseline-refresh.mjs";
 import {
+  confirmStoryOverlap,
+  showStoryOverlap,
+} from "../lib/engine/story-overlap.mjs";
+import {
   addStoryAcceptance,
   appendTrace,
   approveBaseline,
@@ -1176,6 +1180,8 @@ function buildCliRuntimeHandlerRegistry() {
     "story.acceptance.add": call(addStoryAcceptance),
     "story.claim": call(claimStory),
     "story.release": call(releaseStoryClaim),
+    "story.overlap": call(showStoryOverlap),
+    "story.overlap.confirm": call(confirmStoryOverlap),
     "story.complete-step": call(completeStoryStep),
     "story.prepare-handoff": call(prepareStoryHandoff),
     "story.handoff.close": call(closeHandoff),
