@@ -1834,3 +1834,12 @@ Example normalized query for "all new functional stories from the last 10 days":
   "sort": "created_at_desc"
 }
 ```
+
+## Parking a stuck story
+
+```bash
+node bin/agentic-sdlc.mjs story park --root <project> --id ST-001 --reason "Merge conflict on the payment module" --actor-type human
+node bin/agentic-sdlc.mjs story resume --root <project> --id ST-001 --reason "Conflict solved" --actor-type human
+```
+
+`story park` is a person's decision (human or CI actor, mandatory `--reason`; inside an agent's session also `--approval-source explicit-user`, used only when the user asked). It releases this computer's active claim (on the remote too), publishes a parked reservation without expiry (`"reservation": true`, `"parked": {reason, parked_at, park_id}`) so every computer lists the story as `parked` (`summary.parked`, `parked_work` in `status`) and refuses `story claim`, `story reserve`, and `story release` on it (`STORY_PARKED`), and writes a sealed record under `.sdlc/stories/<story>/parking/` plus a `decision` trace (`story.park`). Nothing is marked done and no check is bypassed. The output names the next available story. `story resume` ends the parked reservation from any computer and adds a resume record; a park already resumed on another computer is treated as resumed before its records arrive. Older plugins see a reservation without expiry and are asked to update (`.sdlc/compatibility/`, feature `story-parking`).

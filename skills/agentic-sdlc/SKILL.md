@@ -889,6 +889,16 @@ The dedicated assessment journey remains the exception described above: it packa
    your own `story claim`, run after `task start`, converts your computer's
    reservation into the claim.
 
+   **Parking a stuck story.** When the user tells you to set a story aside
+   because it is stuck (a merge conflict or any other problem) and move on, run
+   `story park --id <story> --reason "<the user's reason>" --actor-type human --approval-source explicit-user`.
+   It releases the claim (here and on the remote), marks the story parked for
+   every computer, and prints the next available story: continue with that one
+   (`orchestrate plan`). Never park a story on your own initiative to dodge a
+   failing check, and never treat a parked story as done. `story claim`
+   refuses a parked story (`STORY_PARKED`); only the user brings it back with
+   `story resume --id <story> --reason "<why>" --actor-type human`.
+
    When the project has a git remote, the claim is first recorded on it
    (`refs/agentic-sdlc/claims/`), so every computer working on the project sees
    it; `orchestrate status` lists stories claimed on other computers as
