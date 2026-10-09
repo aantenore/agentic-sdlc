@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "delivery-external-merge-receipt.schema.json",
+  "title": "Pull request merged outside the plugin, acknowledged by a person or CI",
+  "type": "object",
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "profile_ref",
+    "delivery",
+    "start_receipt_ref",
+    "covered_head_receipt_ref",
+    "delivery_status_at_reconcile",
+    "pull_request",
+    "provider",
+    "code_review",
+    "reason",
+    "approval",
+    "recorded_by",
+    "recorded_at",
+    "audit",
+    "receipt_hash",
+    "hash_algorithm"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "const": "delivery_external_merge_receipt"
+    },
+    "schema_version": {
+      "const": "delivery-external-merge-receipt:v1"
+    },
+    "profile_ref": {
+      "$ref": "#/$defs/path_hashed_id_ref"
+    },
+    "delivery": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "const": "pull_request"
+        }
+      },
+      "additionalProperties": false
+    },
+    "start_receipt_ref": {
+      "$ref": "#/$defs/path_hashed_id_ref"
+    },
+    "covered_head_receipt_ref": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/path_hashed_id_ref"
+        }
+      ]
+    },
+    "delivery_status_at_reconcile": {
+      "enum": [
+        "started",
+        "ready_for_review"
+      ]
+    },
+    "pull_request": {
+      "type": "object",
+      "required": [
+        "url",
+        "number",
+        "repository",
+        "head_branch",
+        "base_branch",
+        "head_sha",
+        "base_sha",
+        "merge_commit_sha",
+        "merged_at",
+        "merged_by"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https://github\\.com/[^/]+/[^/]+/pull/[1-9][0-9]*$"
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "head_branch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_branch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "head_sha": {
+          "$ref": "#/$defs/git_sha"
+        },
+        "base_sha": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/git_sha"
+            }
+          ]
+        },
+        "merge_commit_sha": {
+          "$ref": "#/$defs/git_sha"
+        },
+        "merged_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "merged_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "provider": {
+      "type": "object",
+      "required": [
+        "id",
+        "observed_at"
+      ],
+      "properties": {
+        "id": {
+          "const": "github-cli"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "code_review": {
+      "type": "object",
+      "required": [
+        "required",
+        "source"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approval": {
+      "type": "object",
+      "required": [
+        "status",
+        "approval_source"
+      ],
+      "properties": {
+        "status": {
+          "const": "approved"
+        },
+        "approval_source": {
+          "enum": [
+            "explicit-user",
+            "ci"
+          ]
+        }
+      }
+    },
+    "recorded_by": {
+      "$ref": "common.schema.json#/$defs/actor"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "audit": {
+      "$ref": "common.schema.json#/$defs/audit"
+    },
+    "receipt_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "hash_algorithm": {
+      "const": "sha256:stable-json:v1"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$"
+    },
+    "path_hashed_id_ref": {
+      "type": "object",
+      "required": [
+        "id",
+        "path",
+        "hash"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1292,6 +1292,10 @@
       "remote": "origin",
       "timeout_seconds": 20
     },
+    "status_sync": {
+      "principle": "status first brings this clone up to date, so it reports what other computers merged. fetch updates only the remote-tracking branches and never changes files; pull also fast-forwards the current branch when it is strictly behind its upstream and git can do so without touching local changes; off reads the clone as it is. A remote that cannot be reached is a warning, never an error. The remote is the current branch's own remote, or coordination.remote.",
+      "mode": "fetch"
+    },
     "delivered_overlap": {
       "principle": "Stories started from the same project state can both change one area. When another story's merged delivery changed a file inside this story's write scope after this story started, write_scope decides what happens before this story merges: confirm requires an overlap review (story overlap confirm) that names each such change, warn only reports it, off ignores it. context applies the same choice to files this story only read. confirmation_actor any lets the agent working on the story record the review; human requires a person. claim warn lists other stories in progress whose write scope overlaps when a story is claimed; it never blocks a claim.",
       "write_scope": "confirm",

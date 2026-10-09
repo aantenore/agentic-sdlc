@@ -45,11 +45,11 @@ For generic implementation and release work, follow this order:
 2. **Agree the requirement** — show the outcome, success criteria, non-goals, constraints, integrations, and maximum working independence in ordinary language; obtain the required approval. List every project path the work may change, including `.gitignore` when it may be added or updated and an in-repository local-release destination (see “Choose where the result goes”).
 3. **Decompose only when needed** — say up front that every story is delivered on its own: each story gets its own pull request or local release and its own autonomy choice. Before proposing stories, ask whether the user wants one result or several. When the user wants ONE pull request or ONE local release for several parts, propose one delivery story whose parts are tasks inside it; propose several stories only when each part should ship separately. Obtain approval before treating the breakdown as canonical, and agree this shape before approval, not after: an approved story that is never started stays in the plan (see “Approved stories that will not be delivered”).
 4. **Agree the output and work brief** — resolve the real output, tools, files, tests, contract, branches or local target, verification, and protected actions. Create and approve the contextualized contract only after this content is complete.
-5. **Choose autonomy for this delivery** — for every pull request or local release, ask again; never carry the choice over from earlier work. Before presenting the choices, explain whether option 3 can actually be effective; when this installation cannot digitally verify the approver, say that option 3 will be reduced to “Autonomy with checkpoints”. For a pull request, ask the code review question at the same step, before `task start`: does the user want a person who did not author the commits to approve the code before this PR is merged? It applies to this story only and is never inherited (see Workflow step 13). A local release never takes it.
+5. **Choose autonomy for this delivery** — for every pull request or local release, ask again; never carry the choice over from earlier work. Before presenting the choices, explain whether option 3 can actually be effective; when this installation cannot digitally verify the approver, say that option 3 will be reduced to “Autonomy with checkpoints”. For a pull request, ask the code review question at the same step, before `task start`: does the user want a person who did not author the commits to approve the code before this PR is merged? It applies to this story only and is never inherited (see Workflow step 13). Ask a third question there too: how merging should work (manual, after confirmation, or automatic). A local release takes neither.
 6. **Start the story workflow, then start once** — bind the exact configured phase order to the story before any completed step, then make one logical `task start` decision. Never use an early speculative start as routing or discovery, and never reconstruct the workflow after work has begun.
 7. **Implement, test, and advance phases** — after the governed task start is recorded, claim the story, change only approved paths, run the agreed checks, record evidence, complete each phase, and enter the next phase only after the previous one is complete.
 8. **Validate, then enter release** — after validation and the latest passing test evidence, seal the intermediate strict receipt and use it to move the task-bound workflow into `release`.
-9. **Finish and certify at the named destination** — only after entering `release`, create/update and verify the one pull request or complete the local release, close a pull request whose delivery excludes merge as `ready_for_review`, record release evidence, complete the release step, transition the workflow to `operations` and complete the `operations` step, release the completed story claim, and run the distinct lifecycle-complete gate. Push, protected-branch merge, remote deployment, and production remain separate when they were not explicitly included.
+9. **Finish and certify at the named destination** — only after entering `release`, create/update and verify the one pull request or complete the local release, close a pull request whose delivery excludes merge as `ready_for_review`, record release evidence, complete the release step, transition the workflow to `operations` and complete the `operations` step, release the completed story claim, and run the distinct lifecycle-complete gate. Push, protected-branch merge, remote deployment, and production remain separate when they were not explicitly included. When a person merged the pull request on GitHub themselves, they acknowledge it with `autonomy delivery reconcile` (see Workflow step 13).
 
 For a **new pull request**, the displayed boundary must include the repository, base and new head branch, `pull_request.create`, allowed writes, tests, push, and whether later PR updates are included. For an **existing pull request**, resolve and show the exact PR, repository, base, head, current SHA, and allowed update actions, and propose its profile with `--pr-mode existing --pr-number <n> --pr-url <url>`; do not create another PR. For a **local-only result**, exclude Git push, pull-request actions, remote deployment, and production access, and require the exact local target, smoke test, and rollback. Tell the user at the start that the local-only journey does not commit their code: changed files stay uncommitted in the working tree and the user decides when to commit. After lifecycle-complete passes, offer the exact commands, built from the approved requirement paths that exist plus `.sdlc` (the governed evidence), for example `git -C <target-project> add -- src test docs evidence .gitignore .sdlc` followed by `git -C <target-project> commit -m "<summary of the delivered result>"`, without running them. Never include an in-repository release destination in that command.
 
@@ -207,6 +207,8 @@ The dedicated assessment journey remains the exception described above: it packa
    node <plugin-root>/bin/agentic-sdlc.mjs dependency propose --root <target-project> --id DEP-REQ-001 --edge ST-002:ST-001:requires_artifact:validation:artifact_linked
    ```
 
+   An edge whose required state is `merged` (for example `ST-002:ST-001:blocks:implementation:merged`) is satisfied only when the upstream story's pull request is merged, by the plugin or by an acknowledged external merge (`autonomy delivery reconcile`). A pull request that is only `ready_for_review` is not enough.
+
    If the user later replaces or drops planned stories that were never started, record that decision instead of leaving them as blocked work: `story supersede --from-breakdown BD-REQ-001 --by <delivering-story>` (or `--id <story-id>`) or `story cancel --id <story-id>`, each with `--reason` and a formal approval from the user. Story records are not rewritten. A started story closes only on its own with `--id`, after every delivery bound to it ended `cancelled` or `rolled_back` (never with an active delivery or delivered work); the closure releases its claim. See `references/commands.md`.
 
 6. Before creating a contract, gather project-specific context from `.sdlc/`, user-provided files, repository files, or direct user answers. If critical context, output format, acceptance criteria, delivery target, autonomy choice, or a phase-guiding decision is missing, ask concise questions and stop instead of inventing details or creating a vague contract. Use `--allow-incomplete-contract` only for explicit clarification, migration, or recovery drafts, never to start phase work.
@@ -280,7 +282,7 @@ The dedicated assessment journey remains the exception described above: it packa
 
 10. Create or locate the story first, then create its final phase contract before doing phase work. It must include enough agreed context, zero unresolved open questions, exact requirement execution profile references, and `--output-ref` for durable story outputs. When delivery work is in scope, reserve a new stable profile ID and store it through `--delivery-profile`; this writes only the planned `delivery_execution_profile_id`, not a delivery-profile hash or approval. Approve the contract before step 13 creates the matching profile against the approved hashes. Never rewrite the approved contract to point back to that profile. A contract or phase override may narrow the effective autonomy level but never widen it.
 
-   When a delivery of a started story ends `cancelled` or `rolled_back`, continue the same story with exactly one new delivery rather than inventing a replacement story: a new contract ID with `--replace-story-contract` and a new `--delivery-profile`, its approval, a new profile with a fresh autonomy choice, `story release`, `task start` with the new contract and profile, then `story claim` again. The workflow run and completed phases are kept and the new task start links the replaced delivery. Active, released, merged, or ready-for-review deliveries cannot be replaced; the same rule applies to stories without a workflow binding.
+   When a delivery of a started story ends `cancelled` or `rolled_back`, continue the same story with exactly one new delivery rather than inventing a replacement story: a new contract ID with `--replace-story-contract` and a new `--delivery-profile`, its approval, a new profile with a fresh autonomy choice, `story release`, `task start` with the new contract and profile, then `story claim` again. The workflow run and completed phases are kept and the new task start links the replaced delivery. Active, released, merged (also outside the plugin), or ready-for-review deliveries cannot be replaced; the same rule applies to stories without a workflow binding.
 
    Story contract creation auto-populates `story.contract_id`; use `--replace-story-contract` only for explicit renegotiation or recovery. Contract creation is a proposal, not approval to proceed. Summarize the complete contract through `approval requests` and stop until the user explicitly approves, answers, requests changes, or has already granted a broader contract-approval scope that clearly covers it. A broader contract approval never supplies the mandatory autonomy choice for a new delivery unit.
 
@@ -382,6 +384,28 @@ The dedicated assessment journey remains the exception described above: it packa
 
    The requirement is checked only at `pull_request.merge`. Commits, push, pull-request create and update, closing as `ready_for_review`, and every gate, including `gate check --strict --lifecycle-complete`, proceed without a review. To change the answer after approval, see the code review paragraphs below.
 
+   Ask a third question at this same step, before `task start`, also only for a pull request and for this story only: how merging should work. In Italian, use this copy:
+
+   > Come vuoi gestire il merge di questa PR?
+   >
+   > 1. Lo faccio io su GitHub: il plugin non esegue mai il merge. Quando l’hai fatto, lo comunichi al plugin, che lo registra.
+   > 2. Dopo la tua conferma: il plugin esegue il merge solo dopo che hai confermato un punto di controllo (consigliato per questa storia).
+   > 3. In automatico: il plugin esegue il merge appena tutti i controlli sono superati, senza chiedere conferma. Non disponibile con “Guidato”.
+   >
+   > Questa scelta vale solo per questa storia.
+
+   In English:
+
+   > How should merging this PR work?
+   >
+   > 1. I merge it on GitHub: the plugin never merges. Once you have, you tell the plugin, which records it.
+   > 2. After your confirmation: the plugin merges only after you confirm a checkpoint (recommended for this story).
+   > 3. Automatically: the plugin merges as soon as every check passes, without asking. Not available with “Guided”.
+   >
+   > This choice applies only to this story.
+
+   Suggest option 2 by default, and option 1 when the user says they merge on GitHub themselves. Offer option 3 only when the autonomy choice is not `Guidato`/“Guided”. Never inherit the answer from an earlier story or delivery. It is a formal decision by the user: do not propose the delivery or start the task without it, and never answer for the user. Record it on `autonomy delivery propose` with `--merge manual|after-confirmation|automatic` (options 1, 2, 3), together with `--merge-actor-type human --merge-approval-source explicit-user --merge-summary "<the user's words>"`. Option 3 also needs `--merge-allowed`, and is refused at level `supervised`. It is stored in the approved, hash-bound profile as `pull_request_target.merge_decision` (`mode`, `source`, `actor_id`, `user_words`, `decided_at`). With `manual` the plugin never merges: the person merges on GitHub, then acknowledges it with `autonomy delivery reconcile` (below). With `after-confirmation` the plugin merges after the `pull_request.merge` checkpoint the person confirms. With `automatic` it merges once every gate passes, without that checkpoint.
+
    For a new pull request:
 
    ```bash
@@ -408,6 +432,10 @@ The dedicated assessment journey remains the exception described above: it packa
      --code-review-actor-type human \
      --code-review-approval-source explicit-user \
      --code-review-summary "<the user's words>" \
+     --merge manual \
+     --merge-actor-type human \
+     --merge-approval-source explicit-user \
+     --merge-summary "<the user's words>" \
      --json
    ```
 
@@ -439,6 +467,10 @@ The dedicated assessment journey remains the exception described above: it packa
      --code-review-actor-type human \
      --code-review-approval-source explicit-user \
      --code-review-summary "<the user's words>" \
+     --merge manual \
+     --merge-actor-type human \
+     --merge-approval-source explicit-user \
+     --merge-summary "<the user's words>" \
      --json
    ```
 
@@ -716,6 +748,20 @@ The dedicated assessment journey remains the exception described above: it packa
      --reason "The pull request is open for review at its verified head" \
      --json
    ```
+
+   **A pull request merged outside the plugin.** When a person merges a plugin-managed pull request directly on GitHub, the plugin does not see it. `status` detects the clear cases read-only (a head the plugin's receipts cover is already on the remote base branch; payload key `merged_outside_plugin`) and prints the command, but never records anything. A squash or rebase merge leaves no trace in git, so `status` cannot detect it; `reconcile` still works. Only a person or CI acknowledges the merge, in their own terminal; the command is refused inside an agent session, and the hooks deny it to agents and protect `.sdlc/autonomy/executions/<id>/external-merge.json`. Give the user the exact command and never run it for them:
+
+   ```bash
+   node <plugin-root>/bin/agentic-sdlc.mjs autonomy delivery reconcile \
+     --root <target-project> --id AUT-PR-184 \
+     --pr-url https://github.com/owner/repository/pull/184 \
+     --actor-type human --approval-source explicit-user \
+     --summary "<the user's words>"
+   ```
+
+   The plugin checks with `gh pr view` that the pull request is `MERGED` with a merge commit and `mergedAt`; that it was merged no earlier than the plugin's last recorded action; that the merged head equals the head the plugin's receipts cover (the latest passing `git.push` or `pull_request.create`/`pull_request.update`, or the pinned reviewed head of an existing PR); and that the PR URL, head branch, and base branch are the approved ones. A pull request with commits the receipts do not cover, or any mismatch, is refused with the reason and nothing is recorded. The same code review rule as a governed merge applies to the merged head. On success it writes the receipt `external-merge.json` (merge commit, `mergedBy`, `mergedAt`, verified head, the person's approval). A started delivery closes as `merged_externally`; a delivery already closed as `ready_for_review` keeps that close untouched and gains the receipt beside it. No existing record is rewritten, and repeating the command changes nothing. This is never reported as a governed merge.
+
+   Downstream, the story counts as delivered, and `gate check --strict --lifecycle-complete` may pass, but its final certification check carries the reduced label `certification: "externally_reconciled"`. `autonomy delivery checks` shows an “external merge” row, and the Change Observatory labels it “Merged outside the plugin” (“Unita fuori dal plugin”).
 
    For local release completion, repeat the exact approved shell-free smoke-test argv and rollback. The smoke working directory is governed by `--smoke-cwd`, must be equal to or inside one allowed write path, defaults to the only allowed write path, and is mandatory when several write paths are allowed. Shells, indirect dispatchers, inline interpreter code, and ambiguous loaders are rejected. An explicit interpreted entrypoint must resolve inside an allowed artifact path; package managers may use only `test` or one reviewed `run <script>` from a real, non-symlinked `package.json` in that exact directory. Before spawning, the CLI durably records an attempt that consumes the v3 authorization and binds the plugin build, sandbox, resolved launcher/runtime, explicit payload paths and pre-smoke artifact manifest. It runs from the exact released-artifact directory in a supported read-only sandbox that denies external network, then binds ordered output hashes and an unchanged post-smoke manifest before automatically closing as `released`. macOS denies loopback; Linux `bwrap` provides namespace-local loopback only, so portable smoke must not use listeners or connections. Exercise an exported API handler in-process or validate the artifact without sockets. The runner can read host-account files and is neither a confidentiality sandbox nor a transitive-code-attestation boundary; use reviewed code that does not load ungoverned host paths. Failed/interrupted attempts need a fresh authorization, current v3 receipts cannot downgrade to legacy, and later gates reject released-byte drift. Successful completion currently requires `/usr/bin/sandbox-exec` on macOS or `/usr/bin/bwrap` on Linux; unsupported hosts and Linux without `bwrap` fail closed and remain unreleased.
 
@@ -1065,6 +1111,7 @@ Before claiming the SDLC is complete or a story is ready to merge:
 - verify declared local data migrations have paired `data.migrate`/`data.rollback`, exact target and scopes, immutable preview evidence, an exact backup, a passing rollback verification, and a later passing final migration before release;
 - verify protected-branch merge and remote/production deployment have separate exact authority when requested;
 - verify each new pull-request delivery profile carries the user's own answer to the code review question (`pull_request_target.code_review`, from `explicit-user` or a standing approval), asked before task start and never inferred, inherited, or answered by an agent, and that a local release carries none;
+- verify each new pull-request delivery profile carries the user's own answer to the merge question (`pull_request_target.merge_decision`), asked before task start and never inferred, inherited, or answered by an agent; and that a merge made outside the plugin is acknowledged only by a person or CI through `autonomy delivery reconcile`, ends `merged_externally`, and certifies as `externally_reconciled`;
 - verify that, when a review is required, `pull_request.merge` rests on an approved `code-review:v1` record for the exact head by a reviewer independent of every `base..head` author, and that any change of the requirement after approval is a record under `.sdlc/reviews/requirement-changes/`;
 - verify relevant contracts exist under `.sdlc/contracts/`;
 - verify durable outputs are linked in `.sdlc/output-contracts/registry.json` with approved templates;

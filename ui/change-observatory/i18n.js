@@ -292,6 +292,7 @@ const ITALIAN = Object.freeze({
   "Review needed": "Verifica necessaria",
   "Approval needed": "Approvazione necessaria",
   Completed: "Completato",
+  "Merged outside the plugin": "Unita fuori dal plugin",
   Type: "Tipo",
   Status: "Stato",
   "Recorded title": "Titolo registrato",
@@ -651,6 +652,7 @@ function projectedStatus(item, fallbackStatus = null) {
   if (status === "ready") return t("Ready to continue");
   if (["active", "in_effect"].includes(status)) return t("In effect");
   if (["approved", "accepted"].includes(status)) return t("Approved");
+  if (status === "merged_externally") return t("Merged outside the plugin");
   if (["complete", "completed", "done", "passed", "verified", "succeeded", "merged", "ready_for_review", "released"].includes(status)) {
     return t("Completed");
   }
@@ -908,7 +910,7 @@ function deliveryGuidance(status, isItalian) {
     };
   }
 
-  if (["closed", "merged", "ready_for_review", "released", "rolled_back", "cancelled", "superseded", "expired"].includes(status)) {
+  if (["closed", "merged", "merged_externally", "ready_for_review", "released", "rolled_back", "cancelled", "superseded", "expired"].includes(status)) {
     return isItalian ? {
       outcome: "L’accordo di questa consegna è chiuso e non può essere riutilizzato.",
       impact: "Nessun nuovo lavoro può iniziare o continuare sulla base di questo accordo.",

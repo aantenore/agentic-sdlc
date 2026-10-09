@@ -390,7 +390,7 @@ node <plugin-root>/bin/agentic-sdlc.mjs doctor --root /path/to/project
 node <plugin-root>/bin/agentic-sdlc.mjs config status --root /path/to/project
 ```
 
-`status`, `doctor`, and `config status` inspect and explain; they do not approve work or widen permissions. `status` also checks that the project history still matches its recorded fingerprints and lists proposals, such as a proposed requirement, that wait for your approval. In a folder that is not set up yet, its next step tells you to initialize the project: ask your coding agent to initialize it, or run `agentic-sdlc init`. After `init`, the next step is to propose your first requirement.
+`status`, `doctor`, and `config status` inspect and explain; they do not approve work or widen permissions. `status` also checks that the project history still matches its recorded fingerprints and lists proposals, such as a proposed requirement, that wait for your approval. Before reading, `status` fetches from the remote so it does not report a stale picture (`orchestration_policy.status_sync.mode`: `fetch` by default, `pull` to also fast-forward, `off` to read the clone as it is; `--sync` overrides it once). If someone merged a plugin-managed pull request directly on GitHub, `status` says so and prints the `autonomy delivery reconcile` command to run in your own terminal. In a folder that is not set up yet, its next step tells you to initialize the project: ask your coding agent to initialize it, or run `agentic-sdlc init`. After `init`, the next step is to propose your first requirement.
 
 Common pauses are handled as follows:
 

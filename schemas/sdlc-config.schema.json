@@ -237,6 +237,22 @@
           },
           "additionalProperties": false
         },
+  "status_sync": {
+    "type": "object",
+    "properties": {
+      "principle": {
+        "type": "string"
+      },
+      "mode": {
+        "enum": [
+          "off",
+          "fetch",
+          "pull"
+        ]
+      }
+    },
+    "additionalProperties": false
+  },
         "delivered_overlap": {
           "type": "object",
           "properties": {

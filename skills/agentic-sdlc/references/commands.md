@@ -168,7 +168,7 @@ contract and profile, and claim the story again. The story keeps its workflow
 run and completed phases; the new task-start receipt links the replaced one,
 and the write-scope, secret-scan, and lifecycle checks stay anchored to the
 first task start. A delivery that is still active, or that ended `released`,
-`merged`, or `ready_for_review`, cannot be replaced; a further successor is
+`merged`, `merged_externally`, or `ready_for_review`, cannot be replaced; a further successor is
 possible only after the new delivery itself ends `cancelled` or
 `rolled_back`. Stories without a workflow binding follow the same rule.
 
@@ -222,10 +222,16 @@ node bin/agentic-sdlc.mjs autonomy delivery propose \
   --code-review-actor-type human \
   --code-review-approval-source explicit-user \
   --code-review-summary "No, complete it automatically" \
+  --merge manual \
+  --merge-actor-type human \
+  --merge-approval-source explicit-user \
+  --merge-summary "I will merge it on GitHub myself" \
   --json
 ```
 
 Every new pull-request proposal must carry the user's answer to "do you want a code review before this PR is merged?": `--code-review required|not-required`, with `--code-review-actor-type human`, `--code-review-approval-source explicit-user`, and `--code-review-summary` quoting the user's words; `--code-review-actor <person-id>` names the person (default `user`). An agent or system choice is refused, and so is `--code-review` on a local release. Ask the question at the same step as the autonomy choice, before `task start`, and never infer it from an earlier story (see the skill, Workflow step 13). The answer is stored in the approved, hash-bound profile as `pull_request_target.code_review` (`decision`, `source` `explicit-user` or `standing-approval`, `actor_id`, `user_words`, `standing_approval_id`, `decided_at`); editing it breaks the profile hash, and a delivery that carries it cannot be approved with `--approval-source automation`. A proposal under `--standing-approval` without `--code-review` takes the standing approval's answer instead. A profile created before this option has no `code_review` and follows `gate_policy.merge_requires_code_review` without blocking or asking. The requirement is checked only at `pull_request.merge`; see [Record A Code Review](#record-a-code-review) for what it needs and how to change it after approval.
+
+The same proposal also records how merging works, as the user's own answer to "how should merging this PR work?": `--merge manual|after-confirmation|automatic`, with `--merge-actor-type human`, `--merge-approval-source explicit-user`, and `--merge-summary` quoting the user's words. `manual` means the plugin never merges: a person merges on GitHub, then acknowledges it with [`autonomy delivery reconcile`](#acknowledge-a-merge-made-outside-the-plugin). `after-confirmation` (the usual behavior) means the plugin merges after a `pull_request.merge` checkpoint the person confirms. `automatic` needs `--merge-allowed`: the plugin merges once every gate passes, without that checkpoint, and it is refused at level `supervised`. The answer is stored in the approved, hash-bound profile as `pull_request_target.merge_decision` (`mode`, `source`, `actor_id`, `user_words`, `decided_at`). Ask it at the same step as the other two questions, before `task start`, and never infer it.
 
 Local-release example:
 
@@ -555,7 +561,7 @@ node bin/agentic-sdlc.mjs autonomy delivery action \
   --json
 ```
 
-Local completion runs the approved smoke argv without a shell from the exact governed `--smoke-cwd`. Shells, indirect dispatchers, inline interpreter code, and ambiguous loaders are rejected. Explicit interpreted entrypoints must resolve inside an allowed artifact path; package managers may only use `test` or one reviewed `run <script>` from the real package in that directory. Before spawning, a durable write-ahead attempt consumes the v3 authorization and binds the plugin build, sandbox, resolved launcher/runtime, explicit payload paths and pre-smoke artifact manifest. The supported read-only sandbox denies external network; macOS denies loopback and Linux `bwrap` exposes namespace-local loopback only. Portable smoke must not use listeners or connections; API artifacts should expose a handler that the smoke script invokes in-process. The runner can read host-account files and provides neither confidentiality nor transitive-code attestation, so reviewed artifact code must not load ungoverned host paths. Completion records ordered output hashes and an unchanged post-smoke manifest; failed or interrupted attempts require fresh authorization, current v3 receipts cannot downgrade to legacy, and later gates reject artifact drift. The directory must be equal to or inside one allowed write path; it defaults to the only write path and is required when several are allowed. Historical profiles without the field derive it only from one unambiguous write path and otherwise fail closed. Successful completion currently requires `/usr/bin/sandbox-exec` on macOS or `/usr/bin/bwrap` on Linux; unsupported hosts and Linux without `bwrap` fail closed before a `released` receipt is written. Passing `release.local` and `pull_request.merge` completions automatically close the lifecycle as `released` or `merged`; do not also call manual close for those statuses. A pull request whose profile excludes merge closes with `autonomy delivery close --terminal-status ready_for_review`, which binds its latest passing `pull_request.create` or `pull_request.update` completion, is refused after any later commit, push, or PR action, and needs no new approval. Use `autonomy delivery close` for formally approved `closed`, `cancelled`, `rolled_back`, `superseded`, or other allowed non-success terminal outcomes.
+Local completion runs the approved smoke argv without a shell from the exact governed `--smoke-cwd`. Shells, indirect dispatchers, inline interpreter code, and ambiguous loaders are rejected. Explicit interpreted entrypoints must resolve inside an allowed artifact path; package managers may only use `test` or one reviewed `run <script>` from the real package in that directory. Before spawning, a durable write-ahead attempt consumes the v3 authorization and binds the plugin build, sandbox, resolved launcher/runtime, explicit payload paths and pre-smoke artifact manifest. The supported read-only sandbox denies external network; macOS denies loopback and Linux `bwrap` exposes namespace-local loopback only. Portable smoke must not use listeners or connections; API artifacts should expose a handler that the smoke script invokes in-process. The runner can read host-account files and provides neither confidentiality nor transitive-code attestation, so reviewed artifact code must not load ungoverned host paths. Completion records ordered output hashes and an unchanged post-smoke manifest; failed or interrupted attempts require fresh authorization, current v3 receipts cannot downgrade to legacy, and later gates reject artifact drift. The directory must be equal to or inside one allowed write path; it defaults to the only write path and is required when several are allowed. Historical profiles without the field derive it only from one unambiguous write path and otherwise fail closed. Successful completion currently requires `/usr/bin/sandbox-exec` on macOS or `/usr/bin/bwrap` on Linux; unsupported hosts and Linux without `bwrap` fail closed before a `released` receipt is written. Passing `release.local` and `pull_request.merge` completions automatically close the lifecycle as `released` or `merged`; do not also call manual close for those statuses. A merge a person made on GitHub is closed as `merged_externally` only by `autonomy delivery reconcile`, never by manual close. A pull request whose profile excludes merge closes with `autonomy delivery close --terminal-status ready_for_review`, which binds its latest passing `pull_request.create` or `pull_request.update` completion, is refused after any later commit, push, or PR action, and needs no new approval. Use `autonomy delivery close` for formally approved `closed`, `cancelled`, `rolled_back`, `superseded`, or other allowed non-success terminal outcomes.
 
 The CLI revalidates local Git identity, branches, SHA transitions, paths, action receipts, and evidence hashes. Push authorization observes the base SHA directly on the selected remote, requires one passing completed `git.commit` receipt for every commit from that SHA to the exact head, and rejects remotes with any fetch/push URL outside the approved repository. Push/merge authorization records a live remote pre-state, and completion queries the exact Git remote or GitHub PR for the expected later post-state. This observation is not a provider-signed offline attestation; retain durable host/CI/provider evidence and do not claim signed proof when no attestation adapter is configured.
 
@@ -850,6 +856,8 @@ node bin/agentic-sdlc.mjs dependency approve --root <project> --id DEP-REQ-001 -
 node bin/agentic-sdlc.mjs dependency status --root <project> --story ST-002
 node bin/agentic-sdlc.mjs story deps --root <project> --id ST-002
 ```
+
+A dependency edge is `from:to:type:blocks:required_state`. The required state `merged` (for example `ST-002:ST-001:blocks:implementation:merged`) is satisfied only when the upstream story's pull request is merged, by the plugin or by an acknowledged external merge; a delivery that is only `ready_for_review` does not satisfy it.
 
 Breakdowns and dependencies are proposed first, then approved by a human/CI actor or by delegated automation when the user explicitly gave a matching approval level. Hard dependency scopes block orchestration and strict gates; soft dependencies remain visible as warnings. When upstream artifacts change, record a `dependency.revalidate` trace on downstream stories after review.
 
@@ -1216,6 +1224,38 @@ git commit ...
 
 Leave the repository's `user.name` and `user.email` as the person's identity. Do not set the agent identity in the repository Git configuration: the person's review would carry it and would not be independent.
 
+## Acknowledge A Merge Made Outside The Plugin
+
+When a person merges a plugin-managed pull request directly on GitHub, the plugin does not see it. `status` detects the clear cases without writing anything: a head covered by the delivery's receipts is already on the remote base branch (payload key `merged_outside_plugin`), and `status` prints the command below. A squash or rebase merge leaves no trace in git, so `status` cannot detect it, but `reconcile` still works.
+
+```bash
+node bin/agentic-sdlc.mjs autonomy delivery reconcile --root <project> --id AUT-PR-184 \
+  --pr-url https://github.com/owner/repository/pull/184 \
+  --actor-type human --approval-source explicit-user \
+  --summary "I merged PR 184 on GitHub myself"
+```
+
+Only a person or CI runs it. It is refused inside an agent session, the hooks deny it to agents, and they protect `.sdlc/autonomy/executions/<id>/external-merge.json`. It asks GitHub with `gh pr view` and requires all of this, otherwise it refuses with the reason and records nothing:
+
+- the state is `MERGED`, with a merge commit and `mergedAt`;
+- `mergedAt` is not earlier than the plugin's last recorded action for the delivery;
+- the merged head equals the head the plugin's receipts cover: the latest passing `git.push` or `pull_request.create`/`pull_request.update`, or the pinned reviewed head of an existing pull request. Any commit the receipts do not cover is refused;
+- the PR URL, head branch, and base branch are the approved ones.
+
+The same code review rule as a governed merge applies to the merged head. On success the command writes the receipt `.sdlc/autonomy/executions/<id>/external-merge.json` (merge commit, `mergedBy`, `mergedAt`, verified head, the person's approval). A started delivery is closed with the terminal status `merged_externally`; a delivery already closed as `ready_for_review` keeps that close untouched and gains the receipt beside it. No existing record is rewritten, and running the command again changes nothing.
+
+The story then counts as delivered. `gate check --strict --lifecycle-complete` may pass, but its final certification check carries the reduced label `certification: "externally_reconciled"`, because the plugin did not perform the merge. `autonomy delivery checks` shows an "external merge" row, and the Change Observatory labels it "Merged outside the plugin" ("Unita fuori dal plugin").
+
+## Bring The Clone Up To Date Before Status
+
+`status` first brings the clone up to date, as `orchestration_policy.status_sync.mode` says (default `fetch`):
+
+- `off` reads the clone as it is.
+- `fetch` updates only the remote-tracking branches; no file on disk changes.
+- `pull` also fast-forwards the current branch, and only when it has no local commits ahead of its upstream. It never merges, rebases, or forces.
+
+`status --sync off|fetch|pull` overrides the setting for one run; the `AGENTIC_SDLC_STATUS_SYNC` environment variable overrides it for one environment, such as a CI job. When the remote cannot be reached, `status` only warns and reports the clone as it is.
+
 ## Print The Pull-Request Checks Table
 
 Use `autonomy delivery checks` to print the checks that were actually recorded for one pull-request delivery as a Markdown table, ready to paste into the pull-request description. It only reads: nothing is re-run, repaired, or approved.
@@ -1237,6 +1277,7 @@ The host writes the description, so put the table in it when authorizing `pull_r
 | Strict gate, Lifecycle-complete gate | `.sdlc/gates/<story>-strict.json` and `-final.json` | The receipt exists, matches its schema and its own hash, and is for this story. |
 | Standing approval | The standing approval the delivery was proposed under (row appears only then) | A delivery slot is recorded for this delivery and the approval is not `invalid` or `revoked`. |
 | Budget decision | The start receipt's recorded autonomy decision and the contract | An execution budget is bound and the start decision was not stopped by it. With no budget bound, the row is `NOT RUN`. |
+| External merge | `external-merge.json` of the delivery (row appears only then) | A person acknowledged a merge made outside the plugin with `autonomy delivery reconcile`. The row shows the pull request, merge commit, who merged it and when, and who acknowledged it. |
 
 Each row carries a plain-text marker, `[PASS]`, `[FAIL]`, or `[NOT RUN]` (`[SUPERATO]`, `[FALLITO]`, `[NON ESEGUITO]` with `--locale it`). A check with no record is `NOT RUN`, never a pass. A record whose own hash no longer matches is left out and counted in a closing note. The table is a report of recorded facts, not a gate: the strict and lifecycle-complete gates stay the authority, and a gate receipt is shown as sealed, not re-evaluated.
 

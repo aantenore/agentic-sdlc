@@ -330,6 +330,22 @@ test("a formally closed pull request is terminal but not a successful delivery",
   );
 });
 
+test("a pull request merged outside the plugin certifies with a reduced label", () => {
+  const bundle = canonicalBundle();
+  bundle.delivery_profile.delivery_kind = "pull_request";
+  bundle.delivery_close_receipt.delivery.kind = "pull_request";
+  bundle.delivery_close_receipt.terminal_status = "merged_externally";
+  resealReceipt(bundle.delivery_close_receipt);
+
+  const evidence = buildWorkflowCanonicalEvidence(bundle);
+
+  assert.equal(evidence.checks.delivery_terminal.satisfied, true);
+  assert.equal(evidence.checks.delivery_terminal.certification, "externally_reconciled");
+  assert.deepEqual(validateWorkflowCanonicalEvidence(evidence).errors, []);
+  const governed = buildWorkflowCanonicalEvidence(canonicalBundle());
+  assert.equal(governed.checks.delivery_terminal.certification, undefined);
+});
+
 test("strict gate must be newer than output links and the terminal delivery receipt", () => {
   const bundle = canonicalBundle();
   bundle.gate_report.checked_at = "2026-07-28T10:06:00.000Z";

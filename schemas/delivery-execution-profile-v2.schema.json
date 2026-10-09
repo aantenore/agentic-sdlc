@@ -209,7 +209,8 @@
             { "type": "string", "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$" }
           ]
         },
-        "code_review": { "$ref": "#/$defs/code_review_decision" }
+        "code_review": { "$ref": "#/$defs/code_review_decision" },
+        "merge_decision": { "$ref": "#/$defs/merge_decision" }
       },
       "allOf": [
         {
@@ -243,6 +244,19 @@
           }
         }
       ],
+      "additionalProperties": false
+    },
+    "merge_decision": {
+      "type": "object",
+      "description": "The person's choice of how this pull request is merged: manual (the person merges it on GitHub and the delivery is reconciled), after-confirmation (the plugin merges after a confirmation), or automatic (the plugin merges without a merge confirmation once every other gate passes).",
+      "required": ["mode", "source", "actor_id", "user_words", "decided_at"],
+      "properties": {
+        "mode": { "enum": ["manual", "after-confirmation", "automatic"] },
+        "source": { "const": "explicit-user" },
+        "actor_id": { "type": "string", "minLength": 1 },
+        "user_words": { "type": "string", "minLength": 1 },
+        "decided_at": { "type": "string", "format": "date-time" }
+      },
       "additionalProperties": false
     },
     "code_review_decision": {

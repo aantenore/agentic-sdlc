@@ -18,6 +18,8 @@ import {
   process,
 } from "../lib/runtime/host.mjs";
 import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
+import { syncProjectForStatus } from "../lib/engine/status-sync.mjs";
+import { reconcileExternalMerge } from "../lib/engine/external-merge.mjs";
 import { fileURLToPath } from "node:url";
 import {
   formatSchemaErrors,
@@ -1165,6 +1167,7 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.delivery.revoke": call(revokeDeliveryAutonomy),
     "autonomy.delivery.action": call(evaluateDeliveryAction),
     "autonomy.delivery.close": call(closeDeliveryAutonomy),
+    "autonomy.delivery.reconcile": call(reconcileExternalMerge),
     "autonomy.delivery.status": call(showDeliveryAutonomy),
     "autonomy.delivery.explain": call(explainDeliveryAutonomy),
     "autonomy.delivery.checks": call(showDeliveryChecks),
@@ -1375,7 +1378,14 @@ async function main() {
       await registry.dispatch(resolution, invocation);
       return;
     }
-    const context = buildContext(parsed.options);
+    let context = buildContext(parsed.options);
+    if (resolution?.canonical_action === "status") {
+      // Status first brings this clone up to date; when that moved the
+      // checkout, the records are read again from the new commit.
+      const statusSync = syncProjectForStatus(context, parsed.options);
+      if (statusSync?.head_changed) context = buildContext(parsed.options);
+      context.statusSync = statusSync;
+    }
     if (handler?.stage === "pre-config") {
       if (resolution?.canonical_action === "config.migrate" && parsed.options.apply === true) {
         // Deliberate bootstrap exception: only the exact reviewed plan hash may
