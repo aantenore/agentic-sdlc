@@ -14,7 +14,7 @@ This page is the documentation map. Start with the goal that matches what you wa
 - [Self-service CLI](self-service-cli.md) — get focused help, one next action, safe presentation presets, shell completion, and deterministic JSON without learning internal record names.
 - [Claude Code installation](claude-code-install.md) — install, verify, and use the plugin from Claude Code, and see which Codex-only steps do not apply.
 - [Configurable workflows](configurable-workflows.md) — use governed project, change-request, assessment, or generic processes without changing active history or delivery authority.
-- [Messages between computers](messaging.md) — let agents on different computers exchange short notes through a public ntfy topic, and what never to send.
+- [Messages between computers](messaging.md) — let agents on different computers exchange short notes through an ntfy topic shared privately, never in git, and what never to send.
 - [Examples](examples/README.md) — copy-paste material that is tested but not active here, starting with a GitHub Action that proposes a work brief from a labelled issue.
 
 ## Find a page by goal
