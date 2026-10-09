@@ -24,6 +24,10 @@
     "push-behind-base-records": {
       "since": "0.47.0",
       "summary": "Story pushes accepted while the base branch only gained project records"
+    },
+    "story-parking": {
+      "since": "0.49.0",
+      "summary": "Stories a person parked, skipped by agents until resumed"
     }
   }
 }
