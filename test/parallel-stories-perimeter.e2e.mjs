@@ -380,3 +380,76 @@ test("a story started on an earlier main starts a replacement delivery after the
   const report = JSON.parse(run(["gate", "check", "--root", project, "--scope", "story", "--story", "ST-B", "--strict", "--json"]).stdout);
   assert.deepEqual(report.errors.filter((error) => SCOPE_ERROR.test(error) || /src\/(?:a|index)/u.test(error)), []);
 });
+
+function directCommitOnMain(project, files, message) {
+  git(project, ["checkout", "-q", "main"]);
+  git(project, ["merge", "--ff-only", "-q", "origin/main"]);
+  const direct = commitFiles(project, files, message);
+  git(project, ["update-ref", "refs/remotes/origin/main", direct]);
+  git(project, ["checkout", "-q", BRANCH_B]);
+  git(project, ["merge", "--ff-only", "-q", "origin/main"]);
+  return direct;
+}
+
+test("commits on main that only touch .sdlc records, or that a revert undoes, never block a story", () => {
+  const { project } = storyAMergedWhileBInProgress();
+  directCommitOnMain(project, { ".sdlc/notes/from-another-computer.md": "records only\n" }, "chore: records from another computer");
+  git(project, ["checkout", "-q", "main"]);
+  const mistake = commitFiles(project, { "docs/guide.md": "draft\n" }, "docs: pushed by mistake");
+  git(project, ["revert", "--no-edit", mistake]);
+  git(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
+  git(project, ["checkout", "-q", BRANCH_B]);
+  git(project, ["merge", "--ff-only", "-q", "origin/main"]);
+
+  writeFile(project, "src/b/feature.ts", "export const b = 2;\n");
+  const authorized = authorizeCommit(project, ["src/b/feature.ts"]);
+  assert.equal(authorized.status, 0, `${authorized.stdout}\n${authorized.stderr}`);
+  git(project, ["commit", "-q", "-m", "feat: story B"]);
+  assert.deepEqual(scopeErrors(project, "ST-B"), []);
+});
+
+test("a commit on main outside any delivery blocks until a person accepts it for the story", () => {
+  const { project } = storyAMergedWhileBInProgress();
+  const direct = directCommitOnMain(project, {
+    "docs/hotfix.md": "release notes\n",
+    "src/b/shared.ts": "export const shared = 1;\n",
+  }, "docs: straight to main");
+
+  writeFile(project, "src/b/feature.ts", "export const b = 2;\n");
+  const refused = authorizeCommit(project, ["src/b/feature.ts"]);
+  const combined = `${refused.stdout}\n${refused.stderr}`;
+  assert.equal(refused.status, 1, combined);
+  assert.match(combined, new RegExp(`story base acknowledge --id ST-B --commit ${direct.slice(0, 12)}`, "u"));
+  assert.match(combined, /git revert/u);
+
+  // An agent cannot accept it.
+  const byAgent = run([
+    "story", "base", "acknowledge", "--root", project, "--id", "ST-B", "--commit", direct,
+    "--reason", "Release notes hotfix", "--actor-type", "agent", "--json",
+  ]);
+  assert.notEqual(byAgent.status, 0, byAgent.stdout);
+  const insideAgent = run([
+    "story", "base", "acknowledge", "--root", project, "--id", "ST-B", "--commit", direct,
+    "--reason", "Release notes hotfix", "--actor-type", "human", "--json",
+  ], { env: { CLAUDECODE: "1" } });
+  assert.notEqual(insideAgent.status, 0, insideAgent.stdout);
+
+  const accepted = mustRunJson([
+    "story", "base", "acknowledge", "--root", project, "--id", "ST-B", "--commit", direct.slice(0, 12),
+    "--reason", "Release notes hotfix", "--actor-type", "human",
+  ]);
+  assert.equal(accepted.status, "acknowledged");
+  assert.deepEqual(accepted.acknowledgement.paths, ["docs/hotfix.md", "src/b/shared.ts"]);
+
+  const authorized = authorizeCommit(project, ["src/b/feature.ts"]);
+  assert.equal(authorized.status, 0, `${authorized.stdout}\n${authorized.stderr}`);
+  git(project, ["commit", "-q", "-m", "feat: story B"]);
+  assert.deepEqual(scopeErrors(project, "ST-B"), [], "the accepted commit's files are not charged to story B");
+
+  // The file inside story B's write scope still needs a review before the merge.
+  const overlap = mustRunJson(["story", "overlap", "--root", project, "--id", "ST-B"]);
+  const unconfirmed = overlap.unconfirmed.map((item) => item.path);
+  assert.deepEqual(unconfirmed, ["src/b/shared.ts"], JSON.stringify(overlap));
+  mustRunJson(["story", "overlap", "confirm", "--root", project, "--id", "ST-B", ...humanApproval("Checked the shared file")]);
+  assert.deepEqual(mustRunJson(["story", "overlap", "--root", project, "--id", "ST-B"]).unconfirmed, []);
+});
