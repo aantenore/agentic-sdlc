@@ -478,6 +478,37 @@ test("local release profiles reject ambiguous smoke launchers before approval", 
     buildLocalProfile(['["npm","run","smoke:local"]']));
 });
 
+test("a delivery capped below its requested level is enforced at the capped level, never the request", () => {
+  const requirement = requirementProfile();
+  const capped = deliveryProfile(requirement, { effective_level: "checkpointed" });
+  assert.equal(capped.requested_level, "bounded-autonomous");
+  assert.equal(capped.effective_level, "checkpointed");
+  assertAgainstSchema(capped, "delivery-execution-profile");
+  assert.equal(validateDeliveryExecutionProfileIntegrity(capped).valid, true);
+
+  // Every other boundary, including verified authority, allows full autonomy:
+  // only the recorded cap narrows the decision.
+  const decision = evaluateAutonomyPolicy(evaluationInput(requirement, capped));
+  assert.equal(decision.requested_level, "bounded-autonomous");
+  assert.equal(decision.effective_level, "checkpointed");
+  assert.equal(decision.execution_status, "checkpoint_required");
+  assert.equal(decision.autonomous, false);
+  assert.equal(decision.reason_codes.includes("autonomy.delivery_exceeds_requirement"), false);
+
+  const tampered = structuredClone(capped);
+  tampered.effective_level = "bounded-autonomous";
+  assert.equal(validateDeliveryExecutionProfileIntegrity(tampered).valid, false);
+  assert.throws(
+    () => deliveryProfile(requirement, { requested_level: "checkpointed", effective_level: "bounded-autonomous" }),
+    /effective_level cannot expand checkpointed to bounded-autonomous/u,
+  );
+  assert.throws(
+    () => deliveryProfile(requirement, { effective_level: "checkpointed", phase_levels: { implementation: "bounded-autonomous" } }),
+    /cannot expand checkpointed/u,
+  );
+  assert.throws(() => deliveryProfile(requirement, { effective_level: "full" }), /effective_level must be one of/u);
+});
+
 test("audit-only authority caps autonomy at checkpointed", () => {
   assert.deepEqual(evaluateHostAuthorityCap({ mode: "audit_only" }), {
     max_level: "checkpointed",
