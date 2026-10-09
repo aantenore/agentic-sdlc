@@ -4882,6 +4882,7 @@ function certifyLocalReleaseStory(project, {
   files,
   releaseProof,
   existingProject = false,
+  beforeStart = null,
 }) {
   const workflowInstanceId = `delivery-${suffix.toLowerCase()}`;
   const fixture = createGovernedDeliveryStory(project, {
@@ -4891,6 +4892,7 @@ function certifyLocalReleaseStory(project, {
     storyActionUses: 12,
     existingProject,
     beforeTaskStart: ({ storyId }) => {
+      beforeStart?.();
       mustRun([
         "workflow", "instance", "start",
         "--root", project,
@@ -5069,6 +5071,7 @@ test("a certification superseded by a later valid certification stays completed 
 }, () => {
   const project = temporaryProject("certification-history");
   const first = certifyLocalReleaseStory(project, {
+    beforeStart: () => setCertificationDriftMode(project, "reopen"),
     suffix: "HIST-A",
     allowedWritePaths: ["docs", "src"],
     evidenceDir: "docs",
@@ -5143,7 +5146,8 @@ test("a certification superseded by a later valid certification stays completed 
   ], project, /already has a terminal lifecycle receipt/u);
 
   // Partially covered: a certified path outside the later story's scope
-  // changed without any later certification, so the receipt is invalid.
+  // changed without any later certification. In reopen mode the receipt is
+  // invalid and blocks the story.
   const featurePath = path.join(project, "src", "feature.mjs");
   const featureBytes = fs.readFileSync(featurePath);
   fs.writeFileSync(featurePath, "export const feature = 2;\n");
@@ -5196,6 +5200,69 @@ test("a certification superseded by a later valid certification stays completed 
     storyCertificationView(project, first.storyId).story.lifecycle_source,
     "workflow_final_receipt",
   );
+});
+
+test("a certified story stays completed with a stale certification when its files change after the merge", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox for terminal local release evidence",
+}, () => {
+  const project = temporaryProject("certification-stale");
+  const certified = certifyLocalReleaseStory(project, {
+    suffix: "STALE-A",
+    allowedWritePaths: ["docs", "src"],
+    evidenceDir: "docs",
+    files: {
+      "docs/shared.md": "# Shared behaviour\n\nFirst version.\n",
+      "src/feature.mjs": "export const feature = 1;\n",
+    },
+    releaseProof: "first release\n",
+  });
+  mustGit(project, ["add", "-A"]);
+  mustGit(project, ["commit", "-m", "test: merge the certified story"]);
+  assert.equal(
+    storyCertificationView(project, certified.storyId).story.lifecycle_source,
+    "workflow_final_receipt",
+  );
+
+  // Someone else adds an untracked note under the story's write scope and
+  // commits a later change to one of its files.
+  writeProjectFile(project, "docs/archivio/note.md", "# Note\n");
+  writeProjectFile(project, "src/feature.mjs", "export const feature = 2;\n");
+  mustGit(project, ["add", "src/feature.mjs"]);
+  mustGit(project, ["commit", "-m", "test: later change by another story"]);
+
+  const view = storyCertificationView(project, certified.storyId);
+  assert.equal(view.story.lifecycle_source, "workflow_final_receipt_stale");
+  assert.equal(view.story.status, "done");
+  assert.equal(view.story.orchestration_state, "terminal");
+  assert.equal(view.story.certification.state, "stale");
+  const changed = view.story.certification.changed.map((entry) => entry.path);
+  assert.ok(changed.includes("src/feature.mjs"), JSON.stringify(changed));
+  assert.ok(changed.includes("docs/archivio/note.md"), JSON.stringify(changed));
+  assert.equal(view.status.summary.completed_work, 1);
+  assert.equal(view.status.summary.blocked_work, 0);
+  assert.notEqual(view.status.next_action.reason, "final_lifecycle_receipt_invalid");
+  const text = mustRun(["status", "--root", project], project).stdout;
+  assert.match(text, new RegExp(`Stale certification: ${certified.storyId} \\(completed; changed since certification: `, "u"));
+  assert.doesNotMatch(text, /invalid or unreadable final lifecycle receipt/u);
+  const workflow = mustRunJson([
+    "workflow", "instance", "status",
+    "--root", project,
+    "--id", certified.workflowInstanceId,
+  ], project);
+  assert.equal(workflow.status, "terminal");
+  assert.equal(workflow.final_receipt_valid, false);
+  mustFail([
+    "trace", "append",
+    "--root", project,
+    "--story", certified.storyId,
+    "--type", "test",
+    "--outcome", "passed",
+    "--summary", "Late evidence for a stale certification",
+    "--actor", "codex",
+    "--actor-type", "agent",
+  ], project, /already has a terminal lifecycle receipt/u);
 });
 
 test("a historical verdict is voided when a covered file changes after the successors validate", {
@@ -5761,6 +5828,13 @@ function appendHistoryFromAnotherComputer(project, label) {
   fs.appendFileSync(tracePath, otherHistory.slice(commonHistory.length), "utf8");
   const verify = run(["trace", "verify", "--root", project, "--json"], project);
   assert.notEqual(verify.status, 0, "the shared project history must still report the divergence");
+}
+
+function setCertificationDriftMode(project, mode) {
+  const config = readJson(project, ".sdlc/config.json");
+  config.orchestration_policy = { ...config.orchestration_policy, certification_drift: { mode } };
+  writeProjectFile(project, ".sdlc/config.json", `${JSON.stringify(config, null, 2)}\n`);
+  pinProjectConfig(project);
 }
 
 function setWorkflowHistoryCheck(project, check) {

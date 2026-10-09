@@ -8,6 +8,8 @@ import { pathToFileURL } from "node:url";
 
 import {
   TraceIntegrityError,
+  compareTraceHistories,
+  rebaseTraceIntegrity,
   recoverTraceIntegrity,
   sealTraceEvent,
   verifyTraceIntegrity,
@@ -1031,4 +1033,113 @@ test("rejects reserved metadata and non-JSON event values", (t) => {
     () => sealTraceEvent(options(paths, { event: { invalid: undefined } })),
     (error) => error instanceof TraceIntegrityError && error.code === "non_json_value",
   );
+});
+
+// Two copies of one history that forked after a common prefix: `here` keeps
+// this clone's files, `there` holds the other branch's bytes and checkpoint.
+function forkedHistories(t) {
+  const here = sealedFixture(t);
+  const there = fixture(t, { legacy: false });
+  fs.copyFileSync(here.tracePath, there.tracePath);
+  fs.mkdirSync(path.dirname(there.checkpointPath), { recursive: true });
+  fs.copyFileSync(here.checkpointPath, there.checkpointPath);
+  sealTraceEvent(options(there, { event: { type: "command", id: "there-1" } }));
+  sealTraceEvent(options(there, { event: { type: "command", id: "there-2" } }));
+  sealTraceEvent(options(here, { event: { type: "command", id: "here-1" } }));
+  return {
+    here,
+    there,
+    remote: () => ({
+      remoteTraceBytes: fs.readFileSync(there.tracePath),
+      remoteCheckpoint: JSON.parse(fs.readFileSync(there.checkpointPath, "utf8")),
+    }),
+  };
+}
+
+test("compares two copies of one history by bytes and sealed event identity", (t) => {
+  const { here, there } = forkedHistories(t);
+  const comparison = compareTraceHistories(fs.readFileSync(here.tracePath), fs.readFileSync(there.tracePath));
+  assert.equal(comparison.state, "diverged");
+  assert.equal(comparison.local_only, 1);
+  assert.equal(comparison.remote_only, 2);
+  const same = fs.readFileSync(here.tracePath);
+  assert.equal(compareTraceHistories(same, same).state, "in_sync");
+  assert.equal(compareTraceHistories(same, Buffer.concat([same, Buffer.from("{}\n")])).state, "behind");
+});
+
+test("rebase moves local-only events after the other history and keeps their original fingerprints", (t) => {
+  const { here, there, remote } = forkedHistories(t);
+  const original = jsonLines(here.tracePath).at(-1)._trace_integrity;
+  const planned = rebaseTraceIntegrity(options(here), { localTraceBytes: fs.readFileSync(here.tracePath), ...remote() });
+  assert.equal(planned.applied, false);
+  assert.equal(planned.moved_events, 1);
+  assert.equal(planned.already_present, 2);
+  const applied = rebaseTraceIntegrity(options(here), {
+    localTraceBytes: fs.readFileSync(here.tracePath),
+    ...remote(),
+    apply: true,
+  });
+  assert.equal(applied.applied, true);
+  assert.equal(applied.event_count, 5);
+  assert.equal(verifyTraceIntegrity(options(here)).valid, true);
+  const records = jsonLines(here.tracePath);
+  assert.ok(fs.readFileSync(here.tracePath).subarray(0, fs.statSync(there.tracePath).size)
+    .equals(fs.readFileSync(there.tracePath)));
+  const moved = records.at(-1);
+  assert.equal(moved.id, "here-1");
+  assert.deepEqual(moved._trace_integrity.rebased_from, {
+    sequence: original.sequence,
+    previous_hash: original.previous_hash,
+    event_hash: original.event_hash,
+  });
+  // The other computer takes the rebased history as it is.
+  const back = rebaseTraceIntegrity(options(there), {
+    localTraceBytes: fs.readFileSync(there.tracePath),
+    remoteTraceBytes: fs.readFileSync(here.tracePath),
+    remoteCheckpoint: JSON.parse(fs.readFileSync(here.checkpointPath, "utf8")),
+    apply: true,
+  });
+  assert.equal(back.moved_events, 0);
+  assert.equal(verifyTraceIntegrity(options(there)).valid, true);
+  assert.ok(fs.readFileSync(there.tracePath).equals(fs.readFileSync(here.tracePath)));
+  // Running it again finds nothing to change.
+  const again = rebaseTraceIntegrity(options(here), {
+    localTraceBytes: fs.readFileSync(here.tracePath),
+    remoteTraceBytes: fs.readFileSync(there.tracePath),
+    remoteCheckpoint: JSON.parse(fs.readFileSync(there.checkpointPath, "utf8")),
+    apply: true,
+  });
+  assert.equal(again.changed, false);
+  assert.equal(again.applied, false);
+});
+
+test("verification rejects a rebased event whose original fingerprint does not match its content", (t) => {
+  const { here, remote } = forkedHistories(t);
+  rebaseTraceIntegrity(options(here), { localTraceBytes: fs.readFileSync(here.tracePath), ...remote(), apply: true });
+  const records = jsonLines(here.tracePath);
+  records.at(-1)._trace_integrity.rebased_from.event_hash = "0".repeat(64);
+  writeLines(here.tracePath, records);
+  const report = verifyTraceIntegrity(options(here));
+  assert.equal(report.valid, false);
+  assert.equal(errorCodes(report).has("rebased_origin_mismatch"), true);
+});
+
+test("rebase refuses an invalid base history or a local event that does not match its seal", (t) => {
+  const { here, there, remote } = forkedHistories(t);
+  const tampered = remote();
+  tampered.remoteTraceBytes = Buffer.from(tampered.remoteTraceBytes.toString("utf8").replace("there-1", "there-X"));
+  assert.throws(
+    () => rebaseTraceIntegrity(options(here), { localTraceBytes: fs.readFileSync(here.tracePath), ...tampered }),
+    (error) => error instanceof TraceIntegrityError && error.code === "rebase_base_invalid",
+  );
+  const local = fs.readFileSync(here.tracePath, "utf8").replace("here-1", "here-X");
+  assert.throws(
+    () => rebaseTraceIntegrity(options(here), { localTraceBytes: Buffer.from(local), ...remote() }),
+    (error) => error instanceof TraceIntegrityError && error.code === "rebase_local_event_invalid",
+  );
+  assert.throws(
+    () => rebaseTraceIntegrity(options(here), { localTraceBytes: Buffer.from("<<<<<<< HEAD\n"), ...remote() }),
+    (error) => error instanceof TraceIntegrityError && error.code === "history_unreadable",
+  );
+  assert.ok(fs.existsSync(there.tracePath));
 });

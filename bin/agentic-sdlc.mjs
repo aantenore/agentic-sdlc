@@ -8,6 +8,7 @@ import {
   requireCodeReview,
   waiveCodeReview,
 } from "../lib/engine/code-review-requirement.mjs";
+import { rebaseTraceHistory } from "../lib/engine/trace-rebase.mjs";
 import {
   childProcess,
   console,
@@ -1235,6 +1236,7 @@ function buildCliRuntimeHandlerRegistry() {
     "trace.evidence.bind": call(bindHistoricalTraceEvidencePolicy),
     "trace.compact": call(compactTraces),
     "trace.verify": call(verifyTraceHistory),
+    "trace.rebase": call(rebaseTraceHistory),
     "sync.record": call(recordSyncEvent),
     "test.record": call(recordTestRun),
     "incident.record": call(recordIncident),

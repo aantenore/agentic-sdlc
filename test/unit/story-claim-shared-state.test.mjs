@@ -76,7 +76,8 @@ test("orchestration policy shares claims through origin by default and validates
     claim_activity: { mode: "git", idle_after_seconds: null },
     reservation: { default_expires_in_seconds: 86_400, max_expires_in_seconds: 2_592_000 },
     unclaimed_remote_work: { mode: "git", pull_requests: "off", recent_within_seconds: null },
-    workflow_history: { check: "workflow" },
+    workflow_history: { check: "workflow", divergence: "warn" },
+    certification_drift: { mode: "stale" },
   });
   const configured = orchestrationPolicy({
     orchestration_policy: { stale_claim_after_seconds: 3600, coordination: { mode: "required", remote: "upstream", timeout_seconds: 5 } },
@@ -114,6 +115,8 @@ test("orchestration policy shares claims through origin by default and validates
     { unclaimed_remote_work: { recent_within_seconds: 5 } },
     { workflow_history: { check: "none" } },
     { workflow_history: "workflow" },
+    { workflow_history: { divergence: "block" } },
+    { certification_drift: { mode: "ignore" } },
   ]) {
     assert.throws(() => orchestrationPolicy({ orchestration_policy: value }), /orchestration_policy\./u, JSON.stringify(value));
   }

@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.26.0 Works
+# How Agentic SDLC 0.27.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -96,8 +96,17 @@ matches. A historical story stays completed work and closed to new evidence:
 projection reports `lifecycle_source: workflow_final_receipt_historical`, and
 `workflow instance status` shows `final_receipt_historical`. Any differing
 path that no later valid certification binds, a later certification that is
-itself invalid, or one sealed before the earlier receipt keeps the earlier
-receipt invalid and asks for recertification. Evidence a story recorded (test,
+itself invalid, or one sealed before the earlier receipt makes the earlier
+certification **stale**: certified files (or untracked files under its write
+scope) changed afterwards, typically through later work merged on the base
+branch. A stale story stays completed work and closed to new evidence;
+`status` lists it under `stale_certifications` with the changed paths, the
+story projection reports `lifecycle_source: workflow_final_receipt_stale`, and
+`workflow instance status` shows `final_receipt_stale`. Records are never
+rewritten. Set `orchestration_policy.certification_drift.mode` to `reopen` to
+keep the earlier behaviour, where such a receipt is invalid and asks for
+recertification. A receipt whose identity checks fail (workflow records,
+task-start binding, lifecycle evidence) is always invalid. Evidence a story recorded (test,
 release, and delivery evidence files) and its linked output artifacts are not
 superseded: keep them in story-scoped paths that later stories do not
 overwrite.
@@ -150,7 +159,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.26.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.27.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -683,6 +692,27 @@ runs on every turn, so it uses a cheap consistency check instead (checkpoint,
 file size, any uncommitted tail, and the last recorded event) and points to
 `trace verify` for the full check. New trace events are refused
 (`TRACE_INTEGRITY_VIOLATION`) until a violated history is valid again.
+
+### Histories recorded on several computers
+
+Each history file is one chain, so two clones that both recorded events fork
+it, and a git merge of the two copies (a conflict, or lines joined by hand) no
+longer verifies. `status` and `doctor` compare this clone's
+`.sdlc/traces/project.jsonl` with the remote base branch's (or the current
+branch's upstream) and warn before publishing, with the events only on each
+side (`project_history_divergence` in JSON;
+`orchestration_policy.workflow_history.divergence`: `warn`, the default, or
+`off`). To join the two, merge the base branch as usual and, when the history
+conflicts, run `trace rebase --onto origin/main --apply` (without `--apply` it
+only shows the plan), then `git add .sdlc/traces` and finish the merge.
+The command keeps the other branch's history exactly as it is, which must
+verify against its own checkpoint, and seals the events only this clone has
+after it, each with the fingerprint it was first sealed with as
+`rebased_from`; `trace verify` recomputes that fingerprint from the event's
+content, so moving an event never hides a change to it. Events the other
+branch already has are not repeated, a working copy with merge markers is read
+from `HEAD`, and running it again changes nothing. `--file` selects another
+history file. Plugin versions before 0.27.0 verify a rebased history too.
 
 The privacy rules come from `.sdlc/config.json`. If that file disappears from
 an initialized project (one with `.sdlc/project.json` or `.sdlc/config.lock.json`),

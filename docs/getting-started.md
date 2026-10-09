@@ -404,6 +404,7 @@ Common pauses are handled as follows:
 | An application was interrupted | Repeat the exact same operation so idempotent recovery can repair only missing state |
 | Configuration drifted | Preview the configuration migration, review the listed edits since the last confirmation, and apply only the displayed plan hash |
 | The project history changed unexpectedly | Run `trace verify`; if it reports `violated` and the change was not intended, back up `.sdlc/traces`, restore it from version control, and verify again. An interrupted recording (`recovery_needed`) needs nothing: the next recorded event repairs it |
+| `status` says the project history forked from the base branch | Merge the base branch, run the `trace rebase --onto <remote>/<branch> --apply` it names, then `git add .sdlc/traces` and finish the merge; `trace verify` passes on both computers |
 | `.sdlc/config.json` or `.sdlc/project.json` is missing or damaged | Restore the file from version control (for a configuration that held only the defaults, the message names the bundled file to copy back); commands stay blocked so the agreed privacy rules are never replaced by defaults |
 | History is near or above its read limit | Follow [the history size limit](how-it-works.md#history-size-limit); never delete or edit history files |
 

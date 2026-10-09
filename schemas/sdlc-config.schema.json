@@ -291,11 +291,20 @@
           },
           "additionalProperties": false
         },
+        "certification_drift": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "mode": { "enum": ["stale", "reopen"] }
+          },
+          "additionalProperties": false
+        },
         "workflow_history": {
           "type": "object",
           "properties": {
             "principle": { "type": "string" },
-            "check": { "enum": ["workflow", "project"] }
+            "check": { "enum": ["workflow", "project"] },
+            "divergence": { "enum": ["warn", "off"] }
           },
           "additionalProperties": false
         },
