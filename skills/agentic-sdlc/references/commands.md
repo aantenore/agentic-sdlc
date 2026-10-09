@@ -1298,6 +1298,42 @@ Only a person or CI runs it. It is refused inside an agent session, the hooks de
 
 The same code review rule as a governed merge applies to the merged head. On success the command writes the receipt `.sdlc/autonomy/executions/<id>/external-merge.json` (merge commit, `mergedBy`, `mergedAt`, verified head, the person's approval). A started delivery is closed with the terminal status `merged_externally`; a delivery already closed as `ready_for_review` keeps that close untouched and gains the receipt beside it. No existing record is rewritten, and running the command again changes nothing.
 
+A story's final certification survives the reconcile: its trace may gain only the reconcile event and its delivery execution records only the new files. After the merge, `gate check --strict --story <id> --lifecycle-complete` certifies the story on the merge commit (`git_scope.anchor`), so work merged later on the base branch is never charged to it; the merge commit must be in the clone and an ancestor of HEAD, otherwise the gate asks to fetch the base branch. `secret scan --story <id>` on a merged story scans the files changed between the task-start base and the merge commit as that commit holds them.
+
+After sealing, a final certification follows four rules. Records are
+never rewritten; the rules only decide how a receipt is read.
+
+1. **A story's own records never change.** Its contract, requirements,
+   requirement and delivery profiles, workflow instance, events, checkpoint
+   and definition, test records, story records and output registry entry must
+   stay exactly as certified. Delivery execution records and related
+   governance records may only gain files, and the story records only gain
+   files under `base-acknowledgements/`. The story trace may only gain
+   `autonomy delivery reconcile` events after its certified content, with its
+   hash chain and checkpoint still verifying as `trace verify` checks them.
+   Anything else voids the receipt (`final_receipt_check:story_record_changed`)
+   and names the changed record.
+2. **Shared files make it stale only once the delivery finished.** Changes to
+   the project record, the configuration and its lock, referenced governance
+   records, the files in the story's write paths, and local release targets
+   make the certification stale. A stale story stays completed only with
+   `certification_drift.mode: stale` and a finished delivery: a pull request
+   merged by the plugin or acknowledged with `autonomy delivery reconcile`, or
+   a local release closed as `released`. Before that the story is blocked
+   (`final_receipt_check:workflowFinalFreshnessProofMatches`).
+3. **A merged story is certified on its merge commit.** When
+   `--lifecycle-complete` runs for a story whose pull request is merged, the
+   merge commit must be in the clone and an ancestor of HEAD. The changed-path
+   perimeter, the baseline coverage and the secret scan use the story's own
+   commits up to that merge commit, not the working tree or later work on the
+   base branch, and the receipt records
+   `git_scope.anchor: { kind: "merge_commit", sha }`. Such a receipt is later
+   checked against the merge commit only.
+4. **Missing or rewritten history is named.** A certified commit absent from
+   the clone gives `final_receipt_check:certified_commit_missing`; one that is
+   no longer an ancestor of HEAD gives
+   `final_receipt_check:certified_history_rewritten`. Neither is ever stale.
+
 The story then counts as delivered. `gate check --strict --lifecycle-complete` may pass, but its final certification check carries the reduced label `certification: "externally_reconciled"`, because the plugin did not perform the merge. `autonomy delivery checks` shows an "external merge" row, and the Change Observatory labels it "Merged outside the plugin" ("Unita fuori dal plugin").
 
 ## Bring The Clone Up To Date Before Status

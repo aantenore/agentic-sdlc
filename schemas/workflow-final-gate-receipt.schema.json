@@ -269,6 +269,16 @@
                 { "type": "string", "pattern": "^[a-f0-9]{40,64}$" }
               ]
             },
+            "anchor": {
+              "description": "Commit the scope was certified on instead of the working tree: the merge commit of a merged pull-request story. Absent for every other certification.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "sha"],
+              "properties": {
+                "kind": { "const": "merge_commit" },
+                "sha": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" }
+              }
+            },
             "scoped_state_hash": {
               "oneOf": [
                 { "type": "null" },

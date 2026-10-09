@@ -99,14 +99,48 @@ path that no later valid certification binds, a later certification that is
 itself invalid, or one sealed before the earlier receipt makes the earlier
 certification **stale**: certified files (or untracked files under its write
 scope) changed afterwards, typically through later work merged on the base
-branch. A stale story stays completed work and closed to new evidence;
+branch. A stale story that counts as completed is closed to new evidence;
 `status` lists it under `stale_certifications` with the changed paths, the
 story projection reports `lifecycle_source: workflow_final_receipt_stale`, and
-`workflow instance status` shows `final_receipt_stale`. Records are never
-rewritten. Set `orchestration_policy.certification_drift.mode` to `reopen` to
-keep the earlier behaviour, where such a receipt is invalid and asks for
+`workflow instance status` shows `final_receipt_stale`. Set
+`orchestration_policy.certification_drift.mode` to `reopen` to keep the
+earlier behaviour, where such a receipt is invalid and asks for
 recertification. A receipt whose identity checks fail (workflow records,
-task-start binding, lifecycle evidence) is always invalid. Evidence a story recorded (test,
+task-start binding, lifecycle evidence) is always invalid.
+
+A final certification after it is sealed follows four rules. Records are
+never rewritten; the rules only decide how a receipt is read.
+
+1. **A story's own records never change.** Its contract, requirements,
+   requirement and delivery profiles, workflow instance, events, checkpoint
+   and definition, test records, story records and output registry entry must
+   stay exactly as certified. Delivery execution records and related
+   governance records may only gain files, and the story records only gain
+   files under `base-acknowledgements/`. The story trace may only gain
+   `autonomy delivery reconcile` events after its certified content, with its
+   hash chain and checkpoint still verifying as `trace verify` checks them.
+   Anything else voids the receipt (`final_receipt_check:story_record_changed`)
+   and names the changed record.
+2. **Shared files make it stale only once the delivery finished.** Changes to
+   the project record, the configuration and its lock, referenced governance
+   records, the files in the story's write paths, and local release targets
+   make the certification stale. A stale story stays completed only with
+   `certification_drift.mode: stale` and a finished delivery: a pull request
+   merged by the plugin or acknowledged with `autonomy delivery reconcile`, or
+   a local release closed as `released`. Before that the story is blocked
+   (`final_receipt_check:workflowFinalFreshnessProofMatches`).
+3. **A merged story is certified on its merge commit.** When
+   `--lifecycle-complete` runs for a story whose pull request is merged, the
+   merge commit must be in the clone and an ancestor of HEAD. The changed-path
+   perimeter, the baseline coverage and the secret scan use the story's own
+   commits up to that merge commit, not the working tree or later work on the
+   base branch, and the receipt records
+   `git_scope.anchor: { kind: "merge_commit", sha }`. Such a receipt is later
+   checked against the merge commit only.
+4. **Missing or rewritten history is named.** A certified commit absent from
+   the clone gives `final_receipt_check:certified_commit_missing`; one that is
+   no longer an ancestor of HEAD gives
+   `final_receipt_check:certified_history_rewritten`. Neither is ever stale. Evidence a story recorded (test,
 release, and delivery evidence files) and its linked output artifacts are not
 superseded: keep them in story-scoped paths that later stories do not
 overwrite.
