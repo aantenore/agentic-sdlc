@@ -303,7 +303,8 @@
           "type": "object",
           "properties": {
             "principle": { "type": "string" },
-            "check": { "enum": ["workflow", "project"] }
+            "check": { "enum": ["workflow", "project"] },
+            "divergence": { "enum": ["warn", "off"] }
           },
           "additionalProperties": false
         },

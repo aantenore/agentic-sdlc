@@ -263,7 +263,18 @@
         "hash_algorithm": { "const": "sha256" },
         "sequence": { "type": "integer", "minimum": 1 },
         "previous_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-        "event_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        "event_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "rebased_from": {
+          "description": "The seal the event was first written with, kept when trace rebase moves the event after another branch's history.",
+          "type": "object",
+          "required": ["sequence", "previous_hash", "event_hash"],
+          "properties": {
+            "sequence": { "type": "integer", "minimum": 1 },
+            "previous_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "event_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": false
     },
