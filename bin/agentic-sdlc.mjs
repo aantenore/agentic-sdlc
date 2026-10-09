@@ -1059,6 +1059,9 @@ import {
   showStoryOverlap,
 } from "../lib/engine/story-overlap.mjs";
 import {
+  acknowledgeStoryBaseCommit,
+} from "../lib/engine/base-acknowledgements.mjs";
+import {
   addStoryAcceptance,
   appendTrace,
   approveBaseline,
@@ -1195,6 +1198,7 @@ function buildCliRuntimeHandlerRegistry() {
     "story.availability": call(showStoryAvailability),
     "story.overlap": call(showStoryOverlap),
     "story.overlap.confirm": call(confirmStoryOverlap),
+    "story.base.acknowledge": call(acknowledgeStoryBaseCommit),
     "story.complete-step": call(completeStoryStep),
     "story.prepare-handoff": call(prepareStoryHandoff),
     "story.handoff.close": call(closeHandoff),
