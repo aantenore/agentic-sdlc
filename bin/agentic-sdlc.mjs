@@ -137,6 +137,7 @@ import {
   messageSetup,
   messageStatus,
 } from "../lib/messaging/commands.mjs";
+import { alertFor, readsMessagesBefore, sendAutoAlert, showNewMessages } from "../lib/messaging/auto.mjs";
 import { createPortfolioRuntime } from "../lib/change-observatory/portfolio-runtime.mjs";
 import {
   launchDedicatedObservatory,
@@ -1124,6 +1125,27 @@ import {
   transitionWorkflowInstance,
 } from "../lib/engine/workflow.mjs";
 
+// What the automatic messages need to know about this run (lib/messaging/auto.mjs).
+const AUTO_MESSAGING = { action: null, options: null, root: null, error: null, result: null };
+
+function rememberResult(value) {
+  AUTO_MESSAGING.result = value;
+  return value;
+}
+
+/** Tell the other computers what went wrong in this run, if anything; never fails the command. */
+async function sendRunAlert() {
+  try {
+    const { action, options, root, error, result } = AUTO_MESSAGING;
+    if (!action || !root) return;
+    const blockers = Array.isArray(result?.human_blockers) ? result.human_blockers : result?.errors;
+    const alert = alertFor(action, options, { error, exitCode: process.exitCode, blockers });
+    if (alert) await sendAutoAlert(root, alert, { stderr: (text) => process.stderr.write(text) });
+  } catch {
+    // Automatic messages are best effort.
+  }
+}
+
 function buildCliRuntimeHandlerRegistry() {
   const bootstrap = (handle) => cliHandler("bootstrap", handle);
   const preConfig = (handle) => cliHandler("pre-config", handle);
@@ -1304,7 +1326,7 @@ function buildCliRuntimeHandlerRegistry() {
     // in full (AGENTIC_SDLC_STATUS_CHECKS=full verifies them all). The
     // lifecycle-complete gate writes and re-checks the final receipt, so it
     // keeps reading live.
-    "gate.check": project(({ context, options }) => (options["lifecycle-complete"] === true
+    "gate.check": project(({ context, options }) => rememberResult(options["lifecycle-complete"] === true
       ? gateCheck(context, options)
       : withReadSnapshot(() => gateCheck(context, options), {
         fastChecks: Boolean(options.story)
@@ -1395,6 +1417,11 @@ async function main() {
       }));
       return;
     }
+    if (resolution) {
+      AUTO_MESSAGING.action = resolution.canonical_action;
+      AUTO_MESSAGING.options = parsed.options;
+      AUTO_MESSAGING.root = path.resolve(String(parsed.options.root || process.cwd()));
+    }
     const registry = buildCliRuntimeHandlerRegistry();
     const invocation = {
       options: parsed.options,
@@ -1479,8 +1506,16 @@ async function main() {
     if (!resolution || !handler) {
       failUsage(`Unknown command: ${parsed.positionals.slice(0, 2).join(" ")}`);
     }
+    if (readsMessagesBefore(resolution.canonical_action)) {
+      try {
+        await showNewMessages(resolvedRoot, { stderr: (text) => process.stderr.write(text) });
+      } catch {
+        // Reading messages never stops the command.
+      }
+    }
     await dispatchWithMutationGovernance(registry, resolution, { ...invocation, context });
   } catch (caught) {
+    AUTO_MESSAGING.error = caught;
     const error = explainHistoryReadLimitError(caught);
     const jsonRequested = parsed.options?.json === true || rawJsonRequested;
     const errorRedaction = error instanceof UnsupportedNodeRuntimeError
@@ -1607,3 +1642,4 @@ executePreparedIdentityMutation.prepare = function prepareIdentityMutationBatch(
 };
 
 await main();
+await sendRunAlert();

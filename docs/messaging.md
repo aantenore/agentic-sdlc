@@ -33,6 +33,15 @@ agentic-sdlc message read --since 2h --skip-own
 agentic-sdlc message listen --skip-own --json      # stays open; run it in the background
 ```
 
+### Automatic messages
+
+Once a topic is set, the plugin also writes and reads on its own, so agents keep each other informed without being asked:
+
+- it sends a short note (sender, story, reason) when a gate check fails, a story is parked or put on wait (`story wait --on`), or a command stops on a git time limit; the same note for the same story is sent at most once every 30 minutes;
+- before `story claim` and `task start` it shows, on stderr, the messages from the other computers that arrived since this clone last looked (at most 10; the first time, the last 12 hours).
+
+Notes start with `[auto]`. Without a topic nothing is sent or read. If the server does not answer within 3 seconds the command carries on unchanged; a failure never changes a command's result or exit code. The read position lives in `.git/agentic-sdlc/messaging-auto.json`, never in git.
+
 People can join from the ntfy phone app or a browser at `https://ntfy.sh/<topic>`, or with `curl -d "text" https://ntfy.sh/<topic>`.
 
 ## Settings
@@ -45,6 +54,8 @@ Each setting is taken from the first place that has it:
 | `.git/agentic-sdlc/messaging.json` | written by `message setup`: `{"provider": "ntfy", "topic": "...", "server": "..."}`, for this clone, never committed |
 | `.sdlc/messaging.json` | optional, committed: provider and server for everyone. A topic here is still read (0.52.0 wrote it there) but everyone who can read the repository can read the messages; `message status` and `message send` warn about it |
 | `AGENTIC_SDLC_MESSAGING=off` | turns messaging off on this computer |
+| `AGENTIC_SDLC_MESSAGING_AUTO=off` | keeps the `message` commands but stops the automatic messages on this computer |
+| `AGENTIC_SDLC_MESSAGING_AUTO_TIMEOUT_SECONDS` | network limit for one automatic step (default 3) |
 | `AGENTIC_SDLC_HOST_LABEL` | the sender name shown to the others |
 
 The settings are not in `.sdlc/config.json`, so older plugins keep working; they only lack the `message` commands until they update. Messages are not stored in git and change no project record; ntfy.sh keeps them for about 12 hours.
