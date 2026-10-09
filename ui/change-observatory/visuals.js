@@ -297,6 +297,7 @@ function eventRow(event, state, { showStory = true, storiesById = null, showDate
       story ? node("span", { className: "event-story" }, [
         stateDot(story.state),
         node("span", { text: storyTitle(story) }),
+        node("span", { className: "story-id", text: story.id }),
       ]) : null,
     ]),
   ]);

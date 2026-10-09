@@ -8,7 +8,9 @@ import {
   iterationRelevance,
   recordSelectionKey,
 } from "./model.js";
-import { displayTextForItem, getLocale, readableRecordedTitle, t } from "./i18n.js";
+import { actionLabel, displayTextForItem, getLocale, readableRecordedTitle, t } from "./i18n.js";
+
+export { ACTION_LABELS, actionLabel } from "./i18n.js";
 
 // Presentation tunables live in one place so they can be adjusted without
 // touching the renderers.
@@ -55,45 +57,6 @@ export const STORY_STATES = Object.freeze([
   Object.freeze({ key: "stopped", label: "Stopped" }),
 ]);
 
-// Plain-language names for recorded actions. Unknown actions fall back to the
-// kind of record, never to the raw action identifier.
-export const ACTION_LABELS = Object.freeze({
-  "authorization.grant": "Permission granted",
-  "autonomy.delivery.approve": "Way of working approved",
-  "autonomy.delivery.close": "Way of working closed",
-  "autonomy.delivery.propose": "Way of working proposed",
-  "autonomy.delivery.revoke": "Way of working revoked",
-  "baseline.approve": "Starting point approved",
-  "baseline.propose": "Starting point proposed",
-  "capability.approve": "Tool approved",
-  "capability.profile.approve": "Tool set approved",
-  "capability.profile.propose": "Tool set proposed",
-  "capability.recommend": "Tool suggested",
-  "contract.approve": "Agreement approved",
-  "contract.story-link": "Agreement linked to the work",
-  "git.commit": "Change saved",
-  "git.push": "Change shared",
-  "implementation": "Change made",
-  "output.link": "Result attached",
-  "pull_request.create": "Review requested",
-  "pull_request.merge": "Change merged",
-  "pull_request.update": "Review updated",
-  "requirement.approve": "Request approved",
-  "requirement.create": "Request created",
-  "requirement.propose": "Request proposed",
-  "requirement.revise": "Request revised",
-  "requirement.supersede": "Request replaced",
-  "story.complete-step": "Step completed",
-  "story.release": "Work released",
-  "task.start.confirm": "Work started",
-  "test": "Tests run",
-  "test.local": "Tests run",
-  "test.run": "Tests run",
-  "validation": "Validation run",
-  "workflow.instance.start": "Workflow started",
-  "workflow.instance.transition": "Workflow moved on",
-});
-
 export function eventTime(item) {
   const time = Date.parse(item?.timestamp ?? "");
   return Number.isFinite(time) ? time : null;
@@ -103,11 +66,6 @@ function sourceIdentity(item) {
   const ref = arrayOrEmpty(item?.sourceRefs)[0];
   if (!ref?.path) return null;
   return `${item.id ?? ""}\u0000${ref.path}\u0000${ref.line ?? ""}`;
-}
-
-export function actionLabel(item) {
-  const action = String(item?.action ?? "");
-  return Object.hasOwn(ACTION_LABELS, action) ? ACTION_LABELS[action] : null;
 }
 
 export function projectEvents(model) {
