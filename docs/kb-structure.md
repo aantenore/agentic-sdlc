@@ -587,7 +587,7 @@ Examples:
 .sdlc/requirements/integration-map.md
 ```
 
-The v2 record contains outcome, acceptance criteria, non-goals, constraints, non-functional requirements, integrations, source hashes, revision lineage, approvals, and `autonomy_profile_id`. Use `proposed → approved → active → satisfied` for normal progression. A material change creates a new revision and a hash-bound supersession event rather than rewriting approved history.
+The v2 record contains outcome, acceptance criteria, non-goals, constraints, non-functional requirements, integrations, source hashes, revision lineage, approvals, and `autonomy_profile_id`. Use `proposed → approved → active → satisfied` for normal progression. A material change creates a new revision and a hash-bound supersession event rather than rewriting approved history. `requirement supersede` checks source freshness only on the replacement revision, so a revision may rewrite the same source file as its parent; it lists the stories still bound to the old revision. Move each one with `story create --requirement <new-revision>` and `story supersede --id <old-story> --by <new-story>`: revisions of one logical requirement count as a shared requirement.
 
 Agents must link stories, contracts, tests, output links, autonomy profiles, and release evidence back to the exact requirement ID, revision, and content hash. A legacy `requirement:v1` remains readable but receives a `supervised` autonomy ceiling by policy.
 
