@@ -917,7 +917,11 @@ The dedicated assessment journey remains the exception described above: it packa
    (the CLI refuses it inside your session). When status says your claim was
    taken over, stop working on that story and tell the user. A claim file that
    arrived with a branch you checked out is not yours: never release or reuse
-   it; only the user releases or takes over a claim made on another computer. Suggest
+   it; only the user releases or takes over a claim made on another computer.
+   Never act as the coordinator of other computers: claim and reserve only the
+   story you work on here (one claimed story per worktree, one reservation per
+   computer), and never claim, reserve, release, cancel, or supersede stories
+   for another computer; each computer's agent claims its own. Suggest
    `orchestration_policy.coordination.mode: local_only` only when the user
    confirms the project is worked on from one computer. See
    `references/parallel-work.md`.
