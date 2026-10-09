@@ -8,13 +8,15 @@ import {
   iterationRelevance,
   recordSelectionKey,
 } from "./model.js";
-import { displayTextForItem, getLocale, t } from "./i18n.js";
+import { displayTextForItem, getLocale, readableRecordedTitle, t } from "./i18n.js";
 
 // Presentation tunables live in one place so they can be adjusted without
 // touching the renderers.
 export const INSIGHT_SETTINGS = Object.freeze({
   activityBucketCount: 16,
+  hourlyBucketThresholdHours: 48,
   dailyBucketThresholdDays: 21,
+  recentActivityHours: 6,
   recentEventCount: 8,
   timelinePageSize: 60,
   storyEventPreviewCount: 12,
@@ -44,6 +46,7 @@ export const STORY_STATES = Object.freeze([
   Object.freeze({ key: "live", label: "In progress" }),
   Object.freeze({ key: "blocked", label: "Blocked" }),
   Object.freeze({ key: "open", label: "Started" }),
+  Object.freeze({ key: "waiting", label: "Waiting" }),
   Object.freeze({ key: "delivered", label: "Delivered" }),
   Object.freeze({ key: "idle", label: "Not started" }),
   Object.freeze({ key: "stopped", label: "Stopped" }),
@@ -175,6 +178,114 @@ function dossierItemKeys(iteration) {
   return keys;
 }
 
+export function storyTitleText(iteration) {
+  return readableRecordedTitle(iteration?.title) ?? displayTextForItem(iteration).title;
+}
+
+// Dependency edges as recorded in .sdlc/dependencies/graph.json: "from"
+// waits for "to". Only approved, well-formed edges between two IDs are kept.
+export function normalizeDependencyEdges(data) {
+  const edges = [];
+  const seen = new Set();
+  for (const edge of arrayOrEmpty(data?.edges)) {
+    const from = typeof edge?.from === "string" ? edge.from.trim() : "";
+    const to = typeof edge?.to === "string" ? edge.to.trim() : "";
+    if (!from || !to || from === to) continue;
+    if (edge.status && !["approved", "active"].includes(String(edge.status))) continue;
+    const key = `${from}\u0000${to}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    edges.push({
+      from,
+      to,
+      blocks: typeof edge.blocks === "string" ? edge.blocks : null,
+      requiredState: typeof edge.required_state === "string" ? edge.required_state : null,
+    });
+  }
+  return edges;
+}
+
+// Adds prerequisites, dependents, and a "waiting" state for work that has
+// not started because a recorded prerequisite is not delivered yet.
+export function applyDependencies(stories, edges = [], {
+  now = Date.now(),
+  recentHours = INSIGHT_SETTINGS.recentActivityHours,
+} = {}) {
+  const byId = new Map(stories.map((story) => [story.id, story]));
+  return stories.map((story) => {
+    const prerequisites = edges.filter((edge) => edge.from === story.id && byId.has(edge.to)).map((edge) => edge.to);
+    const dependents = edges.filter((edge) => edge.to === story.id && byId.has(edge.from)).map((edge) => edge.from);
+    const waitingOn = prerequisites.filter((id) => byId.get(id).state !== "delivered");
+    const recent = story.lastActivity !== null && story.lastActivity !== undefined
+      && now - story.lastActivity <= recentHours * 3_600_000;
+    return {
+      ...story,
+      state: story.state === "idle" && waitingOn.length ? "waiting" : story.state,
+      prerequisites,
+      dependents,
+      waitingOn,
+      recent: recent && ["live", "open", "blocked"].includes(story.state),
+    };
+  });
+}
+
+// Columns follow the longest chain of prerequisites, so everything a story
+// waits for sits to its left. Rows are ordered to keep lines short.
+export function planLayout(stories, edges) {
+  const byId = new Map(stories.map((story) => [story.id, story]));
+  const depth = new Map();
+  const visiting = new Set();
+  const depthOf = (id) => {
+    if (depth.has(id)) return depth.get(id);
+    if (visiting.has(id)) return 0;
+    visiting.add(id);
+    const prerequisites = edges.filter((edge) => edge.from === id && byId.has(edge.to));
+    const value = prerequisites.length ? 1 + Math.max(...prerequisites.map((edge) => depthOf(edge.to))) : 0;
+    visiting.delete(id);
+    depth.set(id, value);
+    return value;
+  };
+  for (const story of stories) depthOf(story.id);
+  const columns = [];
+  for (const story of stories) {
+    const index = depth.get(story.id);
+    if (!columns[index]) columns[index] = [];
+    columns[index].push(story);
+  }
+  const row = new Map();
+  columns.forEach((column, index) => {
+    const weight = (story) => {
+      const rows = edges.filter((edge) => edge.from === story.id && row.has(edge.to)).map((edge) => row.get(edge.to));
+      return rows.length ? rows.reduce((sum, value) => sum + value, 0) / rows.length : Number.POSITIVE_INFINITY;
+    };
+    column.sort((left, right) => {
+      if (index === 0) {
+        return (right.dependents?.length ?? 0) - (left.dependents?.length ?? 0)
+          || storyTitleText(left.iteration).localeCompare(storyTitleText(right.iteration));
+      }
+      return weight(left) - weight(right)
+        || storyTitleText(left.iteration).localeCompare(storyTitleText(right.iteration));
+    });
+    column.forEach((story, position) => row.set(story.id, position));
+  });
+  return { columns: columns.filter(Boolean), edges: edges.filter((edge) => byId.has(edge.from) && byId.has(edge.to)) };
+}
+
+export function relatedChain(storyId, edges) {
+  const chain = new Set([storyId]);
+  const walk = (id, key, next) => {
+    for (const edge of edges) {
+      if (edge[key] === id && !chain.has(edge[next])) {
+        chain.add(edge[next]);
+        walk(edge[next], key, next);
+      }
+    }
+  };
+  walk(storyId, "from", "to");
+  walk(storyId, "to", "from");
+  return chain;
+}
+
 export function storyInsights(model, events = projectEvents(model)) {
   const byStory = new Map();
   for (const event of events) {
@@ -214,7 +325,7 @@ export function storyInsights(model, events = projectEvents(model)) {
 export function sortStories(stories, order = "recent") {
   const list = [...stories];
   const byTitle = (left, right) =>
-    String(left.iteration.title ?? "").localeCompare(String(right.iteration.title ?? ""));
+    storyTitleText(left.iteration).localeCompare(storyTitleText(right.iteration));
   const stateRank = new Map(STORY_STATES.map((state, index) => [state.key, index]));
   if (order === "title") return list.sort(byTitle);
   if (order === "progress") {
@@ -245,49 +356,81 @@ export function phaseTotals(stories) {
   });
 }
 
-const DAY = 86_400_000;
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
 
-function startOfUtcDay(time) {
+// Buckets follow the reader's local calendar so a bar labelled "9 Oct" holds
+// exactly that local day.
+function startOfLocalHour(time) {
   const date = new Date(time);
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  date.setMinutes(0, 0, 0);
+  return date.getTime();
 }
 
-function startOfUtcWeek(time) {
-  const day = startOfUtcDay(time);
-  const weekday = (new Date(day).getUTCDay() + 6) % 7;
-  return day - weekday * DAY;
+function startOfLocalDay(time) {
+  const date = new Date(time);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+function startOfLocalWeek(time) {
+  const date = new Date(startOfLocalDay(time));
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+  return date.getTime();
+}
+
+const BUCKET_UNITS = Object.freeze({
+  hour: { start: startOfLocalHour, next: (time) => time + HOUR },
+  day: {
+    start: startOfLocalDay,
+    next: (time) => { const date = new Date(time); date.setDate(date.getDate() + 1); return date.getTime(); },
+  },
+  week: {
+    start: startOfLocalWeek,
+    next: (time) => { const date = new Date(time); date.setDate(date.getDate() + 7); return date.getTime(); },
+  },
+});
+
+export function bucketUnitFor(span, {
+  hourlyThresholdHours = INSIGHT_SETTINGS.hourlyBucketThresholdHours,
+  dailyThresholdDays = INSIGHT_SETTINGS.dailyBucketThresholdDays,
+} = {}) {
+  if (span <= hourlyThresholdHours * HOUR) return "hour";
+  if (span <= dailyThresholdDays * DAY) return "day";
+  return "week";
 }
 
 // Buckets end at the latest recorded event, not at the clock, so an older
-// project still shows its real activity instead of an empty chart.
+// project still shows its real activity instead of an empty chart. A short
+// history is drawn by hour or day so it never collapses into a single bar.
 export function activityBuckets(events, {
   count = INSIGHT_SETTINGS.activityBucketCount,
+  hourlyThresholdHours = INSIGHT_SETTINGS.hourlyBucketThresholdHours,
   dailyThresholdDays = INSIGHT_SETTINGS.dailyBucketThresholdDays,
 } = {}) {
   const timed = events.filter((event) => event.time !== null);
   if (!timed.length) return { unit: "week", buckets: [] };
   const latest = Math.max(...timed.map((event) => event.time));
   const earliest = Math.min(...timed.map((event) => event.time));
-  const unit = latest - earliest <= dailyThresholdDays * DAY ? "day" : "week";
-  const size = unit === "day" ? DAY : 7 * DAY;
-  const lastStart = unit === "day" ? startOfUtcDay(latest) : startOfUtcWeek(latest);
-  const span = unit === "day"
-    ? Math.min(count, Math.max(1, Math.round((lastStart - startOfUtcDay(earliest)) / DAY) + 1))
-    : count;
-  const buckets = [];
-  for (let index = span - 1; index >= 0; index -= 1) {
-    const start = lastStart - index * size;
-    buckets.push({
-      start,
-      end: start + size,
-      total: 0,
-      counts: Object.fromEntries(EVENT_KINDS.map((kind) => [kind.key, 0])),
-    });
+  const unit = bucketUnitFor(latest - earliest, { hourlyThresholdHours, dailyThresholdDays });
+  const rules = BUCKET_UNITS[unit];
+  const limit = unit === "hour" ? Math.max(count, hourlyThresholdHours) : count;
+  const starts = [rules.start(latest)];
+  const firstNeeded = rules.start(earliest);
+  while (starts.length < limit && starts[0] > firstNeeded) {
+    const previous = rules.start(starts[0] - 1);
+    starts.unshift(previous);
   }
-  const first = buckets[0].start;
+  while (unit === "week" && starts.length < limit) starts.unshift(rules.start(starts[0] - 1));
+  const buckets = starts.map((start) => ({
+    start,
+    end: rules.next(start),
+    total: 0,
+    counts: Object.fromEntries(EVENT_KINDS.map((kind) => [kind.key, 0])),
+  }));
   for (const event of timed) {
-    if (event.time < first) continue;
-    const bucket = buckets[Math.min(buckets.length - 1, Math.floor((event.time - first) / size))];
+    const bucket = buckets.find((entry) => event.time >= entry.start && event.time < entry.end);
+    if (!bucket) continue;
     bucket.counts[event.kind] += 1;
     bucket.total += 1;
   }
@@ -347,7 +490,7 @@ export function relativeTime(time, now = Date.now()) {
 
 export function formatDay(time, options = { day: "numeric", month: "short", year: "numeric" }) {
   if (time === null || time === undefined) return t("Time not recorded");
-  return new Intl.DateTimeFormat(getLocale(), { timeZone: "UTC", ...options }).format(new Date(time));
+  return new Intl.DateTimeFormat(getLocale(), options).format(new Date(time));
 }
 
 const MAP_COLUMNS = Object.freeze([

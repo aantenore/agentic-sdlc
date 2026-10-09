@@ -31,10 +31,10 @@ nothing anywhere. This is what to expect the first time.
 
    | View | What it is for |
    | --- | --- |
-   | Overview | A dashboard: how many stories are in progress or delivered, activity over time, check results, the stories being worked on now, and the latest activity. Every tile and bar opens the matching filtered view. |
-   | Stories | Every piece of work as one row with its six steps; a pulsing segment is a step in progress. Search, filter by status, sort, and open a row to see its activity and jump to its map, timeline, or dossier. |
+   | Overview | A dashboard that opens with one sentence (for example "9 of 27 stories delivered"), a progress bar split by status, and the stories moving right now. Below it: activity over time (by hour, day, or week depending on the history), check results, and the latest activity. Every tile, bar, and status opens the matching filtered view. |
+   | Stories | Every piece of work as one row with its six steps and its ID; a pulsing dot means it was worked on in the last few hours. Search, filter by status, sort, and open a row to see what it needs first, what it unlocks, its activity, and links to the map, timeline, or dossier. |
    | Timeline | Everything that was recorded, newest first and grouped by day. Search, filter by type or story, and click a bar of the activity chart to focus on one period. Selecting an entry shows its evidence. |
-   | Map | The lineage of one story, from the request to the checks. Every line is a recorded link; related records are drawn for the selected box only. Zoom in or out, and select a box to see its evidence. |
+   | Map | When `.sdlc/dependencies/graph.json` exists, the map opens on the **project plan**: every story in waves from left to right, with a line from each story to the work it unlocks. Selecting a story lights up its whole chain. **One story in detail** shows the lineage of one story from the request to the checks; related records are drawn for the selected box only. |
    | Story dossier | Each piece of work step by step, from the request to verification, plus the phase-by-phase lineage matrix. Old `#timeline` links open this view. |
    | Contracts | The agreed boundaries and how they changed over time. |
    | Decisions | Choices that were made, with the reasons and the alternatives that were rejected. |
@@ -44,8 +44,11 @@ nothing anywhere. This is what to expect the first time.
 
    The visual views only read the recorded history. A story's state comes from
    its recorded steps (in progress, blocked, started, delivered, not started, or
-   stopped), and the charts are drawn in the page itself without any external
-   library or network request.
+   stopped). A story that has not started and depends on work that is not
+   delivered yet is shown as waiting. The charts are drawn in the page itself
+   without any external library or network request. Evidence warnings and raw
+   record controls stay on the detailed record views, so the everyday views
+   remain uncluttered.
 
 6. **If something goes wrong.** A port that is already in use is reported with
    the suggestion to use `--port 0`. `--host` accepts only `127.0.0.1`; other

@@ -16,6 +16,10 @@ import {
   INSIGHT_SETTINGS,
   STORY_STATES,
   actionLabel,
+  applyDependencies,
+  planLayout,
+  relatedChain,
+  storyTitleText,
   activityBuckets,
   checkHealth,
   checkOutcome,
@@ -50,21 +54,25 @@ export function defaultExploreState() {
     sort: "recent",
     expanded: new Set(),
     mapStoryId: null,
+    mapMode: null,
+    planFocus: null,
     mapZoom: 1,
     pages: 1,
   };
 }
 
-// Projections are cached per model object so re-rendering on every keystroke
-// or selection does not rebuild them.
+// Projections are cached per model and dependency list so re-rendering on
+// every keystroke or selection does not rebuild them.
 const insightCache = new WeakMap();
+const NO_EDGES = Object.freeze([]);
 
-export function insightsFor(model) {
+export function insightsFor(model, edges = NO_EDGES) {
   let cached = insightCache.get(model);
-  if (!cached) {
+  if (!cached || cached.edges !== edges) {
     const events = projectEvents(model);
-    const stories = storyInsights(model, events);
+    const stories = applyDependencies(storyInsights(model, events), edges);
     cached = {
+      edges,
       events,
       stories,
       storiesById: new Map(stories.map((story) => [story.id, story])),
@@ -87,7 +95,11 @@ function countText(count, singular, plural) {
 }
 
 function storyTitle(story) {
-  return displayTextForItem(story.iteration).title;
+  return storyTitleText(story.iteration);
+}
+
+function edgesOf(state) {
+  return state.dependencies ?? NO_EDGES;
 }
 
 function panel(title, description, body, { className = "", actions = [] } = {}) {
@@ -113,17 +125,17 @@ function linkButton(label, dataset, extraClass = "") {
   });
 }
 
-function stateDot(stateKey) {
+function stateDot(stateKey, { recent = false } = {}) {
   return node("span", {
-    className: `state-dot${stateKey === "live" ? " is-live" : ""}`,
+    className: `state-dot${stateKey === "live" || recent ? " is-live" : ""}`,
     attrs: { "aria-hidden": "true" },
     dataset: { state: stateKey },
   });
 }
 
-function stateBadge(stateKey) {
+function stateBadge(stateKey, options = {}) {
   return node("span", { className: "state-badge", dataset: { state: stateKey } }, [
-    stateDot(stateKey),
+    stateDot(stateKey, options),
     node("span", { text: STATE_BY_KEY.get(stateKey)?.label ?? stateKey, i18n: true }),
   ]);
 }
@@ -165,13 +177,16 @@ function outcomeBadge(item) {
   return node("span", { className: "outcome-badge", text: label, i18n: true, dataset: { outcome } });
 }
 
+const PLACEHOLDER_SUMMARIES = new Set(["No recorded summary."]);
+
 // Only text the record itself carries (or the autonomy projection) is shown
 // as a summary; generic fallback sentences would repeat on every row.
 function recordedText(item) {
   const display = displayTextForItem(item);
   if (isAutonomyRecord(item)) return { title: display.title, summary: display.summary };
   const title = String(item?.title ?? "").trim();
-  const summary = String(item?.summary ?? "").trim();
+  const rawSummary = String(item?.summary ?? "").trim();
+  const summary = PLACEHOLDER_SUMMARIES.has(rawSummary) ? "" : rawSummary;
   return {
     title: title && display.title === localizePlaceholder(title) ? display.title : "",
     summary: summary && display.summary === localizePlaceholder(summary) ? display.summary : "",
@@ -248,6 +263,7 @@ function niceMax(value) {
 }
 
 function bucketLabel(bucket, unit) {
+  if (unit === "hour") return formatDay(bucket.start, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   return unit === "day"
     ? formatDay(bucket.start, { day: "numeric", month: "short" })
     : `${t("Week of")} ${formatDay(bucket.start, { day: "numeric", month: "short" })}`;
@@ -327,7 +343,9 @@ export function activityChart(events, { range = null, compact = false } = {}) {
         x: pad.left + slot * index + slot / 2,
         y: height - 8,
         "text-anchor": "middle",
-        text: formatDay(bucket.start, { day: "numeric", month: "short" }),
+        text: unit === "hour"
+          ? formatDay(bucket.start, { hour: "2-digit", minute: "2-digit" })
+          : formatDay(bucket.start, { day: "numeric", month: "short" }),
       }));
     }
   });
@@ -461,61 +479,122 @@ function kpiTile({ label, value, hint, tone = "neutral", live = false, dataset =
     : node("div", { className: "kpi-tile", dataset: { tone } }, content);
 }
 
-function storyCard(story, state) {
-  return node("li", { className: "now-card", dataset: { state: story.state } }, [
+function storyCard(story, storiesById) {
+  const live = story.state === "live" || story.recent;
+  return node("li", { className: `now-card${live ? " is-active" : ""}`, dataset: { state: story.state } }, [
     node("button", {
       className: "now-card-button",
       attrs: { type: "button", "aria-label": `${storyTitle(story)}: ${t(STATE_BY_KEY.get(story.state).label)}` },
       dataset: { action: "open-story", storyId: story.id },
     }, [
       node("span", { className: "now-card-head" }, [
-        stateBadge(story.state),
+        stateBadge(story.state, { recent: story.recent }),
         node("span", { className: "now-card-time", text: relativeTime(story.lastActivity) }),
       ]),
       node("strong", { className: "now-card-title", text: storyTitle(story) }),
       phaseTrack(story),
       node("span", { className: "now-card-foot" }, [
-        node("span", {
-          text: story.livePhase
-            ? `${t("Now")}: ${t(story.livePhase.charAt(0).toUpperCase() + story.livePhase.slice(1))}`
-            : `${t("Progress")}: ${story.completed}/${PHASES.length}`,
-        }),
-        node("span", { text: countText(story.events.length, "event", "events") }),
+        node("span", { text: storyNextText(story, storiesById) }),
       ]),
     ]),
   ]);
 }
 
+// One plain sentence about where a story stands, in the reader's words.
+function storyNextText(story, storiesById) {
+  if (story.state === "waiting" && story.waitingOn?.length) {
+    return `${t("Waiting for")} ${waitingNames(story, storiesById)}`;
+  }
+  if (story.livePhase) {
+    return `${t("Now")}: ${t(story.livePhase.charAt(0).toUpperCase() + story.livePhase.slice(1))}`;
+  }
+  const next = story.phases.find((phase) => phase.status !== "complete");
+  if (story.state === "delivered" || !next) return t("All steps done");
+  return `${t("Next step")}: ${t(next.phase.charAt(0).toUpperCase() + next.phase.slice(1))}`;
+}
+
+function waitingNames(story, storiesById) {
+  if (story.waitingOn.length > 1) return countText(story.waitingOn.length, "story", "stories");
+  const [id] = story.waitingOn;
+  return storiesById?.get(id) ? storyTitle(storiesById.get(id)) : id;
+}
+
+const PROGRESS_ORDER = Object.freeze(["delivered", "live", "blocked", "open", "waiting", "idle", "stopped"]);
+
+function progressBar(stateCounts, total) {
+  const svg = svgNode("svg", {
+    className: "progress-bar",
+    viewBox: "0 0 100 10",
+    preserveAspectRatio: "none",
+    role: "img",
+    "aria-label": PROGRESS_ORDER.filter((key) => stateCounts[key])
+      .map((key) => `${t(STATE_BY_KEY.get(key).label)}: ${stateCounts[key]}`).join(", "),
+  });
+  svg.append(svgNode("rect", { className: "progress-track", x: 0, y: 0, width: 100, height: 10, rx: 5 }));
+  let x = 0;
+  for (const key of PROGRESS_ORDER) {
+    const share = total ? (stateCounts[key] / total) * 100 : 0;
+    if (!share) continue;
+    svg.append(svgNode("rect", {
+      className: `progress-segment${key === "live" ? " is-live" : ""}`,
+      x,
+      y: 0,
+      width: share,
+      height: 10,
+      dataset: { state: key },
+    }));
+    x += share;
+  }
+  const legend = node("div", { className: "progress-legend", attrs: { role: "group", "aria-label": t("Filter by status") } },
+    PROGRESS_ORDER.filter((key) => stateCounts[key]).map((key) => node("button", {
+      className: "progress-key",
+      attrs: { type: "button" },
+      dataset: { action: "go-view", targetView: "stories", storyState: key, state: key },
+    }, [
+      node("span", { className: "progress-swatch", attrs: { "aria-hidden": "true" } }),
+      node("span", { text: STATE_BY_KEY.get(key).label, i18n: true }),
+      node("strong", { text: stateCounts[key] }),
+    ])));
+  return node("div", { className: "progress-figure" }, [svg, legend]);
+}
+
 export function dashboardView(model, state) {
-  const insight = insightsFor(model);
+  const insight = insightsFor(model, edgesOf(state));
   const { stories, stateCounts, health, events } = insight;
   const lastEvent = events.find((event) => event.time !== null);
-  const liveCount = stateCounts.live + stateCounts.blocked;
-  const decisions = events.filter((event) => event.kind === "decision").length;
-  const changes = events.filter((event) => event.kind === "change").length;
+  const active = stories.filter((story) => story.state === "live" || story.recent);
+  const delivered = stateCounts.delivered;
+  const hasPlan = edgesOf(state).length > 0;
 
   const headline = node("section", { className: "dash-hero" }, [
     node("div", { className: "dash-hero-copy" }, [
+      node("h2", {
+        className: "dash-hero-title",
+        text: stories.length
+          ? t(stories.length === 1 ? "{done} of {total} story delivered" : "{done} of {total} stories delivered")
+            .replace("{done}", delivered).replace("{total}", stories.length)
+          : t("No story has been recorded yet."),
+      }),
       node("p", { className: "dash-hero-status" }, [
-        stateDot(stateCounts.live ? "live" : (stateCounts.blocked ? "blocked" : "idle")),
-        node("strong", {
-          text: stateCounts.live
-            ? countText(stateCounts.live, "story in progress", "stories in progress")
-            : t("No story is in progress right now"),
+        stateDot(active.length ? "live" : (stateCounts.blocked ? "blocked" : "idle")),
+        node("span", {
+          text: [
+            active.length
+              ? countText(active.length, "story moving right now", "stories moving right now")
+              : t("Nothing is moving right now"),
+            stateCounts.waiting ? countText(stateCounts.waiting, "waiting for others", "waiting for others") : null,
+            stateCounts.blocked ? countText(stateCounts.blocked, "blocked", "blocked") : null,
+            lastEvent ? `${t("Last activity")} ${relativeTime(lastEvent.time)}` : null,
+          ].filter(Boolean).join(" · "),
         }),
       ]),
-      node("p", {
-        className: "dash-hero-detail",
-        text: [
-          countText(stateCounts.delivered, "delivered", "delivered"),
-          stateCounts.blocked ? countText(stateCounts.blocked, "blocked", "blocked") : null,
-          lastEvent ? `${t("Last activity")} ${relativeTime(lastEvent.time)}` : null,
-        ].filter(Boolean).join(" · "),
-      }),
+      stories.length ? progressBar(stateCounts, stories.length) : null,
     ]),
     node("div", { className: "dash-hero-actions" }, [
       linkButton("See all stories", { action: "go-view", targetView: "stories" }, "is-primary"),
-      linkButton("Open timeline", { action: "go-view", targetView: "activity" }),
+      hasPlan
+        ? linkButton("See the project plan", { action: "map-mode", mapMode: "plan", targetView: "map" })
+        : linkButton("Open timeline", { action: "go-view", targetView: "activity" }),
     ]),
   ]);
 
@@ -523,23 +602,23 @@ export function dashboardView(model, state) {
     ? `${Math.round((health.passed / (health.passed + health.failed)) * 100)}%`
     : "–";
   const kpis = node("div", { className: "kpi-row" }, [
-    kpiTile({ label: "Stories", value: stories.length, hint: countText(stateCounts.open, "started", "started"), dataset: { action: "go-view", targetView: "stories", storyState: "all" } }),
-    kpiTile({ label: "In progress", value: stateCounts.live, tone: "live", live: stateCounts.live > 0, hint: stateCounts.blocked ? countText(stateCounts.blocked, "blocked", "blocked") : t("Nothing blocked"), dataset: { action: "go-view", targetView: "stories", storyState: "live" } }),
-    kpiTile({ label: "Delivered stories", value: stateCounts.delivered, tone: "success", hint: `${stories.length ? Math.round((stateCounts.delivered / stories.length) * 100) : 0}% ${t("of stories")}`, dataset: { action: "go-view", targetView: "stories", storyState: "delivered" } }),
+    kpiTile({ label: "Moving now", value: active.length, tone: "live", live: active.length > 0, hint: stateCounts.live ? countText(stateCounts.live, "step in progress", "steps in progress") : t("Worked on in the last few hours"), dataset: { action: "go-view", targetView: "stories", storyState: "all" } }),
+    kpiTile({ label: "Delivered stories", value: delivered, tone: "success", hint: `${stories.length ? Math.round((delivered / stories.length) * 100) : 0}% ${t("of stories")}`, dataset: { action: "go-view", targetView: "stories", storyState: "delivered" } }),
+    hasPlan
+      ? kpiTile({ label: "Waiting", value: stateCounts.waiting, hint: stateCounts.blocked ? countText(stateCounts.blocked, "blocked", "blocked") : t("Nothing blocked"), dataset: { action: "go-view", targetView: "stories", storyState: "waiting" } })
+      : kpiTile({ label: "Blocked", value: stateCounts.blocked, tone: stateCounts.blocked ? "warning" : "neutral", hint: stateCounts.blocked ? null : t("Nothing blocked"), dataset: { action: "go-view", targetView: "stories", storyState: "blocked" } }),
     kpiTile({ label: "Checks passed", value: passRate, tone: health.failed ? "warning" : "success", hint: `${health.passed} ${t("passed")} · ${health.failed} ${t("failed")}`, dataset: { action: "go-view", targetView: "activity", kinds: "check" } }),
-    kpiTile({ label: "Decisions", value: decisions, hint: countText(changes, "change", "changes"), dataset: { action: "go-view", targetView: "activity", kinds: "decision" } }),
   ]);
 
   const nowStories = sortStories(
-    stories.filter((story) => ["live", "blocked", "open"].includes(story.state)),
-    "state",
+    stories.filter((story) => ["live", "blocked", "open"].includes(story.state) || story.recent),
+    "recent",
   ).slice(0, INSIGHT_SETTINGS.dashboardActiveStoryLimit);
   const now = panel(
     "Happening now",
-    liveCount ? "Stories with work under way; a pulsing dot means a step is in progress" : "Most recent stories",
-    nowStories.length
-      ? node("ul", { className: "now-grid" }, nowStories.map((story) => storyCard(story, state)))
-      : node("ul", { className: "now-grid" }, sortStories(stories, "recent").slice(0, 3).map((story) => storyCard(story, state))),
+    active.length ? "A pulsing dot means someone is working on it right now" : "Most recent stories",
+    node("ul", { className: "now-grid" }, (nowStories.length ? nowStories : sortStories(stories, "recent").slice(0, 3))
+      .map((story) => storyCard(story, insight.storiesById))),
     { className: "dash-now", actions: [linkButton("All stories", { action: "go-view", targetView: "stories" })] },
   );
 
@@ -557,11 +636,11 @@ export function dashboardView(model, state) {
   return node("div", { className: "view-stack dashboard" }, [
     headline,
     kpis,
+    now,
     node("div", { className: "dash-grid" }, [
-      panel("Activity over time", "Click a bar to see what happened in that period", activityChart(events, { compact: true }), { className: "dash-activity" }),
+      panel("Activity over time", "Click a bar to see what happened in that moment", activityChart(events, { compact: true }), { className: "dash-activity" }),
       panel("Check results", "Outcome of recorded tests and gates", healthDonut(health), { className: "dash-health" }),
     ]),
-    now,
     node("div", { className: "dash-grid is-even" }, [
       panel("Where the stories are", "How many stories completed each step", phaseFunnel(insight.phases, stories.length)),
       recentPanel,
@@ -618,6 +697,21 @@ function sortSelect(value) {
   return select;
 }
 
+function storyLinks(label, ids, insight) {
+  if (!ids?.length) return null;
+  return node("p", { className: "story-links" }, [
+    node("span", { className: "story-links-label", text: label, i18n: true }),
+    ...ids.map((id) => {
+      const linked = insight.storiesById.get(id);
+      return node("button", {
+        className: "story-link",
+        attrs: { type: "button" },
+        dataset: { action: "open-story", storyId: id },
+      }, [stateDot(linked?.state ?? "idle"), node("span", { text: linked ? storyTitle(linked) : id })]);
+    }),
+  ]);
+}
+
 function storyRow(story, state, insight) {
   const exploreState = explore(state);
   const expanded = exploreState.expanded.has(story.id);
@@ -637,8 +731,9 @@ function storyRow(story, state, insight) {
     node("span", { className: "story-main" }, [
       node("strong", { className: "story-title", text: storyTitle(story) }),
       node("span", { className: "story-sub" }, [
-        stateBadge(story.state),
-        node("span", { text: relativeTime(story.lastActivity) }),
+        stateBadge(story.state, { recent: story.recent }),
+        node("span", { text: story.state === "waiting" ? storyNextText(story, insight.storiesById) : relativeTime(story.lastActivity) }),
+        node("span", { className: "story-id", text: story.id }),
       ]),
     ]),
     phaseTrack(story),
@@ -655,8 +750,13 @@ function storyRow(story, state, insight) {
   article.append(node("div", { className: "story-body", attrs: { id: bodyId } }, [
     summary ? node("p", { className: "story-summary", text: summary }) : null,
     phaseTrack(story, { labels: true }),
+    storyLinks("Needs first", story.prerequisites, insight),
+    storyLinks("Unlocks", story.dependents, insight),
     node("div", { className: "story-actions" }, [
       linkButton("Show on the map", { action: "open-map", storyId: story.id }, "is-primary"),
+      story.prerequisites?.length || story.dependents?.length
+        ? linkButton("Show in the project plan", { action: "map-mode", mapMode: "plan", planFocus: story.id, targetView: "map" })
+        : null,
       linkButton("Show in the timeline", { action: "go-view", targetView: "activity", storyId: story.id }),
       linkButton("Open the step-by-step dossier", { action: "open-dossier", iterationId: story.id }),
       linkButton("Details", { action: "select-record", selectId: recordSelectionKey(story.iteration) }),
@@ -673,7 +773,7 @@ function storyRow(story, state, insight) {
 }
 
 export function storiesView(model, state) {
-  const insight = insightsFor(model);
+  const insight = insightsFor(model, edgesOf(state));
   const exploreState = explore(state);
   const visible = sortStories(insight.stories.filter((story) =>
     (exploreState.storyState === "all" || story.state === exploreState.storyState)
@@ -727,7 +827,7 @@ function dayKey(time) {
 }
 
 export function activityView(model, state) {
-  const insight = insightsFor(model);
+  const insight = insightsFor(model, edgesOf(state));
   const exploreState = explore(state);
   const scoped = filterEvents(insight.events, {
     query: exploreState.query,
@@ -826,7 +926,8 @@ function mapNodeLabel(entry, kind) {
 function mapNodeDetail(entry, label) {
   const recorded = recordedText(entry.item);
   const text = [recorded.summary, recorded.title].find((value) => value && value !== label);
-  return text || formatDay(Date.parse(entry.item.timestamp ?? "") || null);
+  const time = Date.parse(entry.item.timestamp ?? "");
+  return text || (Number.isFinite(time) ? formatDay(time) : "");
 }
 
 const COLUMN_KIND = Object.freeze({
@@ -841,10 +942,196 @@ const COLUMN_KIND = Object.freeze({
 // through a bracket, and related-record links appear only for the selection.
 // That keeps a story with dozens of records readable.
 export function mapView(model, state) {
-  const insight = insightsFor(model);
+  const insight = insightsFor(model, edgesOf(state));
   const exploreState = explore(state);
   const stories = insight.stories;
   if (!stories.length) return emptyMessage("No story has been recorded yet.");
+  const hasPlan = edgesOf(state).length > 0;
+  const mode = hasPlan ? (exploreState.mapMode ?? "plan") : "story";
+  if (mode === "plan") return planView(state, insight);
+  return storyMapView(model, state, insight, hasPlan);
+}
+
+function mapModeSwitch(mode) {
+  return node("div", { className: "segmented", attrs: { role: "group", "aria-label": t("What to show") } }, [
+    ["plan", "Project plan"],
+    ["story", "One story in detail"],
+  ].map(([key, label]) => node("button", {
+    className: `segmented-option${mode === key ? " is-active" : ""}`,
+    text: label,
+    i18n: true,
+    attrs: { type: "button", "aria-pressed": String(mode === key) },
+    dataset: { action: "map-mode", mapMode: key },
+  })));
+}
+
+function zoomControls(zoom) {
+  return node("div", { className: "zoom-controls", attrs: { role: "group", "aria-label": t("Zoom") } }, [
+    node("button", { className: "icon-text-button", text: "−", attrs: { type: "button", "aria-label": t("Zoom out") }, dataset: { action: "map-zoom", zoom: "out" } }),
+    node("span", { className: "zoom-value", text: `${Math.round(zoom * 100)}%` }),
+    node("button", { className: "icon-text-button", text: "+", attrs: { type: "button", "aria-label": t("Zoom in") }, dataset: { action: "map-zoom", zoom: "in" } }),
+    node("button", { className: "text-button", text: "Reset", i18n: true, attrs: { type: "button" }, dataset: { action: "map-zoom", zoom: "reset" } }),
+  ]);
+}
+
+const PLAN_LAYOUT = Object.freeze({
+  nodeWidth: 224,
+  nodeHeight: 70,
+  columnGap: 52,
+  rowGap: 14,
+  headerHeight: 30,
+  padding: 18,
+  labelLength: 27,
+});
+
+// The project plan: every story is a box, and a line runs from the work it
+// needs to the work it unlocks. Selecting a box lights up its whole chain.
+function planView(state, insight) {
+  const exploreState = explore(state);
+  const edges = edgesOf(state);
+  const layout = PLAN_LAYOUT;
+  const plan = planLayout(insight.stories, edges);
+  const focus = insight.storiesById.has(exploreState.planFocus) ? exploreState.planFocus : null;
+  const chain = focus ? relatedChain(focus, plan.edges) : null;
+  const step = layout.nodeHeight + layout.rowGap;
+  const tallest = Math.max(...plan.columns.map((column) => column.length), 1);
+  const width = layout.padding * 2 + plan.columns.length * (layout.nodeWidth + layout.columnGap) - layout.columnGap;
+  const top = layout.padding + layout.headerHeight;
+  const height = top + tallest * step + layout.padding;
+  const positions = new Map();
+  const titleCounts = new Map();
+  for (const story of insight.stories) titleCounts.set(storyTitle(story), (titleCounts.get(storyTitle(story)) ?? 0) + 1);
+  const duplicateTitles = new Set([...titleCounts].filter(([, count]) => count > 1).map(([title]) => title));
+  const headers = svgNode("g", { className: "map-headers" });
+  const nodes = svgNode("g", { className: "map-nodes" });
+  const lines = svgNode("g", { className: "map-edges" });
+
+  plan.columns.forEach((column, columnIndex) => {
+    const x = layout.padding + columnIndex * (layout.nodeWidth + layout.columnGap);
+    const offset = ((tallest - column.length) * step) / 2;
+    headers.append(svgNode("text", {
+      className: "map-column-label",
+      x: x + layout.nodeWidth / 2,
+      y: layout.padding + 14,
+      "text-anchor": "middle",
+      text: `${t("Wave")} ${columnIndex + 1}${columnIndex === 0 ? ` · ${t("start here")}` : ""}`,
+    }));
+    column.forEach((story, rowIndex) => {
+      const y = top + offset + rowIndex * step;
+      positions.set(story.id, { x, y });
+      const title = storyTitle(story);
+      const shared = duplicateTitles.has(title);
+      const detail = [
+        shared ? story.id : null,
+        story.state === "delivered" || (story.state === "idle" && !story.waitingOn.length)
+          ? t(STATE_BY_KEY.get(story.state).label)
+          : storyNextText(story, insight.storiesById),
+      ].filter(Boolean).join(" · ");
+      const stateLabel = t(STATE_BY_KEY.get(story.state).label);
+      const focused = story.id === focus;
+      const dimmed = chain && !chain.has(story.id);
+      const live = story.state === "live" || story.recent;
+      const group = svgNode("g", {
+        className: `map-node plan-node${focused ? " is-selected" : ""}${dimmed ? " is-dimmed" : ""}${live ? " is-live" : ""}`,
+        role: "button",
+        tabindex: "0",
+        "aria-pressed": focused ? "true" : "false",
+        "aria-label": `${title}. ${stateLabel}. ${detail}`,
+        dataset: { action: "plan-focus", storyId: story.id, state: story.state },
+        transform: `translate(${x} ${y})`,
+      }, [svgNode("title", { text: `${title}\n${stateLabel} · ${detail}\n${story.id}` })]);
+      if (live) {
+        group.append(svgNode("rect", { className: "map-pulse", x: -4, y: -4, width: layout.nodeWidth + 8, height: layout.nodeHeight + 8, rx: 14 }));
+      }
+      group.append(
+        svgNode("rect", { className: "map-node-box", width: layout.nodeWidth, height: layout.nodeHeight, rx: 10 }),
+        svgNode("rect", { className: "plan-node-stripe", width: 5, height: layout.nodeHeight, rx: 2 }),
+        svgNode("text", { className: "map-node-title", x: 14, y: 22, text: truncate(title, layout.labelLength) }),
+        svgNode("text", { className: "map-node-detail", x: 14, y: 40, text: truncate(detail, layout.labelLength + 5) }),
+      );
+      const segment = (layout.nodeWidth - 28) / PHASES.length;
+      story.phases.forEach((phase, index) => {
+        group.append(svgNode("rect", {
+          className: `map-phase${phase.status === "inProgress" ? " is-live" : ""}`,
+          x: 14 + index * segment,
+          y: 52,
+          width: segment - 3,
+          height: 7,
+          rx: 2,
+          dataset: { status: phase.status },
+        }));
+      });
+      nodes.append(group);
+    });
+  });
+
+  for (const edge of plan.edges) {
+    const needed = positions.get(edge.to);
+    const waiting = positions.get(edge.from);
+    if (!needed || !waiting) continue;
+    const startX = needed.x + layout.nodeWidth;
+    const startY = needed.y + layout.nodeHeight / 2;
+    const endX = waiting.x;
+    const endY = waiting.y + layout.nodeHeight / 2;
+    const bend = Math.max(30, (endX - startX) / 2);
+    const inChain = chain && chain.has(edge.from) && chain.has(edge.to);
+    const done = insight.storiesById.get(edge.to)?.state === "delivered";
+    lines.append(svgNode("path", {
+      className: `plan-edge${inChain ? " is-highlighted" : ""}${chain && !inChain ? " is-dimmed" : ""}${done ? " is-done" : ""}`,
+      d: `M${startX} ${startY} C${startX + bend} ${startY}, ${endX - bend} ${endY}, ${endX} ${endY}`,
+    }));
+  }
+
+  const zoom = Math.min(2.5, Math.max(0.5, exploreState.mapZoom || 1));
+  const svg = svgNode("svg", {
+    className: "lineage-map plan-map",
+    viewBox: `0 0 ${width} ${height}`,
+    width: Math.round(width * zoom),
+    height: Math.round(height * zoom),
+    role: "group",
+    "aria-label": t("Project plan"),
+  }, [lines, headers, nodes]);
+
+  const focused = focus ? insight.storiesById.get(focus) : null;
+  const focusBar = focused
+    ? node("div", { className: "plan-focus" }, [
+      node("div", { className: "plan-focus-copy" }, [
+        stateBadge(focused.state, { recent: focused.recent }),
+        node("strong", { text: storyTitle(focused) }),
+        node("span", { className: "plan-focus-detail", text: [
+          focused.prerequisites.length ? countText(focused.prerequisites.length, "story needed first", "stories needed first") : t("Needs nothing else"),
+          focused.dependents.length ? countText(focused.dependents.length, "story unlocked", "stories unlocked") : null,
+        ].filter(Boolean).join(" · ") }),
+      ]),
+      node("div", { className: "story-actions" }, [
+        linkButton("Open story", { action: "open-story", storyId: focused.id }, "is-primary"),
+        linkButton("One story in detail", { action: "map-mode", mapMode: "story", storyId: focused.id }),
+        linkButton("Clear selection", { action: "plan-focus", storyId: focused.id }),
+      ]),
+    ])
+    : node("p", { className: "plan-hint", text: "Select a story to light up what it needs and what it unlocks.", i18n: true });
+
+  return node("div", { className: "view-stack" }, [
+    node("div", { className: "explore-toolbar" }, [mapModeSwitch("plan"), zoomControls(zoom)]),
+    panel(
+      "Project plan",
+      "Read it left to right: each story starts when the ones before it are delivered.",
+      node("div", {}, [
+        focusBar,
+        node("div", { className: "map-scroll", attrs: { tabindex: "0", "aria-label": t("Project plan") } }, [svg]),
+      ]),
+    ),
+    node("div", { className: "map-legend" }, [
+      node("span", { className: "legend-item" }, [node("span", { className: "legend-line is-plan" }), node("span", { text: "Needed before", i18n: true })]),
+      node("span", { className: "legend-item" }, [node("span", { className: "legend-line is-plan is-done" }), node("span", { text: "Already delivered", i18n: true })]),
+      ...["live", "waiting", "delivered"].map((key) => node("span", { className: "legend-item" }, [stateDot(key), node("span", { text: STATE_BY_KEY.get(key).label, i18n: true })])),
+    ]),
+  ]);
+}
+
+function storyMapView(model, state, insight, hasPlan) {
+  const exploreState = explore(state);
+  const stories = insight.stories;
   const story = insight.storiesById.get(exploreState.mapStoryId)
     ?? insight.storiesById.get(state.selectedIterationId)
     ?? sortStories(stories, "state")[0];
@@ -903,7 +1190,7 @@ export function mapView(model, state) {
         className: `map-node${selected ? " is-selected" : ""}${live ? " is-live" : ""}`,
         role: "button",
         tabindex: "0",
-        "aria-label": `${t(column.label)}: ${label}. ${detail}`,
+        "aria-label": detail ? `${t(column.label)}: ${label}. ${detail}` : `${t(column.label)}: ${label}`,
         dataset: {
           action: "select-record",
           selectId: entry.key,
@@ -911,16 +1198,16 @@ export function mapView(model, state) {
           outcome: kind === "check" ? checkOutcome(entry.item) : null,
         },
         transform: `translate(${x} ${y})`,
-      }, [svgNode("title", { text: `${label}\n${detail}` })]);
+      }, [svgNode("title", { text: detail ? `${label}\n${detail}` : label })]);
       if (live) {
         group.append(svgNode("rect", { className: "map-pulse", x: -4, y: -4, width: layout.nodeWidth + 8, height: nodeHeight + 8, rx: 12 }));
       }
-      group.append(
+      group.append(...[
         svgNode("rect", { className: "map-node-box", width: layout.nodeWidth, height: nodeHeight, rx: 8 }),
         svgNode("rect", { className: "map-node-stripe", width: 5, height: nodeHeight, rx: 2 }),
-        svgNode("text", { className: "map-node-title", x: 14, y: entry.story ? 22 : 19, text: truncate(label, entry.story ? 20 : layout.labelLength) }),
-        svgNode("text", { className: "map-node-detail", x: 14, y: entry.story ? 40 : 35, text: truncate(detail, layout.labelLength + 3) }),
-      );
+        svgNode("text", { className: "map-node-title", x: 14, y: entry.story ? 22 : (detail ? 19 : 28), text: truncate(label, entry.story ? 20 : layout.labelLength) }),
+        detail ? svgNode("text", { className: "map-node-detail", x: 14, y: entry.story ? 40 : 35, text: truncate(detail, layout.labelLength + 3) }) : null,
+      ].filter(Boolean));
       if (entry.story) {
         const segment = (layout.nodeWidth - 28) / PHASES.length;
         story.phases.forEach((phase, index) => {
@@ -1001,23 +1288,19 @@ export function mapView(model, state) {
     width: Math.round(width * zoom),
     height: Math.round(height * zoom),
     role: "group",
-    "aria-label": `${t("Lineage map")}: ${storyTitle(story)}`,
+    "aria-label": `${t("How this story was built")}: ${storyTitle(story)}`,
   }, [edgeLayer, headerLayer, nodesLayer]);
 
   return node("div", { className: "view-stack" }, [
     node("div", { className: "explore-toolbar" }, [
+      hasPlan ? mapModeSwitch("story") : null,
       storyFilterSelect(stories, story.id, "mapStoryId", "Choose a story"),
-      node("div", { className: "zoom-controls", attrs: { role: "group", "aria-label": t("Zoom") } }, [
-        node("button", { className: "icon-text-button", text: "−", attrs: { type: "button", "aria-label": t("Zoom out") }, dataset: { action: "map-zoom", zoom: "out" } }),
-        node("span", { className: "zoom-value", text: `${Math.round(zoom * 100)}%` }),
-        node("button", { className: "icon-text-button", text: "+", attrs: { type: "button", "aria-label": t("Zoom in") }, dataset: { action: "map-zoom", zoom: "in" } }),
-        node("button", { className: "text-button", text: "Reset", i18n: true, attrs: { type: "button" }, dataset: { action: "map-zoom", zoom: "reset" } }),
-      ]),
+      zoomControls(zoom),
     ]),
     panel(
-      "Lineage map",
-      "From the request to the checks: every line is a recorded link. Select a box to see its evidence.",
-      node("div", { className: "map-scroll", attrs: { tabindex: "0", "aria-label": t("Lineage map") } }, [svg]),
+      "How this story was built",
+      "From the request to the checks. Select a box to see what was recorded.",
+      node("div", { className: "map-scroll", attrs: { tabindex: "0", "aria-label": t("How this story was built") } }, [svg]),
       { actions: [stateBadge(story.state)] },
     ),
     node("div", { className: "map-legend" }, [

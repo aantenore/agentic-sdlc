@@ -408,6 +408,47 @@ const ITALIAN = Object.freeze({
   "Map": "Mappa",
   "Story dossier": "Dossier della storia",
   "Records": "Prove",
+  "Waiting": "In attesa",
+  "Waiting for": "In attesa di",
+  "Next step": "Prossimo passo",
+  "All steps done": "Tutti i passi completati",
+  "story": "storia",
+  "stories": "storie",
+  "{done} of {total} stories delivered": "{done} storie consegnate su {total}",
+  "{done} of {total} story delivered": "{done} storia consegnata su {total}",
+  "story moving right now": "storia in movimento adesso",
+  "stories moving right now": "storie in movimento adesso",
+  "Nothing is moving right now": "Nessuna storia si sta muovendo adesso",
+  "waiting for others": "in attesa di altre",
+  "See the project plan": "Vedi il piano del progetto",
+  "Moving now": "In movimento adesso",
+  "step in progress": "passo in corso",
+  "steps in progress": "passi in corso",
+  "A pulsing dot means someone is working on it right now": "Il punto che pulsa indica che qualcuno ci sta lavorando adesso",
+  "Click a bar to see what happened in that moment": "Tocca una barra per vedere cosa è successo in quel momento",
+  "Needs first": "Prima serve",
+  "Unlocks": "Sblocca",
+  "Show in the project plan": "Mostra nel piano del progetto",
+  "What to show": "Cosa mostrare",
+  "Project plan": "Piano del progetto",
+  "One story in detail": "Una storia in dettaglio",
+  "Wave": "Ondata",
+  "start here": "si parte da qui",
+  "Worked on in the last few hours": "Lavorate nelle ultime ore",
+  "Needs nothing else": "Non dipende da altro",
+  "story needed first": "storia da completare prima",
+  "stories needed first": "storie da completare prima",
+  "story unlocked": "storia sbloccata",
+  "stories unlocked": "storie sbloccate",
+  "Open story": "Apri la storia",
+  "Clear selection": "Annulla selezione",
+  "Select a story to light up what it needs and what it unlocks.": "Tocca una storia per evidenziare cosa le serve e cosa sblocca.",
+  "Read it left to right: each story starts when the ones before it are delivered.": "Si legge da sinistra a destra: ogni storia parte quando quelle prima sono consegnate.",
+  "Needed before": "Serve prima",
+  "Already delivered": "Già consegnata",
+  "How this story was built": "Come è stata costruita questa storia",
+  "From the request to the checks. Select a box to see what was recorded.": "Dalla richiesta alle verifiche. Tocca un riquadro per vedere cosa è stato registrato.",
+  "Detailed records": "Registri dettagliati",
   "Live updates": "Aggiornamento live",
   "Read-only · live": "Sola lettura · live",
   "Live updates paused": "Aggiornamento live in pausa",
@@ -725,6 +766,25 @@ const WINDOWS_DRIVE_PATH = /\b[A-Za-z]:[\\/][^\s"'`<>]+/u;
 const WINDOWS_UNC_PATH = /(?:^|[\s("'`])\\\\(?:\?\\)?[^\\/\s"'`<>]+\\[^\s"'`<>]+/u;
 // Command names are matched in lower case only, so prose such as "Node 18" stays readable.
 const EXECUTABLE_COMMAND_LINE = /(?:^|[\s("'`])(?:npm|npx|pnpm|yarn|node|bun|deno|python(?:3(?:\.\d+)?)?|pip3?|pytest|git|gh|docker(?:-compose)?|kubectl|helm|terraform|cargo|mvn|gradle|dotnet|java|rtk)(?:\.exe)?\s+(?:--?[A-Za-z0-9][\w-]*|[A-Za-z0-9][\w./:@=+-]*)/u;
+
+// A recorded title that only carries an ID as a prefix ("CR on REQ-7: new
+// filters") keeps its readable part instead of falling back to a generic
+// label. Anything still technical after that returns null.
+export function readableRecordedTitle(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  if (!containsInternalPrimaryText(text)) return text;
+  const prefixed = text.match(/^([^:]{1,80}):\s*(.+)$/u);
+  const candidate = prefixed && containsInternalPrimaryText(prefixed[1])
+    ? prefixed[2]
+    : text.replace(new RegExp(CANONICAL_RECORD_ID.source, "gu"), " ");
+  const cleaned = candidate
+    .replace(/\s{2,}/gu, " ")
+    .replace(/^[\s:;,.–-]+|[\s:;,–-]+$/gu, "")
+    .trim();
+  if (cleaned.length < 4 || containsInternalPrimaryText(cleaned)) return null;
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
 
 function containsInternalPrimaryText(value) {
   const text = String(value ?? "").trim();

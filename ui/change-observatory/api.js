@@ -173,6 +173,18 @@ export class ObservatoryApi {
     return bounded;
   }
 
+  // Parsed JSON content of one canonical record, for read-only projections
+  // such as the dependency plan. Returns null when it is not structured data.
+  async loadSourceData(href, { signal } = {}) {
+    const raw = await this.loadRaw(href, { signal });
+    try {
+      const envelope = JSON.parse(raw);
+      return envelope?.truncated ? null : (envelope?.data ?? null);
+    } catch {
+      return null;
+    }
+  }
+
   async #request(url, options, { allowNotModified = false } = {}) {
     let response;
     try {

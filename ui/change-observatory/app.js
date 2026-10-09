@@ -13,6 +13,7 @@ import {
 } from "./components.js";
 import {
   preferredDossierIteration,
+  rawHrefForPath,
   rawTargetFor,
   recordSelectionKey,
 } from "./model.js";
@@ -38,7 +39,7 @@ import {
   t,
 } from "./i18n.js";
 import { defaultExploreState } from "./visuals.js";
-import { INSIGHT_SETTINGS } from "./insights.js";
+import { INSIGHT_SETTINGS, normalizeDependencyEdges } from "./insights.js";
 
 const locale = setLocale(localeFromLocation(window.location));
 applyDocumentLocale(document, locale);
@@ -125,6 +126,8 @@ const state = {
   rawGeneration: 0,
   rawExpanded: false,
   rawReturnFocus: null,
+  dependencies: null,
+  dependencyKey: null,
 };
 const loadCoordinator = new LatestRequestCoordinator();
 
@@ -318,6 +321,34 @@ function applyProjectModel(model, {
     state.selectedItem = preferredSelection(model, portfolioProjectId);
     state.selectedId = state.selectedItem ? recordSelectionKey(state.selectedItem) : null;
   }
+  loadDependencies(model, portfolioProjectId);
+}
+
+// The recorded dependency graph feeds the project plan and the "waiting"
+// state. It is optional: without it every view still works.
+const DEPENDENCY_GRAPH_PATH = ".sdlc/dependencies/graph.json";
+
+async function loadDependencies(model, portfolioProjectId) {
+  const record = model.records?.find((candidate) => candidate.path === DEPENDENCY_GRAPH_PATH);
+  if (!record) {
+    state.dependencies = null;
+    state.dependencyKey = null;
+    return;
+  }
+  const key = `${portfolioProjectId ?? ""}|${record.timestamp ?? ""}|${record.sizeBytes ?? ""}`;
+  if (state.dependencyKey === key) return;
+  const href = rawHrefForPath(DEPENDENCY_GRAPH_PATH, portfolioProjectId);
+  if (!href) return;
+  state.dependencyKey = key;
+  try {
+    const data = await api.loadSourceData(href);
+    if (state.modelProjectId !== portfolioProjectId || state.dependencyKey !== key) return;
+    const edges = normalizeDependencyEdges(data);
+    state.dependencies = edges.length ? edges : null;
+    render();
+  } catch {
+    if (state.dependencyKey === key) state.dependencyKey = null;
+  }
 }
 
 function captureProjectSelection(portfolioProjectId) {
@@ -354,6 +385,8 @@ function clearProjectModel() {
   state.selectedIterationId = null;
   state.records = new Map();
   state.explore = defaultExploreState();
+  state.dependencies = null;
+  state.dependencyKey = null;
 }
 
 function clearProjectPresentation() {
@@ -770,6 +803,9 @@ function handleExploreAction(element) {
       explore.storyState = "all";
       explore.query = "";
       goToView("stories");
+      [...elements.primary.querySelectorAll(".story-row")]
+        .find((row) => row.dataset.storyId === data.storyId)
+        ?.scrollIntoView?.({ block: "center", behavior: "smooth" });
       break;
     case "toggle-story":
       if (explore.expanded.has(data.storyId)) explore.expanded.delete(data.storyId);
@@ -814,7 +850,19 @@ function handleExploreAction(element) {
       break;
     case "open-map":
       explore.mapStoryId = data.storyId;
+      explore.mapMode = "story";
       goToView("map");
+      break;
+    case "map-mode":
+      explore.mapMode = data.mapMode === "story" ? "story" : "plan";
+      if (data.storyId) explore.mapStoryId = data.storyId;
+      if (data.planFocus) explore.planFocus = data.planFocus;
+      if (data.targetView && data.targetView !== state.view) goToView(data.targetView);
+      else render();
+      break;
+    case "plan-focus":
+      explore.planFocus = explore.planFocus === data.storyId ? null : data.storyId;
+      render();
       break;
     case "open-dossier":
       state.selectedIterationId = data.iterationId;

@@ -6,13 +6,18 @@ import { renderPrimary } from "../../ui/change-observatory/components.js";
 import { setLocale } from "../../ui/change-observatory/i18n.js";
 import {
   activityBuckets,
+  applyDependencies,
   checkOutcome,
   filterEvents,
   lineageGraph,
+  normalizeDependencyEdges,
+  planLayout,
   projectEvents,
+  relatedChain,
   storyInsights,
   storyState,
 } from "../../ui/change-observatory/insights.js";
+import { readableRecordedTitle } from "../../ui/change-observatory/i18n.js";
 import { normalizeViewModel, recordSelectionKey } from "../../ui/change-observatory/model.js";
 import { defaultExploreState } from "../../ui/change-observatory/visuals.js";
 import {
@@ -95,17 +100,57 @@ test("check outcomes read the recorded status conservatively", () => {
   assert.equal(checkOutcome({ status: null }), "recorded");
 });
 
-test("activity buckets end at the latest event and switch to days for short histories", () => {
+test("activity buckets end at the latest event and pick hours, days, or weeks by span", () => {
   const at = (iso, kind = "decision") => ({ kind, time: Date.parse(iso) });
-  const short = activityBuckets([at("2026-07-01T10:00:00Z"), at("2026-07-03T09:00:00Z", "check")]);
-  assert.equal(short.unit, "day");
-  assert.equal(short.buckets.length, 3);
-  assert.equal(short.buckets.at(-1).counts.check, 1);
+  const hourly = activityBuckets([at("2026-07-01T10:05:00Z"), at("2026-07-01T13:40:00Z", "check")]);
+  assert.equal(hourly.unit, "hour");
+  assert.equal(hourly.buckets.length, 4, "one bar per hour, so a single busy day never collapses");
+  assert.equal(hourly.buckets.at(-1).counts.check, 1);
+  const daily = activityBuckets([at("2026-07-01T10:00:00Z"), at("2026-07-06T09:00:00Z", "check")]);
+  assert.equal(daily.unit, "day");
+  assert.ok(daily.buckets.length >= 5 && daily.buckets.length <= 7);
+  assert.equal(daily.buckets.at(-1).counts.check, 1);
   const long = activityBuckets([at("2026-01-01T00:00:00Z"), at("2026-07-03T09:00:00Z")], { count: 4 });
   assert.equal(long.unit, "week");
   assert.equal(long.buckets.length, 4);
   assert.equal(long.buckets.reduce((sum, bucket) => sum + bucket.total, 0), 1, "older events fall outside the window");
   assert.deepEqual(activityBuckets([]).buckets, []);
+});
+
+test("recorded dependencies add a waiting state, a plan order, and a highlightable chain", () => {
+  const edges = normalizeDependencyEdges({
+    edges: [
+      { from: "ST-B", to: "ST-A", type: "blocks", required_state: "merged" },
+      { from: "ST-C", to: "ST-B" },
+      { from: "ST-C", to: "ST-B" },
+      { from: "ST-D", to: "ST-D" },
+      { from: "ST-E", to: "ST-A", status: "rejected" },
+    ],
+  });
+  assert.deepEqual(edges.map((edge) => `${edge.from}>${edge.to}`), ["ST-B>ST-A", "ST-C>ST-B"]);
+  const now = Date.parse("2026-07-01T12:00:00Z");
+  const base = (id, state, lastActivity = null) => ({ id, state, lastActivity, iteration: { id, title: id }, phases: [] });
+  const stories = applyDependencies([
+    base("ST-A", "live", now - 3_600_000),
+    base("ST-B", "idle"),
+    base("ST-C", "idle"),
+    base("ST-D", "delivered"),
+  ], edges, { now, recentHours: 6 });
+  const byId = new Map(stories.map((story) => [story.id, story]));
+  assert.equal(byId.get("ST-B").state, "waiting");
+  assert.deepEqual(byId.get("ST-B").waitingOn, ["ST-A"]);
+  assert.deepEqual(byId.get("ST-A").dependents, ["ST-B"]);
+  assert.equal(byId.get("ST-A").recent, true);
+  assert.equal(byId.get("ST-D").state, "delivered", "a delivered story never becomes waiting");
+  const plan = planLayout(stories, edges);
+  assert.deepEqual(plan.columns.map((column) => column.map((story) => story.id).sort()), [["ST-A", "ST-D"], ["ST-B"], ["ST-C"]]);
+  assert.deepEqual([...relatedChain("ST-B", edges)].sort(), ["ST-A", "ST-B", "ST-C"]);
+});
+
+test("titles that start with record IDs keep their readable part", () => {
+  assert.equal(readableRecordedTitle("CR su REQ-EDIT-001: modifiche richieste ampliate"), "Modifiche richieste ampliate");
+  assert.equal(readableRecordedTitle("Preferenze del viaggio"), "Preferenze del viaggio");
+  assert.equal(readableRecordedTitle("REQ-EDIT-001"), null);
 });
 
 test("timeline filters combine search, kind, story, and period", () => {
@@ -165,6 +210,28 @@ test("dashboard, stories, timeline, and map render in English and Italian", asyn
         );
       }
     }
+  }
+});
+
+test("the map opens on the project plan when dependencies are recorded", async (t) => {
+  useBrowserDocument(t);
+  const model = await fixtureModel();
+  const [first, second] = storyInsights(model);
+  const dependencies = [{ from: second.id, to: first.id, blocks: "analysis", requiredState: "merged" }];
+  for (const locale of ["en", "it"]) {
+    setLocale(locale);
+    const explore = defaultExploreState();
+    const container = globalThis.document.createElement("main");
+    renderPrimary(container, model, { view: "map", selectedId: null, filters: {}, explore, dependencies });
+    assert.equal(container.querySelectorAll(".plan-node").length, storyInsights(model).length, locale);
+    assert.equal(container.querySelectorAll(".plan-edge").length, 1);
+    explore.planFocus = second.id;
+    renderPrimary(container, model, { view: "map", selectedId: null, filters: {}, explore, dependencies });
+    assert.ok(container.querySelector(".plan-focus"), "the selected story gets its own action bar");
+    explore.mapMode = "story";
+    renderPrimary(container, model, { view: "map", selectedId: null, filters: {}, explore, dependencies });
+    assert.equal(container.querySelectorAll(".plan-node").length, 0);
+    assert.ok(container.querySelectorAll(".map-node").length > 0);
   }
 });
 
