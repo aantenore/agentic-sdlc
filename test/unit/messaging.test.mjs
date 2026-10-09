@@ -147,9 +147,36 @@ test("setup creates a topic or stores a shared one, only in the git folder", asy
   assert.equal(JSON.parse(fs.readFileSync(local, "utf8")).topic, TOPIC);
   assert.equal((await runCli(["message", "setup", "--topic", "short"], { root })).code === 0, false);
 
-  const missing = await runCli(["message", "read"], { root: projectDir(null) });
-  assert.notEqual(missing.code, 0);
-  assert.match(missing.stderr, /message setup --topic/u);
+});
+
+test("a computer without messaging set up keeps working: commands succeed and send nothing", async () => {
+  const root = projectDir(null);
+  for (const args of [
+    ["message", "send", "--text", "hello"],
+    ["message", "read"],
+    ["message", "listen", "--timeout", "1"],
+    ["message", "status"],
+  ]) {
+    const result = await runCli(args, { root });
+    assert.equal(result.code, 0, `${args.join(" ")}: ${result.stderr}`);
+    assert.match(result.stdout, /not set up|off/u);
+  }
+  const json = await runCli(["message", "send", "--text", "hello", "--json"], { root });
+  assert.equal(JSON.parse(json.stdout).skipped, true);
+  // A broken settings file is reported, not fatal.
+  fs.writeFileSync(path.join(root, ".sdlc/messaging.json"), "{not json");
+  assert.equal((await runCli(["message", "read"], { root })).code, 0);
+});
+
+test("an unreachable messaging server is reported without failing", async () => {
+  const root = projectDir();
+  const env = { AGENTIC_SDLC_MESSAGING_SERVER: "http://127.0.0.1:9" };
+  const sent = await runCli(["message", "send", "--text", "hello", "--json"], { root, env });
+  assert.equal(sent.code, 0, sent.stderr);
+  assert.equal(JSON.parse(sent.stdout).unavailable, true);
+  const read = await runCli(["message", "read"], { root, env });
+  assert.equal(read.code, 0, read.stderr);
+  assert.match(read.stdout, /unavailable/u);
 });
 
 test("send, read and listen through the CLI", async () => {

@@ -2,6 +2,8 @@
 
 Agents on different computers working on the same project can exchange short notes through a public [ntfy](https://ntfy.sh) topic whose hard-to-guess name is shared privately and never committed. No account and no server are needed: the topic exists as soon as the first message is sent.
 
+Messaging is optional. On a computer without a topic, `message send`, `read` and `listen` make no network call, say it is not set up, and succeed; nothing else in the plugin uses messaging. A messaging server that is down or slow (no answer within 10 seconds) is reported, never a failure.
+
 ## Turn it on
 
 On one computer, in its clone of the project:
