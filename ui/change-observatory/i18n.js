@@ -452,6 +452,7 @@ const ITALIAN = Object.freeze({
   "open": "aperte",
   "Started": "Avviata",
   "Close details": "Chiudi i dettagli",
+  "Decision made": "Decisione presa",
   "Delivered stories": "Storie consegnate",
   "Related records (shown for the selected box)": "Prove correlate (mostrate per il riquadro selezionato)",
   "started": "avviate",

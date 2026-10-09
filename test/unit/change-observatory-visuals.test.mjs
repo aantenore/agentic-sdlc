@@ -160,7 +160,7 @@ test("dashboard, stories, timeline, and map render in English and Italian", asyn
       if (locale === "it") {
         assert.doesNotMatch(
           container.textContent,
-          /Happening now|Latest activity|Search the timeline|Lineage map|Each row is one piece of work/u,
+          /Happening now|Latest activity|Search the timeline|Lineage map|Each row is one piece of work|Cosa devi decidere/u,
           `${locale}/${view} has no untranslated chrome`,
         );
       }
