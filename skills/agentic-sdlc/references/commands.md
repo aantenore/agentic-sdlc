@@ -796,6 +796,19 @@ node bin/agentic-sdlc.mjs story overlap --root <project> --id ST-002 --json
 node bin/agentic-sdlc.mjs story overlap confirm --root <project> --id ST-002 --summary "Rebased on ST-001 and re-ran the tests"
 ```
 
+A commit that reached the base branch outside any delivery (pushed straight
+to main) makes `git.commit` and `git.push` refuse the story branches that
+picked it up. Commits that only touch `.sdlc/` records, and a commit followed
+by its exact revert, never count. A person (human or CI actor, refused inside
+an agent session) can accept one such commit for one story; its files then
+stay out of the story's perimeter, and those inside its write scope or
+context go through `story overlap confirm` before the merge:
+
+```bash
+# A person, in their own terminal:
+node bin/agentic-sdlc.mjs story base acknowledge --root <project> --id ST-002 --commit <sha> --reason "<why it belongs on main>" --actor-type human
+```
+
 Taking over a story held on another computer needs `--force`, `--reason`, and a
 human or CI actor, and is refused inside an agent session
 (`STORY_CLAIM_TAKEOVER_NEEDS_PERSON`). The release record names who took over
