@@ -7,6 +7,7 @@ import test from "node:test";
 
 import {
   readSnapshotActive,
+  readSnapshotFastChecks,
   readSnapshotValue,
   withReadSnapshot,
 } from "../../lib/engine/read-snapshot.mjs";
@@ -143,4 +144,13 @@ test("a saved lifecycle-complete report points to the receipt instead of copying
   assert.equal(report.freshness_proof.governed_files.length, 2, "the report itself is unchanged");
   const withoutReceipt = { status: "failed", freshness_proof: report.freshness_proof };
   assert.equal(compactGateReport(withoutReceipt), withoutReceipt);
+});
+
+test("fast checks are on only for a snapshot opened with them", () => {
+  assert.equal(readSnapshotFastChecks(), false);
+  withReadSnapshot(() => assert.equal(readSnapshotFastChecks(), false));
+  withReadSnapshot(() => {
+    assert.equal(readSnapshotFastChecks(), true);
+    withReadSnapshot(() => assert.equal(readSnapshotFastChecks(), true), { fastChecks: false });
+  }, { fastChecks: true });
 });
