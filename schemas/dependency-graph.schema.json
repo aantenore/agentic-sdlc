@@ -63,6 +63,15 @@
         },
         "required_state": {
           "type": "string"
+        },
+        "requirement_id": {
+          "type": ["string", "null"]
+        },
+        "requirement_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": true
