@@ -320,7 +320,8 @@
             "mode": { "enum": ["git", "off"] },
             "base_branch": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$" },
             "match_commit_subject": { "type": "boolean" },
-            "max_commits_scanned": { "type": "integer", "minimum": 1, "maximum": 100000 }
+            "max_commits_scanned": { "type": "integer", "minimum": 1, "maximum": 100000 },
+            "open_state": { "enum": ["merged_open", "available"] }
           },
           "additionalProperties": false
         },

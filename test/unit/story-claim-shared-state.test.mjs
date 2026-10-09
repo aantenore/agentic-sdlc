@@ -70,7 +70,7 @@ test("orchestration policy shares claims through origin by default and validates
     stale_claim_after_seconds: null,
     delivered_overlap: { write_scope: "confirm", context: "warn", confirmation_actor: "any", claim: "warn" },
     status_sync: { mode: "fetch" },
-    merge_drift: { mode: "git", base_branch: null, match_commit_subject: true, max_commits_scanned: 500 },
+    merge_drift: { mode: "git", base_branch: null, match_commit_subject: true, max_commits_scanned: 500, open_state: "merged_open" },
     status_list_limit: 5,
     claim_identity: { git_user: false, host_label_env: "AGENTIC_SDLC_HOST_LABEL" },
     claim_activity: { mode: "git", idle_after_seconds: null },
