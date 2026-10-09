@@ -122,6 +122,8 @@ test("three computers refreshing the same baseline at the same moment: exactly o
   const third = temporaryDirectory("race-third");
   fs.rmSync(third, { recursive: true, force: true });
   assert.equal(spawnSync("git", ["clone", "--quiet", "--branch", "main", remote, third], { encoding: "utf8" }).status, 0);
+  git(third, ["config", "user.name", "Baseline E2E"]);
+  git(third, ["config", "user.email", "baseline-e2e@example.invalid"]);
   const computers = [first, second, third];
   computers.forEach((project, index) => {
     fs.writeFileSync(path.join(project, "src", `change-${index}.mjs`), `export const change = ${index};\n`, "utf8");
