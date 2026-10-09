@@ -7,10 +7,12 @@ import test from "node:test";
 import { orderKnowledgeBaseEntries } from "../../lib/change-observatory/constants.mjs";
 import { compactEdges, readDependencyEdges } from "../../lib/change-observatory/dependency-edges.mjs";
 import { readTrackedSharedClaims } from "../../lib/change-observatory/shared-claims.mjs";
+import { readRemoteOnlyStories } from "../../lib/change-observatory/remote-stories.mjs";
 import { renderPrimary } from "../../ui/change-observatory/components.js";
 import { setLocale } from "../../ui/change-observatory/i18n.js";
 import {
   INSIGHT_SETTINGS,
+  addRemoteStories,
   applyDependencies,
   applySharedClaims,
   changeRequestLinks,
@@ -169,4 +171,32 @@ test("shared claims are read from local tracking refs only", () => {
   const failed = readTrackedSharedClaims("/nowhere", { listRefs: () => ({ error: "boom" }) });
   assert.deepEqual(failed.claims, []);
   assert.ok(failed.error);
+});
+
+test("stories another computer pushed appear before this copy is updated", () => {
+  const files = {
+    ".sdlc/stories": "ST-LOCAL\nST-NEW\nST-BROKEN\n../escape\n",
+    ".sdlc/stories/ST-NEW/story.json": JSON.stringify({ id: "ST-NEW", title: "New work", status: "ready", requirement_refs: ["REQ-1"] }),
+    ".sdlc/stories/ST-BROKEN/story.json": "{",
+  };
+  const git = (args) => {
+    if (args[0] === "log") return { ok: true, stdout: "2026-10-09T18:00:00+00:00\n" };
+    const target = args[args.length - 1].split(":")[1];
+    return target in files ? { ok: true, stdout: files[target] } : { ok: false, stdout: "" };
+  };
+  const result = readRemoteOnlyStories("/nowhere", {
+    git,
+    baseRef: { ref: "refs/remotes/origin/main", branch: "main" },
+    hasLocalStory: (id) => id === "ST-LOCAL",
+  });
+  assert.equal(result.branch, "main");
+  assert.deepEqual(result.stories.map((entry) => entry.storyId), ["ST-NEW"]);
+  assert.deepEqual(result.stories[0].requirementIds, ["REQ-1"]);
+  assert.equal(readRemoteOnlyStories("/nowhere", { git, baseRef: null, hasLocalStory: () => false }).checked, false);
+
+  const stories = addRemoteStories([story("ST-LOCAL", "idle")], [...result.stories, { storyId: "ST-LOCAL" }]);
+  assert.equal(stories.length, 2);
+  assert.equal(stories[1].remoteOnly, true);
+  assert.equal(stories[1].iteration.title, "New work");
+  assert.equal(stories[1].phases.length, 7);
 });

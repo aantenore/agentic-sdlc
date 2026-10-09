@@ -139,6 +139,8 @@ const state = {
   dependencyKey: null,
   sharedClaims: null,
   sharedClaimsKey: null,
+  remoteStories: null,
+  remoteStoriesKey: null,
 };
 const loadCoordinator = new LatestRequestCoordinator();
 
@@ -342,6 +344,7 @@ function applyProjectModel(model, {
   }
   loadDependencies(model, portfolioProjectId);
   loadSharedClaims(portfolioProjectId);
+  loadRemoteStories(portfolioProjectId);
 }
 
 // Who holds each story on the shared remote, as this computer last saw it.
@@ -357,6 +360,20 @@ async function loadSharedClaims(portfolioProjectId) {
     render();
   } catch {
     // Older servers have no claims endpoint.
+  }
+}
+
+async function loadRemoteStories(portfolioProjectId) {
+  try {
+    const stories = await api.loadRemoteStories(portfolioProjectId);
+    if (state.modelProjectId !== portfolioProjectId) return;
+    const key = JSON.stringify(stories);
+    if (key === state.remoteStoriesKey) return;
+    state.remoteStoriesKey = key;
+    state.remoteStories = stories.length ? stories : null;
+    render();
+  } catch {
+    // Older servers have no remote stories endpoint.
   }
 }
 
@@ -429,6 +446,8 @@ function clearProjectModel() {
   state.dependencyKey = null;
   state.sharedClaims = null;
   state.sharedClaimsKey = null;
+  state.remoteStories = null;
+  state.remoteStoriesKey = null;
 }
 
 function clearProjectPresentation() {
