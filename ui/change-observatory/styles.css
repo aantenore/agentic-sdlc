@@ -3923,3 +3923,12 @@ button.kpi-tile:hover {
   .dash-hero { padding: 20px 18px; }
   .dash-hero-title { font-size: 24px; }
 }
+
+/* Replaced stories: finished, with a link to the story that took over. */
+.state-dot[data-state="replaced"] { background: var(--state-stopped); }
+.state-badge[data-state="replaced"] { background: var(--surface-muted); color: var(--state-stopped); }
+.progress-segment[data-state="replaced"] { fill: var(--state-stopped); opacity: 0.55; }
+.progress-key[data-state="replaced"] .progress-swatch { background: var(--state-stopped); opacity: 0.55; }
+.plan-node[data-state="replaced"] .plan-node-stripe { fill: var(--state-stopped); }
+.plan-node[data-state="replaced"] .map-node-box { fill: var(--surface-muted); stroke-dasharray: 4 3; }
+.phase-track { grid-template-columns: none; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; }

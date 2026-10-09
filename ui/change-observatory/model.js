@@ -16,6 +16,7 @@ export const PHASES = Object.freeze([
   "implementation",
   "validation",
   "release",
+  "operations",
 ]);
 
 // Fallback text the browser model substitutes for absent fields. It is UI
@@ -540,7 +541,19 @@ function normalizeIteration(value, index, dossier = null) {
     title: readable(value?.title, `Iteration ${index + 1}`),
     currentPhase: readable(value?.currentPhase, "") || null,
     phases: PHASES.map((phase) => normalizePhase(byPhase.get(phase), phase)),
+    claimed: value?.claimed === true,
+    closure: normalizeClosure(value?.closure),
     dossier,
+  };
+}
+
+// Older servers send no closure; a story is then never shown as replaced.
+function normalizeClosure(value) {
+  const closure = objectOrEmpty(value);
+  if (!["superseded", "cancelled"].includes(closure.event)) return null;
+  return {
+    event: closure.event,
+    replacementId: readable(closure.replacementId, "") || null,
   };
 }
 

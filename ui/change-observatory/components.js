@@ -18,6 +18,7 @@ import {
   displayKindForItem,
   displayTextForItem,
   humanGuidanceForItem,
+  humanizeRecordedText,
   isAutonomyRecord,
   localizePlaceholder,
   localizeUiText,
@@ -263,23 +264,54 @@ const DIAGNOSTIC_QUIET_SUMMARIES = Object.freeze({
   warning: "Some recorded items were read with warnings. The views still work; open the technical details to see what was noted.",
 });
 
+// Notes that normal plugin use produces (links to contracts and profiles,
+// plain-text evidence, older records without a schema version, size limits)
+// are not something the reader can act on, so they never raise the banner.
+export const ROUTINE_DIAGNOSTIC_CODES = Object.freeze(new Set([
+  "schema_version_missing",
+  "dossier_link_target_missing",
+  "dossier_record_unlinked",
+  "dossier_evidence_target_malformed",
+  "dossier_evidence_target_jsonl_unsupported",
+  "dossier_evidence_link_shared",
+  "dossier_lane_missing",
+  "dossier_cross_story_link_blocked",
+  "dossier_nested_items_truncated",
+  "dossier_evidence_index_truncated",
+  "file_too_large",
+  "collection_truncated",
+  "record_fanout_truncated",
+  "record_index_truncated",
+  "intentabi_link_index_truncated",
+  "presentation_fields_redacted",
+  "private_reasoning_redacted",
+  "project_name_inferred",
+]));
+
+export function isActionableDiagnostic(diagnostic) {
+  return diagnostic?.severity === "error" || !ROUTINE_DIAGNOSTIC_CODES.has(diagnostic?.code);
+}
+
 export function renderDiagnostics(container, allDiagnostics) {
   // A missing knowledge base has its own dedicated empty state.
-  const diagnostics = allDiagnostics.filter((diagnostic) => diagnostic.code !== "knowledge_base_missing");
+  const known = allDiagnostics.filter((diagnostic) => diagnostic.code !== "knowledge_base_missing");
+  const actionable = known.filter(isActionableDiagnostic);
+  // The banner appears only when something needs the reader; the technical
+  // list still includes the routine notes for whoever opens it.
+  const diagnostics = actionable.length ? known : [];
   if (!diagnostics.length) {
     container.hidden = true;
     container.replaceChildren();
     return;
   }
   container.hidden = false;
-  const severity = highestDiagnosticSeverity(diagnostics);
-  const occurrenceTotal = diagnostics.reduce(
+  const severity = highestDiagnosticSeverity(actionable);
+  const occurrenceTotal = actionable.reduce(
     (total, diagnostic) => total + diagnostic.occurrences,
     0,
   );
   const disclosure = node("details", {
     className: "diagnostics-disclosure",
-    attrs: { open: severity === "error" ? "" : null },
     dataset: { severity },
   });
   disclosure.append(
@@ -287,7 +319,7 @@ export function renderDiagnostics(container, allDiagnostics) {
       icon(severity === "info" ? "source" : "alert"),
       node("strong", { text: DIAGNOSTIC_HEADINGS[severity], i18n: true }),
       node("span", {
-        text: `${diagnostics.length} ${diagnostics.length === 1 ? "category" : "categories"} · ${occurrenceTotal} ${occurrenceTotal === 1 ? "record" : "records"}`,
+        text: `${actionable.length} ${actionable.length === 1 ? "category" : "categories"} · ${occurrenceTotal} ${occurrenceTotal === 1 ? "record" : "records"}`,
         i18n: true,
       }),
     ]),
@@ -439,8 +471,8 @@ function lineagePanel(model, state) {
           },
           dataset: { action: "select-iteration", iterationId: iteration.id },
         }, [
-          node("strong", { text: localizePlaceholder(iteration.title) }),
-          node("span", { text: iteration.timestamp ? formatTimestamp(iteration.timestamp) : iteration.id }),
+          node("strong", { text: iterationTitle(iteration) }),
+          node("span", { text: iteration.timestamp ? `${iteration.id} · ${formatTimestamp(iteration.timestamp)}` : iteration.id }),
         ]),
       ]),
     );
@@ -658,6 +690,12 @@ function unlinkedLineageDisclosure(items, state, sharedGuidance = null) {
   ]);
 }
 
+// The readable part of a story title; the ID is shown next to it, so two
+// stories with the same title stay distinguishable.
+function iterationTitle(iteration) {
+  return localizePlaceholder(humanizeRecordedText(iteration?.title) ?? iteration?.title ?? iteration?.id);
+}
+
 function selectedDossierIteration(model, state) {
   const requested = state.selectedIterationId || state.filters.iteration;
   return model.iterations.find((iteration) => iteration.id === requested)
@@ -668,7 +706,7 @@ function dossierPanel(model, state) {
   const selectedIteration = selectedDossierIteration(model, state);
   const iterationValues = model.iterations.map((iteration) => ({
     value: iteration.id,
-    label: localizePlaceholder(iteration.title),
+    label: `${iterationTitle(iteration)} · ${iteration.id}`,
   }));
   const actions = iterationValues.length
     ? [selectControl(
@@ -701,7 +739,10 @@ function dossierPanel(model, state) {
   const dossierMeta = node("header", { className: "dossier-meta", attrs: { "aria-live": "polite" } }, [
     node("div", {}, [
       node("span", { className: "dossier-label", text: "Selected iteration", i18n: true }),
-      node("h3", { text: localizePlaceholder(selectedIteration.title) }),
+      node("h3", {}, [
+        document.createTextNode(iterationTitle(selectedIteration)),
+        node("span", { className: "story-id", text: ` ${selectedIteration.id}` }),
+      ]),
       node("p", { text: localizePlaceholder(dossier?.summary || selectedIteration.summary) }),
     ]),
     node("div", { className: "dossier-meta-actions" }, [

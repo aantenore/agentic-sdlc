@@ -49,6 +49,7 @@ export const STORY_STATES = Object.freeze([
   Object.freeze({ key: "waiting", label: "Waiting" }),
   Object.freeze({ key: "delivered", label: "Delivered" }),
   Object.freeze({ key: "idle", label: "Not started" }),
+  Object.freeze({ key: "replaced", label: "Replaced" }),
   Object.freeze({ key: "stopped", label: "Stopped" }),
 ]);
 
@@ -159,10 +160,12 @@ export function checkHealth(events) {
 export function storyState(iteration) {
   const phases = arrayOrEmpty(iteration?.phases);
   const relevance = iterationRelevance(iteration);
+  if (iteration?.closure?.event === "superseded") return "replaced";
+  if (iteration?.closure) return "stopped";
   if (relevance === "superseded") return "stopped";
   if (phases.some((phase) => phase.status === "blocked")) return "blocked";
   if (relevance === "delivered") return "delivered";
-  if (phases.some((phase) => phase.status === "inProgress")) return "live";
+  if (iteration?.claimed || phases.some((phase) => phase.status === "inProgress")) return "live";
   if (relevance === "active") return "open";
   return "idle";
 }
@@ -220,7 +223,7 @@ export function applyDependencies(stories, edges = [], {
       && now - story.lastActivity <= recentHours * 3_600_000;
     return {
       ...story,
-      state: story.state === "idle" && waitingOn.length ? "waiting" : story.state,
+      state: ["idle", "open"].includes(story.state) && waitingOn.length ? "waiting" : story.state,
       prerequisites,
       dependents,
       waitingOn,
