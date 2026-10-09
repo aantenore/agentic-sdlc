@@ -566,7 +566,13 @@ function storyNextText(story, storiesById) {
     return `${t(changer.state === "live" ? "Being changed by" : "Change planned in")} ${storyTitle(changer)}`;
   }
   if (story.state === "live" && story.holder) {
-    return `${t("Worked on by")} ${story.holder.holder ?? story.holder.agent ?? t("another computer")}`;
+    const who = story.holder.holder ?? story.holder.agent ?? t("another computer");
+    // A declared wait (story wait) or no recent push, from the shared claim's health.
+    if (story.holder.health === "waiting" && story.holder.wait) {
+      return `${t("Waiting, declared by")} ${who}: ${story.holder.wait.target}`;
+    }
+    if (story.holder.health === "idle") return `${t("No recent push from")} ${who}`;
+    return `${t("Worked on by")} ${who}`;
   }
   if (story.state === "parked") {
     const reason = story.holder?.reason ?? story.iteration?.parked?.reason;
