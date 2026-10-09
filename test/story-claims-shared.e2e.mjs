@@ -245,7 +245,7 @@ test("a released story can be claimed again, and a release made offline is share
   assert.equal(offline.claim.status, "released");
   assert.equal(offline.shared_release.status, "not_shared");
   assert.doesNotMatch(JSON.stringify(offline.shared_release), new RegExp(path.basename(remote), "u"));
-  fs.renameSync(`${remote}-away`, remote);
+  fs.renameSync(path.join(remote, "HEAD-away"), path.join(remote, "HEAD"));
   assert.equal(mustRefuseJson(claim(first, "ST-1", "alice"), first).error.code, "STORY_CLAIM_HELD_ELSEWHERE");
   const synced = mustRunJson(["story", "release", "--root", second, "--id", "ST-1"], second);
   assert.equal(synced.already_released, true);
@@ -370,7 +370,7 @@ test("an unreachable remote refuses the claim; local_only and a project without 
   const local = mustRunJson(claim(first, "ST-1", "alice"), first);
   assert.equal(local.claim.shared_claim, undefined);
   assert.equal(local.shared_claim, undefined);
-  fs.renameSync(`${remote}-away`, remote);
+  fs.renameSync(path.join(remote, "HEAD-away"), path.join(remote, "HEAD"));
   assert.deepEqual(remoteClaimRefs(remote), []);
 
   const required = temporaryDirectory("required");
@@ -436,14 +436,16 @@ test("a claim push whose answer is lost is recognised, and an interrupted claim 
   assert.equal(kept.claim.shared_claim.epoch, 1);
   assert.equal(remoteRecord(remote, "refs/agentic-sdlc/claims/ST-1/000001/claim").claimant_id, kept.claim.shared_claim.claimant_id);
 
-  // The ref is created, then the remote disappears: the outcome is unknown and the message says so.
-  fs.writeFileSync(hook, "#!/bin/sh\ncase \"$(cat)\" in *refs/agentic-sdlc/claims/ST-2/*) d=$(pwd); mv \"$d\" \"$d-away\"; sleep 20;; esac\n", { mode: 0o755 });
+  // The ref is created, then the remote stops being a repository: the outcome is unknown and the
+  // message says so. Moving HEAD aside (rather than the whole directory, which Windows keeps
+  // locked while the hook runs in it) is enough for every later read to fail.
+  fs.writeFileSync(hook, "#!/bin/sh\ncase \"$(cat)\" in *refs/agentic-sdlc/claims/ST-2/*) mv HEAD HEAD-away; sleep 20;; esac\n", { mode: 0o755 });
   const unclear = mustRefuseJson(claim(first, "ST-2", "alice"), first);
   assert.equal(unclear.error.code, "STORY_CLAIM_REMOTE_UNAVAILABLE");
   assert.match(unclear.error.message, /may have reached the remote/u);
   assert.match(unclear.human_guidance.protection_boundary, /may have reached the remote/u);
   assert.equal(claimFile(first, "ST-2"), null);
-  fs.renameSync(`${remote}-away`, remote);
+  fs.renameSync(path.join(remote, "HEAD-away"), path.join(remote, "HEAD"));
   fs.rmSync(hook);
   assert.deepEqual(remoteClaimRefs(remote).filter((ref) => ref.includes("/ST-2/")), ["refs/agentic-sdlc/claims/ST-2/000001/claim"]);
 
