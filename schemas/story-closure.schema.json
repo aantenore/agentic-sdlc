@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "story-closure.schema.json",
   "title": "Agentic SDLC Story Closure",
-  "description": "Immutable, approved record that closes a story as superseded by another story or as cancelled. A never-started story closes directly; a started story closes only when every bound delivery ended without delivered work, and the closure binds that evidence. The story record itself is never rewritten.",
+  "description": "Immutable, approved record that closes a story as superseded by another story or as cancelled. Version 1 names at most one replacement; version 2 records a story split into several replacements and is written only for a split, so version 1 records stay valid as they are. A never-started story closes directly; a started story closes only when every bound delivery ended without delivered work, and the closure binds that evidence. The story record itself is never rewritten.",
   "type": "object",
   "required": [
     "id",
@@ -20,14 +20,20 @@
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "kind": { "const": "story_closure" },
-    "schema_version": { "const": "story-closure:v1" },
+    "schema_version": { "enum": ["story-closure:v1", "story-closure:v2"] },
     "event": { "enum": ["superseded", "cancelled"] },
     "status": { "enum": ["superseded", "cancelled"] },
     "story_id": { "type": "string", "minLength": 1 },
     "replacement_id": { "type": ["string", "null"] },
+    "replacement_ids": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
     "subject": {
       "type": "object",
-      "required": ["event", "stories", "replacement", "breakdown", "reason"],
+      "required": ["event", "stories", "breakdown", "reason"],
       "properties": {
         "event": { "enum": ["superseded", "cancelled"] },
         "stories": {
@@ -40,6 +46,11 @@
             { "type": "null" },
             { "$ref": "#/$defs/ref" }
           ]
+        },
+        "replacements": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/ref" }
         },
         "breakdown": {
           "oneOf": [
@@ -55,6 +66,30 @@
     "approval": { "type": "object", "additionalProperties": true },
     "created_at": { "type": "string", "format": "date-time" },
     "audit": { "$ref": "common.schema.json#/$defs/audit" }
+  },
+  "if": {
+    "properties": { "schema_version": { "const": "story-closure:v2" } },
+    "required": ["schema_version"]
+  },
+  "then": {
+    "required": ["replacement_ids"],
+    "properties": {
+      "event": { "const": "superseded" },
+      "replacement_id": { "type": "null" },
+      "subject": {
+        "required": ["replacements"],
+        "not": { "required": ["replacement"] }
+      }
+    }
+  },
+  "else": {
+    "not": { "required": ["replacement_ids"] },
+    "properties": {
+      "subject": {
+        "required": ["replacement"],
+        "not": { "required": ["replacements"] }
+      }
+    }
   },
   "$defs": {
     "file_ref": {
