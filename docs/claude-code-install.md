@@ -1,6 +1,6 @@
 # Claude Code installation
 
-Agentic SDLC 0.49.0 ships two host packagings from one source tree:
+Agentic SDLC 0.51.0 ships two host packagings from one source tree:
 
 | Host | Manifest | Command surface | Installer |
 |---|---|---|---|

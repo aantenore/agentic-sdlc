@@ -75,6 +75,8 @@ claimed again.
 4. Create the story branch, work, push, and open the story's pull request (or complete its local release).
 5. Release the claim when done or handed off; if the release was not shared, run `story release` again once the remote is reachable.
 
+No computer coordinates the others. Each agent claims and reserves only the work it does itself, on its own computer: inside an agent session a worktree holds one claimed story (`STORY_CLAIM_ONE_PER_WORKTREE`) and a computer one reservation (`STORY_RESERVE_ONE_PER_COMPUTER`) until it is finished or released. Never claim, reserve, release, cancel, or supersede a story on behalf of another computer: a story held here can only become work here, and the other computers' agents cannot free it. Assigning work across computers is the user's decision, run in their own terminal. `story cancel` and `story supersede` refuse a story claimed or reserved on another computer until that claim ends.
+
 `orchestration_policy.coordination.mode` is `auto` (default), `required`, or
 `local_only`. With sharing in effect, an unreachable remote refuses the claim:
 claiming is the start of work. Taking over a story held elsewhere is a person's
@@ -107,7 +109,7 @@ For a story nobody claimed or reserved, `status`, `orchestrate status`, and `sto
 
 ## Parent Orchestrator Chat
 
-A parent chat can coordinate several worker chats without editing their story files directly:
+A parent chat can coordinate several worker chats on the same computer without editing their story files directly. It never assigns, claims, or reserves stories for other computers: each computer's agent claims its own (see Multiple Computers).
 
 1. Run `orchestrate plan --json`.
 2. Assign one story per worker chat.

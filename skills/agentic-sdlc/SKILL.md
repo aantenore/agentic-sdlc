@@ -889,6 +889,16 @@ The dedicated assessment journey remains the exception described above: it packa
    your own `story claim`, run after `task start`, converts your computer's
    reservation into the claim.
 
+   **Parking a stuck story.** When the user tells you to set a story aside
+   because it is stuck (a merge conflict or any other problem) and move on, run
+   `story park --id <story> --reason "<the user's reason>" --actor-type human --approval-source explicit-user`.
+   It releases the claim (here and on the remote), marks the story parked for
+   every computer, and prints the next available story: continue with that one
+   (`orchestrate plan`). Never park a story on your own initiative to dodge a
+   failing check, and never treat a parked story as done. `story claim`
+   refuses a parked story (`STORY_PARKED`); only the user brings it back with
+   `story resume --id <story> --reason "<why>" --actor-type human`.
+
    When the project has a git remote, the claim is first recorded on it
    (`refs/agentic-sdlc/claims/`), so every computer working on the project sees
    it; `orchestrate status` lists stories claimed on other computers as
@@ -907,7 +917,11 @@ The dedicated assessment journey remains the exception described above: it packa
    (the CLI refuses it inside your session). When status says your claim was
    taken over, stop working on that story and tell the user. A claim file that
    arrived with a branch you checked out is not yours: never release or reuse
-   it; only the user releases or takes over a claim made on another computer. Suggest
+   it; only the user releases or takes over a claim made on another computer.
+   Never act as the coordinator of other computers: claim and reserve only the
+   story you work on here (one claimed story per worktree, one reservation per
+   computer), and never claim, reserve, release, cancel, or supersede stories
+   for another computer; each computer's agent claims its own. Suggest
    `orchestration_policy.coordination.mode: local_only` only when the user
    confirms the project is worked on from one computer. See
    `references/parallel-work.md`.

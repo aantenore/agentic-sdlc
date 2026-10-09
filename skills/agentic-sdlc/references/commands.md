@@ -829,6 +829,16 @@ human or CI actor, and is refused inside an agent session
 (`STORY_CLAIM_TAKEOVER_NEEDS_PERSON`). The release record names who took over
 and why; the previous holder's `orchestrate status` and `status` show it.
 
+Inside an agent session a computer acts only on its own work: `story claim` is
+refused (`STORY_CLAIM_ONE_PER_WORKTREE`) while this worktree holds an active shared
+claim on another story, and `story reserve` (`STORY_RESERVE_ONE_PER_COMPUTER`)
+while this computer holds another unexpired reservation; finish or release it
+first, or a person runs the command in their own terminal. `story cancel` and
+`story supersede` refuse a story claimed or reserved on another computer until
+its holder releases it (or a person does, with `story release --reason`).
+Records are unchanged, so older plugins on other computers keep working; they
+apply these refusals once updated.
+
 `orchestration_policy.coordination.mode` is `auto` (default: share when the
 remote exists, otherwise keep claims on this computer), `required` (refuse to
 claim without the remote), or `local_only` (never share, for one computer
@@ -945,7 +955,7 @@ Repeat `--by` when one story is split into several stories. The closure is then
 written as `story-closure:v2`, with every replacement in `replacement_ids` and
 `replacement_id: null`; a single `--by` still writes the unchanged
 `story-closure:v1` record, and existing v1 records stay valid as they are.
-Writing a v2 closure records that the project needs plugin 0.49.0 or later.
+Writing a v2 closure records that the project needs plugin 0.51.0 or later.
 
 ```bash
 node bin/agentic-sdlc.mjs story supersede --root <project> --id ST-ORCH-001   --by ST-ORCH-001A --by ST-ORCH-001B --by ST-ORCH-001C   --reason "Split into client, tools, and agents with the orchestrator"   --actor-type human --approval-source explicit-user --summary "Split the orchestration story in three"
@@ -988,7 +998,7 @@ records the decision. Retired edges are no longer evaluated by `status`,
 approving an earlier proposal again does not bring them back. A revision is
 refused when an edge it retires is no longer active (for example another
 revision retired it first); propose it again from the current graph.
-Approving a revision records that the project needs plugin 0.49.0 or later.
+Approving a revision records that the project needs plugin 0.51.0 or later.
 
 ### Reading a dependency message
 
@@ -1490,6 +1500,7 @@ node bin/agentic-sdlc.mjs story release --root <project> --id ST-001
 - The reserving computer's `story claim` converts it: the reservation epoch gets a release with status `transferred`, and the claim takes the next epoch.
 - It always expires: default `orchestration_policy.reservation.default_expires_in_seconds` (86400), maximum `max_expires_in_seconds` (2592000). An expired reservation frees the story by itself.
 - `story release --id <story>` ends a reservation; one made on another computer needs a person and `--reason`.
+- Inside an agent session a computer keeps one reservation at a time (`STORY_RESERVE_ONE_PER_COMPUTER`): reserve only this computer's next story, never other computers' work.
 - Refused with `STORY_RESERVE_NOT_SHARED` when claims are not shared (no remote, or `coordination.mode: local_only`) and when the remote cannot be reached.
 
 ## Check A Story Before Starting It
@@ -1889,3 +1900,12 @@ Example normalized query for "all new functional stories from the last 10 days":
   "sort": "created_at_desc"
 }
 ```
+
+## Parking a stuck story
+
+```bash
+node bin/agentic-sdlc.mjs story park --root <project> --id ST-001 --reason "Merge conflict on the payment module" --actor-type human
+node bin/agentic-sdlc.mjs story resume --root <project> --id ST-001 --reason "Conflict solved" --actor-type human
+```
+
+`story park` is a person's decision (human or CI actor, mandatory `--reason`; inside an agent's session also `--approval-source explicit-user`, used only when the user asked). It releases this computer's active claim (on the remote too), publishes a parked reservation without expiry (`"reservation": true`, `"parked": {reason, parked_at, park_id}`) so every computer lists the story as `parked` (`summary.parked`, `parked_work` in `status`) and refuses `story claim`, `story reserve`, and `story release` on it (`STORY_PARKED`), and writes a sealed record under `.sdlc/stories/<story>/parking/` plus a `decision` trace (`story.park`). Nothing is marked done and no check is bypassed. The output names the next available story. `story resume` ends the parked reservation from any computer and adds a resume record; a park already resumed on another computer is treated as resumed before its records arrive. Older plugins see a reservation without expiry and are asked to update (`.sdlc/compatibility/`, feature `story-parking`).
