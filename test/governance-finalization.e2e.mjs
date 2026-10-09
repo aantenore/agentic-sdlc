@@ -3052,14 +3052,15 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   writeProjectFile(
     infoExcludeProject,
     "docs/hidden-after-certification.md",
-    "Governed content must remain visible even when info/exclude changes.\n",
+    "Ignored through info/exclude, so not a project file.\n",
   );
   fs.appendFileSync(
     path.join(infoExcludeProject, ".git", "info", "exclude"),
     "\ndocs/hidden-after-certification.md\n",
     "utf8",
   );
-  assert.equal(finalReceiptIsValid(infoExcludeProject), false);
+  // A file Git ignores is not a project file, whichever rule ignores it.
+  assert.equal(finalReceiptIsValid(infoExcludeProject), true);
 
   const worktreeIgnoreProject = cloneTemporaryProject(
     project,
@@ -3068,14 +3069,14 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   writeProjectFile(
     worktreeIgnoreProject,
     "docs/hidden-after-certification.md",
-    "Governed content must remain visible through a worktree ignore.\n",
+    "Ignored through a worktree .gitignore, so not a project file.\n",
   );
   writeProjectFile(
     worktreeIgnoreProject,
     ".gitignore",
     "docs/hidden-after-certification.md\n",
   );
-  assert.equal(finalReceiptIsValid(worktreeIgnoreProject), false);
+  assert.equal(finalReceiptIsValid(worktreeIgnoreProject), true);
 
   const globalIgnoreProject = cloneTemporaryProject(
     project,
@@ -3084,7 +3085,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   writeProjectFile(
     globalIgnoreProject,
     "docs/hidden-after-certification.md",
-    "Governed content must remain visible through a global ignore.\n",
+    "Ignored through core.excludesFile, so not a project file.\n",
   );
   const fakeHome = path.join(globalIgnoreProject, "test-global-home");
   const globalExcludesPath = path.join(fakeHome, "global-excludes");
@@ -3101,8 +3102,9 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   );
   assert.equal(
     finalReceiptIsValid(globalIgnoreProject, { env: { HOME: fakeHome } }),
-    false,
+    true,
   );
+  assert.equal(finalReceiptIsValid(globalIgnoreProject), false);
 
   const outsideScopeGitlinkProject = cloneTemporaryProject(
     project,
@@ -3534,8 +3536,9 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
     "--root", project,
     "--id", workflowInstanceId,
   ], project);
-  assert.equal(requirementScopedReleaseStatus.status, "blocked");
-  assert.equal(requirementScopedReleaseStatus.final_receipt_valid, false);
+  // The project's .gitignore ignores release siblings: not project files.
+  assert.equal(requirementScopedReleaseStatus.status, "terminal");
+  assert.equal(requirementScopedReleaseStatus.final_receipt_valid, true);
   fs.rmSync(requirementScopedReleaseSibling);
 
   const certifiedLocalReleaseArtifactPath = path.join(
@@ -5268,6 +5271,56 @@ test("a certified story stays completed with a stale certification when its file
     "--actor", "codex",
     "--actor-type", "agent",
   ], project, /already has a terminal lifecycle receipt/u);
+});
+
+test("files a nested .gitignore names never make a certification stale", {
+  skip: hostSupportsLocalSmokeSandbox()
+    ? false
+    : "requires a supported local smoke sandbox for terminal local release evidence",
+}, () => {
+  const project = temporaryProject("certification-nested-ignore");
+  const certified = certifyLocalReleaseStory(project, {
+    suffix: "IGNORE-A",
+    allowedWritePaths: ["docs", "apps/web"],
+    evidenceDir: "docs",
+    files: {
+      "apps/web/.gitignore": ".next/\nnext-env.d.ts\n",
+      "apps/web/page.tsx": "export const page = 1;\n",
+    },
+    releaseProof: "first release\n",
+    beforeStart: () => {
+      writeProjectFile(project, "apps/web/.next/BUILD_ID", "build 0\n");
+    },
+  });
+  mustGit(project, ["add", "-A"]);
+  mustGit(project, ["commit", "-m", "test: merge the certified story"]);
+  const timedView = () => {
+    const started = process.hrtime.bigint();
+    const view = storyCertificationView(project, certified.storyId);
+    return { view, ms: Number(process.hrtime.bigint() - started) / 1e6 };
+  };
+  const before = timedView();
+  assert.equal(before.view.story.lifecycle_source, "workflow_final_receipt");
+
+  // A build writes thousands of files the nested rule ignores.
+  for (let index = 0; index < 3000; index += 1) {
+    writeProjectFile(project, `apps/web/.next/cache/chunk-${index}.js`, `chunk ${index}\n`);
+  }
+  writeProjectFile(project, "apps/web/.next/BUILD_ID", "build 1\n");
+  writeProjectFile(project, "apps/web/next-env.d.ts", "/// generated\n");
+  const after = timedView();
+  assert.equal(after.view.story.lifecycle_source, "workflow_final_receipt");
+  assert.ok(
+    after.ms < before.ms * 3 + 5000,
+    `ignored files slowed the check from ${before.ms}ms to ${after.ms}ms`,
+  );
+
+  // A file Git does not ignore in the same folder is still checked.
+  writeProjectFile(project, "apps/web/layout.tsx", "export const layout = 1;\n");
+  const view = storyCertificationView(project, certified.storyId);
+  assert.equal(view.story.lifecycle_source, "workflow_final_receipt_stale");
+  const changed = view.story.certification.changed.map((entry) => entry.path);
+  assert.deepEqual(changed, ["apps/web/layout.tsx"]);
 });
 
 test("a historical verdict is voided when a covered file changes after the successors validate", {

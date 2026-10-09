@@ -328,3 +328,67 @@ test("a successor recorded only on the remote is withdrawn by naming its predece
   // The orphaned proposal on the story branch can no longer be approved.
   mustFail(["baseline", "approve", "--id", "BASELINE-INITIAL-R2", ...humanApproval("Approve")], first, /BASELINE-INITIAL-R2 was withdrawn as the successor of BASELINE-INITIAL/u);
 });
+
+function setBaselineIgnoredFiles(project, value) {
+  const configPath = path.join(project, ".sdlc", "config.json");
+  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  if (value === null) delete config.baseline_policy.ignored_files;
+  else config.baseline_policy.ignored_files = value;
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const preview = mustRunJson(["config", "migrate"], project);
+  mustRunJson(["config", "migrate", "--apply", "--plan-hash", preview.plan.plan_hash, "--actor-type", "system"], project);
+}
+
+test("files a nested .gitignore names never enter a baseline or its refresh", () => {
+  const project = temporaryDirectory("nested-ignore");
+  mustRun(["init", "--project-name", "Nested ignore"], project);
+  git(project, ["init", "--quiet"]);
+  git(project, ["symbolic-ref", "HEAD", "refs/heads/main"]);
+  configureGit(project);
+  const write = (relativePath, content) => {
+    fs.mkdirSync(path.dirname(path.join(project, relativePath)), { recursive: true });
+    fs.writeFileSync(path.join(project, relativePath), content, "utf8");
+  };
+  write("apps/web/page.tsx", "export const page = 1;\n");
+  write("apps/web/.gitignore", ".next/\nnext-env.d.ts\n");
+  write("apps/web/next-env.d.ts", "/// generated 1\n");
+  write("apps/web/.next/server/app.js", "build 1\n");
+  write("apps/web/cache/data.json", "{}\n");
+  fs.appendFileSync(path.join(project, ".git", "info", "exclude"), "apps/web/cache/\n", "utf8");
+  git(project, ["add", "-A"]);
+  git(project, ["commit", "--quiet", "-m", "test: web app"]);
+
+  // A baseline approved before ignored files were left out hashed them.
+  setBaselineIgnoredFiles(project, "include");
+  mustRun(["baseline", "propose", "--id", "BASELINE-WEB", "--source", "apps"], project);
+  setBaselineIgnoredFiles(project, null);
+  mustRun(["baseline", "approve", "--id", "BASELINE-WEB", ...humanApproval("The snapshot is accurate")], project);
+  const legacy = readBaseline(project, "BASELINE-WEB");
+  assert.ok(legacy.source_hashes["apps/web/next-env.d.ts"]);
+  git(project, ["add", "-A"]);
+  git(project, ["commit", "--quiet", "-m", "test: approved baseline"]);
+
+  // The build rewrites ignored files; the delivered page changes.
+  write("apps/web/next-env.d.ts", "/// generated 2\n");
+  for (let index = 0; index < 50; index += 1) write(`apps/web/.next/static/chunk-${index}.js`, `chunk ${index}\n`);
+  writeAndCommit(project, "apps/web/page.tsx", "export const page = 2;\n", "test: page change");
+
+  const refreshed = mustRunJson(["baseline", "refresh", "--from", "BASELINE-WEB"], project);
+  assert.deepEqual(refreshed.unexplained, [{ path: "apps/web/page.tsx", change: "changed" }]);
+  const successor = readBaseline(project, "BASELINE-WEB-R2");
+  assert.deepEqual(successor.refresh.ignored_paths, ["apps/web/cache/data.json", "apps/web/next-env.d.ts"]);
+  assert.deepEqual(Object.keys(successor.source_hashes).sort(), ["apps/web/page.tsx"]);
+  mustRun(["baseline", "approve", "--id", "BASELINE-WEB-R2", ...humanApproval("Page change recorded")], project);
+  git(project, ["add", "-A"]);
+  git(project, ["commit", "--quiet", "-m", "test: refreshed baseline"]);
+
+  // Ignored files changing again leave the baseline current; a file Git does
+  // not ignore in the same folder is still found.
+  write("apps/web/next-env.d.ts", "/// generated 3\n");
+  write("apps/web/.next/server/app.js", "build 3\n");
+  write("apps/web/cache/data.json", "{\"changed\":true}\n");
+  mustFail(["baseline", "refresh", "--from", "BASELINE-WEB-R2"], project, /still describes every file/u);
+  write("apps/web/layout.tsx", "export const layout = 1;\n");
+  const detected = mustFail(["baseline", "refresh", "--from", "BASELINE-WEB-R2"], project, /apps\/web\/layout\.tsx/u);
+  assert.doesNotMatch(detected.stdout + detected.stderr, /\.next|next-env|cache\/data/u);
+});
