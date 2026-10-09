@@ -291,6 +291,14 @@
           },
           "additionalProperties": false
         },
+        "workflow_history": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "check": { "enum": ["workflow", "project"] }
+          },
+          "additionalProperties": false
+        },
         "merge_drift": {
           "type": "object",
           "properties": {
@@ -360,6 +368,7 @@
             "min_tag_length": { "type": "integer", "minimum": 1, "maximum": 16 },
             "ignored_tags": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
             "ambiguous_tags": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
+            "weak_tags": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
             "aliases": {
               "type": "object",
               "additionalProperties": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 } }

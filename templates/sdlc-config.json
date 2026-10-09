@@ -987,6 +987,20 @@
           "go",
           "next"
         ],
+        "weak_tags": [
+          "csharp",
+          "dotnet",
+          "java",
+          "javascript",
+          "kotlin",
+          "node",
+          "php",
+          "python",
+          "ruby",
+          "rust",
+          "swift",
+          "typescript"
+        ],
         "aliases": {
           "go": [
             "golang"
@@ -1314,6 +1328,10 @@
       "mode": "git",
       "pull_requests": "off",
       "recent_within_seconds": null
+    },
+    "workflow_history": {
+      "principle": "Every computer appends workflow audit records to the one shared project history (.sdlc/traces/project.jsonl), which is a single hash chain. When records written on several computers are copied onto one branch afterwards, that chain no longer verifies as a whole even though each workflow's own records are intact. With check workflow, status and the other read-only lifecycle views verify each story workflow on its own chained records and report the divergence; with project they also require the whole history to verify first, so every story workflow is blocked while it does not. Writes and trace verify always check the whole history.",
+      "check": "workflow"
     },
     "merge_drift": {
       "principle": "Story records move only through recorded lifecycle steps, so work merged by hand, or by an agent that stopped before recording completion, leaves a story open. status reports open stories whose work is already on the remote base branch, read from git only after status_sync: a first-parent commit that merges one of the story's branches or, when match_commit_subject is true, whose subject names the story id. Commits that change only project records and reverts never count. It never changes a record. base_branch null means the remote's default branch; max_commits_scanned bounds the history read; off turns the check off.",

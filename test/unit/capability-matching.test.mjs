@@ -257,3 +257,21 @@ test("only the matched capabilities become recommendations, next to the built-in
   assert.equal(recommendations[1].purpose, "Review React components.");
   assert.equal(recommendations.every((item) => item.install_required === false), true);
 });
+
+test("a language named only in a description does not make a capability relevant", () => {
+  const tags = tagsOf([{ name: "TypeScript", type: "language" }, { name: "Node", type: "runtime" }, { name: "React", type: "framework" }]);
+  const inventory = inventoryOf(
+    entry("skill", "aws-cdk", "Infrastructure as code with the AWS CDK in TypeScript."),
+    entry("skill", "aws-sdk-js-v3-usage", "Use the AWS SDK for JavaScript v3 from Node.js and TypeScript."),
+    entry("skill", "routing-middleware", "Routing middleware patterns for node servers."),
+    entry("skill", "typescript-strict", "Strict compiler settings."),
+    entry("skill", "react-testing", "Component tests written in TypeScript."),
+  );
+  const names = matchInventoryCapabilities(inventory, tags, { matching: MATCHING }).map((item) => item.name);
+  assert.deepEqual(names.sort(), ["react-testing", "typescript-strict"]);
+
+  // A project can turn the rule off by listing no weak tags.
+  const permissive = normalizeCapabilityInventoryPolicy({ matching: { weak_tags: [] } }).matching;
+  const all = matchInventoryCapabilities(inventory, tags, { matching: permissive }).map((item) => item.name);
+  assert.equal(all.length, 5);
+});
