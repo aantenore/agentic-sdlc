@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import { AGENT_HOSTS, AGENT_HOST_OVERRIDE_ENV } from "../lib/agent-host.mjs";
 import { computeStableHash } from "../lib/canonical.mjs";
+import { readTrackedSharedClaims } from "../lib/change-observatory/shared-claims.mjs";
 import { interpretSharedClaimRecords } from "../lib/story-claim-shared-state.mjs";
 import {
   claimLeaseEndMs,
@@ -321,6 +322,10 @@ test("a wait shared through the remote protects the claim on every computer, rea
   const status = mustRunJson(["status", "--root", second], second, { AGENTIC_SDLC_STATUS_SYNC: "off" });
   assert.equal(status.shared_claims.claims.find((item) => item.story_id === "ST-1").health.state, "waiting");
   assert.equal(status.claims_needing_decision, undefined);
+  // The Observatory reads the same health from what this clone last saw, without the network.
+  const observed = readTrackedSharedClaims(second).claims.find((item) => item.storyId === "ST-1");
+  assert.equal(observed.health, "waiting");
+  assert.equal(observed.wait.kind, "person");
   const plan = mustRunJson(["orchestrate", "plan", "--root", second], second);
   assert.deepEqual(plan.candidates.map((item) => item.story_id), ["ST-2"]);
 

@@ -899,6 +899,14 @@ The dedicated assessment journey remains the exception described above: it packa
    refuses a parked story (`STORY_PARKED`); only the user brings it back with
    `story resume --id <story> --reason "<why>" --actor-type human`.
 
+   Pushing the story branch renews the claim's lease. When your claimed story
+   legitimately waits (on another story, a pull request, or the user's
+   answer), declare it so the claim is not listed as abandoned:
+   `story wait --id <story> --on <dep:<story>|pr:<url>|person:"<question>"> --until <time|3d>`;
+   clear it with `story wait --id <story> --clear` when work resumes. A claim
+   status lists as abandoned is a person's decision: show the user the
+   commands status prints, never take it over or park it yourself.
+
    When the project has a git remote, the claim is first recorded on it
    (`refs/agentic-sdlc/claims/`), so every computer working on the project sees
    it; `orchestrate status` lists stories claimed on other computers as

@@ -416,6 +416,8 @@ const ITALIAN = Object.freeze({
   "Being changed by": "In modifica con",
   "Change planned in": "Modifica prevista in",
   "Worked on by": "Ci lavora",
+  "Waiting, declared by": "In attesa, dichiarata da",
+  "No recent push from": "Nessun push recente da",
   "another computer": "un altro computer",
   "Changes the work of": "Modifica il lavoro di",
   "Replaced": "Sostituita",

@@ -83,7 +83,20 @@ claiming is the start of work. Taking over a story held elsewhere is a person's
 decision (`--force --reason <why>` with a human actor, outside any agent
 session); the release record tells the previous holder who took over and why.
 A claim older than `orchestration_policy.stale_claim_after_seconds`, or past its
-expiry, is listed as `stale`.
+expiry, is listed as `stale`. Both are counted from the last commit on the
+claim's branch when that is later: every push renews the lease (no heartbeat),
+so only a claim nobody pushed for a whole time to live lapses.
+
+A held claim is `active`, `waiting`, `idle` (no push for
+`claim_activity.idle_after_seconds`, 4 hours by default), or `abandoned`
+(lease ended, no valid wait). When the work legitimately waits, the holder says
+so: `story wait --id <story> --on <dep:<story>|pr:<url>|person:"<question>"> --until <time|3d> [--reason <why>]`
+(and `story wait --id <story> --clear` when it can continue). A valid wait keeps
+the claim from being abandoned on every computer. An abandoned claim is never
+freed by itself: status lists it as needing a person's decision with the
+exact takeover (`story claim ... --force --reason ... --actor-type human`) and
+park commands. `story park --review-at <time|3d>` lists a parked story to
+review once that time passes.
 
 ### Stories that change the same files
 
