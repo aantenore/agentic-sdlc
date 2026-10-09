@@ -20,6 +20,10 @@
     "story-closure-unstarted-revoked-delivery": {
       "since": "0.45.0",
       "summary": "Stories closed after a delivery revoked before it started"
+    },
+    "push-behind-base-records": {
+      "since": "0.47.0",
+      "summary": "Story pushes accepted while the base branch only gained project records"
     }
   }
 }

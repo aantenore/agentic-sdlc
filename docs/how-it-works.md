@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.46.0 Works
+# How Agentic SDLC 0.47.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -198,7 +198,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.46.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.47.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -743,7 +743,27 @@ side (`project_history_divergence` in JSON;
 `orchestration_policy.workflow_history.divergence`: `warn`, the default, or
 `off`). To join the two, merge the base branch as usual and, when the history
 conflicts, run `trace rebase --onto origin/main --apply` (without `--apply` it
-only shows the plan), then `git add .sdlc/traces` and finish the merge.
+only shows the plan), then `git add .sdlc/traces .sdlc/output-contracts` and
+finish the merge. The same command merges `.sdlc/output-contracts/registry.json`
+by entry id (templates, links, decisions): entries only one side added or
+changed are kept, and an entry both sides changed differently stops the command
+before anything is written.
+
+A story branch does not need the base branch merged in only because other
+computers published project records meanwhile. `git.push` accepts a head that is
+behind the live base when everything the base gained since their merge base is
+under `.sdlc/`; the pushed commits must still each carry their `git.commit`
+receipt. A merge on the story branch that only brings `.sdlc/` records from the
+base needs no receipt of its own either. Any other change on the base (another
+story's code) still means merging it and committing through the plugin again.
+Such a push writes a `git-commit-coverage:v2` proof and the
+`push-behind-base-records` compatibility requirement, so computers on an older
+plugin ask for an update instead of misreading it.
+
+After the merge, `gate check --lifecycle-complete` accepts the secret scan made
+on the story branch before the merge when every file that scan covered (outside
+`.sdlc/`) is unchanged at the merge commit; otherwise it asks for
+`secret scan --story <id>` on the merged state.
 The command keeps the other branch's history exactly as it is, which must
 verify against its own checkpoint, and seals the events only this clone has
 after it, each with the fingerprint it was first sealed with as

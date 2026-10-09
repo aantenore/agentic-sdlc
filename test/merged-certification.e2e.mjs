@@ -768,6 +768,21 @@ test("a merged story is certified again on its merge commit, not on later work",
   assertTerminal(project, story.storyId, ["workflow_final_receipt"]);
 });
 
+test("a merged story is certified on its merge commit with the scan made before the merge", () => {
+  const { project, story } = laterStoryFixture("lib", {
+    writePaths: ["lib"],
+    files: { "lib/altro.mjs": "export const altro = true;\n" },
+  });
+  fs.rmSync(path.join(project, ".sdlc", "gates", `${story.storyId}-final.json`));
+  const result = run([
+    "gate", "check", "--root", project,
+    "--strict", "--story", story.storyId, "--lifecycle-complete", "--json",
+  ], project);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.status, "passed", JSON.stringify(report, null, 2));
+  assert.doesNotMatch(result.stdout, /has no secret scan/u);
+});
+
 test("a merged story cannot be certified again when its merge commit is not in the history of HEAD", () => {
   const { project, story, mergeSha } = mergedFixture();
   mustGit(project, ["checkout", "-f", "-b", "elsewhere", story.baseSha]);
