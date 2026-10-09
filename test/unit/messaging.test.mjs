@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -13,11 +13,18 @@ import { fromNtfyEvent, toNtfyPayload } from "../../lib/messaging/providers/ntfy
 const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../bin/agentic-sdlc.mjs");
 const TOPIC = "sdlc-test-0123456789abcdef";
 
-function projectDir(withConfig = true) {
+// withConfig: "local" stores the topic in the clone's git folder, "shared"
+// commits-style in .sdlc/messaging.json (how 0.52.0 wrote it).
+function projectDir(withConfig = "local") {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentic-msg-"));
+  execFileSync("git", ["init", "-q"], { cwd: root });
   fs.mkdirSync(path.join(root, ".sdlc"));
-  if (withConfig) {
+  if (withConfig === "shared") {
     fs.writeFileSync(path.join(root, ".sdlc/messaging.json"), JSON.stringify({ provider: "ntfy", server: "https://ntfy.sh", topic: TOPIC }));
+  }
+  if (withConfig === "local") {
+    fs.mkdirSync(path.join(root, ".git/agentic-sdlc"));
+    fs.writeFileSync(path.join(root, ".git/agentic-sdlc/messaging.json"), JSON.stringify({ topic: TOPIC }));
   }
   return root;
 }
@@ -82,16 +89,18 @@ function runCli(args, { root, env = {} }) {
   });
 }
 
-test("messaging is off without the project file or the topic variable", () => {
-  const root = projectDir(false);
-  assert.equal(resolveMessagingConfig(root, {}).enabled, false);
+test("messaging is off without a topic", () => {
+  const root = projectDir(null);
+  const off = resolveMessagingConfig(root, {});
+  assert.equal(off.enabled, false);
+  assert.match(off.reason, /no topic/u);
   const fromEnv = resolveMessagingConfig(root, { AGENTIC_SDLC_MESSAGING_TOPIC: TOPIC });
   assert.equal(fromEnv.enabled, true);
   assert.equal(fromEnv.server, "https://ntfy.sh");
 });
 
-test("environment variables override the project file", () => {
-  const root = projectDir();
+test("environment variables override the local and committed settings", () => {
+  const root = projectDir("shared");
   const config = resolveMessagingConfig(root, {
     AGENTIC_SDLC_MESSAGING_TOPIC: "other-topic-0123456789",
     AGENTIC_SDLC_MESSAGING_SERVER: "https://ntfy.example.com/",
@@ -100,6 +109,18 @@ test("environment variables override the project file", () => {
   assert.equal(config.server, "https://ntfy.example.com");
   assert.equal(resolveMessagingConfig(root, { AGENTIC_SDLC_MESSAGING: "off" }).enabled, false);
   assert.throws(() => resolveMessagingConfig(root, { AGENTIC_SDLC_MESSAGING_SERVER: "http://ntfy.example.com" }), /https/u);
+  assert.equal(resolveMessagingConfig(root, {}).topic_in_git, true);
+});
+
+test("the local topic wins over a committed one and stays out of git", () => {
+  const root = projectDir("shared");
+  fs.mkdirSync(path.join(root, ".git/agentic-sdlc"));
+  fs.writeFileSync(path.join(root, ".git/agentic-sdlc/messaging.json"), JSON.stringify({ topic: "local-topic-0123456789" }));
+  const config = resolveMessagingConfig(root, {});
+  assert.equal(config.topic, "local-topic-0123456789");
+  assert.equal(config.server, "https://ntfy.sh");
+  assert.equal(config.topic_in_git, false);
+  assert.equal(execFileSync("git", ["status", "--porcelain", "--", ".git"], { cwd: root, encoding: "utf8" }), "");
 });
 
 test("sender and story round-trip through ntfy tags", () => {
@@ -112,14 +133,23 @@ test("sender and story round-trip through ntfy tags", () => {
   assert.equal(fromNtfyEvent({ id: "y", event: "message", message: "plain curl" }).from, null);
 });
 
-test("setup writes a random topic once", async () => {
-  const root = projectDir(false);
+test("setup creates a topic or stores a shared one, only in the git folder", async () => {
+  const root = projectDir(null);
   const first = await runCli(["message", "setup", "--json"], { root });
   assert.equal(first.code, 0, first.stderr);
-  const written = JSON.parse(fs.readFileSync(path.join(root, ".sdlc/messaging.json"), "utf8"));
-  assert.match(written.topic, /^sdlc-[0-9a-f]{24}$/u);
-  const second = await runCli(["message", "setup"], { root });
-  assert.notEqual(second.code, 0);
+  const local = path.join(root, ".git/agentic-sdlc/messaging.json");
+  const created = JSON.parse(fs.readFileSync(local, "utf8"));
+  assert.match(created.topic, /^sdlc-[0-9a-f]{24}$/u);
+  assert.equal(fs.existsSync(path.join(root, ".sdlc/messaging.json")), false);
+
+  const joined = await runCli(["message", "setup", "--topic", TOPIC], { root });
+  assert.equal(joined.code, 0, joined.stderr);
+  assert.equal(JSON.parse(fs.readFileSync(local, "utf8")).topic, TOPIC);
+  assert.equal((await runCli(["message", "setup", "--topic", "short"], { root })).code === 0, false);
+
+  const missing = await runCli(["message", "read"], { root: projectDir(null) });
+  assert.notEqual(missing.code, 0);
+  assert.match(missing.stderr, /message setup --topic/u);
 });
 
 test("send, read and listen through the CLI", async () => {
