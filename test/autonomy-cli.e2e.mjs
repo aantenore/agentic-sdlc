@@ -7444,6 +7444,8 @@ test("a merged delivery refreshes its baseline without a new approval while othe
 test("a story that started before another story merged changes to its files is reviewed before it merges", () => {
   const project = tmpProject("delivered-overlap");
   initializeAutonomyProject(project);
+  // Switching branches must check out the committed bytes, which the baseline compares.
+  mustGit(project, ["config", "core.autocrlf", "false"]);
   fs.mkdirSync(path.join(project, "src"), { recursive: true });
   fs.writeFileSync(path.join(project, "src", "app.mjs"), "export const status = \"legacy\";\n", "utf8");
   fs.writeFileSync(path.join(project, "README.md"), "# Autonomy E2E\n\nLegacy status service.\n", "utf8");

@@ -97,6 +97,8 @@ function sharedBaselineProject(label) {
   git(first, ["config", "user.name", "Baseline E2E"]);
   git(first, ["config", "user.email", "baseline-e2e@example.invalid"]);
   git(first, ["config", "commit.gpgSign", "false"]);
+  // Every computer checks out the bytes that were committed, as on Linux and macOS.
+  git(first, ["config", "core.autocrlf", "false"]);
   fs.mkdirSync(path.join(first, "src"), { recursive: true });
   fs.writeFileSync(path.join(first, "src", "app.mjs"), "export const status = \"legacy\";\n", "utf8");
   fs.writeFileSync(path.join(first, "README.md"), "# Shared baseline\n", "utf8");
@@ -110,7 +112,7 @@ function sharedBaselineProject(label) {
   git(first, ["push", "--quiet", "origin", "main"]);
   const second = temporaryDirectory(`${label}-second`);
   fs.rmSync(second, { recursive: true, force: true });
-  const cloned = spawnSync("git", ["clone", "--quiet", "--branch", "main", remote, second], { encoding: "utf8" });
+  const cloned = spawnSync("git", ["clone", "--quiet", "--config", "core.autocrlf=false", "--branch", "main", remote, second], { encoding: "utf8" });
   assert.equal(cloned.status, 0, cloned.stderr);
   git(second, ["config", "user.name", "Baseline E2E"]);
   git(second, ["config", "user.email", "baseline-e2e@example.invalid"]);
@@ -121,7 +123,7 @@ test("three computers refreshing the same baseline at the same moment: exactly o
   const { first, second, remote } = sharedBaselineProject("race");
   const third = temporaryDirectory("race-third");
   fs.rmSync(third, { recursive: true, force: true });
-  assert.equal(spawnSync("git", ["clone", "--quiet", "--branch", "main", remote, third], { encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["clone", "--quiet", "--config", "core.autocrlf=false", "--branch", "main", remote, third], { encoding: "utf8" }).status, 0);
   git(third, ["config", "user.name", "Baseline E2E"]);
   git(third, ["config", "user.email", "baseline-e2e@example.invalid"]);
   const computers = [first, second, third];
