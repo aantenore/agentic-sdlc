@@ -1,0 +1,11 @@
+{
+  "schema_version": "plugin-compatibility:v1",
+  "marketplace": "aantenore",
+  "update_command": "claude plugin marketplace update {marketplace} && claude plugin update {plugin}@{marketplace}",
+  "features": {
+    "shared-claim-completed": {
+      "since": "0.32.0",
+      "summary": "Finished stories shared as completed on the remote"
+    }
+  }
+}

@@ -493,6 +493,10 @@ agentic-sdlc story release --id ST-002 --reason "Merged"
 
 The split is simple: publish the approved specs and story breakdown, let every computer pull them, then each runs `orchestrate status`, claims one available story, works on its branch, and opens its pull request. Claiming is the start of work, so if the remote cannot be reached the claim is refused; set `orchestration_policy.coordination.mode` to `local_only` for a project worked on from one computer only (`auto`, the default, shares claims when the remote exists; `required` refuses without it). Taking over a story held elsewhere is a person's decision, made in their own terminal with `--force` and a `--reason` that the previous holder sees. See [Parallel Work Model](docs/architecture.md#several-computers) for the step-by-step guide.
 
+### Computers on different plugin versions
+
+Records an older plugin would misread declare the plugin version they need: a project that uses such a feature keeps a small file under `.sdlc/compatibility/` (one per feature, identical on every computer, so merges never conflict), and a shared claim record carries `minimum_plugin_version`. A computer on an older version then refuses commands that change the project, keeps read-only commands working with a warning, and shows the update command (`claude plugin marketplace update aantenore && claude plugin update agentic-sdlc@aantenore`, then `/reload-plugins`) in `status`, `doctor`, and at session start. Records are never migrated; derived data such as the local cache is rebuilt when it was written by another plugin version. Features and their versions are listed in `config/plugin-compatibility.json`.
+
 ## Native Codex Metering Versus Exact Metering
 
 The bundled `codex-session` adapter reads only the exact task's local

@@ -10,6 +10,9 @@
     "source_hashes"
   ],
   "properties": {
+    "plugin_version": {
+      "type": "string"
+    },
     "schema_version": {
       "type": "string"
     },

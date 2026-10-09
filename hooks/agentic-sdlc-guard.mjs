@@ -49,8 +49,37 @@ function preToolUse(payload) {
   }
 }
 
-function sessionStart(payload) {
+/** Tells the session to ask for a plugin update when the project's records need a newer version. */
+async function pluginUpdateNotice(root) {
+  // Loaded here so a problem with it never disables the edit guard.
+  const { COMPATIBILITY_DIRECTORY, evaluateRequirements, pluginUpdateLine } = await import("../lib/plugin-compatibility.mjs");
+  const directory = path.join(root, ".sdlc", COMPATIBILITY_DIRECTORY);
+  let names = [];
+  try {
+    names = fs.readdirSync(directory).filter((name) => name.endsWith(".json"));
+  } catch {
+    return;
+  }
+  const entries = names.map((name) => {
+    try {
+      return { path: name, record: JSON.parse(fs.readFileSync(path.join(directory, name), "utf8")) };
+    } catch {
+      return { path: name, record: null };
+    }
+  });
+  const verdict = evaluateRequirements(entries);
+  if (verdict.satisfied) return;
+  process.stdout.write(`Agentic SDLC: ${pluginUpdateLine(verdict.required_plugin_version)}\n`
+    + "Tell the user before any other agentic-sdlc work: commands that change the project are refused until the plugin is updated.\n");
+}
+
+async function sessionStart(payload) {
   const root = path.resolve(String(payload.cwd || process.cwd()));
+  try {
+    await pluginUpdateNotice(root);
+  } catch {
+    // The notice is advice; the CLI enforces the check on its own.
+  }
   const standingRoot = path.join(root, ".sdlc", "autonomy", "standing");
   let entries = [];
   try {
@@ -79,7 +108,7 @@ try {
   const event = process.argv[2];
   const payload = readPayload();
   if (event === "pre-tool-use") preToolUse(payload);
-  else if (event === "session-start") sessionStart(payload);
+  else if (event === "session-start") await sessionStart(payload);
 } catch {
   process.exitCode = 0;
 }
