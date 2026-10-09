@@ -568,6 +568,14 @@ function storyNextText(story, storiesById) {
   if (story.state === "live" && story.holder) {
     return `${t("Worked on by")} ${story.holder.holder ?? story.holder.agent ?? t("another computer")}`;
   }
+  if (story.state === "parked") {
+    const reason = story.holder?.reason ?? story.iteration?.parked?.reason;
+    return `${t("Set aside by a person until resumed")}${reason ? `: ${reason}` : ""}`;
+  }
+  if (story.state === "abandoned") {
+    const who = story.holder?.holder ?? story.holder?.agent ?? story.iteration?.claimExpired?.agent;
+    return `${t("Claim expired without release")}${who ? ` (${who})` : ""}: ${t("a person takes it over or parks it")}`;
+  }
   if (story.remoteOnly) return t("New on another computer: update this copy to see its details");
   const replacementIds = story.iteration?.closure?.replacementIds ?? [];
   if (story.state === "replaced" && replacementIds.length) {
@@ -593,7 +601,7 @@ function waitingNames(story, storiesById) {
   return storiesById?.get(id) ? storyTitle(storiesById.get(id)) : id;
 }
 
-const PROGRESS_ORDER = Object.freeze(["delivered", "live", "blocked", "open", "waiting", "idle", "replaced", "stopped"]);
+const PROGRESS_ORDER = Object.freeze(["delivered", "live", "blocked", "abandoned", "open", "waiting", "parked", "idle", "replaced", "stopped"]);
 
 function progressBar(stateCounts, total) {
   const svg = svgNode("svg", {
@@ -660,6 +668,8 @@ export function dashboardView(model, state) {
               : t("No story is in progress right now"),
             stateCounts.waiting ? countText(stateCounts.waiting, "waiting for others", "waiting for others") : null,
             stateCounts.blocked ? countText(stateCounts.blocked, "blocked", "blocked") : null,
+            stateCounts.abandoned ? countText(stateCounts.abandoned, "needs a decision", "need a decision") : null,
+            stateCounts.parked ? countText(stateCounts.parked, "parked story", "parked stories") : null,
             stateCounts.replaced ? countText(stateCounts.replaced, "replaced", "replaced") : null,
             lastEvent ? `${t("Last activity")} ${relativeTime(lastEvent.time)}` : null,
           ].filter(Boolean).join(" · "),
@@ -688,7 +698,7 @@ export function dashboardView(model, state) {
   ]);
 
   const nowStories = sortStories(
-    stories.filter((story) => ["live", "blocked", "open"].includes(story.state)
+    stories.filter((story) => ["live", "blocked", "abandoned", "open"].includes(story.state)
       || (story.recent && !["replaced", "stopped"].includes(story.state))),
     "recent",
   ).slice(0, INSIGHT_SETTINGS.dashboardActiveStoryLimit);
