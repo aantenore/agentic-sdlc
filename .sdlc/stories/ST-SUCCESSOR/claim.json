@@ -1,0 +1,55 @@
+{
+  "story_id": "ST-SUCCESSOR",
+  "agent": "codex",
+  "branch": "codex/ST-SUCCESSOR",
+  "status": "released",
+  "claimed_at": "2026-10-10T04:33:11.756Z",
+  "expires_at": "2026-10-11T04:33:11.756Z",
+  "notes": null,
+  "authorization_ref": "AUTH-SUCCESSOR-STORY-ACTIONS",
+  "authorization_use_ref": ".sdlc/authorization-uses/AUTH-SUCCESSOR-STORY-ACTIONS/AUSE-AUTH-SUCCESSOR-STORY-ACTIONS-20261010043243695-9184f4.json",
+  "authorization_action": "story.claim",
+  "checkpoint_profile_ref": {
+    "id": "AUT-SUCCESSOR-2",
+    "path": ".sdlc/autonomy/deliveries/AUT-SUCCESSOR-2.json",
+    "hash": "f6d55663782987f2fdbc9c87e2a9a3ca8e6f8815b82ed614eea554c1df351827"
+  },
+  "audit": {
+    "claimed_by": {
+      "id": "codex",
+      "type": "agent",
+      "name": "Codex",
+      "email": null,
+      "source": "cli"
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-SUCCESSOR",
+      "head_sha": "7291c535a28adae4bfa3067988dfd51ac1ffda67",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    },
+    "released_by": {
+      "id": "codex",
+      "type": "agent",
+      "name": "Codex",
+      "email": null,
+      "source": "cli"
+    }
+  },
+  "released_at": "2026-10-10T04:33:26.023Z",
+  "release_reason": "Release the completed lane before final certification."
+}

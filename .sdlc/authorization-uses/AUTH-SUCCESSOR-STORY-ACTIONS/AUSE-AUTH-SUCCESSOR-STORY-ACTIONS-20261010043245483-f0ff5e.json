@@ -1,0 +1,53 @@
+{
+  "id": "AUSE-AUTH-SUCCESSOR-STORY-ACTIONS-20261010043245483-f0ff5e",
+  "kind": "authorization_usage_receipt",
+  "schema_version": "authorization-usage-receipt:legacy-v2",
+  "authorization_id": "AUTH-SUCCESSOR-STORY-ACTIONS",
+  "authorization_hash": "e33e906feb00a13cf89206d2a10fdcd103f0a5d137d9c3f72102ee1d0bf2604d",
+  "proposal_ref": null,
+  "action": "story.complete-step",
+  "subject_id": "ST-SUCCESSOR",
+  "artifact_types": [],
+  "approval_boundaries": [],
+  "scope": "Approve the exact governed story actions for ST-SUCCESSOR.",
+  "authority_assurance": "audit_only",
+  "authorization_snapshot": {
+    "status_at_use": "active",
+    "expires_at": "2026-10-11T04:32:42.646Z",
+    "allowed_actions": [
+      "story.complete-step",
+      "output.link",
+      "story.claim"
+    ],
+    "allowed_subjects": [
+      "ST-SUCCESSOR"
+    ],
+    "allowed_uses": [
+      {
+        "action": "story.complete-step",
+        "subject_id": "ST-SUCCESSOR",
+        "use_hash": "5d322b782496c20a67dad771ebdf4fe083fa0878920f2b4749541c2ccdd4488f"
+      },
+      {
+        "action": "output.link",
+        "subject_id": "ST-SUCCESSOR",
+        "use_hash": "d76bbd58dd9db75b61a653e6990ebfd3ac65cde21786af0b943da323f352b9fa"
+      },
+      {
+        "action": "story.claim",
+        "subject_id": "ST-SUCCESSOR",
+        "use_hash": "e30b66be50511c78a08e205bc9cd126efa2126f65db4a0cfc60719533d9b41d7"
+      }
+    ],
+    "allowed_artifact_types": [
+      "implementation-summary"
+    ],
+    "allowed_approval_boundaries": []
+  },
+  "use_key": "122e59d6f49f351fe8f4729500b3f5251feca3d98be1ab07dd47083c904322d1",
+  "status": "accepted",
+  "used_at": "2026-10-10T04:32:45.483Z",
+  "valid_at_use": true,
+  "receipt_hash": "d21d72050b7a74895c088ee38ca40212af90224bc9b0c12f22c0463da5210bc4",
+  "hash_algorithm": "sha256:stable-json:v1"
+}

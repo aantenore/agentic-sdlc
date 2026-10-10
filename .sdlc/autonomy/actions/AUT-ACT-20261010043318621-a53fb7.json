@@ -1,0 +1,601 @@
+{
+  "id": "AUT-ACT-20261010043318621-a53fb7",
+  "kind": "delivery_action_receipt",
+  "schema_version": "delivery-action-receipt:v3",
+  "profile_ref": {
+    "id": "AUT-SUCCESSOR-2",
+    "path": ".sdlc/autonomy/deliveries/AUT-SUCCESSOR-2.json",
+    "hash": "f6d55663782987f2fdbc9c87e2a9a3ca8e6f8815b82ed614eea554c1df351827"
+  },
+  "delivery": {
+    "id": "LOCAL-SUCCESSOR-2",
+    "kind": "local_release"
+  },
+  "action": "release.local",
+  "effective_level": "supervised",
+  "checkpoint_required": true,
+  "approval": null,
+  "runtime_target": null,
+  "action_details": {
+    "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+    "allowed_write_paths": [
+      "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app"
+    ],
+    "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+    "local_release_integrity": {
+      "schema_version": "local-release-integrity:v2",
+      "smoke_execution_policy": {
+        "schema_version": "local-smoke-sandbox-policy:v2",
+        "host": {
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "plugin_build": {
+          "package_version": "0.94.0",
+          "build_fingerprint": "ed4b7a147c293503acaba7a4c7425c5c82e7d96bce55dec16331db21db894f4d",
+          "git_commit": "0179cdadf3ecd1cd881fe18b9057c9ee9ccf34d6",
+          "provenance": null
+        },
+        "boundary": {
+          "schema_version": "local-smoke-execution-boundary:v1",
+          "filesystem_writes": "denied",
+          "readable_files": "host_account_scope",
+          "confidentiality_isolation": "not_provided",
+          "transitive_code_attestation": "not_provided",
+          "external_network": "denied",
+          "reviewed_code_required": true,
+          "explicit_entrypoint_binding": "artifact_manifest_bound",
+          "portable_recommendation": "do_not_depend_on_network_or_listeners",
+          "recommended_patterns": [
+            "exercise an exported API handler in-process",
+            "validate built artifact files without opening sockets"
+          ],
+          "provider": "macos-sandbox-exec-readonly-no-network",
+          "provider_available": true,
+          "loopback_network": "denied",
+          "listener_based_smoke": "unsupported"
+        },
+        "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+        "launchers": [
+          {
+            "command": [
+              "node",
+              "--version"
+            ],
+            "sandbox": "macos-sandbox-exec-readonly-no-network",
+            "wrapper_executable": "/usr/bin/sandbox-exec",
+            "wrapper_executable_sha256": "abc5bb136d6b5cce8fa85d789f78e3326c51ca60cae637b2064adfb67a1dcd9a",
+            "wrapper_args": [
+              "-p",
+              "(version 1) (deny default) (allow process*) (allow file-read*) (allow sysctl-read) (allow mach-lookup)",
+              "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin/node",
+              "--version"
+            ],
+            "wrapper_args_sha256": "1f4535e14a82f1348177da50d3ca2b9a6670577cb6863e0999de9dbea0bbb210",
+            "environment": {
+              "PATH": "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin:/usr/bin:/bin",
+              "TMPDIR": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/"
+            },
+            "environment_sha256": "4c83ec093cd129b06ae72026268482d331ee3725da60a5568c664a89040b82f8",
+            "command_executable": "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin/node",
+            "command_executable_sha256": "3200fbd9f7fd4410426dd541e10d1ab829d3472f270d743c7fabd1696c03fe32",
+            "runtime_executable": "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin/node",
+            "runtime_executable_sha256": "3200fbd9f7fd4410426dd541e10d1ab829d3472f270d743c7fabd1696c03fe32",
+            "interpreter": null,
+            "launcher_kind": "direct-interpreter",
+            "payload_bindings": [],
+            "hash_algorithm": "sha256:stable-json:v1",
+            "launcher_hash": "1f1788fca4186260308d697f83e7f62cef3cf8278d2977a5bbf661d109ebd819"
+          }
+        ],
+        "hash_algorithm": "sha256:stable-json:v1",
+        "policy_hash": "615315f1e692cfa4f67073ac7d63fac840ed1349ad82a25b8e48032f92930ae1"
+      },
+      "artifact_manifest_policy": {
+        "schema_version": "local-release-artifact-manifest-policy:v1",
+        "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+        "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+        "allowed_write_paths": [
+          "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app"
+        ],
+        "symlinks": "rejected",
+        "special_files": "rejected",
+        "maximum_entries_per_path": 10000,
+        "maximum_bytes_per_path": 536870912,
+        "snapshot_passes": 2,
+        "hash_algorithm": "sha256:stable-json:v1",
+        "policy_hash": "94e0ea0eb6b349ec1c8b6b30627a830fca5e977215f5eed4ab9a7e12476974d6"
+      },
+      "hash_algorithm": "sha256:stable-json:v1",
+      "integrity_hash": "188f8526fdc1ecc29e0a820de1a7a54414f3cd50d2fd0a5a18a6dbfeb17cd438"
+    },
+    "local_target_materialization_ref": {
+      "source": "delivery_start",
+      "receipt_ref": {
+        "id": "AUT-START-AUT-SUCCESSOR-2",
+        "path": ".sdlc/autonomy/executions/AUT-SUCCESSOR-2/start.json",
+        "hash": "bbc3a33bc50e3b2898899eca67d05b2323c54bc9e81a5cb7b4a214f634511a1c"
+      },
+      "snapshot_hash": "777832abb1ad738784465cc25df5fb7bde184e2321033d3267fddf0643b868f6"
+    },
+    "provider_operation": {
+      "binding": {
+        "action": "release.local",
+        "provider_id": "local-filesystem",
+        "source": "explicit-v2",
+        "provider_bindings_hash": "ecfd23f81c4fcf02b316534f89295aa9a44d72cd29d44005cba79307970b0c9f"
+      },
+      "precondition_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010043317633-1ca033:precondition",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T04:33:17.633Z",
+        "operation": {
+          "action": "release.local",
+          "id": "AUT-ACT-20261010043317633-1ca033",
+          "phase": "precondition"
+        },
+        "precondition_receipt_ref": null,
+        "proof": {
+          "allowed_write_paths": [
+            {
+              "identity": {
+                "device": "16777232",
+                "inode": "131171309",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+                "type": "directory"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+              "status": "present"
+            }
+          ],
+          "root_identity": {
+            "device": "16777232",
+            "inode": "131171308",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+            "type": "directory"
+          },
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release"
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "local-filesystem",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "c76990dcf11ef983656f8642936d3d8d82ffb934cd78a5dcc217ba811566fbfb",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "allowed_write_paths": [
+            "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app"
+          ],
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release"
+        },
+        "subject_hash": "d1116c5011bea34a982e720bea825c4d705d127a946a82f636d2869908960016",
+        "version": 1
+      },
+      "completion_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010043317633-1ca033:completion",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T04:33:18.621Z",
+        "operation": {
+          "action": "release.local",
+          "id": "AUT-ACT-20261010043317633-1ca033",
+          "phase": "completion"
+        },
+        "precondition_receipt_ref": {
+          "hash": "c76990dcf11ef983656f8642936d3d8d82ffb934cd78a5dcc217ba811566fbfb",
+          "id": "AUT-ACT-20261010043317633-1ca033:precondition"
+        },
+        "proof": {
+          "allowed_write_paths": [
+            {
+              "identity": {
+                "device": "16777232",
+                "inode": "131171309",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+                "type": "directory"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+              "status": "present"
+            }
+          ],
+          "precondition_receipt_hash": "c76990dcf11ef983656f8642936d3d8d82ffb934cd78a5dcc217ba811566fbfb",
+          "root_identity": {
+            "device": "16777232",
+            "inode": "131171308",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+            "type": "directory"
+          },
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release"
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "local-filesystem",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "061524c9ce75ac0d13053737b825ac25643df341a0a732ebe83369c6abd68662",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "allowed_write_paths": [
+            "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app"
+          ],
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release"
+        },
+        "subject_hash": "d1116c5011bea34a982e720bea825c4d705d127a946a82f636d2869908960016",
+        "version": 1
+      }
+    },
+    "checkpoint_policy": {
+      "schema_version": "delivery-action-checkpoint-policy:v1",
+      "action": "release.local",
+      "delivery_kind": "local_release",
+      "effective_level": "supervised",
+      "profile_ref": {
+        "id": "AUT-SUCCESSOR-2",
+        "hash": "f6d55663782987f2fdbc9c87e2a9a3ca8e6f8815b82ed614eea554c1df351827"
+      },
+      "preset_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "policy_source_ref": {
+        "path": ".sdlc/autonomy/policy-sources/5582347d22a9d60eac3731a3bf93e21a7067856043a5c7ad10067e01f8aa5723.json",
+        "hash": "5582347d22a9d60eac3731a3bf93e21a7067856043a5c7ad10067e01f8aa5723",
+        "effective_config_hash": "c1361b73d4df4aa8c9b62b7c193ddd78e4e925aae8c35935c4010af43f3eab6c"
+      },
+      "profile_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "boundary_actions": [
+        "deploy.remote",
+        "pull_request.merge",
+        "rollback.verify"
+      ],
+      "local_boundary_checkpoint": false,
+      "local_boundary_source": {
+        "schema_version": "delivery-local-boundary-source:v1",
+        "target_hash": "7be074f4b2e87522d8b0583d5146cce4e8d7a044084b3df3ebc12136a02b9620",
+        "platform": "darwin",
+        "workspace_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is",
+        "target_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+        "global_roots": [
+          "/Applications",
+          "/Library",
+          "/opt",
+          "/usr"
+        ],
+        "target_outside_workspace": false,
+        "target_machine_global": false,
+        "writes_outside_workspace_require_checkpoint": true,
+        "machine_global_changes_require_checkpoint": true
+      },
+      "local_boundary_source_hash": "ecfea1c405e8ffd55e070b2333a7c8214f17057d1cffdbabe221d4772c1fb6e7",
+      "required": true,
+      "policy_hash": "46e6d1b12b6bd1569afe13b2d7ab34519bb1b72f914a03368136397f43029adf"
+    }
+  },
+  "authorization_receipt_ref": {
+    "id": "AUT-ACT-20261010043317633-1ca033",
+    "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043317633-1ca033.json",
+    "hash": "69aa80d4446bc44ee59e746313b2150e495169c5df9d4f6ff1dc83cd2dede5be"
+  },
+  "attempt_receipt_ref": {
+    "id": "AUT-TRY-f63510b59b184cf9c729ee8b975ccbbc",
+    "path": ".sdlc/autonomy/executions/AUT-SUCCESSOR-2/attempts/AUT-TRY-f63510b59b184cf9c729ee8b975ccbbc.json",
+    "hash": "fe30e6e67f49de587b85d205920ac66fa0e4c15e9ef037cb2f654d6048fca295"
+  },
+  "completion_request": {
+    "schema_version": "delivery-action-completion-request:v1",
+    "profile_ref": {
+      "id": "AUT-SUCCESSOR-2",
+      "path": ".sdlc/autonomy/deliveries/AUT-SUCCESSOR-2.json",
+      "hash": "f6d55663782987f2fdbc9c87e2a9a3ca8e6f8815b82ed614eea554c1df351827"
+    },
+    "action": "release.local",
+    "outcome": "passed",
+    "authorization_receipt_ref": {
+      "id": "AUT-ACT-20261010043317633-1ca033",
+      "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043317633-1ca033.json",
+      "hash": "69aa80d4446bc44ee59e746313b2150e495169c5df9d4f6ff1dc83cd2dede5be"
+    },
+    "evidence": [
+      {
+        "path": "docs/local-release/app/release-proof.txt",
+        "sha256": "1bd359443a99dbef54d9e634b44ba5b1d2d3f4d7fb609ad5164f9898308bfe87"
+      }
+    ],
+    "operation_args": {
+      "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+      "smoke_tests": [
+        "[\"node\",\"--version\"]"
+      ],
+      "rollback": "Restore the previous governed local release snapshot."
+    },
+    "request_hash": "d70715d36eea7637a7170e153e7c6f1268067fec57b3b357392860bb41c96317",
+    "hash_algorithm": "sha256:stable-json:v1"
+  },
+  "local_release_verification": {
+    "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+    "allowed_write_paths": [
+      "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app"
+    ],
+    "smoke_tests": [
+      "[\"node\",\"--version\"]"
+    ],
+    "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+    "smoke_test_receipts": [
+      {
+        "command": [
+          "node",
+          "--version"
+        ],
+        "cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+        "sandbox": "macos-sandbox-exec-readonly-no-network",
+        "exit_code": 0,
+        "signal": null,
+        "error_code": null,
+        "outcome": "passed",
+        "stdout_sha256": "c642a0de246dcdc6c51318fe449646fc5067b981a8d09e9ccdb8141a5756339a",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "started_at": "2026-10-10T04:33:19.594Z",
+        "finished_at": "2026-10-10T04:33:19.620Z"
+      }
+    ],
+    "outcome": "passed",
+    "evidence": [
+      {
+        "path": "docs/local-release/app/release-proof.txt",
+        "sha256": "1bd359443a99dbef54d9e634b44ba5b1d2d3f4d7fb609ad5164f9898308bfe87"
+      }
+    ],
+    "rollback": {
+      "procedure": "Restore the previous governed local release snapshot.",
+      "required": true,
+      "verification_required": true
+    },
+    "integrity": {
+      "schema_version": "local-release-completion-integrity:v2",
+      "authorized_policy": {
+        "schema_version": "local-release-integrity:v2",
+        "smoke_execution_policy": {
+          "schema_version": "local-smoke-sandbox-policy:v2",
+          "host": {
+            "platform": "darwin",
+            "arch": "arm64"
+          },
+          "plugin_build": {
+            "package_version": "0.94.0",
+            "build_fingerprint": "ed4b7a147c293503acaba7a4c7425c5c82e7d96bce55dec16331db21db894f4d",
+            "git_commit": "0179cdadf3ecd1cd881fe18b9057c9ee9ccf34d6",
+            "provenance": null
+          },
+          "boundary": {
+            "schema_version": "local-smoke-execution-boundary:v1",
+            "filesystem_writes": "denied",
+            "readable_files": "host_account_scope",
+            "confidentiality_isolation": "not_provided",
+            "transitive_code_attestation": "not_provided",
+            "external_network": "denied",
+            "reviewed_code_required": true,
+            "explicit_entrypoint_binding": "artifact_manifest_bound",
+            "portable_recommendation": "do_not_depend_on_network_or_listeners",
+            "recommended_patterns": [
+              "exercise an exported API handler in-process",
+              "validate built artifact files without opening sockets"
+            ],
+            "provider": "macos-sandbox-exec-readonly-no-network",
+            "provider_available": true,
+            "loopback_network": "denied",
+            "listener_based_smoke": "unsupported"
+          },
+          "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+          "launchers": [
+            {
+              "command": [
+                "node",
+                "--version"
+              ],
+              "sandbox": "macos-sandbox-exec-readonly-no-network",
+              "wrapper_executable": "/usr/bin/sandbox-exec",
+              "wrapper_executable_sha256": "abc5bb136d6b5cce8fa85d789f78e3326c51ca60cae637b2064adfb67a1dcd9a",
+              "wrapper_args": [
+                "-p",
+                "(version 1) (deny default) (allow process*) (allow file-read*) (allow sysctl-read) (allow mach-lookup)",
+                "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin/node",
+                "--version"
+              ],
+              "wrapper_args_sha256": "1f4535e14a82f1348177da50d3ca2b9a6670577cb6863e0999de9dbea0bbb210",
+              "environment": {
+                "PATH": "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin:/usr/bin:/bin",
+                "TMPDIR": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/"
+              },
+              "environment_sha256": "4c83ec093cd129b06ae72026268482d331ee3725da60a5568c664a89040b82f8",
+              "command_executable": "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin/node",
+              "command_executable_sha256": "3200fbd9f7fd4410426dd541e10d1ab829d3472f270d743c7fabd1696c03fe32",
+              "runtime_executable": "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin/node",
+              "runtime_executable_sha256": "3200fbd9f7fd4410426dd541e10d1ab829d3472f270d743c7fabd1696c03fe32",
+              "interpreter": null,
+              "launcher_kind": "direct-interpreter",
+              "payload_bindings": [],
+              "hash_algorithm": "sha256:stable-json:v1",
+              "launcher_hash": "1f1788fca4186260308d697f83e7f62cef3cf8278d2977a5bbf661d109ebd819"
+            }
+          ],
+          "hash_algorithm": "sha256:stable-json:v1",
+          "policy_hash": "615315f1e692cfa4f67073ac7d63fac840ed1349ad82a25b8e48032f92930ae1"
+        },
+        "artifact_manifest_policy": {
+          "schema_version": "local-release-artifact-manifest-policy:v1",
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+          "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+          "allowed_write_paths": [
+            "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app"
+          ],
+          "symlinks": "rejected",
+          "special_files": "rejected",
+          "maximum_entries_per_path": 10000,
+          "maximum_bytes_per_path": 536870912,
+          "snapshot_passes": 2,
+          "hash_algorithm": "sha256:stable-json:v1",
+          "policy_hash": "94e0ea0eb6b349ec1c8b6b30627a830fca5e977215f5eed4ab9a7e12476974d6"
+        },
+        "hash_algorithm": "sha256:stable-json:v1",
+        "integrity_hash": "188f8526fdc1ecc29e0a820de1a7a54414f3cd50d2fd0a5a18a6dbfeb17cd438"
+      },
+      "pre_smoke_artifact_manifest": {
+        "schema_version": "local-release-artifact-manifest:v1",
+        "policy": {
+          "schema_version": "local-release-artifact-manifest-policy:v1",
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+          "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+          "allowed_write_paths": [
+            "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app"
+          ],
+          "symlinks": "rejected",
+          "special_files": "rejected",
+          "maximum_entries_per_path": 10000,
+          "maximum_bytes_per_path": 536870912,
+          "snapshot_passes": 2,
+          "hash_algorithm": "sha256:stable-json:v1",
+          "policy_hash": "94e0ea0eb6b349ec1c8b6b30627a830fca5e977215f5eed4ab9a7e12476974d6"
+        },
+        "root_identity": {
+          "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+          "present": true,
+          "kind": "directory",
+          "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+          "device": "16777232",
+          "inode": "131171308",
+          "mode": 493
+        },
+        "paths": [
+          {
+            "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+            "present": true,
+            "kind": "directory",
+            "file_count": 1,
+            "entry_count": 2,
+            "total_bytes": 18,
+            "tree_hash": "89b4af7435533cb219b47d83121f82e5cdb525ecb4fc1fa7055bf2d48b97d096"
+          }
+        ],
+        "hash_algorithm": "sha256:stable-json:v1",
+        "manifest_hash": "8f21c300148362b48dbd26d2b36b25401459d2266e91dd3076934446097c9775"
+      },
+      "post_smoke_artifact_manifest": {
+        "schema_version": "local-release-artifact-manifest:v1",
+        "policy": {
+          "schema_version": "local-release-artifact-manifest-policy:v1",
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+          "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+          "allowed_write_paths": [
+            "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app"
+          ],
+          "symlinks": "rejected",
+          "special_files": "rejected",
+          "maximum_entries_per_path": 10000,
+          "maximum_bytes_per_path": 536870912,
+          "snapshot_passes": 2,
+          "hash_algorithm": "sha256:stable-json:v1",
+          "policy_hash": "94e0ea0eb6b349ec1c8b6b30627a830fca5e977215f5eed4ab9a7e12476974d6"
+        },
+        "root_identity": {
+          "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+          "present": true,
+          "kind": "directory",
+          "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+          "device": "16777232",
+          "inode": "131171308",
+          "mode": 493
+        },
+        "paths": [
+          {
+            "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+            "present": true,
+            "kind": "directory",
+            "file_count": 1,
+            "entry_count": 2,
+            "total_bytes": 18,
+            "tree_hash": "89b4af7435533cb219b47d83121f82e5cdb525ecb4fc1fa7055bf2d48b97d096"
+          }
+        ],
+        "hash_algorithm": "sha256:stable-json:v1",
+        "manifest_hash": "8f21c300148362b48dbd26d2b36b25401459d2266e91dd3076934446097c9775"
+      },
+      "artifact_stable_during_smoke": true
+    },
+    "rollback_verification_receipt_ref": {
+      "id": "AUT-ACT-20261010043316658-d2b9ac",
+      "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043316658-d2b9ac.json",
+      "hash": "30f03b3337b254f0c8ad58cae8fff61b7d92cbf1daa466e334fbc621bfaeae62"
+    }
+  },
+  "evidence": [
+    {
+      "path": "docs/local-release/app/release-proof.txt",
+      "sha256": "1bd359443a99dbef54d9e634b44ba5b1d2d3f4d7fb609ad5164f9898308bfe87"
+    }
+  ],
+  "outcome": "passed",
+  "status": "completed",
+  "authorized_by": {
+    "id": "codex",
+    "type": "agent",
+    "name": "Codex",
+    "email": null,
+    "source": "default"
+  },
+  "authorized_at": "2026-10-10T04:33:18.621Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-SUCCESSOR",
+      "head_sha": "7291c535a28adae4bfa3067988dfd51ac1ffda67",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  },
+  "receipt_hash": "606e195f908b5bdef4ef8a09979bc2c1eae5c120e685c2a694a7c6d72b00ed68",
+  "hash_algorithm": "sha256:stable-json:v1"
+}

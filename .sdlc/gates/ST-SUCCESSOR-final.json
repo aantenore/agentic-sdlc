@@ -1,0 +1,1003 @@
+{
+  "actor": {
+    "email": null,
+    "id": "codex",
+    "name": "Codex",
+    "source": "default",
+    "type": "agent"
+  },
+  "approval_requests": [],
+  "assistant_message": "There are no pending SDLC approvals or clarifications.\nI can continue with the next operational step when needed.",
+  "assistant_message_presentation": {
+    "contextualize_for_user": true,
+    "instruction": "Before showing assistant_message to a human, translate and contextualize it in the active chat language. Use plain product language and begin with outcome, practical impact, the decision needed or an explicit statement that none is needed, what remains protected, and one next action. Do not place record IDs, internal autonomy terms, status or reason codes, hashes, schema keys, file paths, or CLI commands in that primary explanation. Preserve those literals exactly only after an optional Technical details or Dettagli tecnici divider. If an internal freshness check needs a refresh but the user-approved scope has not changed, explain that the internal reference will be updated and work will continue inside the same scope; do not present it as a new product decision. Summarize relevant contents directly instead of sending the user to inspect files. State what approval covers and what it does not cover. A yes or ok applies only to the displayed decision unless the user explicitly grants a broader approval level; later delegated approvals must be recorded as automation, not misattributed as direct user actions.",
+    "presenter": "codex",
+    "preserve_literals": [
+      "record IDs",
+      "file paths",
+      "CLI commands",
+      "status and reason codes",
+      "schema keys"
+    ],
+    "preserve_literals_in_technical_details_only": [
+      "record IDs",
+      "file paths",
+      "CLI commands",
+      "status and reason codes",
+      "schema keys"
+    ],
+    "translate_to_chat_language": true
+  },
+  "assistant_message_source_language": "en",
+  "certification_level": "lifecycle_complete",
+  "checked": [
+    "project",
+    "authorization AUTH-SUCCESSOR-STORY-ACTIONS",
+    "requirement autonomy profile AUT-REQ-SUCCESSOR-R1",
+    "delivery autonomy profile AUT-SUCCESSOR-2 immutable local-target baseline",
+    "delivery autonomy profile AUT-SUCCESSOR-2 local release attempt AUT-TRY-f63510b59b184cf9c729ee8b975ccbbc",
+    "delivery autonomy profile AUT-SUCCESSOR-2 action receipt AUT-ACT-20261010043313679-013382",
+    "delivery autonomy profile AUT-SUCCESSOR-2 action receipt AUT-ACT-20261010043314634-1444de",
+    "delivery autonomy profile AUT-SUCCESSOR-2 action receipt AUT-ACT-20261010043315631-9da8c4",
+    "delivery autonomy profile AUT-SUCCESSOR-2 action receipt AUT-ACT-20261010043316658-d2b9ac",
+    "delivery autonomy profile AUT-SUCCESSOR-2 action receipt AUT-ACT-20261010043317633-1ca033",
+    "delivery autonomy profile AUT-SUCCESSOR-2 action receipt AUT-ACT-20261010043318621-a53fb7",
+    "delivery autonomy profile AUT-SUCCESSOR-2 terminal receipt AUT-CLOSE-AUT-SUCCESSOR-2",
+    "delivery autonomy profile AUT-SUCCESSOR-2",
+    "delivery autonomy profile AUT-SUCCESSOR immutable local-target baseline",
+    "delivery autonomy profile AUT-SUCCESSOR action receipt AUT-ACT-20261010043258431-27c6a7",
+    "delivery autonomy profile AUT-SUCCESSOR action receipt AUT-ACT-20261010043259432-f750c9",
+    "delivery autonomy profile AUT-SUCCESSOR terminal receipt AUT-CLOSE-AUT-SUCCESSOR",
+    "delivery autonomy profile AUT-SUCCESSOR",
+    "autonomy decision AUT-DEC-20261010043239632-8cdd31",
+    "autonomy decision AUT-DEC-20261010043241564-985905",
+    "autonomy decision AUT-DEC-20261010043309980-f12987",
+    "autonomy decision AUT-DEC-20261010043310926-226d02",
+    "requirement lineage REQ-SUCCESSOR",
+    "contract CONTRACT-SUCCESSOR-2.json immutable local-target baseline",
+    "contract CONTRACT-SUCCESSOR-2.json local release attempt AUT-TRY-f63510b59b184cf9c729ee8b975ccbbc",
+    "contract CONTRACT-SUCCESSOR-2.json action receipt AUT-ACT-20261010043313679-013382",
+    "contract CONTRACT-SUCCESSOR-2.json action receipt AUT-ACT-20261010043314634-1444de",
+    "contract CONTRACT-SUCCESSOR-2.json action receipt AUT-ACT-20261010043315631-9da8c4",
+    "contract CONTRACT-SUCCESSOR-2.json action receipt AUT-ACT-20261010043316658-d2b9ac",
+    "contract CONTRACT-SUCCESSOR-2.json action receipt AUT-ACT-20261010043317633-1ca033",
+    "contract CONTRACT-SUCCESSOR-2.json action receipt AUT-ACT-20261010043318621-a53fb7",
+    "contract CONTRACT-SUCCESSOR-2.json terminal receipt AUT-CLOSE-AUT-SUCCESSOR-2",
+    "delivery autonomy profile AUT-SUCCESSOR-2",
+    "contract CONTRACT-SUCCESSOR-2.json",
+    "trace traces/ST-SUCCESSOR.jsonl local integrity checkpoint",
+    "trace traces/ST-SUCCESSOR.jsonl",
+    "requirement autonomy profile AUT-REQ-SUCCESSOR-R1",
+    "story ST-SUCCESSOR released local destination docs/local-release/app matches its smoke-tested artifact manifest",
+    "story ST-SUCCESSOR changed-path scope",
+    "validation secret scan for story ST-SUCCESSOR",
+    "secret scan ST-SUCCESSOR-secret-scan-20261010043325120-c835db",
+    "story step ST-SUCCESSOR/analysis",
+    "story step ST-SUCCESSOR/design",
+    "story step ST-SUCCESSOR/discovery",
+    "story step ST-SUCCESSOR/implementation",
+    "story step ST-SUCCESSOR/operations",
+    "story step ST-SUCCESSOR/release",
+    "story step ST-SUCCESSOR/validation",
+    "story ST-SUCCESSOR",
+    "output template implementation-summary-v1",
+    "output decision DEC-output-template-implementation-summary-v1-20261010043233350-72b3c9",
+    "output link OUT-ST-SUCCESSOR-implementation-summary-e04b7753",
+    "story ST-SUCCESSOR local rollback verification",
+    "story ST-SUCCESSOR terminal delivery LOCAL-SUCCESSOR-2",
+    "story ST-SUCCESSOR current workflow instance delivery-successor",
+    "story ST-SUCCESSOR complete lifecycle"
+  ],
+  "checked_at": "2026-10-10T04:33:28.503Z",
+  "errors": [],
+  "final_receipt_path": ".sdlc/gates/ST-SUCCESSOR-final.json",
+  "freshness_proof": {
+    "git_scope": {
+      "available": true,
+      "baseline_head_sha": "7291c535a28adae4bfa3067988dfd51ac1ffda67",
+      "certification_head_sha": "7291c535a28adae4bfa3067988dfd51ac1ffda67",
+      "schema_version": "workflow-final-git-scope:v2",
+      "scoped_changes": [
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "89fa8842b14a50d35a9c886a28243162884a5943",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "89fa8842b14a50d35a9c886a28243162884a5943",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": true,
+          "path": "docs/deleted-runtime.md",
+          "working_tree": {
+            "content_sha256": "336b3688c7c5ac0b8b37474e70cac00066bcab93076be5a01703c3a143ed2c16",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/implementation-summary.md",
+          "working_tree": {
+            "content_sha256": "a791c227ed9f8f44581364ffbddad0e1e78df04018eba62abeaa11ef2be60ce1",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/local-build-proof-2.json",
+          "working_tree": {
+            "content_sha256": "19935c625430a0ea5b8cbbf9fcdbb005d59c41a115a59bd562a335b27669598a",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/local-build-proof.json",
+          "working_tree": {
+            "content_sha256": "959c478b49c314baeef9039120d838121e99e0f78644fef611417541e9a8921f",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/local-release/app/release-proof.txt",
+          "working_tree": {
+            "content_sha256": "1bd359443a99dbef54d9e634b44ba5b1d2d3f4d7fb609ad5164f9898308bfe87",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/local-release/rollback-rehearsal.json",
+          "working_tree": {
+            "content_sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "c9ff7d028a0c5e67f067aa6dfde2f2c5e68f7686",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "c9ff7d028a0c5e67f067aa6dfde2f2c5e68f7686",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": true,
+          "path": "docs/tracked-runtime.md",
+          "working_tree": {
+            "content_sha256": "ce8168d663f0235db7d295a0f5f348dd92c05d0320aebae16dcb59ccfc97e97d",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "aec17c91617e14e5806adcf095d4c1351872018f",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "aec17c91617e14e5806adcf095d4c1351872018f",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": true,
+          "path": "docs/untouched-runtime.md",
+          "working_tree": {
+            "content_sha256": "da76005c905fee940da203d7e492a7e3b580dfdd705fe5fc9d0b4e37e063b32d",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        }
+      ],
+      "scoped_head_tree_hash": "96b5e6a961906e35352db1fd4f4b6c91b30f237fc44be56af9771c951e9dbb3c",
+      "scoped_state_hash": "e241e91c3600d7090b81c8acbbde1fca05927f2a33a03d2a1c8e48b1cc540645"
+    },
+    "governed_files": [
+      {
+        "category": "config",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/config.json",
+        "present": true,
+        "sha256": "34f71bbf4f03757019a37544c8068da106fb057766f114e59e78ff63032a207c"
+      },
+      {
+        "category": "config_lock",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/config.lock.json",
+        "present": true,
+        "sha256": "fc1dac7ca73850183ff9413325d9c2e89dfb80326f391554e6db11ed662fc41e"
+      },
+      {
+        "category": "contract",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/contracts/CONTRACT-SUCCESSOR-2.json",
+        "present": true,
+        "sha256": "20aa684eac02b6451a24efc947ec439cd385d9a5cae82dffe557f6831702c441"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-SUCCESSOR-2/attempts/AUT-TRY-f63510b59b184cf9c729ee8b975ccbbc.json",
+        "present": true,
+        "sha256": "b3ba136df84de1dd436bd63289716f525d915d8e3040735077b142e0c1b32c3e"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-SUCCESSOR-2/close.json",
+        "present": true,
+        "sha256": "f9f7e431446ff97b135c0880814403fe7b575e7d216fc2cf5672874ba9c9d07e"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-SUCCESSOR-2/context-preflight.json",
+        "present": true,
+        "sha256": "c48af4f402bd709827c36618f13694027e93c446d372ead15665b8c86f153b1b"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-SUCCESSOR-2/start.json",
+        "present": true,
+        "sha256": "46f13525c74c504f184a22950be49b561a0181ff781d51b291907b03de99e656"
+      },
+      {
+        "category": "delivery_profile",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/deliveries/AUT-SUCCESSOR-2.json",
+        "present": true,
+        "sha256": "3b4de3156ba85b4a734a09ee2b906a0906012549cb0d87099cfd8858d3ff313d"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/authorization-uses/AUTH-SUCCESSOR-STORY-ACTIONS/AUSE-AUTH-SUCCESSOR-STORY-ACTIONS-20261010043244690-153b17.json",
+        "present": true,
+        "sha256": "bcd40111f0b947ba3311a93452fd0630e3377d847b3430da8a0e7bcfb2ccbeda"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/deliveries/AUT-SUCCESSOR.json",
+        "present": true,
+        "sha256": "75736d43eff7af7facdacd4ef6713ff2a9f890bee37267f84b92b506888d114b"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/output-contracts/templates/implementation-summary-v1.md",
+        "present": true,
+        "sha256": "98b61763f5595810563ddfcf035170dd723c77ed05de6f1014d35e3a87309062"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/receipts/verification/VERIFY-OUT-ST-SUCCESSOR-implementation-summary-e04b7753-a791c227.json",
+        "present": true,
+        "sha256": "6eefcaef3578c40ee94d7988657888ad93cecd13f2b1e5418d29109bdb3b563c"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": "docs/implementation-summary.md",
+        "present": true,
+        "sha256": "a791c227ed9f8f44581364ffbddad0e1e78df04018eba62abeaa11ef2be60ce1"
+      },
+      {
+        "category": "project",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/project.json",
+        "present": true,
+        "sha256": "7b709abdf76e53bd60c6c488b61c01ff320b2e52fd3662a97bb0ddc468a25ad2"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/authorization-uses/AUTH-SUCCESSOR-STORY-ACTIONS/AUSE-AUTH-SUCCESSOR-STORY-ACTIONS-20261010043244690-153b17.json",
+        "present": true,
+        "sha256": "bcd40111f0b947ba3311a93452fd0630e3377d847b3430da8a0e7bcfb2ccbeda"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010043229417-260273.json",
+        "present": true,
+        "sha256": "97f664d0f7f078bafe95743e6b0218fcc488e3c2779d56563fdd65bddc894a6d"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010043309973-041c92.json",
+        "present": true,
+        "sha256": "686e235b7809f34443a2563b9f623910a7d102bc9643c23e19aea768008f1f98"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/deliveries/AUT-SUCCESSOR.json",
+        "present": true,
+        "sha256": "75736d43eff7af7facdacd4ef6713ff2a9f890bee37267f84b92b506888d114b"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/requirements/AUT-REQ-SUCCESSOR-R1.json",
+        "present": true,
+        "sha256": "85bea9047b2e953bd5b44eb069254c10d1f58f788c5daf107552452902e160b8"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/contracts/CONTRACT-SUCCESSOR-2.json",
+        "present": true,
+        "sha256": "20aa684eac02b6451a24efc947ec439cd385d9a5cae82dffe557f6831702c441"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/output-contracts/templates/implementation-summary-v1.md",
+        "present": true,
+        "sha256": "98b61763f5595810563ddfcf035170dd723c77ed05de6f1014d35e3a87309062"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/receipts/verification/VERIFY-OUT-ST-SUCCESSOR-implementation-summary-e04b7753-a791c227.json",
+        "present": true,
+        "sha256": "6eefcaef3578c40ee94d7988657888ad93cecd13f2b1e5418d29109bdb3b563c"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/requirements/REQ-SUCCESSOR.json",
+        "present": true,
+        "sha256": "c7cf7509608bd4df14302090766d4c296a130776733bba863b25ba8e6548feba"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/story.json",
+        "present": true,
+        "sha256": "543f782940355022b57bfd2d82a467137477a6e7c00d2445a6b6a29dc1dba32c"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043313679-013382.json",
+        "present": true,
+        "sha256": "ec0eba77dac9921639f3177782b2cd3867edcbb41186e9feabbc1a61ebf6696f"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043314634-1444de.json",
+        "present": true,
+        "sha256": "466ca8556424adec489b63b1db77e902559052d593b5b3615bef29755b6ece30"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043315631-9da8c4.json",
+        "present": true,
+        "sha256": "fc4589dfcf5ab793248cbfd04fc1aa279d7bc913cd296252f94f7b17d61b425e"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043316658-d2b9ac.json",
+        "present": true,
+        "sha256": "0cded6eff046ec0510dd07a33e0ec458e1740af1ef8bd4be49c34c0503f40e53"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043317633-1ca033.json",
+        "present": true,
+        "sha256": "3181a5dd2052606ae27261ee040e1c9cc76425b7ff28026535f85c7a469cf1c0"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043318621-a53fb7.json",
+        "present": true,
+        "sha256": "64280c5781703baae2b8f608bd57b0a345e83271d914895e1b3a5366e58de068"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010043229417-260273.json",
+        "present": true,
+        "sha256": "97f664d0f7f078bafe95743e6b0218fcc488e3c2779d56563fdd65bddc894a6d"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010043239623-46e6a1.json",
+        "present": true,
+        "sha256": "6332217c4177d37722f9a07c4509f09891d60e817da697a73cfdc7b93730e5bf"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010043309973-041c92.json",
+        "present": true,
+        "sha256": "686e235b7809f34443a2563b9f623910a7d102bc9643c23e19aea768008f1f98"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010043309980-f12987.json",
+        "present": true,
+        "sha256": "be6310d0a8fe11d4ea3569f953a5c2686ebb401b638fdf30d64381540ece9b00"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010043310926-226d02.json",
+        "present": true,
+        "sha256": "de652c10b4b03ab8c86cefb5e6ddbea99d9928f4be24b07cb2c12067ad2e7e36"
+      },
+      {
+        "category": "requirement",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/requirements/REQ-SUCCESSOR.json",
+        "present": true,
+        "sha256": "c7cf7509608bd4df14302090766d4c296a130776733bba863b25ba8e6548feba"
+      },
+      {
+        "category": "requirement_profile",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/requirements/AUT-REQ-SUCCESSOR-R1.json",
+        "present": true,
+        "sha256": "85bea9047b2e953bd5b44eb069254c10d1f58f788c5daf107552452902e160b8"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/claim.json",
+        "present": true,
+        "sha256": "9d05f7f6f4715ea8d643d5bad3b719896ea1266f931ee82434044b9f4e268738"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/implementation-log.md",
+        "present": true,
+        "sha256": "a3dc979a1f73084028774627aaa97c7f4dea871be5c18955f48bc9926783c619"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/plan.md",
+        "present": true,
+        "sha256": "8574339cd31bff6d8b5fbb254f6e60c694b2adec7a07c1775713056aef3ff852"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/steps/analysis.json",
+        "present": true,
+        "sha256": "c46853af78aa00f1afd063d29db63f1fd235957735c0bbebba72d13f681f21bb"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/steps/design.json",
+        "present": true,
+        "sha256": "2284f12d56cfe336345e28f9b5fd329649f36ed647de4f63bc1c71cc34f821ef"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/steps/discovery.json",
+        "present": true,
+        "sha256": "7389139c7bcaffe9e8a4d09f304668735d45ca172834a12d9f771385aace2c59"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/stories/ST-SUCCESSOR/steps/history.jsonl",
+        "present": true,
+        "sha256": "737c9a9cff649d667b30ec9f90dd0dc7f2615982941a211ef59dcc0c16183c05"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/steps/implementation.json",
+        "present": true,
+        "sha256": "e4469e254f2eaf1e18fe5c3089a1542b19c60f970f9b131363c3ccc87b8b3d50"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/steps/operations.json",
+        "present": true,
+        "sha256": "5d17b19bbfec97709cecc24eabe009fe8899e7a4fd7510e9c96e70a020ffb2ad"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/steps/release.json",
+        "present": true,
+        "sha256": "ea16bd6d702fd570ce04205adb321167075e3ca05d46acf236612c605e1ffe78"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/steps/validation.json",
+        "present": true,
+        "sha256": "4b480baecb7788e58c7554fdf0cfdb30bf3fe3f56d9bf9a3dac30163d8628dc2"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/story.json",
+        "present": true,
+        "sha256": "543f782940355022b57bfd2d82a467137477a6e7c00d2445a6b6a29dc1dba32c"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/task-start-history/START-ST-SUCCESSOR-20261010043242063-5cadef.json",
+        "present": true,
+        "sha256": "6e775246fb364b8af99d4c7832a1e7a259cd7c8725bf15a42886fb547118aab7"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-SUCCESSOR/task-start.json",
+        "present": true,
+        "sha256": "aaa83503cfc3f27fab7a8cbf4edc041e09a167db413ef7a6ff17692a969a211e"
+      },
+      {
+        "category": "story_test_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/tests/ST-SUCCESSOR-release.json",
+        "present": true,
+        "sha256": "5e14e40959fca7910afc84bc78fef3e3d399d79cf1d430b7dba7edd558f1d3c5"
+      },
+      {
+        "category": "story_test_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/tests/ST-SUCCESSOR-test.json",
+        "present": true,
+        "sha256": "1ea63e7fda68e7ce49b013af8410102e9228f7591e79ef602dd23d95556d03bc"
+      },
+      {
+        "category": "story_trace",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/traces/ST-SUCCESSOR.jsonl",
+        "present": true,
+        "sha256": "2862e2860801bd73e7576c80eae8a038891fc021643bf78c51977b5624afedd0"
+      },
+      {
+        "category": "story_trace_checkpoint",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/traces/.integrity/ST-SUCCESSOR.jsonl.checkpoint.json",
+        "present": true,
+        "sha256": "0daf33d47aad9fa0216872f75a5d3e118892156285b9894c99028f1bd1e6be90"
+      },
+      {
+        "category": "workflow_checkpoint",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/workflows/instances/delivery-successor/checkpoint.json",
+        "present": true,
+        "sha256": "51b2c4f2e61abfa137b35408cef780c8f9d8dbd1337ee9045836dd827e33d61d"
+      },
+      {
+        "category": "workflow_definition",
+        "file_type": "missing",
+        "mode": null,
+        "path": ".sdlc/workflows/definitions/software-project/v3.json",
+        "present": false,
+        "sha256": null
+      },
+      {
+        "category": "workflow_events",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/workflows/instances/delivery-successor/events.jsonl",
+        "present": true,
+        "sha256": "665539d851a19566c6232015475cb81511118ab4611ef3c7cb06541309abbef7"
+      },
+      {
+        "category": "workflow_instance",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/workflows/instances/delivery-successor/instance.json",
+        "present": true,
+        "sha256": "ae90dcb422687bb62c39c0c7ef6b387b4f53f019cb83c55f3f3f7ba62cfb1669"
+      }
+    ],
+    "hash_algorithm": "sha256:stable-json:v1",
+    "local_release_root": {
+      "device": "16777232",
+      "inode": "131171308",
+      "kind": "directory",
+      "mode": 493,
+      "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release",
+      "present": true,
+      "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release"
+    },
+    "local_release_scope": [
+      {
+        "entry_count": 2,
+        "file_count": 1,
+        "kind": "directory",
+        "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-successor-delivery-Mtq0Is/docs/local-release/app",
+        "present": true,
+        "total_bytes": 18,
+        "tree_hash": "89b4af7435533cb219b47d83121f82e5cdb525ecb4fc1fa7055bf2d48b97d096"
+      }
+    ],
+    "output_registry_projection": {
+      "path": ".sdlc/output-contracts/registry.json#story=ST-SUCCESSOR",
+      "sha256": "e69a8a647cf9659abc8de2b673afc76af08d278e177feef220a90fb5b13981f4"
+    },
+    "proof_hash": "155f71dcc385dbca4d844a9df71d96f68c3c95efef767d7a41dc78e652a9d44e",
+    "schema_version": "workflow-final-freshness-proof:v2",
+    "story_id": "ST-SUCCESSOR",
+    "workflow_instance_id": "delivery-successor"
+  },
+  "git": {
+    "branch": "codex/ST-SUCCESSOR",
+    "head_sha": "7291c535a28adae4bfa3067988dfd51ac1ffda67",
+    "is_dirty": true,
+    "is_git_repo": true,
+    "remotes": [
+      "origin"
+    ],
+    "user": {
+      "email": "finalization-e2e@example.invalid",
+      "name": "Finalization E2E"
+    }
+  },
+  "hash_algorithm": "sha256:stable-json:v1",
+  "human_guidance": {
+    "details": {
+      "blocking_count": 0,
+      "certification_level": "lifecycle_complete",
+      "delivery_id": null,
+      "errors": [],
+      "gate_status": "passed",
+      "guidance_kind": "gate",
+      "human_blockers": [],
+      "lifecycle_complete": true,
+      "merge_executed": false,
+      "next_command": null,
+      "profile_id": null,
+      "pull_request_url": null,
+      "reason_codes": [],
+      "requirement_id": null,
+      "status": "passed",
+      "warnings": [
+        "story step ST-SUCCESSOR/analysis uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.analysis.",
+        "story step ST-SUCCESSOR/design uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.design.",
+        "story step ST-SUCCESSOR/discovery uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.discovery.",
+        "story step ST-SUCCESSOR/implementation uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.implementation.",
+        "story step ST-SUCCESSOR/operations uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.operations.",
+        "story step ST-SUCCESSOR/release uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.release.",
+        "story step ST-SUCCESSOR/validation uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.validation."
+      ]
+    },
+    "impact": "Every configured phase, the latest tests, and the exact delivery are complete and consistent.",
+    "next_action": "Keep the final proof with the delivery evidence; use a new governed delivery for later work.",
+    "protection_boundary": "These checks did not approve or perform a change, merge, release, deployment, production access, secret access, or work outside the approved files.",
+    "required_decision": "No lifecycle decision is pending for this exact delivery.",
+    "result": "The complete lifecycle check passed and its final proof is ready."
+  },
+  "kind": "workflow_final_gate_receipt",
+  "lifecycle_complete": true,
+  "lifecycle_workflow": {
+    "checkpoint_ref": {
+      "checkpoint_hash": "9c596907f35c75fa02f8881d1614dd7c0e56fa11327a975f4e933372121515f8",
+      "last_event_hash": "f7bd99c9b189aa78cb74c0f597cc936d365965c907613eaf60c57c9235d82295",
+      "path": ".sdlc/workflows/instances/delivery-successor/checkpoint.json",
+      "sequence": 6,
+      "trace_chain_hash": "9c53a35c3fa632afcd160e1ee3d4130c10b58f23bc8c1b4fee1a27ef07bc76b7"
+    },
+    "delivery_closed_at": "2026-10-10T04:33:19.658Z",
+    "effective_hash": "75b70cf18384e7734847d4c2bcd1dab31e7f73615602377566ddc11cb564148e",
+    "event_count": 6,
+    "instance_hash": "bde75c7a9cbe7b38fba053c98b2b4c9fb4b4526dfa4daba0f033f7231e76a251",
+    "instance_id": "delivery-successor",
+    "phase_timeline": [
+      {
+        "completed_at": "2026-10-10T04:32:45.643Z",
+        "completion_record_id": "STEP-ST-SUCCESSOR-discovery-20261010043245642-566608",
+        "entered_at": "2026-10-10T04:32:40.518Z",
+        "entry_event_hash": null,
+        "phase": "discovery"
+      },
+      {
+        "completed_at": "2026-10-10T04:32:47.597Z",
+        "completion_record_id": "STEP-ST-SUCCESSOR-analysis-20261010043247597-854530",
+        "entered_at": "2026-10-10T04:32:46.593Z",
+        "entry_event_hash": "cd1d35d7752076d882827a9689f7adeb06d0146ccc01d99e3bb46d9e7f096e7e",
+        "phase": "analysis"
+      },
+      {
+        "completed_at": "2026-10-10T04:32:49.547Z",
+        "completion_record_id": "STEP-ST-SUCCESSOR-design-20261010043249547-4bbf4b",
+        "entered_at": "2026-10-10T04:32:48.683Z",
+        "entry_event_hash": "d2638bf06c453fee8863f7c40c1e064c0891aab9cefdf94fc9b7b1d2f99bc7a3",
+        "phase": "design"
+      },
+      {
+        "completed_at": "2026-10-10T04:32:51.601Z",
+        "completion_record_id": "STEP-ST-SUCCESSOR-implementation-20261010043251601-242a90",
+        "entered_at": "2026-10-10T04:32:50.526Z",
+        "entry_event_hash": "2b3f42e6e069a25d7e9d018cb57173d21e4f314e20bfdbe79242320610b0036d",
+        "phase": "implementation"
+      },
+      {
+        "completed_at": "2026-10-10T04:32:54.602Z",
+        "completion_record_id": "STEP-ST-SUCCESSOR-validation-20261010043254601-d92017",
+        "entered_at": "2026-10-10T04:32:52.566Z",
+        "entry_event_hash": "c7d49b9d63e3568fb861d4ce9202911d1657a497a56a238f3dc9ecf46dec98fc",
+        "phase": "validation"
+      },
+      {
+        "completed_at": "2026-10-10T04:33:22.143Z",
+        "completion_record_id": "STEP-ST-SUCCESSOR-release-20261010043322143-ad0b73",
+        "entered_at": "2026-10-10T04:32:57.900Z",
+        "entry_event_hash": "30587695033c0376efbb8ec65f10d73c409329c6cabf6f94bae3d5293f543549",
+        "phase": "release"
+      },
+      {
+        "completed_at": "2026-10-10T04:33:24.075Z",
+        "completion_record_id": "STEP-ST-SUCCESSOR-operations-20261010043324075-d0fd72",
+        "entered_at": "2026-10-10T04:33:23.098Z",
+        "entry_event_hash": "f7bd99c9b189aa78cb74c0f597cc936d365965c907613eaf60c57c9235d82295",
+        "phase": "operations"
+      }
+    ],
+    "release_trace_at": "2026-10-10T04:33:21.152Z",
+    "selection_policy": "latest-created-at-then-instance-id:v1",
+    "story_id": "ST-SUCCESSOR",
+    "task_start_ref": {
+      "confirmed_at": "2026-10-10T04:32:42.063Z",
+      "hash": "aaa83503cfc3f27fab7a8cbf4edc041e09a167db413ef7a6ff17692a969a211e",
+      "id": "START-ST-SUCCESSOR-20261010043311393-b8cb28",
+      "path": ".sdlc/stories/ST-SUCCESSOR/task-start.json"
+    },
+    "terminal_event_ref": {
+      "event_hash": "f7bd99c9b189aa78cb74c0f597cc936d365965c907613eaf60c57c9235d82295",
+      "sequence": 6,
+      "timestamp": "2026-10-10T04:33:23.098Z"
+    },
+    "terminal_state": "operations"
+  },
+  "receipt_hash": "0c06a8424ddf53f753d43aff6a16d67b00ca98c12d8694866451e613b583aacc",
+  "release_manifest_id": null,
+  "root": ".",
+  "root_name": "agentic-sdlc-finalization-successor-delivery-Mtq0Is",
+  "run": {
+    "run_id": null,
+    "session_id": null,
+    "thread_id": null,
+    "tool": "agentic-sdlc-cli",
+    "version": "0.94.0"
+  },
+  "schema_version": "workflow-final-gate-receipt:v3",
+  "scope": "story",
+  "status": "passed",
+  "story_id": "ST-SUCCESSOR",
+  "strict": true,
+  "warnings": [
+    "story step ST-SUCCESSOR/analysis uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.analysis.",
+    "story step ST-SUCCESSOR/design uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.design.",
+    "story step ST-SUCCESSOR/discovery uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.discovery.",
+    "story step ST-SUCCESSOR/implementation uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.implementation.",
+    "story step ST-SUCCESSOR/operations uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.operations.",
+    "story step ST-SUCCESSOR/release uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.release.",
+    "story step ST-SUCCESSOR/validation uses legacy story-wide story.complete-step subject ST-SUCCESSOR; new grants should bind exact subject ST-SUCCESSOR.step.validation."
+  ]
+}

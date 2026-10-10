@@ -1,0 +1,76 @@
+{
+  "id": "START-ST-SUCCESSOR-20261010043242063-5cadef",
+  "kind": "profile_task_start_receipt",
+  "schema_version": "profile-task-start-receipt:v2",
+  "story_id": "ST-SUCCESSOR",
+  "phase": "implementation",
+  "route": "claim_and_implement",
+  "contract_id": "CONTRACT-SUCCESSOR",
+  "contract_approval_hash": "39482f0eb566f893515546fcaca49238dd424fe259dcb2cc385106685f9db7ae",
+  "delivery_profile_ref": {
+    "id": "AUT-SUCCESSOR",
+    "path": ".sdlc/autonomy/deliveries/AUT-SUCCESSOR.json",
+    "hash": "bd75b646b0e27ff858681010c58e54ec5101f91179022be664ae9159de097a9a"
+  },
+  "autonomy_decision_ref": {
+    "id": "AUT-DEC-20261010043241564-985905",
+    "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010043241564-985905.json",
+    "hash": "fb8b0bcbf5bc0884ca8ab596e715e9a0f9f7a5b1ad6616245b09daf7815b5904"
+  },
+  "workflow_instance_ref": {
+    "id": "delivery-successor",
+    "path": ".sdlc/workflows/instances/delivery-successor/instance.json",
+    "hash": "bde75c7a9cbe7b38fba053c98b2b4c9fb4b4526dfa4daba0f033f7231e76a251"
+  },
+  "delivery_start_receipt_ref": {
+    "id": "AUT-START-AUT-SUCCESSOR",
+    "path": ".sdlc/autonomy/executions/AUT-SUCCESSOR/start.json",
+    "hash": "a55da3065912a73470b552bd3ad8208a10bad32579ad50d5cbb7e76a1ac51cae"
+  },
+  "execution_context_preflight_ref": {
+    "id": "PREFLIGHT-AUT-SUCCESSOR",
+    "path": ".sdlc/autonomy/executions/AUT-SUCCESSOR/context-preflight.json",
+    "hash": "3c8c8a403fd1fda340fc2823d4a44f8cdbf6c58df03f29b7f11dc5c1d4471170"
+  },
+  "autonomy_level": "supervised",
+  "start_basis": "explicit-confirmation",
+  "status": "confirmed",
+  "authorization_ref": null,
+  "authorization_use_ref": null,
+  "authority_assurance": {
+    "mode": "audit_only",
+    "receipt_ref": null,
+    "source": "declared_cli_attribution",
+    "verified": false
+  },
+  "confirmed_by": {
+    "id": "antonioantenore",
+    "type": "human",
+    "name": "Finalization E2E",
+    "email": "finalization-e2e@example.invalid",
+    "source": "cli"
+  },
+  "confirmed_at": "2026-10-10T04:32:42.063Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-SUCCESSOR",
+      "head_sha": "7291c535a28adae4bfa3067988dfd51ac1ffda67",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  }
+}
