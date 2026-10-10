@@ -1946,6 +1946,8 @@ node bin/agentic-sdlc.mjs message setup --root <project>                  # firs
 node bin/agentic-sdlc.mjs message setup --root <project> --topic <topic>  # other computers: the topic shared privately
 node bin/agentic-sdlc.mjs message status --root <project>
 node bin/agentic-sdlc.mjs message send --root <project> --story ST-001 --text "Tests on ST-001 take 30 minutes here"
+node bin/agentic-sdlc.mjs message send --root <project> --kind question --to PC2 --text "Can you publish the records of ST-001?"   # kinds: info|question|answer|ack|offer|request
+node bin/agentic-sdlc.mjs message send --root <project> --kind answer --reply-to <message-id> --text "Published"
 node bin/agentic-sdlc.mjs message read --root <project> --since 2h --skip-own
 node bin/agentic-sdlc.mjs message listen --root <project> --skip-own --json   # background; one JSON object per line
 ```

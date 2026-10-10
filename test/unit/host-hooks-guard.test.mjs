@@ -350,6 +350,12 @@ test("interpreters, brace globs, and git's own ref storage do not get past the g
   }
 });
 
+test("only a person supersedes a recorded evidence file", () => {
+  const verdict = evaluatePreToolUse(shell("node bin/agentic-sdlc.mjs autonomy delivery evidence supersede --id AUT-1 --receipt AUT-ACT-1 --path a.txt"));
+  assert.equal(verdict?.decision, "deny");
+  assert.match(verdict.reason, /ask the user to run this exact command themselves/u);
+});
+
 test("only a person acknowledges a merge made outside the plugin", () => {
   for (const command of [
     "node bin/agentic-sdlc.mjs autonomy delivery reconcile --id AUT-1 --pr-url https://github.com/o/r/pull/1 --actor-type human",

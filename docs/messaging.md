@@ -40,6 +40,11 @@ Once a topic is set, the plugin also writes and reads on its own, so agents keep
 - it sends a short note (sender, story, reason) when a gate check fails, a story is parked or put on wait (`story wait --on`), or a command stops on a git time limit; the same note for the same story is sent at most once every 30 minutes;
 - before `story claim` and `task start` it shows, on stderr, the messages from the other computers that arrived since this clone last looked (at most 10; the first time, the last 12 hours).
 
+- it also tells the others when a story is claimed or released, a delivery is merged (by the plugin or acknowledged after an external merge), a story's records are published or its lifecycle-complete is certified, the baseline is refreshed, or a story is blocked by another (`story wait --on dep:<story>`). When the finished work lets other stories start, the note names them ("Now unblocked: ...") and ends with a suggested command, shown as a suggestion only: nothing runs by itself;
+- every message carries a kind (`info`, `question`, `answer`, `ack`, `offer`, `request`; `message send --kind <kind> [--reply-to <id>] [--to <sender>]`) in ntfy tags, so older plugins just see the text. `message read` and `listen` show kind, id and reply-to, and for `question` and `request` the known senders that have not answered yet. Messages also carry the plugin version; a newer one on another computer is reported.
+
+`--skip-own` also skips messages sent from this computer with an explicit `--sender` (their ids are kept in `messaging-auto.json`).
+
 Notes start with `[auto]`. Without a topic nothing is sent or read. If the server does not answer within 3 seconds the command carries on unchanged; a failure never changes a command's result or exit code. The read position lives in `.git/agentic-sdlc/messaging-auto.json`, never in git.
 
 People can join from the ntfy phone app or a browser at `https://ntfy.sh/<topic>`, or with `curl -d "text" https://ntfy.sh/<topic>`.

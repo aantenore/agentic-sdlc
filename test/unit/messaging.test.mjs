@@ -191,7 +191,7 @@ test("send, read and listen through the CLI", async () => {
     const sent = await runCli(["message", "send", "--story", "ST-UX-001", "--text", "Tests still take 30 minutes"], { root, env });
     assert.equal(sent.code, 0, sent.stderr);
     assert.equal(ntfy.messages.length, 1);
-    assert.deepEqual(ntfy.messages[0].tags, ["agentic-sdlc", "from:PC1", "story:ST-UX-001"]);
+    assert.deepEqual(ntfy.messages[0].tags.filter((tag) => !tag.startsWith("v:")), ["agentic-sdlc", "from:PC1", "story:ST-UX-001"]);
 
     const heard = await listening;
     assert.equal(heard.code, 0, heard.stderr);
@@ -233,4 +233,30 @@ test("the Observatory never shows or serves messaging settings", async () => {
   assert.doesNotMatch(model, /messaging\.json/u);
   assert.equal(model.includes(TOPIC), false);
   await assert.rejects(readSourceRecord(root, ".sdlc/messaging.json"), /settings/u);
+});
+
+test("kinds travel in tags, pending replies are listed and --skip-own honours an explicit --sender", async () => {
+  const ntfy = await fakeNtfy();
+  const root = projectDir();
+  const env = { AGENTIC_SDLC_MESSAGING_SERVER: ntfy.url };
+  try {
+    const asked = JSON.parse((await runCli(["message", "send", "--json", "--kind", "question", "--sender", "PC1", "--text", "who can publish?"], { root, env })).stdout);
+    assert.equal(asked.kind, "question");
+    assert.ok(ntfy.messages[0].tags.includes("kind:question"));
+    await runCli(["message", "send", "--json", "--sender", "PC2", "--text", "hello"], { root, env });
+    const read = JSON.parse((await runCli(["message", "read", "--json"], { root, env: { ...env, AGENTIC_SDLC_HOST_LABEL: "PC1" } })).stdout);
+    assert.deepEqual(read.messages[0].pending_replies, ["PC2"]);
+    await runCli(["message", "send", "--json", "--kind", "answer", "--reply-to", asked.id, "--sender", "PC2", "--text", "me"], { root, env });
+    const after = JSON.parse((await runCli(["message", "read", "--json"], { root, env: { ...env, AGENTIC_SDLC_HOST_LABEL: "PC1" } })).stdout);
+    assert.deepEqual(after.messages[0].pending_replies, []);
+    assert.equal(after.messages[2].reply_to, asked.id);
+    const refused = await runCli(["message", "send", "--kind", "answer", "--text", "x"], { root, env });
+    assert.notEqual(refused.code, 0);
+    // everything sent from this clone is skipped, even under other --sender names; a foreign message is not
+    ntfy.messages.push({ id: "foreign0001", time: 1760001000, event: "message", message: "hi", tags: ["agentic-sdlc", "from:PC7"] });
+    const other = JSON.parse((await runCli(["message", "read", "--json", "--skip-own"], { root, env: { ...env, AGENTIC_SDLC_HOST_LABEL: "PC9" } })).stdout);
+    assert.equal(other.count, 1);
+  } finally {
+    await ntfy.close();
+  }
 });
