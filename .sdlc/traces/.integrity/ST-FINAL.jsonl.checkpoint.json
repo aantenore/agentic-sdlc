@@ -1,0 +1,23 @@
+{
+  "kind": "trace_integrity_checkpoint",
+  "schema_version": "trace-integrity-checkpoint:v1",
+  "mode": "local_tamper_evidence",
+  "authenticity_claimed": false,
+  "hash_algorithm": "sha256",
+  "trace_file": "ST-FINAL.jsonl",
+  "legacy_prefix": {
+    "line_count": 0,
+    "byte_length": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "new_writes": {
+    "count": 32,
+    "first_sequence": 1,
+    "last_sequence": 32,
+    "last_event_hash": "2938b13e5828b67408f7d2b0a12ecf8393341073a08574c84eeacd9477e7fab4",
+    "rolling_hash": "e4cfedeb93dd9ad218b2de7e432aa41b67de3560bc7130bd39247a8034499161"
+  },
+  "committed_offset": 82761,
+  "updated_at": "2026-10-10T04:31:37.119Z",
+  "checkpoint_hash": "64a66b9771af1ed893f398565562d8926037d189bf04a17ed5ea983005679289"
+}

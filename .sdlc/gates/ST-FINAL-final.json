@@ -1,0 +1,1057 @@
+{
+  "actor": {
+    "email": null,
+    "id": "codex",
+    "name": "Codex",
+    "source": "default",
+    "type": "agent"
+  },
+  "approval_requests": [],
+  "assistant_message": "There are no pending SDLC approvals or clarifications.\nI can continue with the next operational step when needed.",
+  "assistant_message_presentation": {
+    "contextualize_for_user": true,
+    "instruction": "Before showing assistant_message to a human, translate and contextualize it in the active chat language. Use plain product language and begin with outcome, practical impact, the decision needed or an explicit statement that none is needed, what remains protected, and one next action. Do not place record IDs, internal autonomy terms, status or reason codes, hashes, schema keys, file paths, or CLI commands in that primary explanation. Preserve those literals exactly only after an optional Technical details or Dettagli tecnici divider. If an internal freshness check needs a refresh but the user-approved scope has not changed, explain that the internal reference will be updated and work will continue inside the same scope; do not present it as a new product decision. Summarize relevant contents directly instead of sending the user to inspect files. State what approval covers and what it does not cover. A yes or ok applies only to the displayed decision unless the user explicitly grants a broader approval level; later delegated approvals must be recorded as automation, not misattributed as direct user actions.",
+    "presenter": "codex",
+    "preserve_literals": [
+      "record IDs",
+      "file paths",
+      "CLI commands",
+      "status and reason codes",
+      "schema keys"
+    ],
+    "preserve_literals_in_technical_details_only": [
+      "record IDs",
+      "file paths",
+      "CLI commands",
+      "status and reason codes",
+      "schema keys"
+    ],
+    "translate_to_chat_language": true
+  },
+  "assistant_message_source_language": "en",
+  "certification_level": "lifecycle_complete",
+  "checked": [
+    "project",
+    "authorization AUTH-FINAL-STORY-ACTIONS",
+    "requirement autonomy profile AUT-REQ-FINAL-R1",
+    "delivery autonomy profile AUT-FINAL immutable local-target baseline",
+    "delivery autonomy profile AUT-FINAL local release attempt AUT-TRY-cb3b84c313c49717bcd09eb2d82cb9e5",
+    "delivery autonomy profile AUT-FINAL action receipt AUT-ACT-20261010043123955-456a98",
+    "delivery autonomy profile AUT-FINAL action receipt AUT-ACT-20261010043124959-8f9721",
+    "delivery autonomy profile AUT-FINAL action receipt AUT-ACT-20261010043125945-932ac4",
+    "delivery autonomy profile AUT-FINAL action receipt AUT-ACT-20261010043126930-b05faa",
+    "delivery autonomy profile AUT-FINAL action receipt AUT-ACT-20261010043127945-700fcc",
+    "delivery autonomy profile AUT-FINAL action receipt AUT-ACT-20261010043128956-ad5d05",
+    "delivery autonomy profile AUT-FINAL terminal receipt AUT-CLOSE-AUT-FINAL",
+    "delivery autonomy profile AUT-FINAL",
+    "autonomy decision AUT-DEC-20261010042950871-1d159f",
+    "autonomy decision AUT-DEC-20261010042956238-a6c525",
+    "requirement lineage REQ-FINAL",
+    "contract CONTRACT-FINAL.json immutable local-target baseline",
+    "contract CONTRACT-FINAL.json local release attempt AUT-TRY-cb3b84c313c49717bcd09eb2d82cb9e5",
+    "contract CONTRACT-FINAL.json action receipt AUT-ACT-20261010043123955-456a98",
+    "contract CONTRACT-FINAL.json action receipt AUT-ACT-20261010043124959-8f9721",
+    "contract CONTRACT-FINAL.json action receipt AUT-ACT-20261010043125945-932ac4",
+    "contract CONTRACT-FINAL.json action receipt AUT-ACT-20261010043126930-b05faa",
+    "contract CONTRACT-FINAL.json action receipt AUT-ACT-20261010043127945-700fcc",
+    "contract CONTRACT-FINAL.json action receipt AUT-ACT-20261010043128956-ad5d05",
+    "contract CONTRACT-FINAL.json terminal receipt AUT-CLOSE-AUT-FINAL",
+    "delivery autonomy profile AUT-FINAL",
+    "contract CONTRACT-FINAL.json",
+    "trace traces/ST-FINAL.jsonl local integrity checkpoint",
+    "trace traces/ST-FINAL.jsonl",
+    "requirement autonomy profile AUT-REQ-FINAL-R1",
+    "story ST-FINAL released local destination docs/local-release/app matches its smoke-tested artifact manifest",
+    "story ST-FINAL changed-path scope",
+    "validation secret scan for story ST-FINAL",
+    "secret scan ST-FINAL-secret-scan-20261010043135141-6b2368",
+    "story step ST-FINAL/analysis",
+    "story step ST-FINAL/design",
+    "story step ST-FINAL/discovery",
+    "story step ST-FINAL/implementation",
+    "story step ST-FINAL/operations",
+    "story step ST-FINAL/package-boundary-check",
+    "story step ST-FINAL/release",
+    "story step ST-FINAL/validation",
+    "story ST-FINAL",
+    "output template implementation-summary-v1",
+    "output template release-notes-v1",
+    "output decision DEC-output-template-implementation-summary-v1-20261010043109641-4a7d48",
+    "output decision DEC-output-template-release-notes-v1-20261010042945703-9e3b88",
+    "output link OUT-ST-FINAL-implementation-summary-e04b7753",
+    "output link OUT-ST-FINAL-release-notes-5f5844fc",
+    "story ST-FINAL local rollback verification",
+    "story ST-FINAL terminal delivery LOCAL-FINAL",
+    "story ST-FINAL current workflow instance delivery-final",
+    "story ST-FINAL complete lifecycle"
+  ],
+  "checked_at": "2026-10-10T04:32:12.178Z",
+  "errors": [],
+  "final_receipt_path": ".sdlc/gates/ST-FINAL-final.json",
+  "freshness_proof": {
+    "git_scope": {
+      "available": true,
+      "baseline_head_sha": "c34eca2c1458a65aec285fd1dc699d0d47783794",
+      "certification_head_sha": "c34eca2c1458a65aec285fd1dc699d0d47783794",
+      "schema_version": "workflow-final-git-scope:v2",
+      "scoped_changes": [
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "89fa8842b14a50d35a9c886a28243162884a5943",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "89fa8842b14a50d35a9c886a28243162884a5943",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/deleted-runtime.md",
+          "working_tree": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/implementation-summary.md",
+          "working_tree": {
+            "content_sha256": "dfd62b4462c3a0c293f9f17c0537b71ea89f0f12b20cd8be9e5f6338294e683e",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/local-build-proof.json",
+          "working_tree": {
+            "content_sha256": "d2cb311bf6267e79aeec975ad852afc9c79f493fb83d9584e11d0f3e84e70779",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/local-release/app/release-proof.txt",
+          "working_tree": {
+            "content_sha256": "2bf1063db7243f4cbb237cd3c937ca3337d9562b35d4de70bee0c5e3bce8ab64",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/local-release/rollback-rehearsal.json",
+          "working_tree": {
+            "content_sha256": "82899d01e10c1aa988c810a2c0bc9e6e83fbac6309093681a32463e6167f9ec0",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "missing",
+            "mode": null,
+            "object_id": null,
+            "present": false
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/release-notes.md",
+          "working_tree": {
+            "content_sha256": "9b5931d6b80fad85baedf259b7a0cb1d194966453c935b15b476c8e408ad27bd",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "c9ff7d028a0c5e67f067aa6dfde2f2c5e68f7686",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "c9ff7d028a0c5e67f067aa6dfde2f2c5e68f7686",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": false,
+          "path": "docs/tracked-runtime.md",
+          "working_tree": {
+            "content_sha256": "5a08724b7748b82d91223e8de4066ff5f8c7dea01bb0878e90581fceb9c70f26",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "aec17c91617e14e5806adcf095d4c1351872018f",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "aec17c91617e14e5806adcf095d4c1351872018f",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": true,
+          "path": "docs/untouched-runtime.md",
+          "working_tree": {
+            "content_sha256": "da76005c905fee940da203d7e492a7e3b580dfdd705fe5fc9d0b4e37e063b32d",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        }
+      ],
+      "scoped_head_tree_hash": "b9ba6a104e70650199ae9b63ffa722569e9d01ed1a218f2394805b5a02d10d62",
+      "scoped_state_hash": "ffd903df3557f4e3512433132e1915366fed89e39d97391aed186431bdde0a26"
+    },
+    "governed_files": [
+      {
+        "category": "config",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/config.json",
+        "present": true,
+        "sha256": "77caf8bfb19cd5d08270c92da16ea82a198c0a7400714491420e010e37071636"
+      },
+      {
+        "category": "config_lock",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/config.lock.json",
+        "present": true,
+        "sha256": "ee2999eb8ee6a9025c78501adb04dbb881f1ba6b5aeac5f0155927643dea4874"
+      },
+      {
+        "category": "contract",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/contracts/CONTRACT-FINAL.json",
+        "present": true,
+        "sha256": "03c5534d9199999f40c75898e50ed48467c695da16eb0e5eda98fc8fa8d020c5"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-FINAL/attempts/AUT-TRY-cb3b84c313c49717bcd09eb2d82cb9e5.json",
+        "present": true,
+        "sha256": "7085e235f6236b4e64926cd6f98a26cfabbda938185785c461716da5c2d6c6b3"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-FINAL/close.json",
+        "present": true,
+        "sha256": "10d316f874b65b0f01ab18a73db5d54dbba1d99f1ebbf356339862ac0587cbfd"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-FINAL/context-preflight.json",
+        "present": true,
+        "sha256": "dc948f28bf160cfdbc9d35d707d6cf8c63130fef7153d28ac66fd8b3b25ceec9"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-FINAL/start.json",
+        "present": true,
+        "sha256": "d9ea61de8907d20ce68ac5999473365f24574d89d1e3a15db9bd89cad617ef2d"
+      },
+      {
+        "category": "delivery_profile",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/deliveries/AUT-FINAL.json",
+        "present": true,
+        "sha256": "614b7608e45513a6233bb3e912e57dc770b34e99b3ffa83ffb147ad177cbeb31"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/authorization-uses/AUTH-FINAL-STORY-ACTIONS/AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043000818-f56a03.json",
+        "present": true,
+        "sha256": "8e90fcd9c1df064bade54d0f4c8550ec1bf3a0849ff1e7f43fdc2807347cda58"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/authorization-uses/AUTH-FINAL-STORY-ACTIONS/AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043122043-4d8c4d.json",
+        "present": true,
+        "sha256": "f14ccd9c70e964d5c851560de1c08bc22dc17ea468738eeaa27af5bfd14e43aa"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/deliveries/AUT-FINAL.json",
+        "present": true,
+        "sha256": "614b7608e45513a6233bb3e912e57dc770b34e99b3ffa83ffb147ad177cbeb31"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/output-contracts/templates/implementation-summary-v1.md",
+        "present": true,
+        "sha256": "61cd8933bf91edd4a1677baee35c2babd46781a95d4ccc7840f7a5638de92793"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/output-contracts/templates/release-notes-v1.md",
+        "present": true,
+        "sha256": "5c32a3556abd8a279f3badc1c24ba0df2eaad34455859aeb57f37870dcf8b712"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/receipts/verification/VERIFY-OUT-ST-FINAL-implementation-summary-e04b7753-dfd62b44.json",
+        "present": true,
+        "sha256": "273c3f1faf7f5b76f6e53317a744029c50089a561c224f5b0e77467036bc2138"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/receipts/verification/VERIFY-OUT-ST-FINAL-release-notes-5f5844fc-9b5931d6.json",
+        "present": true,
+        "sha256": "6104a2385a0bd62cf92069c2ffa2bccaf2c60a0bdc663179249222e866637465"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": "docs/implementation-summary.md",
+        "present": true,
+        "sha256": "dfd62b4462c3a0c293f9f17c0537b71ea89f0f12b20cd8be9e5f6338294e683e"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": "docs/release-notes.md",
+        "present": true,
+        "sha256": "9b5931d6b80fad85baedf259b7a0cb1d194966453c935b15b476c8e408ad27bd"
+      },
+      {
+        "category": "project",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/project.json",
+        "present": true,
+        "sha256": "7befb9f504baaac9ef5a827c26ef01218e120aaf185c6fee36a05284e5b774ea"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/authorization-uses/AUTH-FINAL-STORY-ACTIONS/AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043000818-f56a03.json",
+        "present": true,
+        "sha256": "8e90fcd9c1df064bade54d0f4c8550ec1bf3a0849ff1e7f43fdc2807347cda58"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/authorization-uses/AUTH-FINAL-STORY-ACTIONS/AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043122043-4d8c4d.json",
+        "present": true,
+        "sha256": "f14ccd9c70e964d5c851560de1c08bc22dc17ea468738eeaa27af5bfd14e43aa"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042941636-84861e.json",
+        "present": true,
+        "sha256": "37b179076a768316b8b716194ce61672c5a49eb6eec1d032100bba05cef02e61"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042950855-55a63b.json",
+        "present": true,
+        "sha256": "22c89a0a67336a13ac4cd40a7031869953ac0fa50485996279949f788e7f9397"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/deliveries/AUT-FINAL.json",
+        "present": true,
+        "sha256": "614b7608e45513a6233bb3e912e57dc770b34e99b3ffa83ffb147ad177cbeb31"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/requirements/AUT-REQ-FINAL-R1.json",
+        "present": true,
+        "sha256": "7aa7e62ac8c845ba739c2d1028fe84409fabe1637acb8a70e4e1f7b29efc8ca1"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/contracts/CONTRACT-FINAL.json",
+        "present": true,
+        "sha256": "03c5534d9199999f40c75898e50ed48467c695da16eb0e5eda98fc8fa8d020c5"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/output-contracts/templates/implementation-summary-v1.md",
+        "present": true,
+        "sha256": "61cd8933bf91edd4a1677baee35c2babd46781a95d4ccc7840f7a5638de92793"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/output-contracts/templates/release-notes-v1.md",
+        "present": true,
+        "sha256": "5c32a3556abd8a279f3badc1c24ba0df2eaad34455859aeb57f37870dcf8b712"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/receipts/verification/VERIFY-OUT-ST-FINAL-implementation-summary-e04b7753-dfd62b44.json",
+        "present": true,
+        "sha256": "273c3f1faf7f5b76f6e53317a744029c50089a561c224f5b0e77467036bc2138"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/receipts/verification/VERIFY-OUT-ST-FINAL-release-notes-5f5844fc-9b5931d6.json",
+        "present": true,
+        "sha256": "6104a2385a0bd62cf92069c2ffa2bccaf2c60a0bdc663179249222e866637465"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/requirements/REQ-FINAL.json",
+        "present": true,
+        "sha256": "558f0de5fffc0d1eb46aeb3f6857a2cb0aa86339c4bc4705343f4ccd7f20647f"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/story.json",
+        "present": true,
+        "sha256": "e53d6db97c22437ec68567237f11164e6d2e3293bad79885a992fff0e2a6e08a"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043123955-456a98.json",
+        "present": true,
+        "sha256": "74963ecc2a2c8be7149e8cd6541a1ee006195ce4631d187f6b4d30f2aa9775b2"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043124959-8f9721.json",
+        "present": true,
+        "sha256": "140f6b44954b9846c18609f2608e660c5f3ae7282ef6c8a727846786c2e39e9d"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043125945-932ac4.json",
+        "present": true,
+        "sha256": "4bcba6a2d5eecac723f50c482616f1d4b2a1cb8f92a2bdda2f800aca4f51cfa0"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043126930-b05faa.json",
+        "present": true,
+        "sha256": "d4f5712b5e39ccd6a18d896e1be6022b7415627b3b183bb4abae51fcc3978e36"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043127945-700fcc.json",
+        "present": true,
+        "sha256": "5c72d3f612672d1d66d714d85e71058c6384b8e167f97bdab443091c69f37522"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043128956-ad5d05.json",
+        "present": true,
+        "sha256": "4446e674ff30906c114a588ba9309df97e4bd60b2692ebd6e9cd06ffca49481d"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042941636-84861e.json",
+        "present": true,
+        "sha256": "37b179076a768316b8b716194ce61672c5a49eb6eec1d032100bba05cef02e61"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042950855-55a63b.json",
+        "present": true,
+        "sha256": "22c89a0a67336a13ac4cd40a7031869953ac0fa50485996279949f788e7f9397"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010042950871-1d159f.json",
+        "present": true,
+        "sha256": "9878b17e973baccf611a3c445a51865fdcc14b6fa0901aecb68f7a577489e089"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010042956238-a6c525.json",
+        "present": true,
+        "sha256": "d7de880e41d8a5384ff2183a821cff14a875247e090db384194ebbb5834a3de9"
+      },
+      {
+        "category": "requirement",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/requirements/REQ-FINAL.json",
+        "present": true,
+        "sha256": "558f0de5fffc0d1eb46aeb3f6857a2cb0aa86339c4bc4705343f4ccd7f20647f"
+      },
+      {
+        "category": "requirement_profile",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/requirements/AUT-REQ-FINAL-R1.json",
+        "present": true,
+        "sha256": "7aa7e62ac8c845ba739c2d1028fe84409fabe1637acb8a70e4e1f7b29efc8ca1"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/claim.json",
+        "present": true,
+        "sha256": "b677f13a12d697a2a200400af74d26c8e3ca98b85f320c58f93f98fc2b080593"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/implementation-log.md",
+        "present": true,
+        "sha256": "ba19611651657e034ce239349fc9378b0f0a0ba4cbaaf81851eb45a2ef1c1a07"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/plan.md",
+        "present": true,
+        "sha256": "eaba76d9aa13f90f187f7a4c20a5e91b0e0f73a0f824650c018caf347e602582"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/steps/analysis.json",
+        "present": true,
+        "sha256": "65442f33206b67df879435b93ec1da7d63d02fd276efb6838c747a671ffb0fd9"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/steps/design.json",
+        "present": true,
+        "sha256": "7feed80558b878485f70b39500196a2d5a107a1959fcaa0309ef1e3465e814a4"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/steps/discovery.json",
+        "present": true,
+        "sha256": "5fed6e75ffc22d171fed364672e1c8b60c3882254880fc57ee81b777e820ef68"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/stories/ST-FINAL/steps/history.jsonl",
+        "present": true,
+        "sha256": "883393b7411bfb5354621c07f3d4d3dfb1304d80206e652e754d570ddd3199a5"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/steps/implementation.json",
+        "present": true,
+        "sha256": "8970c77a628ff29f7b1731497254b29b1f8ce6c5cbefa2f828efd741d404b5d9"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/steps/operations.json",
+        "present": true,
+        "sha256": "d1067d8cca555878d13eae066b06fab43d3c9067c0cf0dbdb5d542a21393cf1d"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/steps/package-boundary-check.json",
+        "present": true,
+        "sha256": "310369f82e32e075f5ba0c28e48c42f9c2f0988d34aee8c5f0abc01c44e0e95b"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/steps/release.json",
+        "present": true,
+        "sha256": "0146d17facb34c5850a2ee28b24f30472e6945a7059f22ec0395446c3f00d330"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/steps/validation.json",
+        "present": true,
+        "sha256": "7deac911a3d85d873cfc898f930aae2156b7e0e33a3617d1ec512de1e37bec01"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/story.json",
+        "present": true,
+        "sha256": "e53d6db97c22437ec68567237f11164e6d2e3293bad79885a992fff0e2a6e08a"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-FINAL/task-start.json",
+        "present": true,
+        "sha256": "dffafdf7b3c64c857d209aa6ca94900a434bc1ade24cea26e9a7d36baae96c07"
+      },
+      {
+        "category": "story_test_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/tests/ST-FINAL-release.json",
+        "present": true,
+        "sha256": "5e14e40959fca7910afc84bc78fef3e3d399d79cf1d430b7dba7edd558f1d3c5"
+      },
+      {
+        "category": "story_test_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/tests/ST-FINAL-test.json",
+        "present": true,
+        "sha256": "1ea63e7fda68e7ce49b013af8410102e9228f7591e79ef602dd23d95556d03bc"
+      },
+      {
+        "category": "story_trace",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/traces/ST-FINAL.jsonl",
+        "present": true,
+        "sha256": "3e94a514f4a4f627898b4a13f2f960a5e8e06eccd12d9d675b61ae40f8472156"
+      },
+      {
+        "category": "story_trace_checkpoint",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/traces/.integrity/ST-FINAL.jsonl.checkpoint.json",
+        "present": true,
+        "sha256": "e59eb510c0dbb64cab0682b80fc9287a3b541d8ad0b4364f9e4a7865b6deb045"
+      },
+      {
+        "category": "workflow_checkpoint",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/workflows/instances/delivery-final/checkpoint.json",
+        "present": true,
+        "sha256": "9a640c6681550aa85bf6c57a03ca57d508ce33ab603053cb082fa675338d1e8d"
+      },
+      {
+        "category": "workflow_definition",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/workflows/definitions/software-project-custom-final/v1.json",
+        "present": true,
+        "sha256": "dcf83658aba0490ea1a829e7f2dd6024c2102576d94acc485ffaafb1ca2e40d1"
+      },
+      {
+        "category": "workflow_events",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/workflows/instances/delivery-final/events.jsonl",
+        "present": true,
+        "sha256": "25a23d6de17e12497580306a450c075bda4a9911520f8737a3d5f6bffe3c9f9f"
+      },
+      {
+        "category": "workflow_instance",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/workflows/instances/delivery-final/instance.json",
+        "present": true,
+        "sha256": "6e7c50a9f47d16d2544e7f08553cedb449897eda1b83a69116532e8644a64311"
+      }
+    ],
+    "hash_algorithm": "sha256:stable-json:v1",
+    "local_release_root": {
+      "device": "16777232",
+      "inode": "131136137",
+      "kind": "directory",
+      "mode": 493,
+      "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-lifecycle-KOYkBS/docs/local-release",
+      "present": true,
+      "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-lifecycle-KOYkBS/docs/local-release"
+    },
+    "local_release_scope": [
+      {
+        "entry_count": 2,
+        "file_count": 1,
+        "kind": "directory",
+        "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-lifecycle-KOYkBS/docs/local-release/app",
+        "present": true,
+        "total_bytes": 33,
+        "tree_hash": "ed2e74ca836df8f5acd57acfeb051994e7e2388917a891c50979511ab73e0620"
+      }
+    ],
+    "output_registry_projection": {
+      "path": ".sdlc/output-contracts/registry.json#story=ST-FINAL",
+      "sha256": "7fdd68c33c090d10fa769dd97a5fe9ebf691e3ccc5692f3ae5848c787e299ece"
+    },
+    "proof_hash": "26673790e8fbbf901ef61dcbc22b7c0160f17516b4000ecf863d0c341a99a83b",
+    "schema_version": "workflow-final-freshness-proof:v2",
+    "story_id": "ST-FINAL",
+    "workflow_instance_id": "delivery-final"
+  },
+  "git": {
+    "branch": "codex/ST-FINAL",
+    "head_sha": "c34eca2c1458a65aec285fd1dc699d0d47783794",
+    "is_dirty": true,
+    "is_git_repo": true,
+    "remotes": [
+      "origin"
+    ],
+    "user": {
+      "email": "finalization-e2e@example.invalid",
+      "name": "Finalization E2E"
+    }
+  },
+  "hash_algorithm": "sha256:stable-json:v1",
+  "human_guidance": {
+    "details": {
+      "blocking_count": 0,
+      "certification_level": "lifecycle_complete",
+      "delivery_id": null,
+      "errors": [],
+      "gate_status": "passed",
+      "guidance_kind": "gate",
+      "human_blockers": [],
+      "lifecycle_complete": true,
+      "merge_executed": false,
+      "next_command": null,
+      "profile_id": null,
+      "pull_request_url": null,
+      "reason_codes": [],
+      "requirement_id": null,
+      "status": "passed",
+      "warnings": [
+        "story step ST-FINAL/analysis uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.analysis.",
+        "story step ST-FINAL/design uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.design.",
+        "story step ST-FINAL/discovery uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.discovery.",
+        "story step ST-FINAL/implementation uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.implementation.",
+        "story step ST-FINAL/operations uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.operations.",
+        "story step ST-FINAL/package-boundary-check uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.package-boundary-check.",
+        "story step ST-FINAL/release uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.release.",
+        "story step ST-FINAL/validation uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.validation."
+      ]
+    },
+    "impact": "Every configured phase, the latest tests, and the exact delivery are complete and consistent.",
+    "next_action": "Keep the final proof with the delivery evidence; use a new governed delivery for later work.",
+    "protection_boundary": "These checks did not approve or perform a change, merge, release, deployment, production access, secret access, or work outside the approved files.",
+    "required_decision": "No lifecycle decision is pending for this exact delivery.",
+    "result": "The complete lifecycle check passed and its final proof is ready."
+  },
+  "kind": "workflow_final_gate_receipt",
+  "lifecycle_complete": true,
+  "lifecycle_workflow": {
+    "checkpoint_ref": {
+      "checkpoint_hash": "f6b6940f33c4e3aaea715085f670f348b70e485580b1cf927bde22c2d2e8ae29",
+      "last_event_hash": "ebbc3b47b0758509ec37b001cbc268ee2e4dc16ae12e93b8cd434c192d890a29",
+      "path": ".sdlc/workflows/instances/delivery-final/checkpoint.json",
+      "sequence": 7,
+      "trace_chain_hash": "fbc3dc8d9ce8fa8781fa252bf1b65471706f416a39baecdf28012dec6db26c66"
+    },
+    "delivery_closed_at": "2026-10-10T04:31:30.044Z",
+    "effective_hash": "781f32bbb23124af1b2bbf55b213d8c2d5852943116e144011b964f259e8e86b",
+    "event_count": 7,
+    "instance_hash": "b0a7344fc1bbd9d6628f89465efe9a603410b4016f4c1762e6ad9ae5f0fa0297",
+    "instance_id": "delivery-final",
+    "phase_timeline": [
+      {
+        "completed_at": "2026-10-10T04:30:02.009Z",
+        "completion_record_id": "STEP-ST-FINAL-discovery-20261010043002009-265a43",
+        "entered_at": "2026-10-10T04:29:55.183Z",
+        "entry_event_hash": null,
+        "phase": "discovery"
+      },
+      {
+        "completed_at": "2026-10-10T04:30:03.796Z",
+        "completion_record_id": "STEP-ST-FINAL-analysis-20261010043003796-1cdb16",
+        "entered_at": "2026-10-10T04:30:02.752Z",
+        "entry_event_hash": "4aeaa1021eb6e2234b912dd9bf22a72072b6f48af401365f58dc3a8f7ecb91de",
+        "phase": "analysis"
+      },
+      {
+        "completed_at": "2026-10-10T04:30:06.037Z",
+        "completion_record_id": "STEP-ST-FINAL-design-20261010043006037-2e21f1",
+        "entered_at": "2026-10-10T04:30:04.811Z",
+        "entry_event_hash": "27c1e1a7de3aac84847f29dd342d564e61e62fd60a9eefcd08f53ca416cb8755",
+        "phase": "design"
+      },
+      {
+        "completed_at": "2026-10-10T04:30:07.966Z",
+        "completion_record_id": "STEP-ST-FINAL-package-boundary-check-20261010043007966-d37af3",
+        "entered_at": "2026-10-10T04:30:06.913Z",
+        "entry_event_hash": "10341f60a849a7995d562c3f3f4f9b248efcb26b634778163c503f196de491b5",
+        "phase": "package-boundary-check"
+      },
+      {
+        "completed_at": "2026-10-10T04:30:10.173Z",
+        "completion_record_id": "STEP-ST-FINAL-implementation-20261010043010173-bb12c2",
+        "entered_at": "2026-10-10T04:30:09.083Z",
+        "entry_event_hash": "d77e9ffb8cafc89ad87e16bcae8cdf96a0724e9e89362ee0de352b97878b9cac",
+        "phase": "implementation"
+      },
+      {
+        "completed_at": "2026-10-10T04:30:14.143Z",
+        "completion_record_id": "STEP-ST-FINAL-validation-20261010043014143-da2ecd",
+        "entered_at": "2026-10-10T04:30:11.087Z",
+        "entry_event_hash": "60f32fd8c9e8648bd4ee0f6f6cd46d65c3c059345a7ca8af7f5c7dff91c5288b",
+        "phase": "validation"
+      },
+      {
+        "completed_at": "2026-10-10T04:31:23.153Z",
+        "completion_record_id": "STEP-ST-FINAL-release-20261010043123153-c7b241",
+        "entered_at": "2026-10-10T04:31:17.758Z",
+        "entry_event_hash": "8250d76a44c5cfa3c6c4fb7e76d705d55b399a5ac3ca0daa71869dc85c604dde",
+        "phase": "release"
+      },
+      {
+        "completed_at": "2026-10-10T04:31:34.044Z",
+        "completion_record_id": "STEP-ST-FINAL-operations-20261010043134044-5a0aab",
+        "entered_at": "2026-10-10T04:31:33.039Z",
+        "entry_event_hash": "ebbc3b47b0758509ec37b001cbc268ee2e4dc16ae12e93b8cd434c192d890a29",
+        "phase": "operations"
+      }
+    ],
+    "release_trace_at": "2026-10-10T04:31:28.956Z",
+    "selection_policy": "latest-created-at-then-instance-id:v1",
+    "story_id": "ST-FINAL",
+    "task_start_ref": {
+      "confirmed_at": "2026-10-10T04:29:56.850Z",
+      "hash": "dffafdf7b3c64c857d209aa6ca94900a434bc1ade24cea26e9a7d36baae96c07",
+      "id": "START-ST-FINAL-20261010042956850-ee8eda",
+      "path": ".sdlc/stories/ST-FINAL/task-start.json"
+    },
+    "terminal_event_ref": {
+      "event_hash": "ebbc3b47b0758509ec37b001cbc268ee2e4dc16ae12e93b8cd434c192d890a29",
+      "sequence": 7,
+      "timestamp": "2026-10-10T04:31:33.039Z"
+    },
+    "terminal_state": "operations"
+  },
+  "receipt_hash": "7473641b1a54d5f1a3be411354f69555b994571baa76c6869f51b1eec74988c6",
+  "release_manifest_id": null,
+  "root": ".",
+  "root_name": "agentic-sdlc-finalization-lifecycle-KOYkBS",
+  "run": {
+    "run_id": null,
+    "session_id": null,
+    "thread_id": null,
+    "tool": "agentic-sdlc-cli",
+    "version": "0.94.0"
+  },
+  "schema_version": "workflow-final-gate-receipt:v3",
+  "scope": "story",
+  "status": "passed",
+  "story_id": "ST-FINAL",
+  "strict": true,
+  "warnings": [
+    "story step ST-FINAL/analysis uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.analysis.",
+    "story step ST-FINAL/design uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.design.",
+    "story step ST-FINAL/discovery uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.discovery.",
+    "story step ST-FINAL/implementation uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.implementation.",
+    "story step ST-FINAL/operations uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.operations.",
+    "story step ST-FINAL/package-boundary-check uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.package-boundary-check.",
+    "story step ST-FINAL/release uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.release.",
+    "story step ST-FINAL/validation uses legacy story-wide story.complete-step subject ST-FINAL; new grants should bind exact subject ST-FINAL.step.validation."
+  ]
+}

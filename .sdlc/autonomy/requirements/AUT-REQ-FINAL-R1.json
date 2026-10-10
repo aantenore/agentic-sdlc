@@ -1,0 +1,121 @@
+{
+  "approval_ref": {
+    "hash": "37b179076a768316b8b716194ce61672c5a49eb6eec1d032100bba05cef02e61",
+    "id": "AUT-APR-20261010042941636-84861e",
+    "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042941636-84861e.json"
+  },
+  "authority_assurance": {
+    "mode": "audit_only",
+    "receipt_ref": null,
+    "source": "declared_cli_attribution",
+    "verified": false
+  },
+  "autonomy_ceiling": "supervised",
+  "checkpoints": [
+    "contract.approve",
+    "data.migrate",
+    "data.rollback",
+    "deploy.remote",
+    "output.link",
+    "pull_request.merge",
+    "release.local",
+    "rollback.verify",
+    "story.claim",
+    "story.complete-step",
+    "sync.commit",
+    "sync.pr",
+    "sync.push",
+    "task.start.confirm"
+  ],
+  "constraints": {
+    "allowed_capabilities": [],
+    "allowed_environments": [
+      "local"
+    ],
+    "allowed_tools": [],
+    "allowed_write_paths": [
+      "docs"
+    ],
+    "budget_ref": null,
+    "forbidden_actions": [
+      "budget-extension",
+      "destructive-action",
+      "environment-change",
+      "external-access",
+      "external-publication",
+      "gate-bypass",
+      "global-install",
+      "irreversible-migration",
+      "new-tool-or-capability",
+      "new-write-path",
+      "production-access",
+      "protected-branch-merge",
+      "remote-deploy",
+      "requirement-change",
+      "scope-expansion",
+      "secret-access",
+      "security-privacy-compliance-decision"
+    ]
+  },
+  "created_at": "2026-10-10T04:29:40.498Z",
+  "exception_actions": [
+    "budget-extension",
+    "destructive-action",
+    "environment-change",
+    "external-access",
+    "external-publication",
+    "gate-bypass",
+    "global-install",
+    "irreversible-migration",
+    "new-tool-or-capability",
+    "new-write-path",
+    "production-access",
+    "protected-branch-merge",
+    "remote-deploy",
+    "requirement-change",
+    "scope-expansion",
+    "secret-access",
+    "security-privacy-compliance-decision"
+  ],
+  "expires_at": null,
+  "extensions": {
+    "approved_profile_hash": "8663b9d86cb7b1e6ab64f78d27f4a0d7d4055256f6c608218a324b0d5c963ab8"
+  },
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "AUT-REQ-FINAL-R1",
+  "kind": "requirement_execution_profile",
+  "material_scope": {
+    "acceptance_criteria": [
+      "The FINAL story has verified implementation and delivery evidence."
+    ],
+    "budget": null,
+    "capabilities": [],
+    "environment": [
+      "local"
+    ],
+    "integrations": [],
+    "nfrs": [],
+    "non_goals": [],
+    "objective": "Implement FINAL only inside its exact approved write scope.",
+    "release_target": null,
+    "requirement_constraints": [],
+    "scope": "Implement FINAL only inside its exact approved write scope.",
+    "write_paths": [
+      "docs"
+    ]
+  },
+  "material_scope_hash": "25a32becbe85880ec605c8646e3b8e850f5e375e4b4da1ee07cc98e97bb0debb",
+  "phase_levels": {},
+  "profile_hash": "e37559e382f33ce65deda857e96229a436f39634879ae1b20bcb9b397f72762c",
+  "requirement_ref": {
+    "hash": "5d4825eda3eb1583ef8517f5d9afd7d9e0312e7983fa69bb5b1e29c1bfe778c4",
+    "id": "REQ-FINAL",
+    "path": ".sdlc/requirements/REQ-FINAL.json",
+    "version": 1
+  },
+  "schema_version": "requirement-execution-profile:v1",
+  "status": "active",
+  "updated_at": "2026-10-10T04:29:41.645Z",
+  "valid_from": "2026-10-10T04:29:40.498Z",
+  "version": 1
+}

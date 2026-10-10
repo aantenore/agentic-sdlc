@@ -1,0 +1,14 @@
+{
+  "checkpoint_hash": "8dc9ceffca0598c399fae202b7c986508160c87de8a0c61baa2ecda8c57f6a8f",
+  "current_state": "discovery",
+  "effective_hash": "781f32bbb23124af1b2bbf55b213d8c2d5852943116e144011b964f259e8e86b",
+  "hash_algorithm": "sha256:stable-json:v1",
+  "instance_hash": "23fc39fcfa71f803013d5f05164ccb14e4609c17ec8f281d5ed8ff9c6fcfcb93",
+  "instance_id": "delivery-archive-final",
+  "kind": "workflow_checkpoint",
+  "last_event_hash": null,
+  "schema_version": "workflow-checkpoint:v1",
+  "sequence": 0,
+  "trace_chain_hash": "f4ac4421adb774c219f4c30aabc535c4a3fe68bc14ae75f37ec99d0ca6ff49cd",
+  "updated_at": "2026-10-10T04:29:54.056Z"
+}

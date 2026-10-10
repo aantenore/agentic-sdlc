@@ -1,0 +1,93 @@
+{
+  "id": "AUT-START-AUT-FINAL",
+  "kind": "delivery_start_receipt",
+  "schema_version": "delivery-start-receipt:v2",
+  "profile_ref": {
+    "id": "AUT-FINAL",
+    "path": ".sdlc/autonomy/deliveries/AUT-FINAL.json",
+    "hash": "6240a036e16b4d2daf832c333ec2956359e72f110ddd1623649e126b24f123ff"
+  },
+  "delivery": {
+    "id": "LOCAL-FINAL",
+    "kind": "local_release"
+  },
+  "story_ref": {
+    "id": "ST-FINAL",
+    "path": ".sdlc/stories/ST-FINAL/story.json",
+    "hash": "77a6349c95025c3f78fe710cadf9bf4d479f9f11f79bdcfebb7d3889a15a500b"
+  },
+  "contract_ref": {
+    "id": "CONTRACT-FINAL",
+    "path": ".sdlc/contracts/CONTRACT-FINAL.json",
+    "hash": "d165ad50d3de9d2ec610dd0f72f26ca5489761bff09d108023268734d315fc26"
+  },
+  "contract_approval_hash": "d165ad50d3de9d2ec610dd0f72f26ca5489761bff09d108023268734d315fc26",
+  "phase": "implementation",
+  "route": "claim_and_implement",
+  "autonomy_decision_ref": {
+    "id": "AUT-DEC-20261010042956238-a6c525",
+    "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010042956238-a6c525.json",
+    "hash": "8860eac5bbeaaadd1660f717aaa6649b16c7684505f0f3eb4d0d4bc245a3492c"
+  },
+  "effective_level": "supervised",
+  "start_basis": "explicit-confirmation",
+  "status": "started",
+  "started_by": {
+    "id": "antonioantenore",
+    "type": "human",
+    "name": "Finalization E2E",
+    "email": "finalization-e2e@example.invalid",
+    "source": "cli"
+  },
+  "started_at": "2026-10-10T04:29:56.850Z",
+  "local_release_target_baseline": {
+    "schema_version": "local-release-target-snapshot:v1",
+    "purpose": "task_start",
+    "profile_ref": {
+      "id": "AUT-FINAL",
+      "hash": "6240a036e16b4d2daf832c333ec2956359e72f110ddd1623649e126b24f123ff"
+    },
+    "workspace_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-lifecycle-KOYkBS",
+    "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-lifecycle-KOYkBS/docs/local-release",
+    "allowed_write_paths": [
+      "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-lifecycle-KOYkBS/docs/local-release/app"
+    ],
+    "entries": [
+      {
+        "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-lifecycle-KOYkBS/docs/local-release",
+        "status": "absent"
+      },
+      {
+        "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-lifecycle-KOYkBS/docs/local-release/app",
+        "status": "absent"
+      }
+    ],
+    "observed_at": "2026-10-10T04:29:56.850Z",
+    "snapshot_hash": "9d654b5753d994c9f9dfa96be51582417d4d3a65f14c694d2353f7bbca880e09",
+    "hash_algorithm": "sha256:stable-json:v1"
+  },
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-FINAL",
+      "head_sha": "c34eca2c1458a65aec285fd1dc699d0d47783794",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  },
+  "receipt_hash": "9c6cc831d238b13f3afcd82c0b97ae254101d29eed59f98076739e4cf011ebbf",
+  "hash_algorithm": "sha256:stable-json:v1"
+}

@@ -1,0 +1,71 @@
+{
+  "id": "STEP-ST-FINAL-release-20261010043123153-c7b241",
+  "story_id": "ST-FINAL",
+  "step": "release",
+  "status": "completed",
+  "phase": "release",
+  "summary": "Release evidence completed",
+  "output_types": [
+    "release-notes"
+  ],
+  "output_links": [
+    {
+      "id": "OUT-ST-FINAL-release-notes-5f5844fc",
+      "artifact_type": "release-notes",
+      "artifact_path": "docs/release-notes.md",
+      "template_id": "release-notes-v1",
+      "mode": "new",
+      "base_artifact": null,
+      "requirements": [
+        "REQ-FINAL"
+      ]
+    }
+  ],
+  "artifacts": [],
+  "evidence": [
+    {
+      "path": ".sdlc/tests/ST-FINAL-release.json",
+      "sha256": "5e14e40959fca7910afc84bc78fef3e3d399d79cf1d430b7dba7edd558f1d3c5",
+      "hash_algorithm": "sha256:file:v1"
+    }
+  ],
+  "next_step": "operations",
+  "completed_at": "2026-10-10T04:31:23.153Z",
+  "authorization_ref": "AUTH-FINAL-STORY-ACTIONS",
+  "authorization_use_ref": ".sdlc/authorization-uses/AUTH-FINAL-STORY-ACTIONS/AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043122947-95f498.json",
+  "authorization_action": "story.complete-step",
+  "checkpoint_profile_ref": {
+    "id": "AUT-FINAL",
+    "path": ".sdlc/autonomy/deliveries/AUT-FINAL.json",
+    "hash": "6240a036e16b4d2daf832c333ec2956359e72f110ddd1623649e126b24f123ff"
+  },
+  "audit": {
+    "completed_by": {
+      "id": "codex",
+      "type": "agent",
+      "name": "Codex",
+      "email": null,
+      "source": "default"
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-FINAL",
+      "head_sha": "c34eca2c1458a65aec285fd1dc699d0d47783794",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  }
+}

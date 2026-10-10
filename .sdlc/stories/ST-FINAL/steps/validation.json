@@ -1,0 +1,57 @@
+{
+  "id": "STEP-ST-FINAL-validation-20261010043014143-da2ecd",
+  "story_id": "ST-FINAL",
+  "step": "validation",
+  "status": "completed",
+  "phase": "validation",
+  "summary": "Validation completed with the latest passing test",
+  "output_types": [],
+  "output_links": [],
+  "artifacts": [],
+  "evidence": [
+    {
+      "path": ".sdlc/tests/ST-FINAL-test.json",
+      "sha256": "1ea63e7fda68e7ce49b013af8410102e9228f7591e79ef602dd23d95556d03bc",
+      "hash_algorithm": "sha256:file:v1"
+    }
+  ],
+  "next_step": "release",
+  "completed_at": "2026-10-10T04:30:14.143Z",
+  "authorization_ref": "AUTH-FINAL-STORY-ACTIONS",
+  "authorization_use_ref": ".sdlc/authorization-uses/AUTH-FINAL-STORY-ACTIONS/AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043001591-0565ae.json",
+  "authorization_action": "story.complete-step",
+  "checkpoint_profile_ref": {
+    "id": "AUT-FINAL",
+    "path": ".sdlc/autonomy/deliveries/AUT-FINAL.json",
+    "hash": "6240a036e16b4d2daf832c333ec2956359e72f110ddd1623649e126b24f123ff"
+  },
+  "audit": {
+    "completed_by": {
+      "id": "codex",
+      "type": "agent",
+      "name": "Codex",
+      "email": null,
+      "source": "default"
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-FINAL",
+      "head_sha": "c34eca2c1458a65aec285fd1dc699d0d47783794",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  }
+}
