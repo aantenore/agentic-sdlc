@@ -28,6 +28,7 @@
   "scripts": {
     "benchmark:enterprise": "node scripts/benchmark-enterprise-performance.mjs --enforce",
     "check": "node scripts/check-source-syntax.mjs",
+    "release": "node scripts/release.mjs",
     "doctor": "node bin/agentic-sdlc.mjs doctor",
     "smoke": "node bin/agentic-sdlc.mjs --help",
     "test": "node scripts/run-test-suite.mjs",

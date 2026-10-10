@@ -753,6 +753,16 @@ uv run --with pyyaml python /path/to/skill-creator/scripts/quick_validate.py ski
 
 If the plugin is absent or shows an older version, rerun the installer and `codex plugin add`, confirm the result with `codex plugin list --json`, then open a new Codex task. See [Portable Codex Install](docs/portable-install.md) for the full troubleshooting matrix.
 
+## Rilascio
+
+Da un branch di lavoro con le modifiche già committate:
+
+```bash
+npm run release -- [--version X.Y.Z] [--title "..."] [--body "..."] [--no-update]
+```
+
+Lo script allinea il branch a `origin/main`, porta la versione al minor successivo (massimo tra `origin/main` e i tag `vX.Y.Z`), la aggiorna in manifest, README e `docs/`, committa `Versione X.Y.Z`, pubblica il branch (mai force), apre la PR e la unisce subito con merge commit. Senza `--no-update` aggiorna anche marketplace e plugin installati con `claude plugin`. Richiede `git`, `gh` autenticato e working tree pulito.
+
 ## Safety Boundaries
 
 - Repository application evidence is read-only unless the approved proposal names a write; proposed `.sdlc/` workflow records may be persisted before checkpoint 2.
