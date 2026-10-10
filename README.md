@@ -20,7 +20,7 @@ One source tree, two host packagings: **OpenAI Codex** (`.codex-plugin/`) and **
 
 ## Technical summary
 
-Agentic SDLC 0.76.0 gives a coding agent a guided way to understand an existing software project, deliver verified work, and explain its recorded lineage visually. The normal experience is intentionally simple: Codex explains what it inferred, proposes the work in plain language, creates the requested real file, verifies it, and returns an auditable result.
+Agentic SDLC 0.77.0 gives a coding agent a guided way to understand an existing software project, deliver verified work, and explain its recorded lineage visually. The normal experience is intentionally simple: Codex explains what it inferred, proposes the work in plain language, creates the requested real file, verifies it, and returns an auditable result.
 
 Project state stays in the target repository under `.sdlc/`. The plugin installation contains reusable skills, templates, schemas, the cross-platform Node.js CLI, and the build-free Change Observatory UI.
 
@@ -762,6 +762,13 @@ npm run release -- [--version X.Y.Z] [--title "..."] [--body "..."] [--no-update
 ```
 
 Lo script allinea il branch a `origin/main`, porta la versione al minor successivo (massimo tra `origin/main` e i tag `vX.Y.Z`), la aggiorna in manifest, README e `docs/`, committa `Versione X.Y.Z`, pubblica il branch (mai force), apre la PR e la unisce subito con merge commit. Senza `--no-update` aggiorna anche marketplace e plugin installati con `claude plugin`. Richiede `git`, `gh` autenticato e working tree pulito.
+
+Regole per le correzioni:
+
+- Una correzione piccola per volta, un rilascio per correzione: le richieste nuove diventano un rilascio separato, non allargano quello in corso.
+- Solo i test dei file toccati (al massimo circa un minuto), mai le suite complete né prove lente prima/dopo: la verifica reale si fa sul progetto con la versione rilasciata.
+- Rilascio subito, anche a pezzi; prima di ogni rilascio `git fetch` e allineamento a `origin/main`.
+- Un comando del plugin non deve mai superare 10 minuti: se succede è un difetto di prestazioni da correggere (campionare i processi git figli, trovare la chiamata ripetuta, leggere in blocco o memorizzare).
 
 ## Safety Boundaries
 
