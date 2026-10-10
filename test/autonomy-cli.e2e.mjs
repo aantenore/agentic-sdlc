@@ -2886,9 +2886,10 @@ test("pull-request merge completion rejects provider base drift and unproven loc
     env: fakeGitHubEnv(fixture.project, { ...mergedState, baseSha: "e".repeat(40) }),
   });
 
+  // Advance past the merge that touches the story write paths (reverts them): refused.
   const afterMerge = syntheticCommit(
     fixture.project,
-    fixture.headSha,
+    fixture.baseSha,
     [fixture.headSha],
     "test: advance main after exact merge",
   );
@@ -2897,9 +2898,10 @@ test("pull-request merge completion rejects provider base drift and unproven loc
     env: fakeGitHubEnv(fixture.project, mergedState),
   });
 
+  // A concurrent base change inside the story write paths: never an accepted advance before the merge.
   const concurrentBase = syntheticCommit(
     fixture.project,
-    fixture.baseSha,
+    fixture.headSha,
     [fixture.baseSha],
     "test: concurrent base change",
   );

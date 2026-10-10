@@ -242,6 +242,14 @@
             "scope_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } }
           },
           "additionalProperties": false
+        },
+        "keep_going": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "max_consecutive_blocks": { "type": "integer", "minimum": 1, "maximum": 20 }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

@@ -149,5 +149,50 @@ test("stored pull_request.create receipt over an accepted base advance re-valida
   assert.equal(accepted(f.base0, f.outside, ["docs/y.md", "evidence/ST-2-shot.txt"]), true);
   assert.equal(accepted(f.base0, f.outside, ["app/x.js"]), false);
   assert.equal(accepted(f.outside, f.inside, undefined), false);
-  assert.equal(accepted(f.base0, f.records, undefined, "git.push"), false);
+  assert.equal(accepted(f.base0, f.records, undefined, "pull_request.update"), false);
+});
+
+test("git.push completed after the base advanced: records/outside accepted, inside or unrelated base refused", () => {
+  const f = fixture();
+  const target = (baseSha) => ({ branch: "feature/ST-1", head_sha: "c".repeat(40), base_ref: "main", base_sha: baseSha });
+  const accepted = (from, to, outside) => recordedRuntimeTargetAccepted(f.context, f.profile, "git.push", target(from), target(to), outside);
+  assert.equal(accepted(f.base0, f.records, undefined), true);
+  assert.equal(accepted(f.base0, f.outside, ["docs/y.md", "evidence/ST-2-shot.txt"]), true);
+  assert.equal(accepted(f.base0, f.inside, undefined), false);
+  assert.equal(accepted(f.inside, f.base0, undefined), false);
+  // A different head is never a base advance.
+  assert.equal(recordedRuntimeTargetAccepted(f.context, f.profile, "git.push", target(f.base0), { ...target(f.records), head_sha: "d".repeat(40) }, undefined), false);
+});
+
+test("merge commit whose base advanced before the merge: first parent from an accepted advance, second the authorized head", () => {
+  const build = (otherFiles) => {
+    const f = fixture();
+    git(f.root, "checkout", "-q", "-b", "feature/ST-1", f.base0);
+    const source = commit(f.root, { "app/z.js": "feature\n" }, "feature");
+    git(f.root, "checkout", "-q", "main");
+    git(f.root, "reset", "-q", "--hard", f.base0);
+    const firstParent = commit(f.root, otherFiles, "other PR");
+    git(f.root, "merge", "-q", "--no-ff", "-m", "merge PR", source);
+    const merged = git(f.root, "rev-parse", "HEAD");
+    const runtime = (baseSha) => ({ branch: "feature/ST-1", head_sha: source, base_ref: "main", base_sha: baseSha, remotes: [] });
+    const authorization = {
+      runtime_target: runtime(f.base0),
+      action_details: {
+        merge: { source_sha: source, base_sha: f.base0 },
+        provider_operation: { precondition_receipt: { subject: { base_sha: f.base0 }, proof: { base_sha: f.base0 } } },
+      },
+    };
+    const check = (proof = { merge_commit_sha: merged, base_sha: f.base0 }, opts = { acceptBaseAdvance: mergeResultBaseAdvanceAcceptor(f.context, f.profile) }) =>
+      validatePullRequestMergeRuntimeTransition(f.context, authorization, runtime(merged), proof, opts);
+    return { f, check, merged, firstParent };
+  };
+  const records = build({ ".sdlc/stories/ST-2/claim.json": "{}\n" });
+  const ok = records.check();
+  assert.equal(ok.valid, true);
+  assert.equal(ok.mode, "merge-commit");
+  assert.equal(ok.base_advance_before_merge.reason, "base_advanced_before_merge_records_only");
+  assert.equal(ok.base_advance_before_merge.first_parent_sha, records.firstParent);
+  assert.equal(build({ "docs/y.md": "9\n" }).check().base_advance_before_merge.reason, "base_advanced_before_merge_outside_write_paths");
+  assert.equal(build({ "app/x.js": "9\n" }).check().valid, false);
+  assert.equal(records.check(undefined, {}).valid, false);
 });

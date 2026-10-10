@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { claimOwnership, collectWork, decideKeepGoing, deliveryProgress, personRequests, withPersonRequest, withWorktreeProgress, isFreshForeignStory, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, MAX_IDENTICAL_BLOCKS, MAX_SUGGESTION_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
+import { claimOwnership, collectWork, decideKeepGoing, deliveryProgress, personRequests, withPersonRequest, withWorktreeProgress, isFreshForeignStory, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, DEFAULT_MAX_CONSECUTIVE_BLOCKS, MAX_BLOCKS_ENV, maxConsecutiveBlocks, storyWorktreeResolver, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
 
 const claim = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation"] }) };
 
@@ -36,17 +36,49 @@ test("available stories only when no claim or question", () => {
   assert.doesNotMatch(decideKeepGoing({ claims: [claim], available: ["ST-3"] }).reason, /ST-3/u);
 });
 
-test("allows the stop after identical blocks within the window, whatever the host reports", () => {
-  let state = {};
-  const blocks = [];
-  for (let index = 0; index < MAX_IDENTICAL_BLOCKS + 1; index += 1) {
-    const result = decideKeepGoing({ claims: [claim], previous: state, now: 1000 + index });
-    blocks.push(result.block);
-    state = result.state;
+test("dedupe: an identical list never blocks twice in a session, however much time passed", () => {
+  const first = decideKeepGoing({ claims: [claim], session: "s1", now: 1000 });
+  assert.equal(first.block, true);
+  const later = decideKeepGoing({ claims: [claim], previous: first.state, session: "s1", now: 1000 + 10 * IDENTICAL_BLOCKS_WINDOW_MS });
+  assert.equal(later.block, false);
+  assert.match(later.note, /gia' segnalati, non blocco di nuovo/u);
+  // Same list after a Stop without work: still not news.
+  const empty = decideKeepGoing({ previous: later.state, session: "s1" });
+  assert.equal(decideKeepGoing({ claims: [claim], previous: empty.state, session: "s1" }).block, false);
+  // New content or a new session blocks again.
+  assert.equal(decideKeepGoing({ claims: [claim, { ...claim, storyId: "ST-9" }], previous: later.state, session: "s1" }).block, true);
+  assert.equal(decideKeepGoing({ claims: [claim], previous: later.state, session: "s2" }).block, true);
+});
+
+test("cap: the same set of items with changing text blocks at most maxBlocks times in a row per session", () => {
+  const behind = (n) => ({ ...claim, next: { ...claim.next, phase: "release" }, behind: n });
+  const run = (maxBlocks) => {
+    let state = {};
+    const blocks = [];
+    for (let n = 1; n <= 4; n += 1) {
+      // "indietro di N" is normalized away; the label changes so the text differs each time.
+      const result = decideKeepGoing({ claims: [{ ...behind(n), next: { ...behind(n).next, label: `passo ${n}` } }], previous: state, session: "s1", maxBlocks });
+      blocks.push(result.block);
+      state = result.state;
+    }
+    return blocks;
+  };
+  assert.deepEqual(run(DEFAULT_MAX_CONSECUTIVE_BLOCKS), [true, true, false, false]);
+  assert.deepEqual(run(3), [true, true, true, false]);
+});
+
+test("max consecutive blocks: env, then host_policy.keep_going, then the default", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-cap-"));
+  try {
+    assert.equal(maxConsecutiveBlocks(dir, {}), DEFAULT_MAX_CONSECUTIVE_BLOCKS);
+    fs.mkdirSync(path.join(dir, ".sdlc"));
+    fs.writeFileSync(path.join(dir, ".sdlc", "config.json"), JSON.stringify({ host_policy: { keep_going: { max_consecutive_blocks: 4 } } }));
+    assert.equal(maxConsecutiveBlocks(dir, {}), 4);
+    assert.equal(maxConsecutiveBlocks(dir, { [MAX_BLOCKS_ENV]: "1" }), 1);
+    assert.equal(maxConsecutiveBlocks(dir, { [MAX_BLOCKS_ENV]: "x" }), 4);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
-  assert.deepEqual(blocks, [...Array(MAX_IDENTICAL_BLOCKS).fill(true), false]);
-  assert.equal(decideKeepGoing({ claims: [claim], previous: state, now: 1000 + IDENTICAL_BLOCKS_WINDOW_MS + 10 }).block, true);
-  assert.equal(decideKeepGoing({ claims: [claim, { ...claim, storyId: "ST-9" }], previous: state, now: 2000 }).block, true);
 });
 
 test("priority: questions, unpublished, plugin update, claims, then available", () => {
@@ -301,16 +333,13 @@ test("foreign check falls back to the git author e-mail, else current behavior",
   assert.equal(isFreshForeignStory({ audit: { run: { host: "h" } } }, { selfHost: "me", now, windowMs: 0 }), false);
 });
 
-test("anti-loop: the same bare suggestion is not blocked twice, real work still is", () => {
+test("anti-loop: the same bare suggestion is not blocked twice, new content still is", () => {
   const first = decideKeepGoing({ available: ["ST-3"], now: 1000 });
   assert.equal(first.block, true);
   const second = decideKeepGoing({ available: ["ST-3"], previous: first.state, now: 2000 });
   assert.equal(second.block, false);
-  assert.match(second.note, /ST-3/u);
   assert.equal(decideKeepGoing({ available: ["ST-4"], previous: first.state, now: 2000 }).block, true);
-  assert.equal(decideKeepGoing({ available: ["ST-3"], previous: first.state, now: 1000 + IDENTICAL_BLOCKS_WINDOW_MS + 1 }).block, true);
-  const withClaim = decideKeepGoing({ claims: [claim], now: 1000 });
-  assert.equal(decideKeepGoing({ claims: [claim], previous: withClaim.state, now: 2000 }).block, true);
+  assert.equal(decideKeepGoing({ available: ["ST-3"], previous: first.state, now: 1000 + IDENTICAL_BLOCKS_WINDOW_MS + 1 }).block, false);
 });
 
 test("the release step names the sync-before-commit, strict gate and transition order", () => {
@@ -384,6 +413,51 @@ test("delivery progress reads the completed git.commit receipt for the current h
   }
 });
 
+test("delivery progress names only a delivery profile that covers the story", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-profile-"));
+  try {
+    const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" }).trim();
+    git("init", "-q", "-b", "feature/ST-D4");
+    git("config", "user.email", "t@example.test");
+    git("config", "user.name", "T");
+    fs.writeFileSync(path.join(dir, "a.txt"), "a");
+    git("add", "a.txt");
+    git("commit", "-q", "-m", "a");
+    const head = git("rev-parse", "HEAD");
+    const deliveries = path.join(dir, ".sdlc", "autonomy", "deliveries");
+    const actions = path.join(dir, ".sdlc", "autonomy", "actions");
+    fs.mkdirSync(deliveries, { recursive: true });
+    fs.mkdirSync(actions, { recursive: true });
+    const profile = (id, storyId) => fs.writeFileSync(path.join(deliveries, `${id}.json`), JSON.stringify({ id, story_refs: [{ id: storyId }] }));
+    profile("AUT-PR-D4", "ST-D4");
+    profile("AUT-PR-D6", "ST-D6");
+    const receipt = (name, id) => fs.writeFileSync(path.join(actions, `${name}.json`), JSON.stringify({ status: "completed", outcome: "passed", action: "git.commit", profile_ref: { id, path: `.sdlc/autonomy/deliveries/${id}.json` }, runtime_target: { branch: "feature/ST-D4", head_sha: head }, action_details: { commit: { after_sha: head } } }));
+    receipt("AUT-ACT-1", "AUT-PR-D4");
+    receipt("AUT-ACT-2", "AUT-PR-D6");
+    assert.equal(deliveryProgress(dir, { storyId: "ST-D4" }).profile, "AUT-PR-D4");
+    assert.equal(deliveryProgress(dir, { storyId: "ST-X" }).profile, null);
+    const next = withWorktreeProgress({ storyId: "ST-X", next: { phase: "release", label: "x" } }, { progress: deliveryProgress(dir, { storyId: "ST-X" }) }).next;
+    assert.match(next.command, /--id <profile-id> --action git\.push/u);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("each story resolves to its own worktree by branch pattern, not the main checkout", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-wt-"));
+  try {
+    fs.mkdirSync(path.join(dir, ".sdlc"));
+    fs.writeFileSync(path.join(dir, ".sdlc", "config.json"), JSON.stringify({ parallel_work: { branch_patterns: ["feature/<story-id>"] } }));
+    const branches = [{ dir: "/main", branch: "feature/ST-D6" }, { dir: "/wt-d4", branch: "feature/ST-D4" }];
+    const resolve = await storyWorktreeResolver(dir, { branches });
+    assert.equal(resolve("ST-D4"), "/wt-d4");
+    assert.equal(resolve("ST-D6"), "/main");
+    assert.equal(resolve("ST-OTHER"), null);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("anti-loop compares suggestions without the changing counts", () => {
   const behind = (n) => ({ ...claim, behind: n });
   let state = {};
@@ -393,7 +467,7 @@ test("anti-loop compares suggestions without the changing counts", () => {
     blocks.push(result.block);
     state = result.state;
   }
-  assert.deepEqual(blocks, [true, true, false, false]);
+  assert.deepEqual(blocks, [true, false, false, false]);
 });
 
 test("a step that needs a person with an open request is shown as waiting and does not block", () => {
@@ -413,32 +487,20 @@ test("a step that needs a person with an open request is shown as waiting and do
   assert.equal(withPersonRequest(release, answered).awaitingPerson, undefined);
 });
 
-test("suggestion-only stops: same set within the window passes with a summary, a new set blocks", () => {
+test("suggestion-only stops: the same set in any order passes with a short note, a new set blocks", () => {
   const w1 = { ...claim, storyId: "ST-1", waiting: "attesa umana" };
   const w2 = { ...claim, storyId: "ST-2", awaitingPerson: { command: "agentic-sdlc approve" } };
   const first = decideKeepGoing({ claims: [w1, w2], available: ["ST-5"], now: 1000 });
   assert.equal(first.block, true);
   const second = decideKeepGoing({ claims: [w2, w1], available: ["ST-5"], previous: first.state, now: 2000 });
   assert.equal(second.block, false);
-  assert.match(second.note, /Passi in attesa/u);
-  assert.match(second.note, /ST-1, ST-2/u);
+  assert.match(second.note, /gia' segnalati/u);
   const other = decideKeepGoing({ claims: [w1, w2], available: ["ST-6"], previous: first.state, now: 3000 });
   assert.equal(other.block, true);
   const firm = decideKeepGoing({ claims: [w1, claim], available: ["ST-5"], previous: first.state, now: 4000 });
   assert.equal(firm.block, true);
 });
 
-test("suggestion-only stops: the same set blocked MAX_SUGGESTION_BLOCKS times in a row passes even beyond the window", () => {
-  const w1 = { ...claim, storyId: "ST-1", waiting: "attesa umana" };
-  let state = {};
-  const blocks = [];
-  for (let index = 0; index < MAX_SUGGESTION_BLOCKS + 1; index += 1) {
-    const result = decideKeepGoing({ claims: [w1], available: ["ST-5"], previous: state, now: 1000 + index * (IDENTICAL_BLOCKS_WINDOW_MS + 10) });
-    blocks.push(result.block);
-    state = result.state;
-  }
-  assert.deepEqual(blocks, [...Array(MAX_SUGGESTION_BLOCKS).fill(true), false]);
-});
 
 test("unpublished records of a delegated story (working marker) do not block", () => {
   const unpublished = [{ storyId: "ST-D", base: "origin/main", files: ["a", "b"], command: "publish" }];
@@ -457,15 +519,10 @@ test("unpublished records growing between checks do not block", () => {
   assert.match(second.note, /lavoro delegato/u);
 });
 
-test("unpublished records, no marker and stable: block, then anti-loop after MAX_IDENTICAL_BLOCKS", () => {
+test("unpublished records, no marker and stable: block once, then dedupe", () => {
   const unpublished = [{ storyId: "ST-S", base: "origin/main", files: ["a"], command: "publish" }];
-  let state = {};
-  for (let i = 0; i < MAX_IDENTICAL_BLOCKS; i += 1) {
-    const decision = decideKeepGoing({ unpublished, previous: state });
-    assert.equal(decision.block, true);
-    assert.match(decision.reason, /pubblicali prima di tutto/u);
-    state = decision.state;
-  }
-  const last = decideKeepGoing({ unpublished, previous: state });
-  assert.equal(last.block, false);
+  const decision = decideKeepGoing({ unpublished });
+  assert.equal(decision.block, true);
+  assert.match(decision.reason, /pubblicali prima di tutto/u);
+  assert.equal(decideKeepGoing({ unpublished, previous: decision.state }).block, false);
 });
