@@ -1435,6 +1435,8 @@ async function runObserveFromCli({ options, rawArgs }) {
       host: options.host,
       port: options.port,
       openBrowser: options["no-open"] !== true,
+      ...(options.ref === undefined ? {} : { ref: String(options.ref) }),
+      worktree: options.worktree === true,
       json: options.json === true,
       // Without --locale the observatory follows the locale recorded for the project.
       locale: options.locale === undefined ? undefined : humanGuidanceLocale(options),

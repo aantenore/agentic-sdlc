@@ -33,6 +33,7 @@ import {
 } from "./portfolio-components.js";
 import {
   applyDocumentLocale,
+  getLocale,
   localeFromLocation,
   localizedErrorGuidance,
   setLocale,
@@ -345,6 +346,44 @@ function applyProjectModel(model, {
   loadDependencies(model, portfolioProjectId);
   loadSharedClaims(portfolioProjectId);
   loadRemoteStories(portfolioProjectId);
+  if (!portfolioMode) loadSourceRef();
+}
+
+// The branch the records come from (the shared base branch by default) and
+// when they were last updated. When that branch moves, the model is reloaded.
+const SOURCE_REF_POLL_SECONDS = 30;
+let sourceRefTimer = null;
+let sourceRefCommit = null;
+async function loadSourceRef() {
+  const target = document.querySelector("#source-ref");
+  if (!target) return;
+  if (!sourceRefTimer) {
+    sourceRefTimer = setInterval(loadSourceRef, SOURCE_REF_POLL_SECONDS * 1000);
+  }
+  let source;
+  try {
+    source = await api.loadSourceRef();
+  } catch {
+    target.hidden = true;
+    return;
+  }
+  if (source?.mode === "ref" && typeof source.ref === "string") {
+    const when = source.updatedAt ? new Date(source.updatedAt) : null;
+    const time = when && !Number.isNaN(when.getTime())
+      ? when.toLocaleTimeString(getLocale(), { hour: "2-digit", minute: "2-digit" })
+      : null;
+    target.textContent = `${t("Records from")} ${source.ref}${time ? ` · ${t("updated")} ${time}` : ""}`;
+    target.title = [source.commit ? source.commit.slice(0, 12) : null,
+      source.fetchError ? t("Last update from the remote failed") : null].filter(Boolean).join(" · ");
+    target.hidden = false;
+    const moved = sourceRefCommit !== null && source.commit && source.commit !== sourceRefCommit;
+    sourceRefCommit = source.commit ?? sourceRefCommit;
+    if (moved) quietReload();
+    return;
+  }
+  target.textContent = `${t("Records from")} ${t("Local files")}`;
+  target.title = "";
+  target.hidden = false;
 }
 
 // Who holds each story on the shared remote, as this computer last saw it.
