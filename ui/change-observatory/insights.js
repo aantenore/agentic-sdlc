@@ -258,6 +258,44 @@ export function applySharedClaims(stories, claims = []) {
   });
 }
 
+const PHASE_TITLE = (phase) => t(phase.charAt(0).toUpperCase() + phase.slice(1));
+
+// The status a person reads for a story: the coarse state refined by the
+// recorded final certification (checked on the server with the CLI rule) and
+// by a reservation, with the reason or next action in plain words.
+export function storyStatus(story) {
+  const stateLabel = (key) => t(STORY_STATES.find((entry) => entry.key === key)?.label ?? key);
+  const certification = story?.iteration?.certification;
+  if (story?.state === "delivered") {
+    if (certification?.state === "current") {
+      return { key: "certified", label: t("Certified"), reason: t("The final report is valid for the current records") };
+    }
+    if (certification?.state === "stale") {
+      const newer = certification.newerRecord ?? {};
+      const what = [newer.type ? t(`${newer.type} record`) : null, newer.id, newer.createdAt].filter(Boolean).join(" · ");
+      return {
+        key: "recertify",
+        label: t("Certification to redo"),
+        reason: `${t("A record newer than the final report")}${what ? ` (${what})` : ""}: ${t("run the final certification again")}`,
+      };
+    }
+    return { key: "merged", label: t("Merged"), reason: t("Merged, no valid final report yet: run the final certification") };
+  }
+  if (story?.state === "live") {
+    const phase = story.livePhase ?? story.iteration?.currentPhase ?? null;
+    return { key: "live", label: stateLabel("live"), reason: phase ? `${t("Now")}: ${PHASE_TITLE(phase)}` : t("Someone is working on it") };
+  }
+  if (story?.state === "parked") {
+    const reason = story.holder?.reason ?? story.iteration?.parked?.reason;
+    return { key: "parked", label: stateLabel("parked"), reason: `${t("Set aside by a person until resumed")}${reason ? `: ${reason}` : ""}` };
+  }
+  if (story?.holder?.state === "reserved" && !story.holder.expired) {
+    const who = story.holder.holder ?? story.holder.agent;
+    return { key: "reserved", label: t("Reserved"), reason: `${t("Reserved, not started yet")}${who ? `: ${who}` : ""}` };
+  }
+  return { key: story?.state ?? "idle", label: stateLabel(story?.state ?? "idle"), reason: null };
+}
+
 const CHANGE_REQUEST_TARGET = /^(?:CR|Change request|Richiesta di modifica)\b[^:]{0,40}?\b(REQ-[A-Z0-9][A-Z0-9._-]*)/iu;
 
 // A change request names the requirement it changes in its title ("CR su
