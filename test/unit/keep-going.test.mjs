@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { claimOwnership, collectWork, decideKeepGoing, isFreshForeignStory, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
+import { claimOwnership, collectWork, decideKeepGoing, deliveryProgress, personRequests, withPersonRequest, withWorktreeProgress, isFreshForeignStory, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
 
 const claim = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation"] }) };
 
@@ -316,4 +316,95 @@ test("the release step names the sync-before-commit, strict gate and transition 
   assert.match(release.label, /authorize e `gh pr create` subito di seguito/u);
   const behind = decideKeepGoing({ claims: [{ ...claim, behind: 2 }] }).reason;
   assert.match(behind, /PRIMA del git\.commit governato/u);
+});
+
+test("the most advanced record wins: the story worktree is ahead of main", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-advanced-"));
+  try {
+    const main = path.join(dir, "main");
+    const wt = path.join(dir, "wt");
+    const put = (root, file, value) => {
+      fs.mkdirSync(path.dirname(path.join(root, ".sdlc", file)), { recursive: true });
+      fs.writeFileSync(path.join(root, ".sdlc", file), JSON.stringify(value));
+    };
+    for (const root of [main, wt]) put(root, "stories/ST-A/claim.json", { story_id: "ST-A", status: "active" });
+    for (const step of ["discovery", "analysis"]) put(main, `stories/ST-A/steps/${step}.json`, { status: "completed" });
+    for (const step of ["discovery", "analysis", "design", "implementation", "validation"]) put(wt, `stories/ST-A/steps/${step}.json`, { status: "completed" });
+    const work = collectWork(main, { roots: [main, wt] });
+    assert.match(work.claims[0].next.command, /--step release/u);
+    assert.equal(work.claims[0].root, wt);
+    // Worktree gone: main is used.
+    assert.match(collectWork(main, { roots: [main] }).claims[0].next.command, /--step design/u);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a governed commit already made: no sync, the real next release step", () => {
+  const release = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation", "validation"] }) };
+  assert.equal(withWorktreeProgress({ ...release, behind: 4 }, { behind: 4, progress: { committed: false } }).behind, 4);
+  const pending = withWorktreeProgress(release, { behind: 4, progress: { committed: true, pushed: false, pullRequest: false, profile: "AUT-PR-1" } });
+  assert.equal(pending.behind, undefined);
+  assert.match(pending.next.command, /--id AUT-PR-1 --action git\.push/u);
+  assert.doesNotMatch(decideKeepGoing({ claims: [pending] }).reason, /story sync --id|PRIMA del git\.commit/u);
+  assert.match(withWorktreeProgress(release, { progress: { committed: true, pushed: true, pullRequest: false } }).next.command, /pull_request\.create/u);
+  assert.match(withWorktreeProgress(release, { progress: { committed: true, pushed: true, pullRequest: true } }).next.label, /PR gia' fatti/u);
+  // Other phases keep their step; only the stale sync goes away.
+  assert.match(withWorktreeProgress(claim, { behind: 3, progress: { committed: true } }).next.command, /--step validation/u);
+});
+
+test("delivery progress reads the completed git.commit receipt for the current head", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-progress-"));
+  try {
+    const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" }).trim();
+    git("init", "-q", "-b", "feature/ST-1");
+    git("config", "user.email", "t@example.test");
+    git("config", "user.name", "T");
+    fs.writeFileSync(path.join(dir, "a.txt"), "a");
+    git("add", "a.txt");
+    git("commit", "-q", "-m", "a");
+    const head = git("rev-parse", "HEAD");
+    const actions = path.join(dir, ".sdlc", "autonomy", "actions");
+    fs.mkdirSync(actions, { recursive: true });
+    const receipt = (name, value) => fs.writeFileSync(path.join(actions, `${name}.json`), JSON.stringify({ status: "completed", outcome: "passed", profile_ref: { id: "AUT-PR-1" }, runtime_target: { branch: "feature/ST-1", head_sha: head }, ...value }));
+    receipt("AUT-ACT-1", { action: "git.commit", action_details: { commit: { before_sha: "0".repeat(40), after_sha: "1".repeat(40) } } });
+    assert.equal(deliveryProgress(dir).committed, false);
+    receipt("AUT-ACT-2", { action: "git.commit", action_details: { commit: { before_sha: "0".repeat(40), after_sha: head } } });
+    assert.deepEqual(deliveryProgress(dir), { committed: true, pushed: false, pullRequest: false, profile: "AUT-PR-1" });
+    receipt("AUT-ACT-3", { action: "pull_request.create" });
+    assert.equal(deliveryProgress(dir).pullRequest, true);
+    git("update-ref", "refs/remotes/origin/feature/ST-1", head);
+    assert.equal(deliveryProgress(dir).pushed, true);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("anti-loop compares suggestions without the changing counts", () => {
+  const behind = (n) => ({ ...claim, behind: n });
+  let state = {};
+  const blocks = [];
+  for (const [index, n] of [4, 5, 5, 6].entries()) {
+    const result = decideKeepGoing({ claims: [behind(n)], previous: state, now: 1000 + index });
+    blocks.push(result.block);
+    state = result.state;
+  }
+  assert.deepEqual(blocks, [true, true, false, false]);
+});
+
+test("a step that needs a person with an open request is shown as waiting and does not block", () => {
+  const release = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation", "validation"] }) };
+  const state = { own: ["m1"], attention: { window: [
+    { id: "m1", kind: "request", text: "ST-1: serve `agentic-sdlc autonomy delivery reconcile --id AUT-PR-1` da una persona" },
+    { id: "m2", kind: "request", text: "ST-9 `agentic-sdlc autonomy delivery amend --id X`" },
+  ] } };
+  const requests = personRequests(state);
+  assert.equal(requests.length, 1);
+  const waiting = withPersonRequest(release, requests);
+  const result = decideKeepGoing({ claims: [waiting] });
+  assert.equal(result.block, false);
+  assert.match(result.note, /ST-1: in attesa di una persona: agentic-sdlc autonomy delivery reconcile --id AUT-PR-1/u);
+  // Answered request: the step is proposed again.
+  const answered = personRequests({ ...state, attention: { window: [...state.attention.window, { id: "m3", kind: "answer", reply_to: "m1", text: "ok" }] } });
+  assert.equal(withPersonRequest(release, answered).awaitingPerson, undefined);
 });
