@@ -6,6 +6,7 @@ import {
   autoPublishEnabled,
   autoPublishEvent,
   classifySyncConflicts,
+  duplicateRegistryIds,
   identicalUntrackedFiles,
   isOwnStoryRecordPath,
   localRecordExtendsBase,
@@ -41,14 +42,30 @@ test("registry union keeps every entry of both sides, deduplicated by JSON conte
   assert.deepEqual(added, { links: 1, decisions: 1 });
 });
 
-test("registry union never drops a local link changed on one side", () => {
-  const remote = { links: [{ id: "L1", path: "a.md", status: "approved" }] };
-  const local = { links: [{ id: "L1", path: "a.md", status: "draft" }] };
-  const { registry } = unionOutputRegistries(local, remote);
-  assert.equal(registry.links.length, 2);
-  assert.deepEqual(unionOutputRegistries(remote, remote), { registry: { ...remote }, changed: false, added: {} });
-  assert.equal(unionOutputRegistries(null, remote).registry, remote);
-  assert.equal(unionOutputRegistries(local, null).registry, local);
+test("registry union keeps one entry per id, the most recently updated", () => {
+  const older = { id: "L1", path: "a.md", updated_at: "2026-01-01T10:00:00Z" };
+  const newer = { id: "L1", path: "a.md", updated_at: "2026-01-01T11:00:00Z" };
+  const localNewer = unionOutputRegistries({ links: [newer] }, { links: [older] });
+  assert.deepEqual(localNewer.registry.links, [newer]);
+  assert.deepEqual(localNewer.added, { links: 1 });
+  const remoteNewer = unionOutputRegistries({ links: [older] }, { links: [newer] });
+  assert.deepEqual(remoteNewer.registry.links, [newer]);
+  assert.deepEqual(remoteNewer.added, {});
+  // Idempotent: merging the result again changes nothing, and an already duplicated side is collapsed.
+  const again = unionOutputRegistries(localNewer.registry, localNewer.registry);
+  assert.deepEqual(again.registry.links, [newer]);
+  assert.equal(again.changed, false);
+  const collapsed = unionOutputRegistries({ links: [] }, { links: [older, newer] });
+  assert.deepEqual(collapsed.registry.links, [newer]);
+  assert.deepEqual(unionOutputRegistries(null, { links: [older] }).registry.links, [older]);
+  assert.equal(unionOutputRegistries(older, null).registry, older);
+});
+
+test("duplicateRegistryIds reports repeated ids per list", () => {
+  assert.deepEqual(duplicateRegistryIds({ templates: [{ id: "T" }], links: [{ id: "L" }, { id: "L" }, { id: "M" }], decisions: [] }), [
+    { list: "links", id: "L", count: 2 },
+  ]);
+  assert.deepEqual(duplicateRegistryIds(null), []);
 });
 
 test("write path prefixes match folders and files, not neighbours", () => {
