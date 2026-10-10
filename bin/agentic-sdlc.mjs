@@ -1104,6 +1104,7 @@ import {
   showStoryOverlap,
 } from "../lib/engine/story-overlap.mjs";
 import { showStoryScopeCheck } from "../lib/engine/story-scope.mjs";
+import { fastTrackStoryCommand } from "../lib/engine/story-fix.mjs";
 import {
   acknowledgeStoryBaseCommit,
 } from "../lib/engine/base-acknowledgements.mjs";
@@ -1342,6 +1343,7 @@ function buildCliRuntimeHandlerRegistry() {
     "contract.approve": call(approveContract),
     "story.create": call(createStory),
     "story.acceptance.add": call(addStoryAcceptance),
+    "story.fast-track": call(fastTrackStoryCommand),
     "story.derive-verification": call(deriveStoriesVerification),
     "story.claim": call(claimStory),
     "story.release": call(noteForMessages(releaseStoryClaim)),

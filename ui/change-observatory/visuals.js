@@ -858,6 +858,14 @@ function storyRow(story, state, insight) {
     summary ? node("p", { className: "story-summary", text: summary }) : null,
     phaseTrack(story, { labels: true }),
     storyLinks("Replaced by", story.iteration?.closure?.replacementIds, insight),
+    storyLinks("Fixes", story.iteration?.fixes ? [story.iteration.fixes.storyId] : null, insight),
+    story.iteration?.fixes?.incidentId
+      ? node("p", { className: "story-links" }, [
+        node("span", { className: "story-links-label", text: "Opened from incident", i18n: true }),
+        node("span", { text: story.iteration.fixes.incidentId }),
+      ])
+      : null,
+    storyLinks("Fixed by", story.iteration?.fixedBy, insight),
     storyLinks("Changes the work of", story.changes, insight),
     storyLinks("Being changed by", story.changedBy, insight),
     storyLinks("Needs first", story.prerequisites, insight),

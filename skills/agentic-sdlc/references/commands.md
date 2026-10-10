@@ -1316,6 +1316,17 @@ node bin/agentic-sdlc.mjs feedback record \
 
 `--severity` is one of `sev1`..`sev4`; `--feedback-source` is one of `user`, `monitoring`, `review`, `other`; `--sentiment` is `positive`, `neutral`, or `negative`. `gate check` for a story in `operations` adds checked lines with the incident and feedback counts, and warns — never fails — when it has neither yet.
 
+## Fix A Delivered Story
+
+A bugfix is a story that names the story it corrects. Create it with `--fixes <story>`, or from a recorded incident with `--incident <incident-id>` (the fixed story is the incident's story):
+
+```bash
+node bin/agentic-sdlc.mjs story create --root <project> --id ST-001-FIX-1 --title "Fix duplicate confirmation" --fixes ST-001 --acceptance "A retried request returns the same confirmation reference"
+node bin/agentic-sdlc.mjs story create --root <project> --id ST-001-FIX-2 --title "Fix checkout timeout" --incident ST-001-incident-20260916 --acceptance "Checkout completes within 2 seconds"
+```
+
+The story records `fixes: {story_id, incident_id}` and inherits the fixed story's requirements unless `--requirement` is given. Short cycle: it starts its workflow, completes `discovery` and `analysis` as inherited from the fixed story (summary-only steps, no output) and moves to `design`; contract, implementation, validation, release and operations follow as usual, and lifecycle certification still sees every phase completed. It runs the ordinary `workflow instance start`, `story complete-step` and `workflow instance transition`, so the records are the same an older plugin reads. If a check refuses (for example the inherited requirement is not approved), it stops there, says why, and `story fast-track --id <fix-story>` resumes it. `--full-cycle` keeps every phase. The Change Observatory shows "Fixes" / "Opened from incident" on the fix and "Fixed by" on the corrected story.
+
 ## Record A Code Review
 
 Use `review record` to record a review of one pull-request delivery's diff as a `code-review:v1` record under `.sdlc/reviews/`:
