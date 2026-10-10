@@ -89,13 +89,15 @@ function git(cwd, args) {
  * Creates a bare repository next to the fixture and points `remote` at it.
  * With `urlAlias` the remote keeps that fetch URL (for providers that match
  * the repository name) while every push goes to the local bare repository.
+ * With `aliasPush` the push URL is the alias too, for code that checks that the
+ * push URL names the repository; the pre-push hook still refuses the push.
  */
-export function createBareOrigin(project, { remote = "origin", urlAlias = null } = {}) {
+export function createBareOrigin(project, { remote = "origin", urlAlias = null, aliasPush = false } = {}) {
   applyTestIsolation();
   const bare = fs.mkdtempSync(path.join(tempRoot(), "sdlc-fixture-origin-"));
   git(bare, ["init", "--quiet", "--bare", "--initial-branch=main"]);
   git(project, ["remote", "add", remote, urlAlias ?? bare]);
-  if (urlAlias) git(project, ["remote", "set-url", "--push", remote, bare]);
+  if (urlAlias && !aliasPush) git(project, ["remote", "set-url", "--push", remote, bare]);
   return bare;
 }
 

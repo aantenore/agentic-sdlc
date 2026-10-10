@@ -461,7 +461,7 @@ test("a required review blocks only the merge and is counted in explain and stat
   assert.equal(status.code_review_before_merge[0].required, true);
   assert.equal(status.code_review_before_merge[0].valid_reviews, 1);
   const italian = mustRun(["status", "--root", project, "--locale", "it"]);
-  assert.match(italian.stdout, /Revisione prima del merge per PR-REVIEW \(storia ST-REVIEW\): richiesta/u);
+  assert.match(italian.stdout, /Revisione prima del merge per PR-REVIEW \(storia ST-REVIEW \(Implement the reviewed change\)\): richiesta/u);
   assert.equal(mustRunJson(mergeArgs(project), { env: fakeGitHubEnv(project, { headSha }) }).status, "checkpoint_required");
 });
 

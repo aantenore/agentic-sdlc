@@ -111,10 +111,20 @@ test("a started-story closure binds terminal deliveries without delivered work",
   });
   assert.equal(subject.started_work.deliveries[0].terminal_status, "cancelled");
 
+  // An abandoned story delivered nothing and names no delivery at all.
+  assert.deepEqual(
+    buildStoryClosureSubject({
+      event: "cancelled",
+      stories: [ref("ST-001")],
+      reason: "Withdrawn",
+      started_work: startedWork({ deliveries: [] }),
+    }).started_work.deliveries,
+    [],
+  );
+
   const invalid = [
     { stories: [ref("ST-001"), ref("ST-002")], started_work: startedWork() },
     { stories: [ref("ST-002")], started_work: startedWork() },
-    { stories: [ref("ST-001")], started_work: startedWork({ deliveries: [] }) },
     {
       stories: [ref("ST-001")],
       started_work: startedWork({

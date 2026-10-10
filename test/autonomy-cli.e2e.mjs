@@ -552,7 +552,7 @@ function initializeAutonomyProject(project, options = {}) {
   mustGit(project, ["config", "user.email", "autonomy-e2e@example.invalid"]);
   mustGit(project, ["commit", "--allow-empty", "-m", "test: establish PR base"]);
   mustGit(project, ["branch", "-M", "main"]);
-  createBareOrigin(project, { urlAlias: "https://github.com/aantenore/agentic-sdlc.git" });
+  createBareOrigin(project, { urlAlias: "https://github.com/aantenore/agentic-sdlc.git", aliasPush: true });
   mustGit(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
   mustGit(project, ["checkout", "-b", "codex/pr-1"]);
 
