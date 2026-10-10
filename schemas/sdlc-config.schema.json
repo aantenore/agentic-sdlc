@@ -226,6 +226,14 @@
                 "minLength": 1
               },
               "uniqueItems": true
+            },
+            "evidence_paths": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
             }
           },
           "additionalProperties": false
