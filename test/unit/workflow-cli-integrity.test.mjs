@@ -996,3 +996,109 @@ test("an invalid middle event cannot produce a trusted status or further transit
   assert.deepEqual(fs.readFileSync(files.events), eventBytes);
   assert.deepEqual(fs.readFileSync(files.trace), traceBytes);
 });
+
+const TRACE_CHECKPOINT = path.join(".sdlc", "traces", ".integrity", "project.jsonl.checkpoint.json");
+
+/** The records of a run survive but the shared project history is the one from before its transition: its traces are gone. */
+function startAndLoseTransitionTrace(label) {
+  const project = temporaryProject(label);
+  const instanceId = `change-${label}`;
+  startChangeRequest(project, instanceId);
+  const files = instanceFiles(project, instanceId);
+  const savedTrace = fs.readFileSync(files.trace);
+  const savedCheckpoint = fs.readFileSync(path.join(project, TRACE_CHECKPOINT));
+  assert.equal(transition(project, instanceId, `${label}-1`, ["--json"]).status, 0);
+  fs.writeFileSync(files.trace, savedTrace);
+  fs.writeFileSync(path.join(project, TRACE_CHECKPOINT), savedCheckpoint);
+  return { project, instanceId, files, savedTrace };
+}
+
+const statusOf = (project, instanceId) => run(["workflow", "instance", "status", "--root", project, "--id", instanceId, "--json"], project);
+
+test("repair-traces rebuilds the traces a run lost from its verified events, binds them, and records the repair", () => {
+  const { project, instanceId, files, savedTrace } = startAndLoseTransitionTrace("repair-lost");
+  assert.equal(statusOf(project, instanceId).status, 1, "the lost trace blocks the run");
+  const eventHash = JSON.parse(fs.readFileSync(files.events, "utf8").trim().split("\n")[0]).event_hash;
+  const checkpointBefore = fs.readFileSync(files.checkpoint);
+
+  const planned = mustRunJson(["workflow", "instance", "repair-traces", "--root", project, "--id", instanceId, "--dry-run"], project);
+  assert.equal(planned.status, "planned");
+  assert.deepEqual(planned.events_without_trace, [eventHash]);
+  assert.deepEqual(fs.readFileSync(files.trace), savedTrace, "a dry run changes nothing");
+  assert.deepEqual(fs.readFileSync(files.checkpoint), checkpointBefore);
+
+  const repaired = mustRunJson(["workflow", "instance", "repair-traces", "--root", project, "--id", instanceId], project);
+  assert.equal(repaired.status, "repaired");
+  assert.deepEqual(repaired.traces, [`TR-WF-${eventHash}`]);
+  assert.notEqual(repaired.trace_chain_hash, repaired.previous_trace_chain_hash);
+  const ok = statusOf(project, instanceId);
+  assert.equal(ok.status, 0, `${ok.stdout}\n${ok.stderr}`);
+  assert.equal(run(["trace", "verify", "--root", project, "--json"], project).status, 0);
+
+  const traces = projectTraceEvents(project);
+  const rebuilt = traces.find((entry) => entry.id === `TR-WF-${eventHash}`);
+  assert.equal(rebuilt.action, "workflow.instance.transition");
+  assert.equal(rebuilt.run.regenerated, true);
+  assert.deepEqual(rebuilt.related, [instanceId, eventHash]);
+  const repair = traces.find((entry) => entry.action === "workflow.instance.repair-traces");
+  assert.equal(repair.id, repaired.repair_trace);
+  assert.deepEqual(repair.repair.events, [eventHash]);
+  assert.equal(repair.repair.previous_trace_chain_hash, repaired.previous_trace_chain_hash);
+  assert.ok(repair.actor);
+
+  const again = mustRunJson(["workflow", "instance", "repair-traces", "--root", project, "--id", instanceId], project);
+  assert.equal(again.status, "nothing_to_repair");
+  assert.equal(projectTraceEvents(project).filter((entry) => entry.action === "workflow.instance.repair-traces").length, 1);
+});
+
+test("repair-traces rebuilds the same traces from the same events", () => {
+  const first = startAndLoseTransitionTrace("repair-determinism-a");
+  const eventLine = fs.readFileSync(first.files.events, "utf8").trim().split("\n")[0];
+  const hash = JSON.parse(eventLine).event_hash;
+  mustRunJson(["workflow", "instance", "repair-traces", "--root", first.project, "--id", first.instanceId], first.project);
+  const { _trace_integrity: _a, ...one } = projectTraceEvents(first.project).find((entry) => entry.id === `TR-WF-${hash}`);
+  assert.equal(one.created_at, JSON.parse(eventLine).timestamp);
+  assert.deepEqual(one.actor, JSON.parse(eventLine).actor);
+  assert.equal(one.git.branch, null);
+});
+
+test("repair-traces refuses when the events no longer verify and writes nothing", () => {
+  const { project, instanceId, files, savedTrace } = startAndLoseTransitionTrace("repair-tampered-events");
+  const tampered = fs.readFileSync(files.events, "utf8").replace("\"to\":\"impact-review\"", "\"to\":\"closed\"");
+  assert.notEqual(tampered, fs.readFileSync(files.events, "utf8"));
+  fs.writeFileSync(files.events, tampered);
+  const checkpointBefore = fs.readFileSync(files.checkpoint);
+  const refused = run(["workflow", "instance", "repair-traces", "--root", project, "--id", instanceId, "--json"], project);
+  assert.notEqual(refused.status, 0, refused.stdout);
+  assert.match(`${refused.stdout}${refused.stderr}`, /traces were not repaired/u);
+  assert.deepEqual(fs.readFileSync(files.trace), savedTrace);
+  assert.deepEqual(fs.readFileSync(files.checkpoint), checkpointBefore);
+});
+
+test("repair-traces refuses a trace whose content was altered: only missing traces are rebuilt", () => {
+  const project = temporaryProject("repair-altered-trace");
+  const instanceId = "change-repair-altered-trace";
+  startChangeRequest(project, instanceId);
+  assert.equal(transition(project, instanceId, "altered-1", ["--json"]).status, 0);
+  const files = instanceFiles(project, instanceId);
+  const traces = projectTraceEvents(project);
+  const owned = traces.find((entry) => entry.action === "workflow.instance.transition");
+  owned.actor = { ...owned.actor, name: "Altered audit actor" };
+  fs.writeFileSync(files.trace, `${traces.map((entry) => JSON.stringify(entry)).join("\n")}\n`);
+  const traceBytes = fs.readFileSync(files.trace);
+  const refused = run(["workflow", "instance", "repair-traces", "--root", project, "--id", instanceId, "--json"], project);
+  assert.notEqual(refused.status, 0, refused.stdout);
+  assert.deepEqual(fs.readFileSync(files.trace), traceBytes);
+});
+
+test("repair-traces on a healthy run changes nothing", () => {
+  const project = temporaryProject("repair-healthy");
+  const instanceId = "change-repair-healthy";
+  startChangeRequest(project, instanceId);
+  assert.equal(transition(project, instanceId, "healthy-1", ["--json"]).status, 0);
+  const files = instanceFiles(project, instanceId);
+  const before = fs.readFileSync(files.trace);
+  const result = mustRunJson(["workflow", "instance", "repair-traces", "--root", project, "--id", instanceId], project);
+  assert.equal(result.status, "nothing_to_repair");
+  assert.deepEqual(fs.readFileSync(files.trace), before);
+});

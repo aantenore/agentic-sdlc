@@ -497,6 +497,9 @@ node bin/agentic-sdlc.mjs autonomy delivery action \
   --scope-path src/example.mjs \
   --json
 
+# --scope-path also accepts a directory (src/) or a glob (src/**/*.mjs), and --staged binds every staged file;
+# both are expanded once to the exact staged paths, still checked against the approved write scope.
+
 # Execute exactly one non-merge commit, then report it.
 node bin/agentic-sdlc.mjs autonomy delivery action \
   --root <project> --id AUT-PR-184 \
@@ -905,6 +908,8 @@ leave that phase if the step is absent, predates phase entry, differs from its
 sealed attestation, or its trace integrity cannot be verified. Inspect
 `workflow instance status`; `current_phase_completion` explains the blocker and
 `ready_next_states` remains empty until it is repaired.
+
+If a run's transition events survive but their audit traces are missing from the shared project history (for example records published from a temporary checkout), `workflow instance repair-traces --id <instance> [--dry-run]` rebuilds exactly those traces deterministically from the events, only when the events, the run checkpoint, and the project history verify. It binds the rebuilt traces in the checkpoint and records a `workflow.instance.repair-traces` trace (actor, events, old and new chain hash). It never rebuilds a trace that exists but differs, and a run whose checkpoint no longer matches its existing traces stays blocked.
 
 ## Work Breakdown And Dependencies
 
@@ -1499,7 +1504,7 @@ A story found merged while its records show it ready is never ready to start: `s
 | `publish_branch_prefix` | `sdlc-records/` | Branch that `story publish-records` pushes. |
 | `publish_pull_request` | `off` | `github-cli` opens the pull request of that branch with the GitHub CLI; `off` only pushes it. |
 
-`story publish-records --id <story>` publishes what the story's work left on this computer after its pull request (final receipt, release of the claim, later steps): it fetches the remote base branch, builds one commit on top of it (or of an earlier unmerged publication) with the story's records the base branch lacks, through a private index, and pushes it as `<prefix><story>`. The checkout, its index, and its branches are not changed. A record the base branch changed after this work started is left out and listed as `skipped`. Nothing is ever deleted on the base branch.
+`story publish-records --id <story>` publishes what the story's work left on this computer after its pull request (final receipt, release of the claim, later steps): it fetches the remote base branch, builds one commit on top of it (or of an earlier unmerged publication) with the story's records the base branch lacks, through a private index, and pushes it as `<prefix><story>`. The shared history (`traces/project.jsonl` and its checkpoint) and `output-contracts/registry.json` are never left out: like `story sync`, they are first merged onto the base branch in the working files (every event and every registry entry is kept), and the publication is refused with `STORY_RECORDS_SHARED_HISTORY_UNMERGEABLE`, publishing nothing, when they cannot be merged. Otherwise the checkout, its index, and its branches are not changed. Any other record the base branch changed after this work started is left out and listed as `skipped`. Nothing is ever deleted on the base branch.
 
 After `autonomy delivery action --action pull_request.merge --outcome passed` and after a passing `gate check --lifecycle-complete`, the records are published automatically and directly to the base branch: the shared history is rebuilt on the remote base first (like `trace rebase --apply`), the output registry keeps every entry of both sides, and one commit with only `.sdlc` files (`sdlc: record di <story> (<event>)`, configured git identity) is pushed on top of the base branch, rebuilt once when the push races another computer. It never changes the command's result. `AGENTIC_SDLC_AUTO_PUBLISH=off` turns it off; a failure prints `story publish-records --id <story>` and sends a question on the messaging topic.
 
@@ -1507,7 +1512,7 @@ After `autonomy delivery action --action pull_request.merge --outcome passed` an
 
 | Command | What it does |
 | --- | --- |
-| `story sync --id <story> [--onto <remote>/<branch>] [--dry-run] [--allow-rebase-committed]` | Fetches; sets local `.sdlc` changes aside (a copy stays under `<git-common-dir>/agentic-sdlc/sync-backup/` until the sync ends well); fast-forwards or rebases the story branch onto the base. Conflicts on the shared history or output registry are rebuilt; any other conflict aborts the rebase, restores everything, and is refused (`STORY_SYNC_CONFLICT`) with the files. Local records are put back where the base did not change them; the history is rebuilt in-process like `trace rebase --apply`; `registry.json` keeps the union of `links`, `decisions`, `templates` (deduplicated by JSON content); untracked files the base adds with the same bytes are removed. Uncommitted code changes or untracked files with different bytes block it. Run it before the governed `git.commit`: a rebase refuses commits that carry a `git.commit` receipt and are not pushed (their SHA would change and `git.push` would refuse them) unless `--allow-rebase-committed`, after which the governed commit is made again. |
+| `story sync --id <story> [--onto <remote>/<branch>] [--dry-run] [--allow-rebase-committed]` | Fetches; sets local `.sdlc` changes aside (a copy stays under `<git-common-dir>/agentic-sdlc/sync-backup/` until the sync ends well); fast-forwards or rebases the story branch onto the base. Conflicts on the shared history or output registry are rebuilt; any other conflict aborts the rebase, restores everything, and is refused (`STORY_SYNC_CONFLICT`) with the files. Local records are put back where the base did not change them; the history is rebuilt in-process like `trace rebase --apply`; `registry.json` keeps the union of `links`, `decisions`, `templates` (deduplicated by JSON content); untracked files the base adds with the same bytes are removed. Uncommitted changes to tracked code are set aside in a stash and put back after the move (if they no longer apply cleanly they stay in the stash, the tree is left clean, and the result says `code_changes_stash.status: kept`); untracked files with different bytes block it. Run it before the governed `git.commit`: a rebase refuses commits that carry a `git.commit` receipt and are not pushed (their SHA would change and `git.push` would refuse them) unless `--allow-rebase-committed`, after which the governed commit is made again. |
 
 ## Claims Seen From Other Computers
 
