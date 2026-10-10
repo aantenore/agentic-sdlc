@@ -12,6 +12,7 @@ import {
   DELEGATION_SCHEMA_VERSION,
   evaluateDelegationUse,
   normalizeDelegationActions,
+  parseDeliveryPolicy,
   parseDelegationScope,
   parseDelegationUntil,
   sealDelegationRecord,
@@ -185,4 +186,17 @@ test("a person grants once; the agent applies it and the record says so; revocat
   mustRun(["autonomy", "delegation", "revoke", "--root", project, "--id", "DLG-T1", "--reason", "stop",
     "--actor-type", "human", "--approval-source", "explicit-user", "--summary", "Back to direct approvals"]);
   mustFail(agentApprove("BRK-2"), /revoked .*stop/u, { agent: true });
+});
+
+test("delivery.policy is delegable and its answers are parsed strictly", () => {
+  assert.deepEqual(normalizeDelegationActions("delivery.policy"), ["delivery.policy"]);
+  assert.deepEqual(parseDeliveryPolicy("code-review=not-required,merge=automatic"), { code_review: "not-required", merge: "automatic" });
+  assert.throws(() => parseDeliveryPolicy(""), /at least one answer/u);
+  assert.throws(() => parseDeliveryPolicy("merge=yes"), /merge must be one of/u);
+  assert.throws(() => parseDeliveryPolicy("deploy=automatic"), /is not one of/u);
+  assert.throws(() => parseDeliveryPolicy("merge=manual,merge=automatic"), /more than once/u);
+  const record = sampleDelegation({ actions: ["delivery.policy"], scope: { kind: "project", id: null } });
+  assert.deepEqual(evaluateDelegationUse(record, { action: "delivery.policy", target: { story: "ST-1" }, now: AT }), { valid: true, errors: [] });
+  assert.match(evaluateDelegationUse(record, { action: "delivery.policy", now: new Date("2026-11-01T00:00:00.000Z") }).errors.join(), /expired/u);
+  assert.match(evaluateDelegationUse(sampleDelegation(), { action: "delivery.policy", target: { story: "ST-1" }, now: AT }).errors.join(), /does not cover the action delivery\.policy/u);
 });

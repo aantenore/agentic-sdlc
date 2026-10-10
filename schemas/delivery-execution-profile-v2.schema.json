@@ -261,11 +261,15 @@
       "required": ["mode", "source", "actor_id", "user_words", "decided_at"],
       "properties": {
         "mode": { "enum": ["manual", "after-confirmation", "automatic"] },
-        "source": { "const": "explicit-user" },
+        "source": { "enum": ["explicit-user", "delegation"] },
         "actor_id": { "type": "string", "minLength": 1 },
         "user_words": { "type": "string", "minLength": 1 },
-        "decided_at": { "type": "string", "format": "date-time" }
+        "decided_at": { "type": "string", "format": "date-time" },
+        "delegation_id": { "type": "string", "pattern": "^DLG-" }
       },
+      "if": { "properties": { "source": { "const": "delegation" } } },
+      "then": { "required": ["delegation_id"] },
+      "else": { "not": { "required": ["delegation_id"] } },
       "additionalProperties": false
     },
     "code_review_decision": {
@@ -274,11 +278,12 @@
       "required": ["decision", "source", "actor_id", "user_words", "standing_approval_id", "decided_at"],
       "properties": {
         "decision": { "enum": ["required", "not-required"] },
-        "source": { "enum": ["explicit-user", "standing-approval"] },
+        "source": { "enum": ["explicit-user", "standing-approval", "delegation"] },
         "actor_id": { "type": ["string", "null"] },
         "user_words": { "type": ["string", "null"] },
         "standing_approval_id": { "type": ["string", "null"] },
-        "decided_at": { "type": "string", "format": "date-time" }
+        "decided_at": { "type": "string", "format": "date-time" },
+        "delegation_id": { "type": "string", "pattern": "^DLG-" }
       },
       "allOf": [
         {
@@ -300,6 +305,18 @@
               "standing_approval_id": { "type": "string", "minLength": 1 }
             }
           }
+        },
+        {
+          "if": { "properties": { "source": { "const": "delegation" } } },
+          "then": {
+            "required": ["delegation_id"],
+            "properties": {
+              "actor_id": { "type": "string", "minLength": 1 },
+              "user_words": { "type": "string", "minLength": 1 },
+              "standing_approval_id": { "type": "null" }
+            }
+          },
+          "else": { "not": { "required": ["delegation_id"] } }
         }
       ],
       "additionalProperties": false

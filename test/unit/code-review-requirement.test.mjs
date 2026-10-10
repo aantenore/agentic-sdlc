@@ -111,3 +111,18 @@ test("a standing approval covers only deliveries whose review choice matches its
     /comes from standing approval SA-2/u,
   );
 });
+
+test("a delivery.policy delegation supplies the person's code review answer, recorded as theirs by delegation", () => {
+  const ctx = context(false);
+  const delegated = { id: "DLG-P", policy: { code_review: "not-required" }, actor_id: "antonio", statement: "scelta di Antonio per delega DLG-P" };
+  const choice = codeReviewChoiceFromOptions(ctx, {}, "pull_request", { delegated });
+  assert.equal(choice.decision, "not-required");
+  assert.equal(choice.source, "delegation");
+  assert.equal(choice.delegation_id, "DLG-P");
+  assert.equal(choice.user_words, "scelta di Antonio per delega DLG-P");
+  assert.deepEqual(normalizeCodeReviewDecision(choice), choice);
+  assert.equal(codeReviewRequirement(ctx, profile(choice)).source, "delegation");
+  assert.throws(() => codeReviewChoiceFromOptions(ctx, { "code-review": "required" }, "pull_request", { delegated }), /already gives the person's answer/u);
+  // A delegation without a code review answer leaves the usual question.
+  assert.throws(() => codeReviewChoiceFromOptions(ctx, {}, "pull_request", { delegated: { ...delegated, policy: { merge: "automatic" } } }), /needs the user's answer/u);
+});
