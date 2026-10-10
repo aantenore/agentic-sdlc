@@ -19,6 +19,8 @@ import {
   process,
 } from "../lib/runtime/host.mjs";
 import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
+import { registerCurrentRun } from "../lib/runtime/run-registry.mjs";
+import { runsList, runsStop } from "../lib/cli/runs-commands.mjs";
 import { syncProjectForStatus } from "../lib/engine/status-sync.mjs";
 import { assertPluginSatisfiesProject } from "../lib/engine/plugin-compatibility.mjs";
 import {
@@ -142,7 +144,7 @@ import {
   messageSetup,
   messageStatus,
 } from "../lib/messaging/commands.mjs";
-import { alertFor, readsMessagesBefore, sendAutoAlert, showNewMessages } from "../lib/messaging/auto.mjs";
+import { alertFor, readsMessagesBefore, recordRunOutcome, sendAutoAlert, showNewMessages } from "../lib/messaging/auto.mjs";
 import { createPortfolioRuntime } from "../lib/change-observatory/portfolio-runtime.mjs";
 import {
   launchDedicatedObservatory,
@@ -1166,7 +1168,9 @@ async function sendRunAlert() {
     if (!action || !root) return;
     const blockers = Array.isArray(result?.human_blockers) ? result.human_blockers : result?.errors;
     const alert = alertFor(action, options, { error, exitCode: process.exitCode, blockers, result, extra });
-    if (alert) await sendAutoAlert(root, alert, { stderr: (text) => process.stderr.write(text) });
+    const sent = alert ? await sendAutoAlert(root, alert, { stderr: (text) => process.stderr.write(text) }) : null;
+    const failed = Boolean(error) || (Number(process.exitCode) || 0) !== 0;
+    recordRunOutcome(root, { action, failed, error: error?.message, alerted: sent?.sent === true || sent?.skipped === "repeat" });
   } catch {
     // Automatic messages are best effort.
   }
@@ -1212,6 +1216,8 @@ function buildCliRuntimeHandlerRegistry() {
     "message.send": bootstrap(({ options }) => messageSend(options)),
     "message.read": bootstrap(({ options }) => messageRead(options)),
     "message.listen": bootstrap(({ options }) => messageListen(options)),
+    "runs.list": bootstrap(({ options }) => runsList(options)),
+    "runs.stop": bootstrap(({ options }) => runsStop(options)),
     "portfolio.status": bootstrap(runPortfolioStatusFromCli),
     "config.status": preConfig(({ context, options }) => showConfigStatus(context, options)),
     "config.migrate": preConfig(({ context, options }) => migrateProjectConfig(context, options)),
@@ -1461,6 +1467,12 @@ async function main() {
       AUTO_MESSAGING.action = resolution.canonical_action;
       AUTO_MESSAGING.options = parsed.options;
       AUTO_MESSAGING.root = path.resolve(String(parsed.options.root || process.cwd()));
+      try {
+        // Registers the run and stops it after its time limit; never fails the command.
+        registerCurrentRun({ action: resolution.canonical_action, argv: rawArgs, root: AUTO_MESSAGING.root });
+      } catch {
+        // best effort
+      }
     }
     const registry = buildCliRuntimeHandlerRegistry();
     const invocation = {

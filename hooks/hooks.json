@@ -1,5 +1,5 @@
 {
-  "description": "Agentic SDLC guard: only the user approves a standing approval, standing-approval records and their shared refs stay out of direct edits, and each session starts with the project's standing approvals, and questions from other computers reach the agent while it works.",
+  "description": "Agentic SDLC guard: only the user approves a standing approval, standing-approval records and their shared refs stay out of direct edits, and each session starts with the project's standing approvals, and questions from other computers reach the agent while it works, and plugin commands left running past their time limit are stopped when a turn or session ends.",
   "hooks": {
     "SessionStart": [
       {
@@ -45,6 +45,30 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/agentic-sdlc-guard.mjs\" user-prompt-submit",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/agentic-sdlc-guard.mjs\" stop",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/agentic-sdlc-guard.mjs\" session-end",
+            "timeout": 15
           }
         ]
       }

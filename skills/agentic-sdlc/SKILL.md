@@ -957,6 +957,21 @@ The dedicated assessment journey remains the exception described above: it packa
    skip or bypass a check. Notes may report that another computer runs a newer
    plugin version: tell the user.
 
+   **Problems first, together.** When a command fails, a gate is blocked or a
+   wait goes past about 10 minutes, share the problem on the topic straight away
+   with `message send --kind question` (command, exact error, story, what you
+   already tried) and ask for help; failed gates and time limits are already sent
+   as `[auto]` questions. A request for help takes precedence over your own work:
+   answer with a concrete proposal or with "I don't know". Solve open problems
+   before starting new stories.
+
+   **No processes left behind.** Never leave unbounded background loops,
+   listeners or waits: give every one a deadline (`message listen --timeout`,
+   `--limit`). Plugin commands stop themselves after
+   `AGENTIC_SDLC_MAX_RUN_MINUTES` (default 30) and `message listen` after
+   `AGENTIC_SDLC_LISTEN_MAX_HOURS` (default 8); `agentic-sdlc runs list` and
+   `runs stop` show and stop the ones still running.
+
    When the project has a git remote, the claim is first recorded on it
    (`refs/agentic-sdlc/claims/`), so every computer working on the project sees
    it; `orchestrate status` lists stories claimed on other computers as

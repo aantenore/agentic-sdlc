@@ -121,12 +121,21 @@ async function sessionStart(payload) {
   if (context) process.stdout.write(`${context}\n`);
 }
 
+/** Stops this repository's plugin commands that outlived their time limit. Silent, never blocks. */
+async function reapRuns(payload) {
+  const { findGitCommonDir, reapStaleRuns, reapUnregisteredProcesses } = await import("../lib/runtime/run-registry.mjs");
+  const commonDir = findGitCommonDir(payload.cwd || process.cwd());
+  if (commonDir) reapStaleRuns(commonDir);
+  reapUnregisteredProcesses(commonDir);
+}
+
 try {
   const event = process.argv[2];
   const payload = readPayload();
   if (event === "pre-tool-use") preToolUse(payload);
   else if (event === "session-start") await sessionStart(payload);
   else if (event === "post-tool-use") await coordinationMessages(payload, "PostToolUse");
+  else if (event === "stop" || event === "session-end") await reapRuns(payload);
   else if (event === "user-prompt-submit") await coordinationMessages(payload, "UserPromptSubmit");
 } catch {
   process.exitCode = 0;

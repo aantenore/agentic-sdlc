@@ -262,14 +262,14 @@ test("the hook never acts in a project that does not use agentic-sdlc", () => {
 test("one hooks.json fits both hosts: plain command handlers, a known blocking signal, the shared root variable", () => {
   const hooks = JSON.parse(fs.readFileSync(path.join(ROOT, "hooks", "hooks.json"), "utf8"));
   assert.deepEqual(Object.keys(hooks).sort(), ["description", "hooks"]);
-  assert.deepEqual(Object.keys(hooks.hooks).sort(), ["PostToolUse", "PreToolUse", "SessionStart", "UserPromptSubmit"]);
+  assert.deepEqual(Object.keys(hooks.hooks).sort(), ["PostToolUse", "PreToolUse", "SessionEnd", "SessionStart", "Stop", "UserPromptSubmit"]);
   for (const groups of Object.values(hooks.hooks)) {
     for (const group of groups) {
       assert.deepEqual(Object.keys(group).sort(), ["hooks", "matcher"]);
       for (const handler of group.hooks) {
         assert.deepEqual(Object.keys(handler).sort(), ["command", "timeout", "type"]);
         assert.equal(handler.type, "command");
-        assert.match(handler.command, /^node "\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\/agentic-sdlc-guard\.mjs" (?:pre-tool-use|session-start|post-tool-use|user-prompt-submit)$/u);
+        assert.match(handler.command, /^node "\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\/agentic-sdlc-guard\.mjs" (?:pre-tool-use|session-start|post-tool-use|user-prompt-submit|stop|session-end)$/u);
       }
     }
   }

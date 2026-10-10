@@ -1729,6 +1729,19 @@ cause, never waits at a credential prompt, and a command running longer than
 5s says on stderr that it is still working (`AGENTIC_SDLC_PROGRESS=off`
 silences it; stdout and `--json` output are unchanged).
 
+No plugin process runs for hours. Each command records itself in
+`<git-common-dir>/agentic-sdlc/runs/<pid>.json` while it runs and stops itself
+after `AGENTIC_SDLC_MAX_RUN_MINUTES` (default 30, `0` for none) with a non-zero
+exit code; `message listen` stops after `AGENTIC_SDLC_LISTEN_MAX_HOURS`
+(default 8). Every command, and the host hook when a turn or session ends,
+stops this user's plugin commands that outlived their limit by 5 minutes
+(including ones started by older plugin versions), after checking that the
+process is still an agentic-sdlc command; the Change Observatory is never
+stopped. `runs list` shows the running commands with their age; `runs stop`
+stops the stale ones, or those chosen with `--older-than <minutes>` or
+`--pid <pid>`. On Windows command lines cannot be checked, so only an explicit
+`runs stop` stops a process.
+
 The default native fallback handles an unavailable or unsupported RTK provider
 without claiming savings. Unknown commands, mutations, unsafe Git output flags,
 external `rg` preprocessors, and executable paths are rejected rather than

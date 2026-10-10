@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.71.0 Works
+# How Agentic SDLC 0.72.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -198,7 +198,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.71.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.72.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -1206,6 +1206,18 @@ Common fail-closed cases include:
 - a hard metric has no fresh, cumulative, trusted exact measurement;
 - a visual artifact lacks separate render evidence;
 - release lineage is incomplete or a rollback target does not match the source revision.
+
+### No process left running
+
+Each plugin command records itself under `<git-common-dir>/agentic-sdlc/runs/`
+and stops itself after `AGENTIC_SDLC_MAX_RUN_MINUTES` (default 30, `0` for
+none); `message listen` after `AGENTIC_SDLC_LISTEN_MAX_HOURS` (default 8).
+Every command, and the host hook at the end of a turn or session, stops this
+user's plugin commands that outlived their limit, also those started by older
+plugin versions, after checking the process is still an agentic-sdlc command.
+The Change Observatory is never stopped. `agentic-sdlc runs list` and
+`agentic-sdlc runs stop [--older-than <minutes>] [--pid <pid>]` do the same by
+hand.
 
 ## 8. Active-Release Migration
 

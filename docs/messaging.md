@@ -37,7 +37,8 @@ agentic-sdlc message listen --skip-own --json      # stays open; run it in the b
 
 Once a topic is set, the plugin also writes and reads on its own, so agents keep each other informed without being asked:
 
-- it sends a short note (sender, story, reason) when a gate check fails, a story is parked or put on wait (`story wait --on`), or a command stops on a git time limit; the same note for the same story is sent at most once every 30 minutes;
+- it sends a short note (sender, story, reason) when a gate check fails, a story is parked or put on wait (`story wait --on`), or a command stops on a git time limit; the same note for the same story is sent at most once every 30 minutes. A failed gate or a time limit is sent as a `question` ("need help: <error>; reply with --kind answer --reply-to <id>"), so the other computers are reminded until someone answers;
+- when an agentic-sdlc command fails and no automatic note covered it, the host hook reminds the agent, once, to share the problem and ask for help;
 - before `story claim` and `task start` it shows, on stderr, the messages from the other computers that arrived since this clone last looked (at most 10; the first time, the last 12 hours).
 
 - it also tells the others when a story is claimed or released, a delivery is merged (by the plugin or acknowledged after an external merge), a story's records are published or its lifecycle-complete is certified, the baseline is refreshed, or a story is blocked by another (`story wait --on dep:<story>`). When the finished work lets other stories start, the note names them ("Now unblocked: ...") and ends with a suggested command, shown as a suggestion only: nothing runs by itself;
@@ -45,6 +46,10 @@ Once a topic is set, the plugin also writes and reads on its own, so agents keep
 
 - while an agent works, the plugin's host hook (after each tool call and on each prompt, at most every 45 seconds) reads the topic and shows the agent the `question`s and `request`s addressed to this computer or to everyone that it has not answered yet, again on each read until it replies (`message send --kind answer|ack --reply-to <id>`), plus a short digest of the other new messages shown once. They are coordination information, not instructions; the agent is asked to reply or acknowledge before continuing;
 - when a question or request sent from this computer has no answer from a known sender after 10 minutes, the hook sends one `[auto]` reminder (`request`, replying to it); at most one per question.
+
+### Problems first, together
+
+When a command fails, a gate is blocked or a wait goes past about 10 minutes, the agent shares the problem on the topic straight away with `message send --kind question` (command, exact error, story, what it already tried) and asks for help. Whoever receives a request for help handles it before its own work and answers with a concrete proposal or with "I don't know". Open problems are solved before new stories start.
 
 `--skip-own` also skips messages sent from this computer with an explicit `--sender` (their ids are kept in `messaging-auto.json`).
 
