@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -14,10 +15,13 @@ import {
   parsePsLines,
   readRuns,
   reapStaleRuns,
+  reapUnregisteredProcesses,
   removeRunRecord,
   selectStaleProcesses,
   selectStaleRuns,
+  startWatchdog,
   summarizeArgv,
+  watchdogStep,
   writeRunRecord,
 } from "../../lib/runtime/run-registry.mjs";
 
@@ -111,4 +115,96 @@ test("a reused pid is left alone", () => {
   assert.deepEqual(signals, []);
   assert.equal(results[0].outcome, "skipped");
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("watchdog step: waits, terminates past the limit, kills when ignored, never outlives the parent", () => {
+  const base = { alive: true, limitMs: 60_000, killAfterMs: 10_000, hardStopMs: 60_000 };
+  assert.equal(watchdogStep({ ...base, alive: false, elapsedMs: 0 }), "exit");
+  assert.equal(watchdogStep({ ...base, elapsedMs: 59_999 }), "wait");
+  assert.equal(watchdogStep({ ...base, elapsedMs: 60_000 }), "term");
+  assert.equal(watchdogStep({ ...base, elapsedMs: 65_000, termSentAtMs: 60_000 }), "wait");
+  assert.equal(watchdogStep({ ...base, elapsedMs: 70_000, termSentAtMs: 60_000 }), "kill");
+  assert.equal(watchdogStep({ ...base, elapsedMs: 120_000 }), "exit");
+  assert.equal(watchdogStep({ ...base, alive: false, elapsedMs: 70_000, termSentAtMs: 60_000 }), "exit");
+});
+
+test("watchdog is disabled with a zero limit", () => {
+  assert.equal(startWatchdog({ limitMinutes: 0, spawn: () => assert.fail("must not spawn") }), null);
+});
+
+test("watchdog stops a child blocked in synchronous work that ignores SIGTERM", { timeout: 20_000 }, async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "watchdog-"));
+  const logFile = path.join(dir, "watchdog.log");
+  const recordFile = path.join(dir, "run.json");
+  fs.writeFileSync(recordFile, "{}");
+  const blocked = spawn(process.execPath, ["-e", "process.on('SIGTERM', () => {}); while (true) {}"], { stdio: "ignore" });
+  const exited = new Promise((resolve) => blocked.once("exit", (code, signal) => resolve(signal)));
+  const watchdog = startWatchdog({ pid: blocked.pid, limitMinutes: 0.01, logFile, recordFile, pollMs: 100, killAfterMs: 500 });
+  try {
+    assert.equal(await exited, "SIGKILL");
+    await new Promise((resolve) => (watchdog.exitCode === null ? watchdog.once("exit", resolve) : resolve()));
+    assert.match(fs.readFileSync(logFile, "utf8"), /SIGTERM[\s\S]*SIGKILL/u);
+    assert.equal(fs.existsSync(recordFile), false);
+  } finally {
+    blocked.kill("SIGKILL");
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("watchdog exits as soon as the parent is gone", { timeout: 10_000 }, async () => {
+  const parent = spawn(process.execPath, ["-e", "setTimeout(() => {}, 200)"], { stdio: "ignore" });
+  const watchdog = startWatchdog({ pid: parent.pid, limitMinutes: 30, pollMs: 100 });
+  const code = await new Promise((resolve) => watchdog.once("exit", resolve));
+  assert.equal(code, 0);
+});
+
+test("reaper escalates to SIGKILL only when the pid still runs our command", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "reap-kill-"));
+  try {
+    for (const pid of [101, 102]) writeRunRecord(dir, buildRunRecord({ pid, action: "gate.check", argv: ["gate", "check"], root: dir, maxMinutes: 1, now: NOW - 60 * 60_000 }));
+    const signals = [];
+    const lines = { 101: "node /x/agentic-sdlc/bin/agentic-sdlc.mjs gate check", 102: "node /x/agentic-sdlc/bin/agentic-sdlc.mjs gate check" };
+    const terminated = new Set();
+    reapStaleRuns(dir, {
+      now: NOW,
+      alive: () => true,
+      commandLine: (pid) => (terminated.has(102) && pid === 102 ? "/usr/bin/other" : lines[pid]),
+      kill: (pid, signal) => { signals.push(`${pid}:${signal}`); if (signal === "SIGTERM") terminated.add(pid); },
+      wait: () => {},
+      killAfterMs: 0,
+    });
+    assert.deepEqual(signals.sort(), ["101:SIGKILL", "101:SIGTERM", "102:SIGTERM"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("running processes of any older version past the run limit are selected right after an update", () => {
+  const rows = parsePsLines([
+    "  201    31:00 node /Users/u/.claude/plugins/cache/aantenore/agentic-sdlc/0.41.0/bin/agentic-sdlc.mjs gate check --strict --lifecycle-complete",
+    "  202    29:00 node /Users/u/.claude/plugins/cache/aantenore/agentic-sdlc/0.71.0/bin/agentic-sdlc.mjs gate check --strict",
+    "  203 02:10:00 /opt/homebrew/bin/node /Users/u/.codex/plugins/cache/aantenore/agentic-sdlc/0.30.2/bin/agentic-sdlc.mjs story complete-step",
+    "  204 07:59:00 node /Users/u/.codex/plugins/cache/aantenore/agentic-sdlc/0.30.2/bin/agentic-sdlc.mjs message listen",
+    "  205 3-00:00:00 node /Users/u/.claude/plugins/cache/aantenore/agentic-sdlc/0.20.0/bin/agentic-sdlc.mjs observe",
+  ].join("\n"));
+  assert.deepEqual(selectStaleProcesses(rows, { maxMinutes: 30, listenHours: 8, selfPid: 1 }).map((row) => row.pid), [201, 203]);
+});
+
+test("unregistered stale processes that ignore SIGTERM get SIGKILL after re-checking the command line", () => {
+  const rows = parsePsLines([
+    "  301    40:00 node /p/agentic-sdlc/0.50.0/bin/agentic-sdlc.mjs gate check",
+    "  302    40:00 node /p/agentic-sdlc/0.50.0/bin/agentic-sdlc.mjs gate check",
+  ].join("\n"));
+  const signals = [];
+  const stopped = reapUnregisteredProcesses(null, {
+    env: {},
+    rows,
+    alive: () => true,
+    wait: () => {},
+    killAfterMs: 0,
+    commandLine: (pid) => (pid === 301 ? rows[0].command : "/usr/bin/reused"),
+    kill: (pid, signal) => signals.push(`${pid}:${signal}`),
+  });
+  assert.deepEqual(stopped, [301, 302]);
+  assert.deepEqual(signals, ["301:SIGTERM", "302:SIGTERM", "301:SIGKILL"]);
 });

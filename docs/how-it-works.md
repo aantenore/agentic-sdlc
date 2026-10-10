@@ -1219,6 +1219,17 @@ The Change Observatory is never stopped. `agentic-sdlc runs list` and
 `agentic-sdlc runs stop [--older-than <minutes>] [--pid <pid>]` do the same by
 hand.
 
+A command whose main thread is stuck in long synchronous work cannot run its
+own timer or signal handlers, so each registered command (not the Change
+Observatory) also starts a small detached watchdog process. It checks every
+5 seconds, exits as soon as the command ends, and once the limit is exceeded
+writes a line to `runs/watchdog.log`, sends SIGTERM and, 10 seconds later,
+SIGKILL (on Windows the process is terminated directly). It never stays alive
+more than one minute past the limit; a limit of `0` disables it.
+The first command or hook after a plugin update also stops this user's
+already-running plugin commands of any version that are past the limit
+(SIGTERM, then SIGKILL after 10 seconds if the command line still matches).
+
 Heavy commands also run one at a time. Gate check, story complete-step,
 workflow instance start/transition, autonomy delivery
 action/propose/approve/evidence supersede, task start, story claim/release,
