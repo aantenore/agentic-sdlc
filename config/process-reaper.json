@@ -1,0 +1,21 @@
+{
+  "schema_version": "agentic-sdlc.process-reaper-defaults.v1",
+  "principle": "Defaults of `agentic-sdlc processes reap`. A project extends or overrides them in .sdlc/config.json under host_policy.process_reaper; AGENTIC_SDLC_REAP_EXCLUDE adds exclusions. Patterns are case-insensitive regular expressions matched against the whole command line.",
+  "older_than_minutes": 10,
+  "kill_after_seconds": 5,
+  "warning_throttle_minutes": 5,
+  "include_patterns": [
+    "agentic-sdlc\\.mjs",
+    "vitest",
+    "node --test",
+    "npm (run|test|ci)",
+    "next (build|dev|start)",
+    "until git",
+    "sleep [0-9]"
+  ],
+  "exclude_patterns": [
+    "(^|\\s)observe(\\s|$)",
+    "message\\s+listen",
+    "agentic-sdlc(\\.mjs)?\"?\\s+(--\\S+\\s+\\S+\\s+)*run(\\s|$)"
+  ]
+}

@@ -15,6 +15,7 @@ import {
   orchestratorEditWarning,
   orchestratorSessionContext,
   strictMainThreadVerdict,
+  PROCESS_HYGIENE_INSTRUCTION,
   STORY_LABEL_INSTRUCTION,
   sessionStartContext,
 } from "../../lib/host-hooks/guard.mjs";
@@ -611,10 +612,12 @@ test("the hook adds the orchestrator context and warning without blocking", () =
     fs.mkdirSync(path.join(project, ".sdlc"));
     const run = (event, payload) => spawnSync(process.execPath, [HOOK, event], { input: JSON.stringify({ cwd: project, ...payload }), encoding: "utf8" });
     const edit = { tool_name: "Edit", tool_input: { file_path: path.join(project, "a.js") } };
-    assert.equal(run("session-start", {}).stdout.trim(), STORY_LABEL_INSTRUCTION);
+    assert.equal(run("session-start", {}).stdout.trim(), `${STORY_LABEL_INSTRUCTION}\n${PROCESS_HYGIENE_INSTRUCTION}`);
+    assert.match(PROCESS_HYGIENE_INSTRUCTION, /agentic-sdlc run --timeout .*nohup.*processes reap/u);
     assert.equal(run("pre-tool-use", edit).stdout, "");
     fs.writeFileSync(path.join(project, ".sdlc", "config.json"), JSON.stringify({ host_policy: { main_thread: "orchestrator" } }));
     assert.match(run("session-start", {}).stdout, /only coordinates/u);
+    assert.match(run("session-start", {}).stdout, /processes reap/u);
     const main = run("pre-tool-use", edit);
     assert.equal(main.status, 0);
     assert.match(JSON.parse(main.stdout).hookSpecificOutput.additionalContext, /main thread/u);

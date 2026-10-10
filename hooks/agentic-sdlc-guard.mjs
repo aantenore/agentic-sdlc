@@ -17,6 +17,7 @@ import {
   mainThreadMode,
   orchestratorEditWarning,
   orchestratorSessionContext,
+  PROCESS_HYGIENE_INSTRUCTION,
   STORY_LABEL_INSTRUCTION,
   sessionStartContext,
   strictMainThreadVerdict,
@@ -82,12 +83,12 @@ function insideGovernedProject(start) {
  * Puts unanswered coordination questions and a digest of new messages in
  * front of the agent (after a tool call or on a prompt). Never blocks.
  */
-async function coordinationMessages(payload, hookEventName) {
+async function coordinationMessages(payload, hookEventName, extraContext = async () => "") {
   const root = governedRoot(payload.cwd);
   if (!root) return;
   // Loaded here so a problem with it never disables the edit guard.
   const { checkAttention } = await import("../lib/messaging/attention.mjs");
-  const context = await checkAttention(root);
+  const context = [await checkAttention(root), await extraContext(root)].filter(Boolean).join("\n");
   try {
     const { checkPresence } = await import("../lib/messaging/presence.mjs");
     await checkPresence(root);
@@ -95,6 +96,17 @@ async function coordinationMessages(payload, hookEventName) {
     // best effort
   }
   if (context) process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName, additionalContext: context } })}\n`);
+}
+
+/** The process warning left at Stop and not yet shown, once, with the next prompt. */
+async function pendingProcessWarning(root) {
+  try {
+    const { takePendingReapWarning } = await import("../lib/host-hooks/process-hygiene.mjs");
+    const { findGitCommonDir } = await import("../lib/runtime/run-registry.mjs");
+    return takePendingReapWarning(root, { commonDir: findGitCommonDir(root) });
+  } catch {
+    return "";
+  }
 }
 
 function preToolUse(payload) {
@@ -168,6 +180,7 @@ async function sessionStart(payload) {
   const orchestrator = orchestratorSessionContext(projectMainThreadMode(governedRoot(root) ?? root));
   if (orchestrator) process.stdout.write(`${orchestrator}\n`);
   else if (governedRoot(root)) process.stdout.write(`${STORY_LABEL_INSTRUCTION}\n`);
+  if (orchestrator || governedRoot(root)) process.stdout.write(`${PROCESS_HYGIENE_INSTRUCTION}\n`);
   const standingRoot = path.join(root, ".sdlc", "autonomy", "standing");
   let entries = [];
   try {
@@ -206,8 +219,12 @@ async function keepGoing(payload) {
   if (!root) return;
   const { keepGoingStop } = await import("../lib/host-hooks/keep-going.mjs");
   const { findGitCommonDir } = await import("../lib/runtime/run-registry.mjs");
-  const output = await keepGoingStop(root, payload, { commonDir: findGitCommonDir(root) });
-  if (output) process.stdout.write(`${JSON.stringify(output)}\n`);
+  const commonDir = findGitCommonDir(root);
+  const output = await keepGoingStop(root, payload, { commonDir });
+  const { processHygieneAtStop } = await import("../lib/host-hooks/process-hygiene.mjs");
+  const { message } = await processHygieneAtStop(root, { commonDir, pluginRoot: PLUGIN_ROOT });
+  const merged = message ? { ...output, systemMessage: [output?.systemMessage, message].filter(Boolean).join("\n") } : output;
+  if (merged) process.stdout.write(`${JSON.stringify(merged)}\n`);
 }
 
 try {
@@ -224,7 +241,7 @@ try {
       await keepGoing(payload);
     }
   } else if (event === "session-end") await reapRuns(payload);
-  else if (event === "user-prompt-submit") await coordinationMessages(payload, "UserPromptSubmit");
+  else if (event === "user-prompt-submit") await coordinationMessages(payload, "UserPromptSubmit", pendingProcessWarning);
 } catch {
   process.exitCode = 0;
 }

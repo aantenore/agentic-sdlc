@@ -212,6 +212,19 @@
             "orchestrator",
             "strict"
           ]
+        },
+        "process_reaper": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "older_than_minutes": { "type": "number", "exclusiveMinimum": 0 },
+            "reap_on_stop": { "type": "boolean" },
+            "use_default_patterns": { "type": "boolean" },
+            "include_patterns": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "exclude_patterns": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "scope_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

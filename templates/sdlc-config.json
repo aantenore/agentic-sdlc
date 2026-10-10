@@ -1750,7 +1750,15 @@
   },
   "host_policy": {
     "principle": "main_thread is free (the default: the main conversation thread may do any work), orchestrator (the main thread only coordinates: it reads messages, decides, and reviews results, while reasoning work goes to background subagents and mechanical work to controlled background processes). The session start shows the instruction and an edit made from the main thread gets a warning; nothing is blocked) or strict (as orchestrator, but enforced: Edit, Write, NotebookEdit and foreground Bash outside a read-only allowlist are denied on the main thread). The environment variable AGENTIC_SDLC_MAIN_THREAD (free|orchestrator|strict) overrides this value; AGENTIC_SDLC_MAIN_THREAD_ALLOW adds allowlist regexes (newline or ;; separated).",
-    "main_thread": "free"
+    "main_thread": "free",
+    "process_reaper": {
+      "principle": "Settings of `agentic-sdlc processes reap`, which stops this user's development processes (tests, builds, dev servers, plugin commands) left running too long in this project, its git worktrees or the plugin cache. older_than_minutes is the limit (default 10). include_patterns and exclude_patterns are case-insensitive regular expressions matched against the command line and extend the built-in ones (observe, message listen and the run wrapper are always excluded; use_default_patterns false drops the built-in include list); list the servers you keep running, such as a dev server on a fixed port, in exclude_patterns. scope_paths adds folders to the project root, its worktrees and the plugin cache. reap_on_stop true (or AGENTIC_SDLC_REAP_ON_STOP=1) reaps when a turn ends; otherwise the Stop hook only warns once every 5 minutes. AGENTIC_SDLC_REAP_EXCLUDE adds exclusions (newline or ;; separated).",
+      "older_than_minutes": 10,
+      "reap_on_stop": false,
+      "include_patterns": [],
+      "exclude_patterns": [],
+      "scope_paths": []
+    }
   },
   "standing_approval_policy": {
     "principle": "A standing approval is a user-approved, bounded, revocable delegation that lets repeated low-risk deliveries proceed without a confirmation for each one. enabled, max_validity_days, max_deliveries, max_changed_files, max_changed_lines, and expiry_warning_hours are read from this file and a project may change them; they cap what any standing approval may request. What a standing approval may never cover (merge, production, deploy, data migrations, force-push, deletions of tracked files outside its paths) and that it covers only the middle working level are fixed by the CLI and recorded on every standing approval.",

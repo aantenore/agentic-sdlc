@@ -31,6 +31,7 @@ import {
 import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
 import { registerCurrentRun } from "../lib/runtime/run-registry.mjs";
 import { acquireSingleFlight, LOCK_BUSY_EXIT_CODE } from "../lib/runtime/single-flight.mjs";
+import { processesReap, runCommand } from "../lib/cli/process-commands.mjs";
 import { runsList, runsStop } from "../lib/cli/runs-commands.mjs";
 import { nextCommand } from "../lib/cli/next-command.mjs";
 import { storyWorking } from "../lib/host-hooks/working-marker.mjs";
@@ -1275,6 +1276,8 @@ function buildCliRuntimeHandlerRegistry() {
     "message.who": bootstrap(({ options }) => messageWho(options)),
     "message.read": bootstrap(({ options }) => messageRead(options)),
     "message.listen": bootstrap(({ options }) => messageListen(options)),
+    run: bootstrap(({ options, parsed }) => runCommand(options, parsed.passthrough)),
+    "processes.reap": bootstrap(({ options }) => processesReap(options)),
     "runs.list": bootstrap(({ options }) => runsList(options)),
     next: bootstrap(({ options }) => nextCommand(options)),
     "runs.stop": bootstrap(({ options }) => runsStop(options)),
@@ -1493,6 +1496,22 @@ async function runObserveFromCli({ options, rawArgs }) {
   }
 }
 
+/**
+ * `run [options] -- <command...>`: everything after `--` is the command to run,
+ * never parsed as plugin options. Any other command keeps its arguments whole.
+ */
+function splitRunPassthrough(args) {
+  const separator = args.indexOf("--");
+  if (separator < 0) return { head: args, passthrough: null };
+  const head = args.slice(0, separator);
+  try {
+    if (parseArgs(head).positionals[0] === "run") return { head, passthrough: args.slice(separator + 1) };
+  } catch {
+    // an unparsable head is reported by the normal parse below
+  }
+  return { head: args, passthrough: null };
+}
+
 async function main() {
   const rawArgs = process.argv.slice(2);
   const rawJsonRequested = rawBooleanOptionRequested(rawArgs, "json");
@@ -1502,7 +1521,9 @@ async function main() {
     if (!isSupportedNodeRuntime(process.versions.node)) {
       throw new UnsupportedNodeRuntimeError(process.versions.node, rawLocale);
     }
-    parsed = parseArgs(rawArgs);
+    const { head, passthrough } = splitRunPassthrough(rawArgs);
+    parsed = parseArgs(head);
+    if (passthrough) parsed.passthrough = passthrough;
     parsed = applyCliPresetOptions(parsed);
     if (parsed.options.locale !== undefined) humanGuidanceLocale(parsed.options);
     if (parsed.version) {

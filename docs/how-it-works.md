@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.134.0 Works
+# How Agentic SDLC 0.135.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -201,7 +201,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.134.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.135.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -1254,6 +1254,22 @@ plugin versions, after checking the process is still an agentic-sdlc command.
 The Change Observatory is never stopped. `agentic-sdlc runs list` and
 `agentic-sdlc runs stop [--older-than <minutes>] [--pid <pid>]` do the same by
 hand.
+
+Commands that are not the plugin's own (test suites, builds, dev servers)
+are bounded the same way. `agentic-sdlc run --timeout <duration> [--log <file>]
+-- <command>` starts the command in its own process group (Windows: with
+`taskkill /T /F` as the stop) and, at the deadline, stops the whole tree and
+exits 124; otherwise it passes input and output through and returns the
+command's exit code. `agentic-sdlc processes reap [--older-than 10m]
+[--dry-run] [--json]` stops what is left: processes of the current user
+older than the limit, whose command line names the project root, one of its
+worktrees or the plugin cache, that match an include pattern and no exclude
+pattern (`observe`, `message listen` and `run` wrappers are always excluded),
+never itself or its parents. Patterns, limit and extra folders come from
+`config/process-reaper.json` and `host_policy.process_reaper` in
+`.sdlc/config.json`; `AGENTIC_SDLC_REAP_EXCLUDE` adds exclusions. At Stop the
+hook reaps with `AGENTIC_SDLC_REAP_ON_STOP=1`, otherwise it warns at most
+once every 5 minutes when something is over the limit.
 
 A command whose main thread is stuck in long synchronous work cannot run its
 own timer or signal handlers, so each registered command (not the Change
