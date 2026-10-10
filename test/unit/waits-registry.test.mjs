@@ -3,6 +3,7 @@ import { createBareOrigin, createFixtureDir } from "../helpers/test-isolation.mj
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
@@ -67,7 +68,20 @@ test("unanswered own question: after 10 minutes the rule suggests deciding and r
   assert.deepEqual(deriveQuestionWaits({ messages: [...messages, { id: "a", from: "pc2", host: "pc2", kind: "answer", reply_to: "q1", time: at(1) }], names, now: NOW, policy }).map((item) => item.id), ["q:q2"]);
 });
 
-test("freeze: explicit --kind freeze and the text form; it suspends publish-records and expires", () => {
+test("freezes disabled by default: no freeze wait, send refused", async () => {
+  assert.equal(policy.freezes_enabled, false);
+  const messages = [{ id: "f1", from: "pc2", kind: "freeze", until: "2026-10-10T12:30:00Z", text: "release", time: at(5) }];
+  assert.deepEqual(deriveFreezeWaits({ messages, now: NOW, policy }), []);
+  const { assertFreezesEnabled } = await import("../../lib/messaging/commands.mjs");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "freeze-off-"));
+  assert.throws(() => assertFreezesEnabled(root), /freeze disabilitati per decisione del progetto/u);
+  fs.mkdirSync(path.join(root, ".sdlc"));
+  fs.writeFileSync(path.join(root, ".sdlc", "config.json"), JSON.stringify({ host_policy: { waits: { freezes_enabled: true } } }));
+  assert.doesNotThrow(() => assertFreezesEnabled(root));
+});
+
+test("freeze (enabled by the project): explicit --kind freeze and the text form; it suspends publish-records and expires", () => {
+  const policy = resolveWaitsPolicy({ host_policy: { waits: { freezes_enabled: true } } });
   assert.equal(freezeUntil({ kind: "freeze", until: "2026-10-10T12:30:00Z", time: at(5) }, policy), Date.parse("2026-10-10T12:30:00Z"));
   assert.equal(freezeUntil({ kind: "info", text: "Rilascio: 20 minuti senza merge/push su main", time: at(5) }, policy), NOW + 15 * 60_000);
   assert.equal(freezeUntil({ kind: "info", text: "nessun freeze", time: at(5) }, policy), null);

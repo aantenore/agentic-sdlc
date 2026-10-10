@@ -91,7 +91,7 @@ Who or what a computer (or a story) is waiting for used to live only in the agen
 | dependency graph (`.sdlc/dependencies/graph.json`) | a story waits for a dependency not merged yet | merged: the story is ready, keep-going and `watch` suggest starting it right away |
 | channel questions/requests without an answer | the asker waits, with the age of the question | after `question_decide_after_minutes` (10): for this computer's own question, "decide, announce the decision, proceed"; the decision is recorded with `wait resolve --id q:<message id> --resolution "..."` |
 | `message who` roster | the channel waits for a computer with an old plugin | one automatic update request to that computer, at most once per `plugin_update_request_every_minutes` (60), whoever sent it |
-| channel freezes | everyone waits for the end of the freeze | `message send --kind freeze --until <duration>` carries the end explicitly; an announcement such as "30 minuti senza merge/push su main" is recognised too (`freeze_patterns`). During the freeze keep-going does not ask to publish records; when it ends it suggests resuming the suspended actions |
+| channel freezes (off by default: `host_policy.waits.freezes_enabled`; while off, `message send --kind freeze` is refused and freeze messages are ignored) | everyone waits for the end of the freeze | `message send --kind freeze --until <duration>` carries the end explicitly; an announcement such as "30 minuti senza merge/push su main" is recognised too (`freeze_patterns`). During the freeze keep-going does not ask to publish records; when it ends it suggests resuming the suspended actions |
 | pending human approvals (breakdown, dependency, contract, requirement, autonomy profile...) | this computer waits for a person | one message to the person with the exact command, then the wait is `escalated` and never repeated; keep-going does not block on it |
 | expired approval delegations | same as approvals | same as approvals, with the `autonomy delegation grant` command |
 
@@ -120,7 +120,7 @@ Where the waits show up:
 - the host hook that reads the channel applies the automatic rules (update requests, one message per approval or delegation) and shows each suggestion once; `AGENTIC_SDLC_WAIT_RULES=off` turns the automatic messages off on this computer.
 - Change Observatory: panel "Chi aspetta chi" (Who waits for whom) in the Now panel, with ages and deadlines.
 
-The rules are configured in `.sdlc/config.json` under `host_policy.waits` (defaults in the plugin's `config/waits.json`): `question_decide_after_minutes`, `plugin_update_request_every_minutes`, `freeze_default_minutes`, `explicit_default_until`, `explicit_max_until`, `escalate_approvals`, `escalate_delegations`, `list_limit`, `freeze_patterns`. What has been sent already (escalations, update requests) is remembered per clone in `.git/agentic-sdlc/waits-state.json`.
+The rules are configured in `.sdlc/config.json` under `host_policy.waits` (defaults in the plugin's `config/waits.json`): `question_decide_after_minutes`, `plugin_update_request_every_minutes`, `freezes_enabled`, `freeze_default_minutes`, `explicit_default_until`, `explicit_max_until`, `escalate_approvals`, `escalate_delegations`, `list_limit`, `freeze_patterns`. What has been sent already (escalations, update requests) is remembered per clone in `.git/agentic-sdlc/waits-state.json`.
 
 ## Settings
 

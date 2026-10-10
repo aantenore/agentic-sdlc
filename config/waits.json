@@ -4,6 +4,7 @@
   "question_decide_after_minutes": 10,
   "question_max_age": "2h",
   "plugin_update_request_every_minutes": 60,
+  "freezes_enabled": false,
   "freeze_default_minutes": 30,
   "explicit_default_until": "2h",
   "explicit_max_until": "7d",

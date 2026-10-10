@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 
 import { createProviderRegistry } from "../../lib/delivery/provider-registry.mjs";
 import { createGitHubCliProvider } from "../../lib/delivery/providers/github-cli.mjs";
-import { mergeResultBaseAdvanceAcceptor, pullRequestBaseBehindReason } from "../../lib/engine/delivery.mjs";
+import { mergeResultBaseAdvanceAcceptor, pullRequestBaseBehindReason, recordedRuntimeTargetAccepted } from "../../lib/engine/delivery.mjs";
 import { baselineDriftFromBase, validatePullRequestMergeRuntimeTransition } from "../../lib/engine/common.mjs";
 import { deliveryProviderOperationSubject } from "../../lib/lifecycle/delivery.mjs";
 
@@ -85,7 +85,7 @@ test("PR base behind the local base: records-only and outside write paths accept
   merged = false;
   assert.throws(() => registry.observePrecondition("github-cli", op("2026-07-18T10:00:01.000Z"), {
     acceptPullRequestBaseBehind: () => null,
-  }), /exact open GitHub PR/u);
+  }), /differs from the local base/u);
 });
 
 test("pull_request.create carries an explicit --pr-url into the provider subject", () => {
@@ -135,4 +135,19 @@ test("merge recorded after the base advanced past the proven merge: records/outs
   assert.equal(check(inside).valid, false);
   assert.equal(check(records, {}).valid, false);
   assert.equal(check(f.base0).mode, "base-tracking-stale");
+});
+
+test("stored pull_request.create receipt over an accepted base advance re-validates; inside-scope advance does not", () => {
+  const f = fixture();
+  const target = (baseSha) => ({ branch: "feature/ST-1", head_sha: "c".repeat(40), base_ref: "main", base_sha: baseSha });
+  const accepted = (from, to, outside, action = "pull_request.create") => recordedRuntimeTargetAccepted(
+    f.context, f.profile, action, target(from), target(to), outside,
+  );
+  assert.equal(accepted(f.base0, f.base0, undefined), true);
+  assert.equal(accepted(f.base0, f.base0, ["docs/y.md"]), false);
+  assert.equal(accepted(f.base0, f.records, undefined), true);
+  assert.equal(accepted(f.base0, f.outside, ["docs/y.md", "evidence/ST-2-shot.txt"]), true);
+  assert.equal(accepted(f.base0, f.outside, ["app/x.js"]), false);
+  assert.equal(accepted(f.outside, f.inside, undefined), false);
+  assert.equal(accepted(f.base0, f.records, undefined, "git.push"), false);
 });

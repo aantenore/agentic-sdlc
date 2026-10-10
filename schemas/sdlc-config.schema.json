@@ -219,6 +219,7 @@
             "principle": { "type": "string" },
             "question_decide_after_minutes": { "type": "number", "exclusiveMinimum": 0 },
             "plugin_update_request_every_minutes": { "type": "number", "exclusiveMinimum": 0 },
+            "freezes_enabled": { "type": "boolean" },
             "freeze_default_minutes": { "type": "number", "exclusiveMinimum": 0 },
             "explicit_default_until": { "type": "string", "pattern": "^[0-9]{1,9}[smhdw]?$" },
             "explicit_max_until": { "type": "string", "pattern": "^[0-9]{1,9}[smhdw]?$" },
