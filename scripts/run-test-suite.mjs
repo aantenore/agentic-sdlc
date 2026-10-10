@@ -191,6 +191,8 @@ export async function main({
     expectedFileCount = files.length;
     // Status must not fetch the fixtures' real remotes during a test run.
     env.AGENTIC_SDLC_STATUS_SYNC ??= "off";
+    // Fixtures name the real repository as their remote: finished merges must not publish records to it.
+    env.AGENTIC_SDLC_AUTO_PUBLISH ??= "off";
     testStream = runTests({ concurrency, files });
     testStream.on("test:pass", () => {
       completedTestCount += 1;

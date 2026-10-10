@@ -144,7 +144,7 @@ function autoPublish(project, env = {}) {
     console.log(JSON.stringify(result));
   `;
   const result = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
-    cwd: repoRoot, encoding: "utf8", timeout: 60_000, env: { ...process.env, AGENTIC_SDLC_MESSAGING_AUTO: "off", ...env },
+    cwd: repoRoot, encoding: "utf8", timeout: 60_000, env: { ...process.env, AGENTIC_SDLC_MESSAGING_AUTO: "off", AGENTIC_SDLC_AUTO_PUBLISH: "on", ...env },
   });
   assert.equal(result.status, 0, result.stderr);
   return { ...JSON.parse(result.stdout.trim().split("\n").at(-1)), stderr: result.stderr };
