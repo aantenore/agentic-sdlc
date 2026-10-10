@@ -1,0 +1,257 @@
+{
+  "id": "AUT-ACT-20261010064319424-c23b57",
+  "kind": "delivery_action_receipt",
+  "schema_version": "delivery-action-receipt:v2",
+  "profile_ref": {
+    "id": "AUT-STALE-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-STALE-A.json",
+    "hash": "d0b4ce9061bd784499a78e5c08439a9ef2468b5c82e0a9057e67a9efbad3c335"
+  },
+  "delivery": {
+    "id": "LOCAL-STALE-A",
+    "kind": "local_release"
+  },
+  "action": "build.local",
+  "effective_level": "supervised",
+  "checkpoint_required": true,
+  "approval": null,
+  "runtime_target": null,
+  "action_details": {
+    "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release",
+    "allowed_write_paths": [
+      "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release/app"
+    ],
+    "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release/app",
+    "local_target_build_precondition": {
+      "predecessor_ref": {
+        "source": "delivery_start",
+        "receipt_ref": {
+          "id": "AUT-START-AUT-STALE-A",
+          "path": ".sdlc/autonomy/executions/AUT-STALE-A/start.json",
+          "hash": "bd002a6ea87c963505efb80ae7a4040aed3009faca1bc91964ba459f63e5dd1c"
+        },
+        "snapshot_hash": "69c36cf1f81430f4d39db346496d9cb6cf57eca6a7785805f428b8e157e33033"
+      },
+      "snapshot": {
+        "schema_version": "local-release-target-snapshot:v1",
+        "purpose": "build_authorization",
+        "profile_ref": {
+          "id": "AUT-STALE-A",
+          "hash": "d0b4ce9061bd784499a78e5c08439a9ef2468b5c82e0a9057e67a9efbad3c335"
+        },
+        "workspace_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi",
+        "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release",
+        "allowed_write_paths": [
+          "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release/app"
+        ],
+        "entries": [
+          {
+            "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release",
+            "status": "absent"
+          },
+          {
+            "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release/app",
+            "status": "absent"
+          }
+        ],
+        "observed_at": "2026-10-10T06:43:18.447Z",
+        "snapshot_hash": "14c9db3d873b1a54b1877baa257ca59bf562f024940b222cbb3ff3e504b887bb",
+        "hash_algorithm": "sha256:stable-json:v1"
+      }
+    },
+    "checkpoint_policy": {
+      "schema_version": "delivery-action-checkpoint-policy:v1",
+      "action": "build.local",
+      "delivery_kind": "local_release",
+      "effective_level": "supervised",
+      "profile_ref": {
+        "id": "AUT-STALE-A",
+        "hash": "d0b4ce9061bd784499a78e5c08439a9ef2468b5c82e0a9057e67a9efbad3c335"
+      },
+      "preset_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "policy_source_ref": {
+        "path": ".sdlc/autonomy/policy-sources/fa48db926fcd251fb252f753f44e97687bb97d4b9c97c31f4d90cbaf9e4777e6.json",
+        "hash": "fa48db926fcd251fb252f753f44e97687bb97d4b9c97c31f4d90cbaf9e4777e6",
+        "effective_config_hash": "c1361b73d4df4aa8c9b62b7c193ddd78e4e925aae8c35935c4010af43f3eab6c"
+      },
+      "profile_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "boundary_actions": [
+        "deploy.remote",
+        "pull_request.merge",
+        "rollback.verify"
+      ],
+      "local_boundary_checkpoint": false,
+      "local_boundary_source": {
+        "schema_version": "delivery-local-boundary-source:v1",
+        "target_hash": "be18295a3bb987d72859650a8a13a96cd333396fae6d3fbf5933cfe83d3a40fe",
+        "platform": "darwin",
+        "workspace_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi",
+        "target_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release",
+        "global_roots": [
+          "/Applications",
+          "/Library",
+          "/opt",
+          "/usr"
+        ],
+        "target_outside_workspace": false,
+        "target_machine_global": false,
+        "writes_outside_workspace_require_checkpoint": true,
+        "machine_global_changes_require_checkpoint": true
+      },
+      "local_boundary_source_hash": "37a5956a5cfe54666b5a4be32eacbeee9e959a3f8809eb8877352882f8766378",
+      "required": true,
+      "policy_hash": "a78208d87b2704e938ef4fb1e6da8810ae5c6a90f94b846aec2a6a5e4c037669"
+    },
+    "local_target_build_completion": {
+      "precondition_snapshot_hash": "14c9db3d873b1a54b1877baa257ca59bf562f024940b222cbb3ff3e504b887bb",
+      "snapshot": {
+        "schema_version": "local-release-target-snapshot:v1",
+        "purpose": "build_completion",
+        "profile_ref": {
+          "id": "AUT-STALE-A",
+          "hash": "d0b4ce9061bd784499a78e5c08439a9ef2468b5c82e0a9057e67a9efbad3c335"
+        },
+        "workspace_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi",
+        "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release",
+        "allowed_write_paths": [
+          "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release/app"
+        ],
+        "entries": [
+          {
+            "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release",
+            "status": "directory",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release",
+            "device": "16777232",
+            "inode": "132990293"
+          },
+          {
+            "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release/app",
+            "status": "directory",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release/app",
+            "device": "16777232",
+            "inode": "132990294"
+          }
+        ],
+        "observed_at": "2026-10-10T06:43:19.424Z",
+        "snapshot_hash": "970e9bab707fd0d0d29c6034a64ae95ce50bf29aef4ccc533cd26c2677f54de5",
+        "hash_algorithm": "sha256:stable-json:v1"
+      },
+      "artifact_content": {
+        "schema_version": "local-release-target-content:v1",
+        "paths": [
+          {
+            "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-ZMGgbi/docs/local-release/app",
+            "present": true,
+            "kind": "directory",
+            "file_count": 1,
+            "entry_count": 2,
+            "total_bytes": 14,
+            "tree_hash": "53ad2a80f2a134784829b67116dec61fed10aa23488fe71c540013b6d9cd1acc"
+          }
+        ],
+        "hash_algorithm": "sha256:stable-json:v1",
+        "manifest_hash": "90daf234cb66ca6b070076de56ce76e1077bb800b3680667ed49147c8cb9d625"
+      }
+    }
+  },
+  "authorization_receipt_ref": {
+    "id": "AUT-ACT-20261010064318447-8697ba",
+    "path": ".sdlc/autonomy/actions/AUT-ACT-20261010064318447-8697ba.json",
+    "hash": "b456fefa67c20e9a0d23f7ffa260c426ce3bc1610ed6c354e91dea975f272a3d"
+  },
+  "completion_request": {
+    "schema_version": "delivery-action-completion-request:v1",
+    "profile_ref": {
+      "id": "AUT-STALE-A",
+      "path": ".sdlc/autonomy/deliveries/AUT-STALE-A.json",
+      "hash": "d0b4ce9061bd784499a78e5c08439a9ef2468b5c82e0a9057e67a9efbad3c335"
+    },
+    "action": "build.local",
+    "outcome": "passed",
+    "authorization_receipt_ref": {
+      "id": "AUT-ACT-20261010064318447-8697ba",
+      "path": ".sdlc/autonomy/actions/AUT-ACT-20261010064318447-8697ba.json",
+      "hash": "b456fefa67c20e9a0d23f7ffa260c426ce3bc1610ed6c354e91dea975f272a3d"
+    },
+    "evidence": [
+      {
+        "path": "docs/local-build-stale-a.json",
+        "sha256": "b569af554e2efca4e46975efb9bec22bc6104267587ce139e55b444a243b6c24"
+      }
+    ],
+    "operation_args": {},
+    "request_hash": "37619c7f01fd805c3a1906680c1f9789404c39a3f344b69f70dfd3dda060904f",
+    "hash_algorithm": "sha256:stable-json:v1"
+  },
+  "local_release_verification": null,
+  "evidence": [
+    {
+      "path": "docs/local-build-stale-a.json",
+      "sha256": "b569af554e2efca4e46975efb9bec22bc6104267587ce139e55b444a243b6c24"
+    }
+  ],
+  "outcome": "passed",
+  "status": "completed",
+  "authorized_by": {
+    "id": "codex",
+    "type": "agent",
+    "name": "Codex",
+    "email": null,
+    "source": "default"
+  },
+  "authorized_at": "2026-10-10T06:43:19.424Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-STALE-A",
+      "head_sha": "dbb6e73a9e9dd89ff52ed9dad170624e03a6a405",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.104.0"
+    }
+  },
+  "receipt_hash": "43b2d80cb32ad8433fe5101f9dd565124977b50ec71490eaf30780b4fcf9623f",
+  "hash_algorithm": "sha256:stable-json:v1"
+}
