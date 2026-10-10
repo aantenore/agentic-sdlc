@@ -675,28 +675,39 @@ test("a repository listed in AGENTIC_SDLC_UNGOVERNED_REPOS is left out of the me
   }
 });
 
-test("the base-branch guard applies only to Agentic SDLC projects, unless the project turns it off", async () => {
+test("the base-branch guard applies only to Agentic SDLC projects, unless the remote base turns it off", async () => {
   const { isGuardExempt } = await import("../../lib/host-hooks/merge-authorization.mjs");
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "hook-scope-"));
+  const gitIn = (dir, ...args) => assert.equal(
+    spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main", ...args], { cwd: dir }).status,
+    0,
+    `${dir}: git ${args.join(" ")}`,
+  );
+  const off = JSON.stringify({ host_policy: { guard: { protect_base_branch: false } } });
+  // A clone of a bare remote whose main holds `files`.
+  const repo = (name, files) => {
+    const remote = path.join(base, `${name}.git`);
+    const seed = path.join(base, `${name}-seed`);
+    const work = path.join(base, name);
+    fs.mkdirSync(seed, { recursive: true });
+    gitIn(base, "init", "-q", "--bare", remote);
+    gitIn(seed, "init", "-q", "-b", "main");
+    fs.writeFileSync(path.join(seed, "README"), name);
+    for (const [file, content] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(seed, file)), { recursive: true });
+      fs.writeFileSync(path.join(seed, file), content);
+    }
+    gitIn(seed, "add", "-A");
+    gitIn(seed, "commit", "-q", "-m", "base");
+    gitIn(seed, "push", "-q", remote, "main");
+    gitIn(base, "clone", "-q", remote, work);
+    fs.mkdirSync(path.join(work, "sub"), { recursive: true });
+    return work;
+  };
   try {
-    const plain = path.join(base, "plain");
-    const governed = path.join(base, "governed");
-    const releasing = path.join(base, "releasing");
-    for (const dir of [plain, governed, releasing]) {
-      fs.mkdirSync(path.join(dir, "sub"), { recursive: true });
-      assert.equal(spawnSync("git", ["init", "-q"], { cwd: dir }).status, 0);
-    }
-    for (const dir of [governed, releasing]) {
-      fs.mkdirSync(path.join(dir, ".sdlc"));
-      fs.writeFileSync(path.join(dir, ".sdlc", "project.json"), "{}");
-    }
-    const off = JSON.stringify({ host_policy: { guard: { protect_base_branch: false } } });
-    const gitIn = (dir, ...args) => assert.equal(spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", ...args], { cwd: dir }).status, 0, args.join(" "));
-    // Only the committed base branch can turn the rule off.
-    fs.writeFileSync(path.join(releasing, ".sdlc", "config.json"), off);
-    gitIn(releasing, "checkout", "-q", "-b", "main");
-    gitIn(releasing, "add", "-A");
-    gitIn(releasing, "commit", "-q", "-m", "base");
+    const plain = repo("plain", {});
+    const governed = repo("governed", { ".sdlc/project.json": "{}" });
+    const releasing = repo("releasing", { ".sdlc/project.json": "{}", ".sdlc/config.json": off });
     const options = (cwd) => ({
       env: {},
       isMergeAuthorized: () => false,
@@ -713,33 +724,47 @@ test("the base-branch guard applies only to Agentic SDLC projects, unless the pr
     assert.equal(evaluatePreToolUse(shell(toMain), options(governed))?.decision, "deny");
     assert.equal(evaluatePreToolUse(shell(`git -C ${governed} push origin main`), options(plain))?.decision, "deny");
     assert.equal(evaluatePreToolUse(shell("gh pr merge 12"), options(governed))?.decision, "deny");
-    // host_policy.guard.protect_base_branch = false lifts only the base-branch rule, never the story-push rule.
+    // The remote base with protect_base_branch = false lifts only the base-branch rule, never the story-push rule.
     assert.equal(evaluatePreToolUse(shell(toMain), options(releasing)), null);
     assert.equal(evaluatePreToolUse(shell("git push origin feature/ST-1"), options(releasing))?.decision, "deny");
     assert.equal(isGuardExempt(releasing, { kind: "git push", storyPush: true, branches: ["feature/ST-1"], dirs: [] }), false);
-    assert.equal(isGuardExempt(governed, { kind: "git push to main", direct: true, dirs: [] }), false);
+    assert.equal(isGuardExempt(governed, { kind: "git push to main", direct: true, base: "main", dirs: [] }), false);
     assert.equal(isGuardExempt(path.join(base, "missing"), { kind: "git push to main", direct: true, dirs: [] }), false);
-    // A working-tree or staged config never turns the rule off.
-    fs.writeFileSync(path.join(governed, ".sdlc", "config.json"), off);
-    assert.equal(evaluatePreToolUse(shell(toMain), options(governed))?.decision, "deny");
-    gitIn(governed, "add", "-A");
-    assert.equal(evaluatePreToolUse(shell(toMain), options(governed))?.decision, "deny");
-    // A local edit cannot turn the committed "off" back into a hidden "off" for another base, nor undo governance:
-    // removing project.json from the working tree and the index keeps the repository governed by the base branch.
-    const guarded = path.join(base, "guarded");
-    fs.mkdirSync(path.join(guarded, ".sdlc"), { recursive: true });
-    assert.equal(spawnSync("git", ["init", "-q", "-b", "main"], { cwd: guarded }).status, 0);
-    fs.writeFileSync(path.join(guarded, ".sdlc", "project.json"), "{}");
-    gitIn(guarded, "add", "-A");
-    gitIn(guarded, "commit", "-q", "-m", "base");
-    gitIn(guarded, "checkout", "-q", "-b", "feature/x");
-    gitIn(guarded, "rm", "-q", "-r", ".sdlc");
-    fs.mkdirSync(path.join(guarded, ".sdlc"));
-    fs.writeFileSync(path.join(guarded, ".sdlc", "config.json"), off);
-    assert.equal(evaluatePreToolUse(shell(toMain), options(guarded))?.decision, "deny");
-    // An uncommitted local "on" does not undo the committed "off" either: the base decides.
+    // An uncommitted local "on" does not undo the remote "off": the remote base decides.
     fs.writeFileSync(path.join(releasing, ".sdlc", "config.json"), "{}");
     assert.equal(evaluatePreToolUse(shell(toMain), options(releasing)), null);
+
+    // Working tree, index, and rewritten local refs never turn the rule off.
+    const rewritten = repo("rewritten", { ".sdlc/project.json": "{}" });
+    fs.writeFileSync(path.join(rewritten, ".sdlc", "config.json"), off);
+    assert.equal(evaluatePreToolUse(shell(toMain), options(rewritten))?.decision, "deny");
+    gitIn(rewritten, "add", "-A");
+    assert.equal(evaluatePreToolUse(shell(toMain), options(rewritten))?.decision, "deny");
+    gitIn(rewritten, "commit", "-q", "-m", "off");
+    gitIn(rewritten, "update-ref", "refs/remotes/origin/main", "HEAD");
+    assert.equal(isGuardExempt(rewritten, { kind: "git push to main", direct: true, base: "main", dirs: [] }), false);
+    assert.equal(evaluatePreToolUse(shell(toMain), options(rewritten))?.decision, "deny");
+
+    // Removing project.json from the working tree and the index keeps the repository governed by the remote base.
+    const removed = repo("removed", { ".sdlc/project.json": "{}" });
+    gitIn(removed, "checkout", "-q", "-b", "feature/x");
+    gitIn(removed, "rm", "-q", "-r", ".sdlc");
+    fs.mkdirSync(path.join(removed, ".sdlc"));
+    fs.writeFileSync(path.join(removed, ".sdlc", "config.json"), off);
+    assert.equal(evaluatePreToolUse(shell(toMain), options(removed))?.decision, "deny");
+
+    // A remote that cannot be reached, or no remote at all, exempts nothing.
+    const unreachable = repo("unreachable", { ".sdlc/project.json": "{}", ".sdlc/config.json": off });
+    gitIn(unreachable, "remote", "set-url", "origin", path.join(base, "gone.git"));
+    assert.equal(isGuardExempt(unreachable, { kind: "git push to main", direct: true, base: "main", dirs: [] }), false);
+    assert.equal(evaluatePreToolUse(shell(toMain), options(unreachable))?.decision, "deny");
+    const local = path.join(base, "local");
+    fs.mkdirSync(path.join(local, ".sdlc"), { recursive: true });
+    gitIn(local, "init", "-q", "-b", "main");
+    fs.writeFileSync(path.join(local, ".sdlc", "config.json"), off);
+    gitIn(local, "add", "-A");
+    gitIn(local, "commit", "-q", "-m", "off");
+    assert.equal(isGuardExempt(local, { kind: "git push to main", direct: true, base: "main", dirs: [] }), false);
   } finally {
     fs.rmSync(base, { recursive: true, force: true });
   }
