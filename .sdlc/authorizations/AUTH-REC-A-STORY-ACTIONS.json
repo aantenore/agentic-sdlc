@@ -1,0 +1,80 @@
+{
+  "id": "AUTH-REC-A-STORY-ACTIONS",
+  "kind": "content_authorization",
+  "schema_version": "authorization:v3",
+  "status": "active",
+  "scope": "Approve the exact governed story actions for ST-REC-A.",
+  "summary": "Approve the exact governed story actions for ST-REC-A",
+  "allowed_actions": [
+    "output.link",
+    "story.claim",
+    "story.complete-step"
+  ],
+  "allowed_uses": [
+    {
+      "action": "output.link",
+      "subject_id": "ST-REC-A",
+      "use_hash": "7fdcfda8ba36929f91e8b78842f9b3a040f7584fe920484a21ea8f9c18b029e2"
+    },
+    {
+      "action": "story.claim",
+      "subject_id": "ST-REC-A",
+      "use_hash": "88da14dbf90e4ae4f2550ca0034ec456ac1fd260fc8273a9c22543bad6d87436"
+    },
+    {
+      "action": "story.complete-step",
+      "subject_id": "ST-REC-A",
+      "use_hash": "b1b74f588c8eaf97989afcce770a79d841c5dfec0ee0f8f74681dd51d3e03a12"
+    }
+  ],
+  "allowed_artifact_types": [
+    "implementation-summary"
+  ],
+  "allowed_approval_boundaries": [],
+  "allowed_subjects": [
+    "ST-REC-A"
+  ],
+  "proposal_ref": null,
+  "use_policy": {
+    "replay": "deny_same_action_subject",
+    "max_uses": 12
+  },
+  "authority_assurance": "audit_only",
+  "expires_at": "2026-10-11T04:34:48.281Z",
+  "approval_source": "explicit-user",
+  "approval_evidence": [],
+  "granted_by": {
+    "id": "antonioantenore",
+    "type": "human",
+    "name": "Merged Certification E2E",
+    "email": "merged-certification-e2e@example.invalid",
+    "source": "cli"
+  },
+  "created_at": "2026-10-10T04:34:48.281Z",
+  "updated_at": "2026-10-10T04:34:56.904Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-REC-A",
+      "head_sha": "ebc3276106881e24f31451fb8d3eae93766a7688",
+      "is_dirty": true,
+      "user": {
+        "name": "Merged Certification E2E",
+        "email": "merged-certification-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  },
+  "approved_content_hash": "fa86de25be16e2a1f3f46d08d43104f03281bd274867f48d4b9df53adb6ca8e5",
+  "hash_algorithm": "sha256:stable-json:v2",
+  "use_count": 4
+}

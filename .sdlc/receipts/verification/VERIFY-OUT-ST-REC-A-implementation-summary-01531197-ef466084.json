@@ -1,0 +1,93 @@
+{
+  "achieved_level": "semantic",
+  "artifact": {
+    "format": "markdown",
+    "media_type": "text/markdown",
+    "path": "docs/implementation-summary-rec-a.md",
+    "sha256": "ef466084b6c505a60f7a13f252df1719faf1ac84a364edefad395ce4409da877"
+  },
+  "artifact_present": true,
+  "container_verified": {
+    "checks": [
+      "non-empty file (45 bytes)",
+      "extension .md",
+      "non-binary text content"
+    ],
+    "evidence": [],
+    "reason": null,
+    "status": "verified",
+    "verified_at": "2026-10-10T04:34:50.068Z",
+    "verifier": "file-structure-v1"
+  },
+  "content_verified": {
+    "checks": [
+      "non-empty meaningful text content"
+    ],
+    "evidence": [],
+    "reason": null,
+    "status": "verified",
+    "verified_at": "2026-10-10T04:34:50.068Z",
+    "verifier": "file-structure-v1"
+  },
+  "evidence": [],
+  "existence_verified": {
+    "checks": [
+      "non-empty file (45 bytes)"
+    ],
+    "evidence": [],
+    "reason": null,
+    "status": "verified",
+    "verified_at": "2026-10-10T04:34:50.068Z",
+    "verifier": "file-existence-v1"
+  },
+  "extensions": {
+    "delivery_label": "Markdown document",
+    "delivery_mode": "artifact-plus-chat-summary",
+    "size_bytes": 45
+  },
+  "failed_checks": [],
+  "generator_receipt": null,
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "VERIFY-OUT-ST-REC-A-implementation-summary-01531197-ef466084",
+  "independent_verified": {
+    "checks": [],
+    "evidence": [],
+    "reason": "Independent verification is outside the approved verification level.",
+    "status": "not-required",
+    "verified_at": null,
+    "verifier": null
+  },
+  "kind": "verification_receipt",
+  "limitations": [
+    "Rendered and independent verification were not required by this output contract."
+  ],
+  "missing_checks": [],
+  "passed": true,
+  "receipt_hash": "b414c0bc3d96ead629cd58b5eaf0bc397d15dc8c57222ba9d1b8b9cbcb35e836",
+  "render_verified": {
+    "checks": [],
+    "evidence": [],
+    "reason": "Approved format does not require rendered verification.",
+    "status": "not-required",
+    "verified_at": null,
+    "verifier": "render-evidence-v1"
+  },
+  "required_dimensions": {
+    "container": true,
+    "content": true,
+    "existence": true,
+    "independent": false,
+    "render": false
+  },
+  "required_level": "semantic",
+  "schema_version": "verification-receipt:v1",
+  "status": "passed",
+  "subject_ref": {
+    "hash": "160342fbf18db99471a3fc2b0e28e613927c840d56dc048a73edd1bf6a191fbf",
+    "id": "OUT-ST-REC-A-implementation-summary-01531197",
+    "kind": "output_link"
+  },
+  "verified_at": "2026-10-10T04:34:50.068Z",
+  "verifier": "file-structure-v1",
+  "version": 1
+}

@@ -1,0 +1,28 @@
+{
+  "actor": {
+    "id": "workflow-e2e-ci",
+    "name": null,
+    "type": "ci"
+  },
+  "created_at": "2026-10-10T04:34:44.577Z",
+  "definition_ref": {
+    "definition_hash": "837edd3ec5ce6ef35bdff412fb2c61fa016002ce4f5394a37be702557f7d77f7",
+    "id": "software-project",
+    "version": "3"
+  },
+  "effective_hash": "75b70cf18384e7734847d4c2bcd1dab31e7f73615602377566ddc11cb564148e",
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "delivery-rec-a",
+  "initial_state": "discovery",
+  "instance_hash": "40936a3376d49e037e37fcdf233a0a20dc6eda9eb64f8eacc83de049d5970ed0",
+  "kind": "workflow_instance",
+  "metadata": {
+    "governance_binding": {
+      "final_gate_receipt_path": ".sdlc/gates/ST-REC-A-final.json",
+      "story_id": "ST-REC-A",
+      "strict_gate_receipt_path": ".sdlc/gates/ST-REC-A-strict.json"
+    }
+  },
+  "overlay_ref": null,
+  "schema_version": "workflow-instance:v1"
+}

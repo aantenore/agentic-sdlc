@@ -1,0 +1,14 @@
+{
+  "checkpoint_hash": "d5656e85a622e364c1e15e89de63b08504bd6af02bf1c7587aced65f899dde17",
+  "current_state": "operations",
+  "effective_hash": "75b70cf18384e7734847d4c2bcd1dab31e7f73615602377566ddc11cb564148e",
+  "hash_algorithm": "sha256:stable-json:v1",
+  "instance_hash": "40936a3376d49e037e37fcdf233a0a20dc6eda9eb64f8eacc83de049d5970ed0",
+  "instance_id": "delivery-rec-a",
+  "kind": "workflow_checkpoint",
+  "last_event_hash": "e335f5a475e447190d1a5a001aa46a60060dafc26fc4d20eb2dad692ed82ab3b",
+  "schema_version": "workflow-checkpoint:v1",
+  "sequence": 6,
+  "trace_chain_hash": "2ce5a05fd9f191398bd7c225396ed843c1e6504ebc9abaf2424547dab99d7c16",
+  "updated_at": "2026-10-10T04:35:11.090Z"
+}

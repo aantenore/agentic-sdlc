@@ -1,0 +1,63 @@
+{
+  "id": "STEP-ST-REC-A-analysis-20261010043453192-cc14d3",
+  "story_id": "ST-REC-A",
+  "step": "analysis",
+  "status": "completed",
+  "phase": "analysis",
+  "summary": "analysis completed against the approved boundary",
+  "output_types": [],
+  "output_links": [
+    {
+      "id": "OUT-ST-REC-A-implementation-summary-01531197",
+      "artifact_type": "implementation-summary",
+      "artifact_path": "docs/implementation-summary-rec-a.md",
+      "template_id": "implementation-summary-v1",
+      "mode": "new",
+      "base_artifact": null,
+      "requirements": [
+        "REQ-REC-A"
+      ]
+    }
+  ],
+  "artifacts": [],
+  "evidence": [],
+  "next_step": "design",
+  "completed_at": "2026-10-10T04:34:53.192Z",
+  "authorization_ref": "AUTH-REC-A-STORY-ACTIONS",
+  "authorization_use_ref": ".sdlc/authorization-uses/AUTH-REC-A-STORY-ACTIONS/AUSE-AUTH-REC-A-STORY-ACTIONS-20261010043451089-75d4c7.json",
+  "authorization_action": "story.complete-step",
+  "checkpoint_profile_ref": {
+    "id": "AUT-REC-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-REC-A.json",
+    "hash": "707ea108f3223d6cb9ca4aded4a8fc3cf306164af8d186ab450051f78cecd2f5"
+  },
+  "audit": {
+    "completed_by": {
+      "id": "codex",
+      "type": "agent",
+      "name": "Codex",
+      "email": null,
+      "source": "default"
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-REC-A",
+      "head_sha": "ebc3276106881e24f31451fb8d3eae93766a7688",
+      "is_dirty": true,
+      "user": {
+        "name": "Merged Certification E2E",
+        "email": "merged-certification-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  }
+}

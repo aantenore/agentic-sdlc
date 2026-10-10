@@ -1,0 +1,226 @@
+{
+  "approval_ref": {
+    "hash": "835475ae3eed73b5761b4d7e7291033db2d793b2f38b9f3836ef5cf7ffe79508",
+    "id": "AUT-APR-20261010043443559-fcb5d4",
+    "path": ".sdlc/autonomy/approvals/AUT-APR-20261010043443559-fcb5d4.json"
+  },
+  "authority_assurance": {
+    "mode": "audit_only",
+    "receipt_ref": null,
+    "source": "declared_cli_attribution",
+    "verified": false
+  },
+  "checkpoints": [
+    "contract.approve",
+    "data.migrate",
+    "data.rollback",
+    "deploy.remote",
+    "output.link",
+    "pull_request.merge",
+    "release.local",
+    "rollback.verify",
+    "story.claim",
+    "story.complete-step",
+    "sync.commit",
+    "sync.pr",
+    "sync.push",
+    "task.start.confirm"
+  ],
+  "constraints": {
+    "allowed_capabilities": [
+      "code-review",
+      "knowledge-base",
+      "node",
+      "repo-read",
+      "repo-write",
+      "test-runner"
+    ],
+    "allowed_environments": [
+      "pull_request"
+    ],
+    "allowed_tools": [
+      "code-review",
+      "knowledge-base",
+      "node",
+      "repo-read",
+      "repo-write",
+      "test-runner"
+    ],
+    "allowed_write_paths": [
+      "docs",
+      "src"
+    ],
+    "budget_ref": null,
+    "forbidden_actions": [
+      "budget-extension",
+      "destructive-action",
+      "environment-change",
+      "external-access",
+      "external-publication",
+      "gate-bypass",
+      "global-install",
+      "irreversible-migration",
+      "new-tool-or-capability",
+      "new-write-path",
+      "production-access",
+      "protected-branch-merge",
+      "remote-deploy",
+      "requirement-change",
+      "scope-expansion",
+      "secret-access",
+      "security-privacy-compliance-decision"
+    ]
+  },
+  "contract_refs": [
+    {
+      "hash": "5252e46354c6be367519f58fb6e35c53086c83c84db8fdb315505b101f962794",
+      "id": "CONTRACT-REC-A",
+      "path": ".sdlc/contracts/CONTRACT-REC-A.json"
+    }
+  ],
+  "created_at": "2026-10-10T04:34:42.301Z",
+  "delivery_id": "PR-100148",
+  "delivery_kind": "pull_request",
+  "effective_level": "supervised",
+  "expires_at": null,
+  "extensions": {
+    "approved_profile_hash": "42352b5230823c47a147dd28277d1508f329182b38c0c0913662faabcf8cb42a",
+    "exact_delivery_selection": true,
+    "requirement_ids": [
+      "REQ-REC-A"
+    ]
+  },
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "AUT-REC-A",
+  "kind": "delivery_execution_profile",
+  "local_release_target": null,
+  "material_scope": {
+    "acceptance_criteria": [
+      "Observable evidence exists for REC-A."
+    ],
+    "budget": null,
+    "capabilities": [
+      "code-review",
+      "knowledge-base",
+      "node",
+      "repo-read",
+      "repo-write",
+      "test-runner"
+    ],
+    "environment": [
+      "pull_request"
+    ],
+    "external_or_production_access": {
+      "destructive": false,
+      "external": false,
+      "production": false
+    },
+    "objective": "Implement story-scoped changes on dedicated branches using the approved contract, tests, and knowledge base context.",
+    "release_target": {
+      "allowed_actions": [
+        "pull_request.update",
+        "repository.read",
+        "repository.write",
+        "test.run"
+      ],
+      "base_branch": "main",
+      "code_review": {
+        "actor_id": "user",
+        "decided_at": "2026-10-10T04:34:42.301Z",
+        "decision": "not-required",
+        "source": "explicit-user",
+        "standing_approval_id": null,
+        "user_words": "No review needed for this story"
+      },
+      "head_branch": "codex/ST-REC-A",
+      "merge_allowed": false,
+      "mode": "existing",
+      "pr_number": 100148,
+      "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/100148",
+      "repository": "github.com/aantenore/agentic-sdlc",
+      "reviewed_head_sha": "ebc3276106881e24f31451fb8d3eae93766a7688"
+    },
+    "scope": {
+      "contract_id": "CONTRACT-REC-A",
+      "delivery_id": "PR-100148",
+      "delivery_profile_id": "AUT-REC-A",
+      "requirement_profile_ids": [
+        "AUT-REQ-REC-A-R1"
+      ],
+      "story_id": "ST-REC-A"
+    },
+    "write_paths": [
+      "docs",
+      "src"
+    ]
+  },
+  "material_scope_hash": "842f0cf3cfedb8ed02fd7310da97798db00a5b50370b121c8a4c925aef973577",
+  "phase_levels": {},
+  "profile_hash": "707ea108f3223d6cb9ca4aded4a8fc3cf306164af8d186ab450051f78cecd2f5",
+  "provider_bindings": [
+    {
+      "action": "git.push",
+      "provider_id": "git-remote"
+    },
+    {
+      "action": "pull_request.merge",
+      "provider_id": "github-cli"
+    },
+    {
+      "action": "pull_request.update",
+      "provider_id": "github-cli"
+    }
+  ],
+  "provider_bindings_hash": "7d56af3b8e2ac52c8d507b35a8f5281f3505f8d25a6ec245293ff52c25e40c4d",
+  "pull_request_target": {
+    "allowed_actions": [
+      "pull_request.update",
+      "repository.read",
+      "repository.write",
+      "test.run"
+    ],
+    "base_branch": "main",
+    "code_review": {
+      "actor_id": "user",
+      "decided_at": "2026-10-10T04:34:42.301Z",
+      "decision": "not-required",
+      "source": "explicit-user",
+      "standing_approval_id": null,
+      "user_words": "No review needed for this story"
+    },
+    "head_branch": "codex/ST-REC-A",
+    "merge_allowed": false,
+    "mode": "existing",
+    "pr_number": 100148,
+    "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/100148",
+    "repository": "github.com/aantenore/agentic-sdlc",
+    "reviewed_head_sha": "ebc3276106881e24f31451fb8d3eae93766a7688"
+  },
+  "requested_level": "supervised",
+  "requirement_profile_refs": [
+    {
+      "hash": "577225e3f9bbbad1a90ea73767eff4ecc6bb737b6d404c00f64a7d962874745f",
+      "id": "AUT-REQ-REC-A-R1",
+      "path": ".sdlc/autonomy/requirements/AUT-REQ-REC-A-R1.json"
+    }
+  ],
+  "schema_version": "delivery-execution-profile:v2",
+  "status": "active",
+  "story_refs": [
+    {
+      "hash": "1b2325cf65beac20e682aacac42ced3f3783d56f4316326490c502e78ab2a0be",
+      "id": "ST-REC-A",
+      "path": ".sdlc/stories/ST-REC-A/story.json"
+    }
+  ],
+  "updated_at": "2026-10-10T04:34:43.566Z",
+  "use_policy": {
+    "close_on_terminal": true,
+    "max_concurrent_runs": 1,
+    "mode": "exact-delivery",
+    "require_usage_receipt": true,
+    "reusable_across_deliveries": false
+  },
+  "valid_from": "2026-10-10T04:34:42.301Z",
+  "version": 2
+}
