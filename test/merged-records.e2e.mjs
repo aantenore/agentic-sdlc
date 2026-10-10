@@ -245,6 +245,11 @@ test("the computer that did the work publishes the story's records as their own 
   git(second, ["merge", "--quiet", "--no-ff", "-m", "Merge pull request #13 from travelops/sdlc-records/ST-CAT-001", "origin/sdlc-records/ST-CAT-001"]);
   git(second, ["push", "--quiet", "origin", "main"]);
   assert.equal(JSON.parse(fs.readFileSync(path.join(second, ".sdlc", "stories", "ST-CAT-001", "claim.json"), "utf8")).status, "released");
+  // The records now on main with the same bytes are not reported as missing, and nothing is created.
+  const settled = mustRunJson(["story", "publish-records", "--root", first, "--id", "ST-CAT-001"], first);
+  assert.equal(settled.status, "nothing_to_publish");
+  assert.deepEqual(settled.skipped, []);
+  assert.ok(settled.already_on_base.includes(".sdlc/stories/ST-CAT-001/claim.json"), JSON.stringify(settled));
   const status = mustRunJson(["status", "--root", second], second);
   assert.deepEqual(status.work.ready_story_ids, ["ST-CAT-002"]);
   assert.equal(status.merged_but_open[0].records_absent, undefined);

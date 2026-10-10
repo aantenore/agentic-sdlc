@@ -173,3 +173,65 @@ test("the story's records are published to the base branch with only .sdlc files
   assert.equal(run(["trace", "verify", "--root", first, "--json"]).status, 0);
   assert.equal(autoPublish(second).status, "nothing_to_publish");
 });
+
+function receiptFor(project, sha) {
+  const file = path.join(project, ".sdlc", "autonomy", "actions", "ACT-SYNC-COMMIT.json");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify({ action: "git.commit", action_details: { commit: { before_sha: "0".repeat(40), after_sha: sha } } })}\n`);
+}
+
+test("story sync refuses to rebase a governed commit that is not pushed, unless told to", () => {
+  const { first, second } = twoComputers("receipt");
+  write(second, "src/story.txt", "story work\n");
+  git(second, ["add", "src/story.txt"]);
+  git(second, ["commit", "--quiet", "-m", "Story work"]);
+  const head = git(second, ["rev-parse", "HEAD"]).stdout.trim();
+  receiptFor(second, head);
+  write(first, "src/base.txt", "base\n");
+  git(first, ["add", "src/base.txt"]);
+  git(first, ["commit", "--quiet", "-m", "Base work"]);
+  git(first, ["push", "--quiet"]);
+
+  const planned = mustRunJson(["story", "sync", "--root", second, "--id", STORY, "--dry-run"]);
+  assert.equal(planned.blockers.length, 1);
+  assert.match(planned.blockers[0], /git\.commit receipt.*--allow-rebase-committed/u);
+  const refused = run(["story", "sync", "--root", second, "--id", STORY]);
+  assert.notEqual(refused.status, 0);
+  assert.match(refused.stderr + refused.stdout, /story sync before the governed git\.commit/u);
+  assert.equal(git(second, ["rev-parse", "HEAD"]).stdout.trim(), head, "the refused sync moved the branch");
+
+  const allowed = mustRunJson(["story", "sync", "--root", second, "--id", STORY, "--allow-rebase-committed"]);
+  assert.equal(allowed.status, "synced");
+  assert.notEqual(git(second, ["rev-parse", "HEAD"]).stdout.trim(), head);
+});
+
+test("story sync rebases freely once the governed commit is on the remote", () => {
+  const { first, second } = twoComputers("receipt-pushed");
+  write(second, "src/story.txt", "story work\n");
+  git(second, ["add", "src/story.txt"]);
+  git(second, ["commit", "--quiet", "-m", "Story work"]);
+  git(second, ["push", "--quiet", "origin", `feature/${STORY}`]);
+  receiptFor(second, git(second, ["rev-parse", "HEAD"]).stdout.trim());
+  write(first, "src/base.txt", "base\n");
+  git(first, ["add", "src/base.txt"]);
+  git(first, ["commit", "--quiet", "-m", "Base work"]);
+  git(first, ["push", "--quiet"]);
+  const planned = mustRunJson(["story", "sync", "--root", second, "--id", STORY, "--dry-run"]);
+  assert.deepEqual(planned.blockers, []);
+});
+
+test("story sync keeps the base copy of a regenerated gate file instead of failing", () => {
+  const { first, second } = twoComputers("gate");
+  const gate = `.sdlc/gates/${STORY}-strict.json`;
+  write(second, gate, `${JSON.stringify({ checked_at: "2026-01-01T00:00:00.000Z", source: "second" })}\n`);
+  write(first, gate, `${JSON.stringify({ checked_at: "2026-02-01T00:00:00.000Z", source: "base" })}\n`);
+  git(first, ["add", "-f", gate]);
+  git(first, ["commit", "--quiet", "-m", "Gate from main"]);
+  git(first, ["push", "--quiet"]);
+  write(second, "src/story.txt", "story work\n");
+  git(second, ["add", "src/story.txt"]);
+  git(second, ["commit", "--quiet", "-m", "Story work"]);
+  const synced = mustRunJson(["story", "sync", "--root", second, "--id", STORY]);
+  assert.equal(synced.status, "synced");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(second, gate), "utf8")).source, "base");
+});
