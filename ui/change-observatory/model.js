@@ -543,7 +543,19 @@ function normalizeIteration(value, index, dossier = null) {
     phases: PHASES.map((phase) => normalizePhase(byPhase.get(phase), phase)),
     claimed: value?.claimed === true,
     closure: normalizeClosure(value?.closure),
+    ...normalizeFixLinks(value),
     dossier,
+  };
+}
+
+// Older servers send no fix links; the fields are then absent.
+function normalizeFixLinks(value) {
+  const fixes = objectOrEmpty(value?.fixes);
+  const storyId = readable(fixes.storyId, "");
+  const fixedBy = Array.isArray(value?.fixedBy) ? value.fixedBy.map((id) => readable(id, "")).filter(Boolean) : [];
+  return {
+    ...(storyId ? { fixes: { storyId, incidentId: readable(fixes.incidentId, "") || null } } : {}),
+    ...(fixedBy.length ? { fixedBy } : {}),
   };
 }
 
