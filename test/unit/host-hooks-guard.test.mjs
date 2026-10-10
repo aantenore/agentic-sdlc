@@ -438,3 +438,66 @@ test("person-only commands stay blocked inside sh -c", () => {
   assert.equal(evaluatePreToolUse(shell(`bash -lc '${inner}'`))?.decision, "deny");
   assert.equal(evaluatePreToolUse(shell(`agentic-sdlc message send --text "$(${inner})"`))?.decision, "deny");
 });
+
+test("a merge outside the governed action is blocked unless an open authorization covers it", () => {
+  const authorized = (number) => (attempt) => attempt.number === number;
+  const env = {};
+  const check = (command, isMergeAuthorized = () => false, extra = env) => evaluatePreToolUse(shell(command), { env: extra, isMergeAuthorized });
+  for (const command of [
+    "gh pr merge 12 --merge",
+    "gh pr merge https://github.com/o/r/pull/12 --squash",
+    "cd x && gh pr merge --merge",
+    "bash -c 'gh pr merge 12'",
+    "GH_TOKEN=x gh -R o/r pr merge 12",
+    "gh api -X PUT repos/o/r/pulls/12/merge",
+    "git push origin main",
+    "git push origin HEAD:refs/heads/master",
+  ]) {
+    const verdict = check(command);
+    assert.equal(verdict?.decision, "deny", command);
+    assert.match(verdict.reason, /autonomy delivery action --action pull_request\.merge/u);
+    assert.match(verdict.reason, /AGENTIC_SDLC_ALLOW_UNGOVERNED_MERGE=1/u);
+  }
+  assert.equal(check("gh pr merge 12 --merge", authorized(12)), null);
+  assert.equal(check("gh pr merge https://github.com/o/r/pull/12", authorized(12)), null);
+  assert.equal(check("gh pr merge 13", authorized(12))?.decision, "deny");
+  assert.equal(check("gh pr merge 12", () => false, { AGENTIC_SDLC_ALLOW_UNGOVERNED_MERGE: "1" }), null);
+  // An inline assignment in the command is not the person's environment.
+  assert.equal(check("AGENTIC_SDLC_ALLOW_UNGOVERNED_MERGE=1 gh pr merge 12")?.decision, "deny");
+});
+
+test("mentions of a merge and ordinary pushes stay allowed", () => {
+  const deniedAll = () => false;
+  for (const command of [
+    "git commit -m 'run gh pr merge 12 later'",
+    "echo gh pr merge 12",
+    "gh pr view 12",
+    "gh api repos/o/r/pulls/12/merge",
+    "git push origin feature/x",
+    "git push -u origin HEAD:feature/x",
+    "git push origin --delete main",
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command), { env: {}, isMergeAuthorized: deniedAll }), null, command);
+  }
+  // Without the checker (library use) nothing is added to the existing rules.
+  assert.equal(evaluatePreToolUse(shell("gh pr merge 12")), null);
+});
+
+test("the hook reads open pull_request.merge receipts of the project and its worktrees", async () => {
+  const { mergeAuthorized } = await import("../../lib/host-hooks/merge-authorization.mjs");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "hook-merge-"));
+  try {
+    const actions = path.join(root, ".sdlc", "autonomy", "actions");
+    fs.mkdirSync(actions, { recursive: true });
+    const receipt = (id, extra) => fs.writeFileSync(path.join(actions, `${id}.json`), JSON.stringify({ kind: "delivery_action_receipt", id, ...extra }));
+    const merge = { action: "pull_request.merge", action_details: { head_branch: "feat/a", merge: { pr_url: "https://github.com/o/r/pull/7" } } };
+    receipt("A1", { ...merge, status: "authorized" });
+    assert.equal(mergeAuthorized(root, root, { number: 7, branch: null }), true);
+    assert.equal(mergeAuthorized(root, root, { number: null, branch: "feat/a" }), true);
+    assert.equal(mergeAuthorized(root, root, { number: 8, branch: null }), false);
+    receipt("A2", { action: "pull_request.merge", status: "completed", authorization_receipt_ref: { id: "A1" } });
+    assert.equal(mergeAuthorized(root, root, { number: 7, branch: null }), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

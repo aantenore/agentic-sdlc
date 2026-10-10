@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { evaluatePreToolUse, sessionStartContext } from "../lib/host-hooks/guard.mjs";
+import { mergeAuthorized } from "../lib/host-hooks/merge-authorization.mjs";
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = path.join(PLUGIN_ROOT, "bin", "agentic-sdlc.mjs");
@@ -65,7 +66,11 @@ async function coordinationMessages(payload, hookEventName) {
 function preToolUse(payload) {
   // Every rule protects agentic-sdlc records, so other projects are never touched.
   if (!insideGovernedProject(payload.cwd)) return;
-  const verdict = evaluatePreToolUse(payload);
+  const root = governedRoot(payload.cwd);
+  const verdict = evaluatePreToolUse(payload, {
+    env: process.env,
+    isMergeAuthorized: (attempt) => mergeAuthorized(root, payload.cwd, attempt),
+  });
   if (verdict?.decision === "deny") {
     process.stderr.write(`${verdict.reason}\n`);
     process.exitCode = 2;
