@@ -896,3 +896,32 @@ test("an older claim without a host is released by the same git e-mail from anot
   assert.equal(released.shared_release.status, "shared");
   assert.equal(remoteClaimRefs(remote).length, 2);
 });
+
+test("a shared claim whose claim file is gone is released by the same host and agent; another host's is left alone", () => {
+  const { first, second, remote } = sharedProject("orphan-claim", ["ST-1", "ST-2"]);
+  setOrchestration(first, { claim_identity: { host_label_env: "AGENTIC_SDLC_HOST_LABEL" } });
+  git(first, ["add", "-A"]);
+  git(first, ["commit", "--quiet", "-m", "test: record claim identity"]);
+  git(first, ["push", "--quiet", "origin", "main"]);
+  git(second, ["pull", "--quiet", "--ff-only"]);
+  mustRunJson(claim(first, "ST-1", "alice"), first, { AGENTIC_SDLC_HOST_LABEL: "pc-first" });
+  mustRunJson(claim(second, "ST-2", "bob"), second);
+  assert.equal(remoteRecord(remote, "refs/agentic-sdlc/claims/ST-1/000001/claim").identity.host, "pc-first");
+
+  // The claim files vanish (branch switch, cleanup), the remote claims stay.
+  fs.rmSync(path.join(first, ".sdlc", "stories", "ST-1", "claim.json"));
+  fs.rmSync(path.join(second, ".sdlc", "stories", "ST-2", "claim.json"));
+
+  // Another host, or another agent, never releases it.
+  assert.match(mustRefuseJson(["story", "release", "--root", first, "--id", "ST-1", "--agent", "mallory"], first, { AGENTIC_SDLC_HOST_LABEL: "pc-first" }).error.message, /no claim to release/u);
+  git(second, ["fetch", "--quiet", "origin"]);
+  assert.match(mustRefuseJson(["story", "release", "--root", second, "--id", "ST-1", "--agent", "alice"], second).error.message, /no claim to release/u);
+  assert.deepEqual(remoteClaimRefs(remote).filter((ref) => ref.includes("ST-1")), ["refs/agentic-sdlc/claims/ST-1/000001/claim"]);
+
+  const released = mustRunJson(["story", "release", "--root", first, "--id", "ST-1", "--agent", "alice"], first, { AGENTIC_SDLC_HOST_LABEL: "pc-first" });
+  assert.equal(released.status, "released");
+  assert.equal(released.shared_release.status, "shared");
+  assert.ok(released.trace_event);
+  assert.ok(remoteClaimRefs(remote).includes("refs/agentic-sdlc/claims/ST-1/000001/release"));
+  assert.ok(!remoteClaimRefs(remote).includes("refs/agentic-sdlc/claims/ST-2/000001/release"), "the other host's claim is untouched");
+});
