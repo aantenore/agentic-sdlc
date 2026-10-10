@@ -1,0 +1,76 @@
+{
+  "id": "START-ST-SEAL-A-20261010043138810-e51006",
+  "kind": "profile_task_start_receipt",
+  "schema_version": "profile-task-start-receipt:v2",
+  "story_id": "ST-SEAL-A",
+  "phase": "implementation",
+  "route": "claim_and_implement",
+  "contract_id": "CONTRACT-SEAL-A",
+  "contract_approval_hash": "be049bbf00d9cd79a6be50b14eb66320b6c1a068124959079ff5e47efdd877ed",
+  "delivery_profile_ref": {
+    "id": "AUT-SEAL-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-SEAL-A.json",
+    "hash": "71965e82d25c77e613dac8f1fbdbf5e19a23a34ae7a667bcbd94f178411858aa"
+  },
+  "autonomy_decision_ref": {
+    "id": "AUT-DEC-20261010043138193-8eb95e",
+    "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010043138193-8eb95e.json",
+    "hash": "bc70a2aeb71f10c4811d89af172ecd56eea90ad1f53d214072b52319bac839c3"
+  },
+  "workflow_instance_ref": {
+    "id": "delivery-seal-a",
+    "path": ".sdlc/workflows/instances/delivery-seal-a/instance.json",
+    "hash": "e7559fa7bc9ee0c12b182480cc7d15d4356bb5c0a9c646f13347e09c90e5ee9c"
+  },
+  "delivery_start_receipt_ref": {
+    "id": "AUT-START-AUT-SEAL-A",
+    "path": ".sdlc/autonomy/executions/AUT-SEAL-A/start.json",
+    "hash": "9c1ef112930826decb77c61b52147d8d23b96fc76afc77b5cb84a16283beee1d"
+  },
+  "execution_context_preflight_ref": {
+    "id": "PREFLIGHT-AUT-SEAL-A",
+    "path": ".sdlc/autonomy/executions/AUT-SEAL-A/context-preflight.json",
+    "hash": "fbe31851fe754caeb544ef6ee5573a30bc37ca70d4cb6b9d68e8a5f073f99037"
+  },
+  "autonomy_level": "supervised",
+  "start_basis": "explicit-confirmation",
+  "status": "confirmed",
+  "authorization_ref": null,
+  "authorization_use_ref": null,
+  "authority_assurance": {
+    "mode": "audit_only",
+    "receipt_ref": null,
+    "source": "declared_cli_attribution",
+    "verified": false
+  },
+  "confirmed_by": {
+    "id": "antonioantenore",
+    "type": "human",
+    "name": "Merged Certification E2E",
+    "email": "merged-certification-e2e@example.invalid",
+    "source": "cli"
+  },
+  "confirmed_at": "2026-10-10T04:31:38.810Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-SEAL-A",
+      "head_sha": "35c57007e1f9ef405860555e378f2014c78ccbcd",
+      "is_dirty": true,
+      "user": {
+        "name": "Merged Certification E2E",
+        "email": "merged-certification-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "audit": {
+    "git": {
+      "branch": "codex/ST-SEAL-A",
+      "head_sha": "35c57007e1f9ef405860555e378f2014c78ccbcd",
+      "is_dirty": true,
+      "is_git_repo": true,
+      "remotes": [
+        "origin"
+      ],
+      "user": {
+        "email": "merged-certification-e2e@example.invalid",
+        "name": "Merged Certification E2E"
+      }
+    },
+    "run": {
+      "run_id": null,
+      "session_id": null,
+      "thread_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  },
+  "contract_ref": {
+    "hash": "be049bbf00d9cd79a6be50b14eb66320b6c1a068124959079ff5e47efdd877ed",
+    "id": "CONTRACT-SEAL-A",
+    "path": ".sdlc/contracts/CONTRACT-SEAL-A.json"
+  },
+  "created_at": "2026-10-10T04:31:38.682Z",
+  "created_by": {
+    "email": "merged-certification-e2e@example.invalid",
+    "id": "antonioantenore",
+    "name": "Merged Certification E2E",
+    "source": "cli",
+    "type": "human"
+  },
+  "delivery_profile_ref": {
+    "hash": "71965e82d25c77e613dac8f1fbdbf5e19a23a34ae7a667bcbd94f178411858aa",
+    "id": "AUT-SEAL-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-SEAL-A.json"
+  },
+  "git_head_sha": "35c57007e1f9ef405860555e378f2014c78ccbcd",
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "PREFLIGHT-AUT-SEAL-A",
+  "kind": "execution_context_preflight_receipt",
+  "receipt_hash": "fbe31851fe754caeb544ef6ee5573a30bc37ca70d4cb6b9d68e8a5f073f99037",
+  "requirement_scopes": [
+    {
+      "allowed_write_paths": [
+        "docs",
+        "src"
+      ],
+      "profile_ref": {
+        "hash": "fc439d2de1a33aca8e3602232c2fb5872979bebf4619d6cbe557accd98f47280",
+        "id": "AUT-REQ-SEAL-A-R1",
+        "path": ".sdlc/autonomy/requirements/AUT-REQ-SEAL-A-R1.json"
+      }
+    }
+  ],
+  "schema_version": "execution-context-preflight-receipt:v1",
+  "source_snapshots": [],
+  "status": "passed",
+  "story_ref": {
+    "hash": "2cdba81f2181c92ef0f0adf25ddadea642ff4a0eb05eac2276f1f50b38e974f0",
+    "id": "ST-SEAL-A",
+    "path": ".sdlc/stories/ST-SEAL-A/story.json"
+  },
+  "workspace_changes": []
+}
