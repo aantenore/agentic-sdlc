@@ -1,3 +1,5 @@
+import { createBareOrigin, createFixtureDir } from "./helpers/test-isolation.mjs";
+
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
@@ -27,7 +29,7 @@ const tempProjects = new Set();
 const providerBins = new Map();
 
 function tmpProject(name) {
-  const project = fs.mkdtempSync(path.join(os.tmpdir(), `sdlc-autonomy-${name}-`));
+  const project = createFixtureDir(`sdlc-autonomy-${name}-`);
   tempProjects.add(project);
   return project;
 }
@@ -550,7 +552,7 @@ function initializeAutonomyProject(project, options = {}) {
   mustGit(project, ["config", "user.email", "autonomy-e2e@example.invalid"]);
   mustGit(project, ["commit", "--allow-empty", "-m", "test: establish PR base"]);
   mustGit(project, ["branch", "-M", "main"]);
-  mustGit(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc.git"]);
+  createBareOrigin(project, { urlAlias: "https://github.com/aantenore/agentic-sdlc.git" });
   mustGit(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
   mustGit(project, ["checkout", "-b", "codex/pr-1"]);
 

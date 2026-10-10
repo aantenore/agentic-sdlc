@@ -1,3 +1,5 @@
+import "../helpers/test-isolation.mjs";
+
 import assert from "node:assert/strict";
 import { fork as nodeFork, spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";

@@ -1,3 +1,5 @@
+import "../helpers/test-isolation.mjs";
+
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";

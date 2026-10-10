@@ -1,3 +1,5 @@
+import "./helpers/test-isolation.mjs";
+
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -355,4 +357,33 @@ test("the automatic publication does not publish partially when the shared histo
   assert.equal(result.status, "failed");
   assert.match(result.problem, /shared history cannot be merged/u);
   assert.doesNotMatch(git(second, ["ls-remote", "origin", "refs/heads/main"]).stdout, new RegExp(git(second, ["rev-parse", "HEAD"]).stdout.trim(), "u"));
+});
+
+test("records are never published into a repository that holds another project", () => {
+  const { first, second } = twoComputers("foreign-target");
+  const projectFile = path.join(first, ".sdlc", "project.json");
+  const foreign = JSON.parse(fs.readFileSync(projectFile, "utf8"));
+  foreign.project_id = "another-project";
+  fs.writeFileSync(projectFile, `${JSON.stringify(foreign, null, 2)}\n`);
+  git(first, ["commit", "--quiet", "-am", "Another project lives here"]);
+  git(first, ["push", "--quiet"]);
+  write(second, ".sdlc/stories/ST-SYNC-001/final.json", "{}\n");
+  record(second, "Closing decision");
+  const before = git(first, ["rev-parse", "HEAD"]).stdout.trim();
+  const refused = autoPublish(second);
+  assert.equal(refused.status, "failed");
+  assert.match(refused.problem, /another-project/u);
+  git(first, ["pull", "--quiet", "--no-rebase"]);
+  assert.equal(git(first, ["rev-parse", "HEAD"]).stdout.trim(), before);
+});
+
+test("records are never published from a project that is not its git repository root", () => {
+  const { second } = twoComputers("nested-project");
+  const nested = path.join(second, "packages", "app");
+  fs.mkdirSync(nested, { recursive: true });
+  mustRun(["init", "--root", nested, "--project-name", "Nested"]);
+  mustRun(["story", "create", "--no-derived-verification", "--root", nested, "--id", STORY, "--title", "Nested", "--phase", "implementation", "--status", "ready", "--acceptance", "Nested."]);
+  const refused = autoPublish(nested);
+  assert.equal(refused.status, "failed");
+  assert.match(refused.problem, /not the root of its git repository/u);
 });
