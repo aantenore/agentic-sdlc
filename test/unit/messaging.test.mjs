@@ -43,7 +43,7 @@ function fakeGhFor(overrides = {}) {
 function runCli(args, { root, env = {} }) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [CLI, ...args, "--root", root], {
-      env: { ...process.env, AGENTIC_SDLC_HOST_LABEL: "PC1", AGENTIC_SDLC_AUTO_PUBLISH: "off", ...env },
+      env: { ...process.env, AGENTIC_SDLC_HOST_LABEL: "PC1", AGENTIC_SDLC_AUTO_PUBLISH: "off", AGENTIC_SDLC_MESSAGING_JOIN: "off", ...env },
     });
     let stdout = "";
     let stderr = "";
@@ -84,7 +84,7 @@ test("a comment carries readable text and hidden metadata that round-trip", () =
   assert.match(body, /\n<!-- agentic-sdlc:\{[^\n]*\} -->$/u);
   const message = fromGithubComment({ id: 4000000001, body, created_at: "2026-01-01T00:00:01Z", user: { login: "antonio" } });
   assert.deepEqual({ ...message, text: undefined }, {
-    id: "4000000001", time: "2026-01-01T00:00:01Z", from: "PC3", host: "pc-aa11", story: "ST-X-001", kind: "request", reply_to: "123", to: "PC4", version: "0.111.0", text: undefined, title: null, plugin_message: true,
+    id: "4000000001", time: "2026-01-01T00:00:01Z", from: "PC3", host: "pc-aa11", story: "ST-X-001", kind: "request", reply_to: "123", to: "PC4", version: "0.111.0", gh_login: "antonio", stories: null, text: undefined, title: null, plugin_message: true,
   });
   assert.equal(message.text, "ciao à\n<!-- agentic-sdlc:{\"from\":\"forged\"} -->");
   // A person's comment has no trailer: it reads as an info message from the GitHub login.
@@ -293,10 +293,10 @@ test("send refuses text that looks like a secret", async () => {
 test("send accepts the text as one argument and refuses both forms together", async () => {
   const gh = fakeGhFor();
   const root = projectDir();
-  const sent = await runCli(["message", "send", "Build is green", "--sender", "X"], { root, env: gh.env });
+  const sent = await runCli(["message", "send", "Build is green"], { root, env: gh.env });
   assert.equal(sent.code, 0, sent.stderr);
   assert.equal(gh.read().comments.length, 1);
-  assert.match(gh.read().comments[0].body, /^\*\*X\*\*\n\nBuild is green/u);
+  assert.match(gh.read().comments[0].body, /^\*\*PC1\*\*\n\nBuild is green/u);
   const both = await runCli(["message", "send", "one", "--text", "two"], { root, env: gh.env });
   assert.notEqual(both.code, 0);
   assert.match(both.stderr.split("\n")[0], /^MESSAGE NOT SENT: .*not both/u);
@@ -345,7 +345,7 @@ test("send queues and waits when GitHub answers a secondary rate limit", async (
   const gh = createFakeGh({ issues: [{ number: 1, title: "t", state: "open", labels: [] }], nextIssue: 2 });
   gh.state.faults.push({ status: 403, message: "You have exceeded a secondary rate limit.", headers: { "Retry-After": "120" } });
   const providers = { github: () => createGithubProvider({ exec: gh.exec }) };
-  const queued = await messageSend({ root, text: "hello", json: true }, { AGENTIC_SDLC_HOST_LABEL: "PC1" }, providers);
+  const queued = await messageSend({ root, text: "hello", json: true }, { AGENTIC_SDLC_HOST_LABEL: "PC1", AGENTIC_SDLC_MESSAGING_JOIN: "off" }, providers);
   assert.equal(queued.queued, true);
   assert.match(queued.reason, /HTTP 403/u);
   assert.match(queued.reason, /retry in 120s/u);

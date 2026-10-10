@@ -55,6 +55,7 @@ export function handle(state, args) {
     return reply(fault.status, { message: fault.message ?? "fault" }, fault.headers);
   }
   const url = new URL(`https://api.github.test/${endpoint}`);
+  if (url.pathname === "/user") return reply(200, { login: state.login });
   const route = /^\/repos\/[^/]+\/[^/]+\/(issues|labels)(?:\/(\d+))?(?:\/(comments))?$/u.exec(url.pathname);
   if (!route) return reply(404, { message: "Not Found" });
   const number = route[2] ? Number(route[2]) : null;

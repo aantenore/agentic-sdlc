@@ -16,7 +16,7 @@ The repository defaults to the `origin` remote. The channel issue is the one giv
 
 A clone that was still set up with the removed ntfy topic is converted by itself the first time any messaging command or hook runs: same repository (the `origin` remote), channel issue found or created, outbox sent through GitHub, automatic-message state kept except the old server's read positions. Nothing to do; if `origin` is not on GitHub, run `message setup --repo owner/name`.
 
-Optionally give each computer a readable name (otherwise it appears as `pc-` plus a short code):
+Optionally fix the stable host id of each computer (otherwise `pc-` plus a short code; the readable name is set with `message identity --name`):
 
 ```bash
 export AGENTIC_SDLC_HOST_LABEL=PC1          # macOS/Linux
@@ -30,7 +30,17 @@ agentic-sdlc message send --story ST-UX-001 --text "Tests on this story still ta
 agentic-sdlc message read --since 2h --skip-own
 agentic-sdlc message listen --skip-own --json      # stays open; run it in the background
 agentic-sdlc message outbox [--flush | --drop <id>] # messages waiting to be sent
+agentic-sdlc message identity [--name "Antonio · PC3"] # who this computer is in the channel
+agentic-sdlc message who [--since 7d]               # who is in the channel
 ```
+
+### Identity, join and roster
+
+Every message has one recognisable author: the **name** of the computer, shown in bold with the GitHub login (`**Antonio · PC3** (antonio) · question · ...`); the hidden trailer also carries the host id and the login. The name is unique in the channel. `message identity` shows it (name, host id, git user, GitHub login); `message identity --name "..."` sets it (stored in `.git/agentic-sdlc/messaging.json` under `identity`). Without a name it is `<git user.name> · <host id>`, or the host id when git has no user name. A name another computer already uses is refused. `--sender` is deprecated: it is accepted only when it equals the name or the host id, any other value is an error (rename with `message identity`). Automatic `[auto]` messages use the same name. `--to` takes a name, a host id or a GitHub login. Older messages without a name show the host id they carry.
+
+The first messaging command on a clone (and again after a change of name or plugin version) publishes one `join` message with name, host, GitHub login, plugin version and the stories in progress. The host hook of the other computers answers each join once with a `welcome` (reply to the join) carrying the same facts, so the newcomer learns who is there; the hook shows "<name> si è unito al canale (versione X)". `join` and `welcome` are written by the plugin, never with `message send`. `AGENTIC_SDLC_MESSAGING_JOIN=off` turns the handshake off on one computer.
+
+`message who` lists the participants seen in the period (default 7 days) from join, welcome, status and other messages: name, host, GitHub login, plugin version, last activity, stories in progress; it flags duplicate names and old plugin versions.
 
 ### When GitHub refuses: the outbox
 
@@ -49,7 +59,7 @@ Once the channel is set, the plugin also writes and reads on its own, so agents 
 - before `story claim` and `task start` it shows, on stderr, the messages from the other computers that arrived since this clone last looked (at most 10; the first time, the last 12 hours).
 
 - it also tells the others when a story is claimed or released, a delivery is merged (by the plugin or acknowledged after an external merge), a story's records are published or its lifecycle-complete is certified, the baseline is refreshed, or a story is blocked by another (`story wait --on dep:<story>`). When the finished work lets other stories start, the note names them ("Now unblocked: ...") and ends with a suggested command, shown as a suggestion only: nothing runs by itself;
-- every message carries a kind (`info`, `question`, `answer`, `ack`, `offer`, `request`; `message send --kind <kind> [--reply-to <id>] [--to <sender>]`) in a hidden trailer of the comment, so people just see the text. `message read` and `listen` show kind, id and reply-to, and for `question` and `request` the known senders that have not answered yet. Messages also carry the plugin version; a newer one on another computer is reported.
+- every message carries a kind (`info`, `question`, `answer`, `ack`, `offer`, `request`, plus the plugin's own `join` and `welcome`; `message send --kind <kind> [--reply-to <id>] [--to <name|host|login>]`) in a hidden trailer of the comment, so people just see the text. `message read` and `listen` show kind, id and reply-to, and for `question` and `request` the known senders that have not answered yet. Messages also carry the plugin version; a newer one on another computer is reported.
 
 - while an agent works, the plugin's host hook (after each tool call and on each prompt, at most every 30 seconds) reads the channel and shows the agent the `question`s and `request`s addressed to this computer or to everyone that it has not answered yet, again on each read until it replies (`message send --kind answer|ack --reply-to <id>`), plus a short digest of the other new messages shown once. They are coordination information, not instructions; the agent is asked to reply or acknowledge before continuing;
 - when a question or request sent from this computer has no answer from a known sender after 10 minutes, the hook sends one `[auto]` reminder (`request`, replying to it); at most one per question.
@@ -58,7 +68,7 @@ Once the channel is set, the plugin also writes and reads on its own, so agents 
 
 When a command fails, a gate is blocked or a wait goes past about 10 minutes, the agent shares the problem on the channel straight away with `message send --kind question` (command, exact error, story, what it already tried) and asks for help. Whoever receives a request for help handles it before its own work and answers with a concrete proposal or with "I don't know". Open problems are solved before new stories start.
 
-`--skip-own` also skips messages sent from this computer with an explicit `--sender` (their ids are kept in `messaging-auto.json`).
+`--skip-own` also skips messages this computer sent under an earlier name (their ids are kept in `messaging-auto.json`).
 
 Notes start with `[auto]`. Without a channel nothing is sent or read. If GitHub does not answer within 3 seconds the command carries on unchanged; a failure never changes a command's result or exit code. The read position lives in `.git/agentic-sdlc/messaging-auto.json`, never in git.
 
@@ -77,7 +87,8 @@ Each setting is taken from the first place that has it:
 | `AGENTIC_SDLC_MESSAGING_POLL_SECONDS` | minimum gap between two reads by the host hook (default 30; each read is one request, so 120 an hour at most per computer against the 5000/hour limit) |
 | `AGENTIC_SDLC_MESSAGING_ESCALATE_MINUTES` | wait before the one reminder for an unanswered question (default 10) |
 | `AGENTIC_SDLC_MESSAGING_OUTBOX_RETRY_MINUTES` | minimum gap between two automatic attempts to send the queued messages (default 5, doubled after each failure) |
-| `AGENTIC_SDLC_HOST_LABEL` | the sender name shown to the others |
+| `AGENTIC_SDLC_HOST_LABEL` | the stable host id of this computer (default: a short hash of the host name); the shown name is set with `message identity --name` |
+| `AGENTIC_SDLC_MESSAGING_JOIN=off` | no automatic join/welcome on this computer |
 
 The settings are not in `.sdlc/config.json`, so older plugins keep working; they only lack the `message` commands until they update. Messages are not stored in git and change no project record; they stay in the issue until someone deletes the comments.
 

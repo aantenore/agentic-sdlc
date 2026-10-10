@@ -27,7 +27,7 @@ function fakeGh() {
 function runCli(args, root, env = {}) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [CLI, ...args, "--root", root], {
-      env: { ...process.env, AGENTIC_SDLC_HOST_LABEL: "PC1", ...env },
+      env: { ...process.env, AGENTIC_SDLC_HOST_LABEL: "PC1", AGENTIC_SDLC_MESSAGING_JOIN: "off", ...env },
     });
     let stdout = "";
     let stderr = "";
@@ -92,7 +92,7 @@ test("a failing gate tells the other computers once, and claims show new message
     state.comments.push({ id: 4999999990, issue: 1, body: "**PC2**\n\nST-B-002 is mine\n\n<!-- agentic-sdlc:{\"v\":1,\"from\":\"PC2\",\"kind\":\"info\"} -->", created_at: at, updated_at: at, user: { login: "antonio" } });
   });
   const claim = await runCli(["story", "claim", "--id", "ST-NOPE-001", "--agent", "a1"], root, env);
-  assert.match(claim.stderr, /PC2: ST-B-002 is mine/u);
+  assert.match(claim.stderr, /PC2 \(antonio\): ST-B-002 is mine/u);
   assert.doesNotMatch(claim.stderr, /PC1/u, "own messages are not shown");
   const again = await runCli(["story", "claim", "--id", "ST-NOPE-001", "--agent", "a1"], root, env);
   assert.doesNotMatch(again.stderr, /ST-B-002 is mine/u);
