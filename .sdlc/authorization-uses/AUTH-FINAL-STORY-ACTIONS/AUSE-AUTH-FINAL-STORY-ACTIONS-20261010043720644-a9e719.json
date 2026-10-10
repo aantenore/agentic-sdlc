@@ -1,0 +1,56 @@
+{
+  "id": "AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043720644-a9e719",
+  "kind": "authorization_usage_receipt",
+  "schema_version": "authorization-usage-receipt:legacy-v2",
+  "authorization_id": "AUTH-FINAL-STORY-ACTIONS",
+  "authorization_hash": "14f4c57b984b1367946590878ba2c2a3bf841f77d1b04a52b3a1d408c210e337",
+  "proposal_ref": null,
+  "action": "output.link",
+  "subject_id": "ST-FINAL",
+  "artifact_types": [
+    "implementation-summary"
+  ],
+  "approval_boundaries": [],
+  "scope": "Approve the exact governed story actions for ST-FINAL.",
+  "authority_assurance": "audit_only",
+  "authorization_snapshot": {
+    "status_at_use": "active",
+    "expires_at": "2026-10-11T04:37:17.811Z",
+    "allowed_actions": [
+      "story.complete-step",
+      "story.claim",
+      "output.link"
+    ],
+    "allowed_subjects": [
+      "ST-FINAL"
+    ],
+    "allowed_uses": [
+      {
+        "action": "story.complete-step",
+        "subject_id": "ST-FINAL",
+        "use_hash": "2d04b7a188a8371815cb7e2fb34958136dc83ef4bbfe0d8a92ba741b713f3822"
+      },
+      {
+        "action": "story.claim",
+        "subject_id": "ST-FINAL",
+        "use_hash": "b2252898d738e75fee1346e20949be22a07058ed6aeb4604e80791e859ac7520"
+      },
+      {
+        "action": "output.link",
+        "subject_id": "ST-FINAL",
+        "use_hash": "d24033cab81feec1ede3a815b02712e51a518b2298b61095afb5fae676a6986c"
+      }
+    ],
+    "allowed_artifact_types": [
+      "implementation-summary",
+      "release-notes"
+    ],
+    "allowed_approval_boundaries": []
+  },
+  "use_key": "cc0738cd61143ef3f1f6cdeffd36ea20406c0b0d407eee6b7d293db3aab2d674",
+  "status": "accepted",
+  "used_at": "2026-10-10T04:37:20.644Z",
+  "valid_at_use": true,
+  "receipt_hash": "04a79723fa3296ee41125768e698d07e0bdfb71f960ddae5ccb0bef1ae65d25c",
+  "hash_algorithm": "sha256:stable-json:v1"
+}

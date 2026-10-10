@@ -927,6 +927,170 @@
       },
       "explicit_user_confirmation": true,
       "provisional": false
+    },
+    {
+      "id": "implementation-summary-v1",
+      "type": "implementation-summary",
+      "status": "approved",
+      "path": ".sdlc/output-contracts/templates/implementation-summary-v1.md",
+      "summary": "Canonical implementation-summary format",
+      "preset": null,
+      "delivery": {
+        "format": "markdown",
+        "label": "Markdown document",
+        "extension": ".md",
+        "media_type": "text/markdown",
+        "generator": null,
+        "mode": "artifact-plus-chat-summary"
+      },
+      "source_paths": [],
+      "proposed_at": "2026-10-10T04:37:04.117Z",
+      "approved_at": "2026-10-10T04:38:25.138Z",
+      "approved_by": {
+        "id": "antonioantenore",
+        "type": "human",
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid",
+        "source": "cli"
+      },
+      "audit": {
+        "proposed_by": {
+          "id": "codex",
+          "type": "agent",
+          "name": "Codex",
+          "email": null,
+          "source": "default"
+        },
+        "git": {
+          "is_git_repo": true,
+          "branch": "codex/ST-FINAL",
+          "head_sha": "e59fcb56c3325c8a73909d39285caed263617110",
+          "is_dirty": true,
+          "user": {
+            "name": "Finalization E2E",
+            "email": "finalization-e2e@example.invalid"
+          },
+          "remotes": [
+            "origin"
+          ]
+        },
+        "run": {
+          "run_id": null,
+          "thread_id": null,
+          "session_id": null,
+          "tool": "agentic-sdlc-cli",
+          "version": "0.94.0"
+        },
+        "approved_by": {
+          "id": "antonioantenore",
+          "type": "human",
+          "name": "Finalization E2E",
+          "email": "finalization-e2e@example.invalid",
+          "source": "cli"
+        }
+      },
+      "approval_summary": "Approve the current implementation summary format",
+      "approved_content_hash": "61cd8933bf91edd4a1677baee35c2babd46781a95d4ccc7840f7a5638de92793",
+      "approved_delivery_hash": "71eeb826fa48e2aa5a3641f3b1b66295e1a905207e310e6e023bff2ac3e62c59",
+      "hash_algorithm": "sha256:file:v1",
+      "approval_evidence": [],
+      "approval_source": "explicit-user",
+      "authorization_ref": null,
+      "authorization_use_ref": null,
+      "authorization_action": null,
+      "approval_scope": {
+        "principle": "A human approval applies only to the specific artifact or decision shown to the user before the approval.",
+        "subject_id": "implementation-summary-v1",
+        "subject_label": "output template implementation-summary-v1",
+        "applies_only_to_presented_subject": true,
+        "does_not_approve_future_artifacts": true,
+        "requires_fresh_user_confirmation_for_new_artifacts": true,
+        "approval_level": "output_template"
+      },
+      "explicit_user_confirmation": true,
+      "provisional": false
+    },
+    {
+      "id": "release-notes-v1",
+      "type": "release-notes",
+      "status": "approved",
+      "path": ".sdlc/output-contracts/templates/release-notes-v1.md",
+      "summary": "Canonical release-notes format",
+      "preset": null,
+      "delivery": {
+        "format": "markdown",
+        "label": "Markdown document",
+        "extension": ".md",
+        "media_type": "text/markdown",
+        "generator": null,
+        "mode": "artifact-plus-chat-summary"
+      },
+      "source_paths": [],
+      "proposed_at": "2026-10-10T04:37:06.031Z",
+      "approved_at": "2026-10-10T04:37:07.011Z",
+      "approved_by": {
+        "id": "antonioantenore",
+        "type": "human",
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid",
+        "source": "cli"
+      },
+      "audit": {
+        "proposed_by": {
+          "id": "codex",
+          "type": "agent",
+          "name": "Codex",
+          "email": null,
+          "source": "default"
+        },
+        "git": {
+          "is_git_repo": true,
+          "branch": "codex/ST-FINAL",
+          "head_sha": "e59fcb56c3325c8a73909d39285caed263617110",
+          "is_dirty": true,
+          "user": {
+            "name": "Finalization E2E",
+            "email": "finalization-e2e@example.invalid"
+          },
+          "remotes": [
+            "origin"
+          ]
+        },
+        "run": {
+          "run_id": null,
+          "thread_id": null,
+          "session_id": null,
+          "tool": "agentic-sdlc-cli",
+          "version": "0.94.0"
+        },
+        "approved_by": {
+          "id": "antonioantenore",
+          "type": "human",
+          "name": "Finalization E2E",
+          "email": "finalization-e2e@example.invalid",
+          "source": "cli"
+        }
+      },
+      "approval_summary": "Approve release-notes output format",
+      "approved_content_hash": "5c32a3556abd8a279f3badc1c24ba0df2eaad34455859aeb57f37870dcf8b712",
+      "approved_delivery_hash": "71eeb826fa48e2aa5a3641f3b1b66295e1a905207e310e6e023bff2ac3e62c59",
+      "hash_algorithm": "sha256:file:v1",
+      "approval_evidence": [],
+      "approval_source": "explicit-user",
+      "authorization_ref": null,
+      "authorization_use_ref": null,
+      "authorization_action": null,
+      "approval_scope": {
+        "principle": "A human approval applies only to the specific artifact or decision shown to the user before the approval.",
+        "subject_id": "release-notes-v1",
+        "subject_label": "output template release-notes-v1",
+        "applies_only_to_presented_subject": true,
+        "does_not_approve_future_artifacts": true,
+        "requires_fresh_user_confirmation_for_new_artifacts": true,
+        "approval_level": "output_template"
+      },
+      "explicit_user_confirmation": true,
+      "provisional": false
     }
   ],
   "links": [
@@ -5378,6 +5542,348 @@
         "path": ".sdlc/autonomy/deliveries/AUT-SEAL-A.json",
         "hash": "94fd280201c36941ba54f08f6a265a7afecb57954af8bf262dbb04d4f5b13d21"
       }
+    },
+    {
+      "id": "OUT-ST-FINAL-implementation-summary-e04b7753",
+      "story_id": "ST-FINAL",
+      "artifact_type": "implementation-summary",
+      "artifact_path": "docs/implementation-summary.md",
+      "template_id": "implementation-summary-v1",
+      "mode": "new",
+      "base_artifact": null,
+      "requirements": [
+        "REQ-FINAL"
+      ],
+      "decision_id": null,
+      "rationale": null,
+      "contract_id": "CONTRACT-FINAL",
+      "supersedes": null,
+      "delivery_format": "markdown",
+      "delivery_extension": ".md",
+      "media_type": "text/markdown",
+      "generator": null,
+      "delivery_mode": "artifact-plus-chat-summary",
+      "verification_receipt": {
+        "achieved_level": "semantic",
+        "artifact": {
+          "format": "markdown",
+          "media_type": "text/markdown",
+          "path": "docs/implementation-summary.md",
+          "sha256": "dfd62b4462c3a0c293f9f17c0537b71ea89f0f12b20cd8be9e5f6338294e683e"
+        },
+        "artifact_present": true,
+        "container_verified": {
+          "checks": [
+            "non-empty file (76 bytes)",
+            "extension .md",
+            "non-binary text content"
+          ],
+          "evidence": [],
+          "reason": null,
+          "status": "verified",
+          "verified_at": "2026-10-10T04:38:16.566Z",
+          "verifier": "file-structure-v1"
+        },
+        "content_verified": {
+          "checks": [
+            "non-empty meaningful text content"
+          ],
+          "evidence": [],
+          "reason": null,
+          "status": "verified",
+          "verified_at": "2026-10-10T04:38:16.566Z",
+          "verifier": "file-structure-v1"
+        },
+        "evidence": [],
+        "existence_verified": {
+          "checks": [
+            "non-empty file (76 bytes)"
+          ],
+          "evidence": [],
+          "reason": null,
+          "status": "verified",
+          "verified_at": "2026-10-10T04:38:16.566Z",
+          "verifier": "file-existence-v1"
+        },
+        "extensions": {
+          "delivery_label": "Markdown document",
+          "delivery_mode": "artifact-plus-chat-summary",
+          "size_bytes": 76
+        },
+        "failed_checks": [],
+        "generator_receipt": null,
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "VERIFY-OUT-ST-FINAL-implementation-summary-e04b7753-dfd62b44",
+        "independent_verified": {
+          "checks": [],
+          "evidence": [],
+          "reason": "Independent verification is outside the approved verification level.",
+          "status": "not-required",
+          "verified_at": null,
+          "verifier": null
+        },
+        "kind": "verification_receipt",
+        "limitations": [
+          "Rendered and independent verification were not required by this output contract."
+        ],
+        "missing_checks": [],
+        "passed": true,
+        "receipt_hash": "75593da92dbbccbbec5ee93ae9a3336407af9335eea8f0e1e8c1e499ac0eaa32",
+        "render_verified": {
+          "checks": [],
+          "evidence": [],
+          "reason": "Approved format does not require rendered verification.",
+          "status": "not-required",
+          "verified_at": null,
+          "verifier": "render-evidence-v1"
+        },
+        "required_dimensions": {
+          "container": true,
+          "content": true,
+          "existence": true,
+          "independent": false,
+          "render": false
+        },
+        "required_level": "semantic",
+        "schema_version": "verification-receipt:v1",
+        "status": "passed",
+        "subject_ref": {
+          "hash": "5e5366998ebe08fba16b845bf8ed5346830ec5dd8eb76c95a4506186c618f58f",
+          "id": "OUT-ST-FINAL-implementation-summary-e04b7753",
+          "kind": "output_link"
+        },
+        "verified_at": "2026-10-10T04:38:16.566Z",
+        "verifier": "file-structure-v1",
+        "version": 1
+      },
+      "verification_receipt_ref": {
+        "id": "VERIFY-OUT-ST-FINAL-implementation-summary-e04b7753-dfd62b44",
+        "path": ".sdlc/receipts/verification/VERIFY-OUT-ST-FINAL-implementation-summary-e04b7753-dfd62b44.json",
+        "hash": "75593da92dbbccbbec5ee93ae9a3336407af9335eea8f0e1e8c1e499ac0eaa32"
+      },
+      "source_paths": [
+        "docs/implementation-summary.md",
+        ".sdlc/output-contracts/templates/implementation-summary-v1.md",
+        ".sdlc/receipts/verification/VERIFY-OUT-ST-FINAL-implementation-summary-e04b7753-dfd62b44.json",
+        ".sdlc/authorization-uses/AUTH-FINAL-STORY-ACTIONS/AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043720644-a9e719.json",
+        ".sdlc/autonomy/deliveries/AUT-FINAL.json"
+      ],
+      "fingerprints": {
+        "artifact_sha256": "dfd62b4462c3a0c293f9f17c0537b71ea89f0f12b20cd8be9e5f6338294e683e",
+        "base_artifact_sha256": null,
+        "template_sha256": "61cd8933bf91edd4a1677baee35c2babd46781a95d4ccc7840f7a5638de92793",
+        "hash_algorithm": "sha256:file:v1"
+      },
+      "created_at": "2026-10-10T04:37:20.638Z",
+      "updated_at": "2026-10-10T04:38:27.889Z",
+      "audit": {
+        "linked_by": {
+          "id": "codex",
+          "type": "agent",
+          "name": "Codex",
+          "email": null,
+          "source": "default"
+        },
+        "git": {
+          "is_git_repo": true,
+          "branch": "codex/ST-FINAL",
+          "head_sha": "e59fcb56c3325c8a73909d39285caed263617110",
+          "is_dirty": true,
+          "user": {
+            "name": "Finalization E2E",
+            "email": "finalization-e2e@example.invalid"
+          },
+          "remotes": [
+            "origin"
+          ]
+        },
+        "run": {
+          "run_id": null,
+          "thread_id": null,
+          "session_id": null,
+          "tool": "agentic-sdlc-cli",
+          "version": "0.94.0"
+        }
+      },
+      "authorization_ref": "AUTH-FINAL-STORY-ACTIONS",
+      "authorization_use_ref": ".sdlc/authorization-uses/AUTH-FINAL-STORY-ACTIONS/AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043720644-a9e719.json",
+      "authorization_action": "output.link",
+      "checkpoint_profile_ref": {
+        "id": "AUT-FINAL",
+        "path": ".sdlc/autonomy/deliveries/AUT-FINAL.json",
+        "hash": "221d8a0f8c8e7b7d1530a0f694ffa20bd7a157108bbba71eddc2bbb7696203d5"
+      }
+    },
+    {
+      "id": "OUT-ST-FINAL-release-notes-5f5844fc",
+      "story_id": "ST-FINAL",
+      "artifact_type": "release-notes",
+      "artifact_path": "docs/release-notes.md",
+      "template_id": "release-notes-v1",
+      "mode": "new",
+      "base_artifact": null,
+      "requirements": [
+        "REQ-FINAL"
+      ],
+      "decision_id": null,
+      "rationale": null,
+      "contract_id": "CONTRACT-FINAL",
+      "supersedes": null,
+      "delivery_format": "markdown",
+      "delivery_extension": ".md",
+      "media_type": "text/markdown",
+      "generator": null,
+      "delivery_mode": "artifact-plus-chat-summary",
+      "verification_receipt": {
+        "achieved_level": "semantic",
+        "artifact": {
+          "format": "markdown",
+          "media_type": "text/markdown",
+          "path": "docs/release-notes.md",
+          "sha256": "9b5931d6b80fad85baedf259b7a0cb1d194966453c935b15b476c8e408ad27bd"
+        },
+        "artifact_present": true,
+        "container_verified": {
+          "checks": [
+            "non-empty file (54 bytes)",
+            "extension .md",
+            "non-binary text content"
+          ],
+          "evidence": [],
+          "reason": null,
+          "status": "verified",
+          "verified_at": "2026-10-10T04:38:35.934Z",
+          "verifier": "file-structure-v1"
+        },
+        "content_verified": {
+          "checks": [
+            "non-empty meaningful text content"
+          ],
+          "evidence": [],
+          "reason": null,
+          "status": "verified",
+          "verified_at": "2026-10-10T04:38:35.934Z",
+          "verifier": "file-structure-v1"
+        },
+        "evidence": [],
+        "existence_verified": {
+          "checks": [
+            "non-empty file (54 bytes)"
+          ],
+          "evidence": [],
+          "reason": null,
+          "status": "verified",
+          "verified_at": "2026-10-10T04:38:35.934Z",
+          "verifier": "file-existence-v1"
+        },
+        "extensions": {
+          "delivery_label": "Markdown document",
+          "delivery_mode": "artifact-plus-chat-summary",
+          "size_bytes": 54
+        },
+        "failed_checks": [],
+        "generator_receipt": null,
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "VERIFY-OUT-ST-FINAL-release-notes-5f5844fc-9b5931d6",
+        "independent_verified": {
+          "checks": [],
+          "evidence": [],
+          "reason": "Independent verification is outside the approved verification level.",
+          "status": "not-required",
+          "verified_at": null,
+          "verifier": null
+        },
+        "kind": "verification_receipt",
+        "limitations": [
+          "Rendered and independent verification were not required by this output contract."
+        ],
+        "missing_checks": [],
+        "passed": true,
+        "receipt_hash": "e5134919fbf7067caede05ff72be7bfc349bdbf76bd4e73315b40c8976389603",
+        "render_verified": {
+          "checks": [],
+          "evidence": [],
+          "reason": "Approved format does not require rendered verification.",
+          "status": "not-required",
+          "verified_at": null,
+          "verifier": "render-evidence-v1"
+        },
+        "required_dimensions": {
+          "container": true,
+          "content": true,
+          "existence": true,
+          "independent": false,
+          "render": false
+        },
+        "required_level": "semantic",
+        "schema_version": "verification-receipt:v1",
+        "status": "passed",
+        "subject_ref": {
+          "hash": "dd01cc43da35b8794b2278d5871732a5500c8c9ded7fdd3126826136edb02f92",
+          "id": "OUT-ST-FINAL-release-notes-5f5844fc",
+          "kind": "output_link"
+        },
+        "verified_at": "2026-10-10T04:38:35.934Z",
+        "verifier": "file-structure-v1",
+        "version": 1
+      },
+      "verification_receipt_ref": {
+        "id": "VERIFY-OUT-ST-FINAL-release-notes-5f5844fc-9b5931d6",
+        "path": ".sdlc/receipts/verification/VERIFY-OUT-ST-FINAL-release-notes-5f5844fc-9b5931d6.json",
+        "hash": "e5134919fbf7067caede05ff72be7bfc349bdbf76bd4e73315b40c8976389603"
+      },
+      "source_paths": [
+        "docs/release-notes.md",
+        ".sdlc/output-contracts/templates/release-notes-v1.md",
+        ".sdlc/receipts/verification/VERIFY-OUT-ST-FINAL-release-notes-5f5844fc-9b5931d6.json",
+        ".sdlc/authorization-uses/AUTH-FINAL-STORY-ACTIONS/AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043836076-a9930b.json",
+        ".sdlc/autonomy/deliveries/AUT-FINAL.json"
+      ],
+      "fingerprints": {
+        "artifact_sha256": "9b5931d6b80fad85baedf259b7a0cb1d194966453c935b15b476c8e408ad27bd",
+        "base_artifact_sha256": null,
+        "template_sha256": "5c32a3556abd8a279f3badc1c24ba0df2eaad34455859aeb57f37870dcf8b712",
+        "hash_algorithm": "sha256:file:v1"
+      },
+      "created_at": "2026-10-10T04:38:36.067Z",
+      "updated_at": "2026-10-10T04:38:36.067Z",
+      "audit": {
+        "linked_by": {
+          "id": "codex",
+          "type": "agent",
+          "name": "Codex",
+          "email": null,
+          "source": "default"
+        },
+        "git": {
+          "is_git_repo": true,
+          "branch": "codex/ST-FINAL",
+          "head_sha": "e59fcb56c3325c8a73909d39285caed263617110",
+          "is_dirty": true,
+          "user": {
+            "name": "Finalization E2E",
+            "email": "finalization-e2e@example.invalid"
+          },
+          "remotes": [
+            "origin"
+          ]
+        },
+        "run": {
+          "run_id": null,
+          "thread_id": null,
+          "session_id": null,
+          "tool": "agentic-sdlc-cli",
+          "version": "0.94.0"
+        }
+      },
+      "authorization_ref": "AUTH-FINAL-STORY-ACTIONS",
+      "authorization_use_ref": ".sdlc/authorization-uses/AUTH-FINAL-STORY-ACTIONS/AUSE-AUTH-FINAL-STORY-ACTIONS-20261010043836076-a9930b.json",
+      "authorization_action": "output.link",
+      "checkpoint_profile_ref": {
+        "id": "AUT-FINAL",
+        "path": ".sdlc/autonomy/deliveries/AUT-FINAL.json",
+        "hash": "221d8a0f8c8e7b7d1530a0f694ffa20bd7a157108bbba71eddc2bbb7696203d5"
+      }
     }
   ],
   "decisions": [
@@ -6295,10 +6801,205 @@
           "version": "0.94.0"
         }
       }
+    },
+    {
+      "id": "DEC-output-template-implementation-summary-v1-20261010043705098-d668dc",
+      "type": "template_approved",
+      "template_id": "implementation-summary-v1",
+      "artifact_type": "implementation-summary",
+      "summary": "Approve implementation-summary output format",
+      "status": "approved",
+      "evidence": [],
+      "approval_source": "explicit-user",
+      "authorization_ref": null,
+      "authorization_use_ref": null,
+      "authorization_action": null,
+      "approval_scope": {
+        "principle": "A human approval applies only to the specific artifact or decision shown to the user before the approval.",
+        "subject_id": "implementation-summary-v1",
+        "subject_label": "output template implementation-summary-v1",
+        "applies_only_to_presented_subject": true,
+        "does_not_approve_future_artifacts": true,
+        "requires_fresh_user_confirmation_for_new_artifacts": true,
+        "approval_level": "output_template"
+      },
+      "explicit_user_confirmation": true,
+      "provisional": false,
+      "approved_content_hash": "98b61763f5595810563ddfcf035170dd723c77ed05de6f1014d35e3a87309062",
+      "approved_delivery_hash": "71eeb826fa48e2aa5a3641f3b1b66295e1a905207e310e6e023bff2ac3e62c59",
+      "delivery": {
+        "format": "markdown",
+        "label": "Markdown document",
+        "extension": ".md",
+        "media_type": "text/markdown",
+        "generator": null,
+        "mode": "artifact-plus-chat-summary"
+      },
+      "hash_algorithm": "sha256:file:v1",
+      "created_at": "2026-10-10T04:37:05.099Z",
+      "audit": {
+        "decided_by": {
+          "id": "antonioantenore",
+          "type": "human",
+          "name": "Finalization E2E",
+          "email": "finalization-e2e@example.invalid",
+          "source": "cli"
+        },
+        "git": {
+          "is_git_repo": true,
+          "branch": "codex/ST-FINAL",
+          "head_sha": "e59fcb56c3325c8a73909d39285caed263617110",
+          "is_dirty": true,
+          "user": {
+            "name": "Finalization E2E",
+            "email": "finalization-e2e@example.invalid"
+          },
+          "remotes": [
+            "origin"
+          ]
+        },
+        "run": {
+          "run_id": null,
+          "thread_id": null,
+          "session_id": null,
+          "tool": "agentic-sdlc-cli",
+          "version": "0.94.0"
+        }
+      }
+    },
+    {
+      "id": "DEC-output-template-release-notes-v1-20261010043707010-4b2abf",
+      "type": "template_approved",
+      "template_id": "release-notes-v1",
+      "artifact_type": "release-notes",
+      "summary": "Approve release-notes output format",
+      "status": "approved",
+      "evidence": [],
+      "approval_source": "explicit-user",
+      "authorization_ref": null,
+      "authorization_use_ref": null,
+      "authorization_action": null,
+      "approval_scope": {
+        "principle": "A human approval applies only to the specific artifact or decision shown to the user before the approval.",
+        "subject_id": "release-notes-v1",
+        "subject_label": "output template release-notes-v1",
+        "applies_only_to_presented_subject": true,
+        "does_not_approve_future_artifacts": true,
+        "requires_fresh_user_confirmation_for_new_artifacts": true,
+        "approval_level": "output_template"
+      },
+      "explicit_user_confirmation": true,
+      "provisional": false,
+      "approved_content_hash": "5c32a3556abd8a279f3badc1c24ba0df2eaad34455859aeb57f37870dcf8b712",
+      "approved_delivery_hash": "71eeb826fa48e2aa5a3641f3b1b66295e1a905207e310e6e023bff2ac3e62c59",
+      "delivery": {
+        "format": "markdown",
+        "label": "Markdown document",
+        "extension": ".md",
+        "media_type": "text/markdown",
+        "generator": null,
+        "mode": "artifact-plus-chat-summary"
+      },
+      "hash_algorithm": "sha256:file:v1",
+      "created_at": "2026-10-10T04:37:07.011Z",
+      "audit": {
+        "decided_by": {
+          "id": "antonioantenore",
+          "type": "human",
+          "name": "Finalization E2E",
+          "email": "finalization-e2e@example.invalid",
+          "source": "cli"
+        },
+        "git": {
+          "is_git_repo": true,
+          "branch": "codex/ST-FINAL",
+          "head_sha": "e59fcb56c3325c8a73909d39285caed263617110",
+          "is_dirty": true,
+          "user": {
+            "name": "Finalization E2E",
+            "email": "finalization-e2e@example.invalid"
+          },
+          "remotes": [
+            "origin"
+          ]
+        },
+        "run": {
+          "run_id": null,
+          "thread_id": null,
+          "session_id": null,
+          "tool": "agentic-sdlc-cli",
+          "version": "0.94.0"
+        }
+      }
+    },
+    {
+      "id": "DEC-output-template-implementation-summary-v1-20261010043825137-1724e0",
+      "type": "template_approved",
+      "template_id": "implementation-summary-v1",
+      "artifact_type": "implementation-summary",
+      "summary": "Approve the current implementation summary format",
+      "status": "approved",
+      "evidence": [],
+      "approval_source": "explicit-user",
+      "authorization_ref": null,
+      "authorization_use_ref": null,
+      "authorization_action": null,
+      "approval_scope": {
+        "principle": "A human approval applies only to the specific artifact or decision shown to the user before the approval.",
+        "subject_id": "implementation-summary-v1",
+        "subject_label": "output template implementation-summary-v1",
+        "applies_only_to_presented_subject": true,
+        "does_not_approve_future_artifacts": true,
+        "requires_fresh_user_confirmation_for_new_artifacts": true,
+        "approval_level": "output_template"
+      },
+      "explicit_user_confirmation": true,
+      "provisional": false,
+      "approved_content_hash": "61cd8933bf91edd4a1677baee35c2babd46781a95d4ccc7840f7a5638de92793",
+      "approved_delivery_hash": "71eeb826fa48e2aa5a3641f3b1b66295e1a905207e310e6e023bff2ac3e62c59",
+      "delivery": {
+        "format": "markdown",
+        "label": "Markdown document",
+        "extension": ".md",
+        "media_type": "text/markdown",
+        "generator": null,
+        "mode": "artifact-plus-chat-summary"
+      },
+      "hash_algorithm": "sha256:file:v1",
+      "created_at": "2026-10-10T04:38:25.138Z",
+      "audit": {
+        "decided_by": {
+          "id": "antonioantenore",
+          "type": "human",
+          "name": "Finalization E2E",
+          "email": "finalization-e2e@example.invalid",
+          "source": "cli"
+        },
+        "git": {
+          "is_git_repo": true,
+          "branch": "codex/ST-FINAL",
+          "head_sha": "e59fcb56c3325c8a73909d39285caed263617110",
+          "is_dirty": true,
+          "user": {
+            "name": "Finalization E2E",
+            "email": "finalization-e2e@example.invalid"
+          },
+          "remotes": [
+            "origin"
+          ]
+        },
+        "run": {
+          "run_id": null,
+          "thread_id": null,
+          "session_id": null,
+          "tool": "agentic-sdlc-cli",
+          "version": "0.94.0"
+        }
+      }
     }
   ],
   "created_at": "2026-07-15T15:16:58.432Z",
-  "updated_at": "2026-10-10T04:38:30.363Z",
+  "updated_at": "2026-10-10T04:38:36.107Z",
   "audit": {
     "created_by": {
       "id": "codex",
@@ -6316,12 +7017,12 @@
     },
     "git": {
       "is_git_repo": true,
-      "branch": "codex/ST-SEAL-A",
-      "head_sha": "17751db017223ff57a60a892afb44f04726759ea",
+      "branch": "codex/ST-FINAL",
+      "head_sha": "e59fcb56c3325c8a73909d39285caed263617110",
       "is_dirty": true,
       "user": {
-        "name": "Merged Certification E2E",
-        "email": "merged-certification-e2e@example.invalid"
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
       },
       "remotes": [
         "origin"
