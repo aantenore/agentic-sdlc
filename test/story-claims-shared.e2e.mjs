@@ -45,10 +45,12 @@ function cliEnvironment(extra = {}) {
 }
 
 function run(args, project, env = {}) {
+  // The second working copy stands in for another computer, so it has its own host name.
+  const host = project.endsWith("-second") || /-second-/u.test(path.basename(project)) ? { AGENTIC_SDLC_HOST_LABEL: "pc-second" } : {};
   return spawnSync(process.execPath, [CLI, ...args], {
     cwd: project,
     encoding: "utf8",
-    env: cliEnvironment(env),
+    env: cliEnvironment({ ...host, ...env }),
     timeout: 120_000,
     maxBuffer: 10 * 1024 * 1024,
   });
@@ -842,4 +844,55 @@ test("a story claimed on another computer cannot be cancelled from here until it
   ], second);
   assert.match(refused.error.message, /ST-1 is held on another computer \(alice/u);
   assert.match(refused.error.message, /story release --id ST-1 --reason/u);
+});
+
+test("a claim made on this computer is released from another worktree and branch without --force; another host's is not", () => {
+  const { first, second, remote } = sharedProject("own-host");
+  mustRunJson(claim(first, "ST-1", "alice"), first);
+  git(first, ["checkout", "--quiet", "-b", "feature/ST-1"]);
+  git(first, ["add", "-A"]);
+  git(first, ["commit", "--quiet", "-m", "feat: claim ST-1"]);
+  git(first, ["checkout", "--quiet", "main"]);
+  // The closing worktree has the claim file but not the ownership proof of the worktree that claimed.
+  const closing = temporaryDirectory("own-host-closing");
+  fs.rmSync(closing, { recursive: true, force: true });
+  git(first, ["worktree", "add", "--quiet", closing, "feature/ST-1"]);
+  assert.equal(claimFile(closing, "ST-1").status, "active");
+
+  // Another computer (different host) with the same file still needs a person.
+  git(second, ["fetch", "--quiet", first, "feature/ST-1"]);
+  git(second, ["checkout", "--quiet", "-b", "feature/ST-1", "FETCH_HEAD"]);
+  const refused = mustRefuseJson(["story", "release", "--root", second, "--id", "ST-1", "--agent", "alice"], second);
+  assert.equal(refused.error.code === "STORY_CLAIM_TAKEOVER_NEEDS_PERSON" || /requires/u.test(refused.error.message), true);
+  assert.deepEqual(remoteClaimRefs(remote), ["refs/agentic-sdlc/claims/ST-1/000001/claim"]);
+
+  const released = mustRunJson(["story", "release", "--root", closing, "--id", "ST-1", "--agent", "alice"], closing);
+  assert.equal(released.shared_release.status, "shared");
+  assert.equal(released.claim.status, "released");
+  assert.equal(released.claim.audit.released_from.branch, "feature/ST-1");
+  assert.equal(released.claim.audit.released_from.worktree, closing);
+  assert.deepEqual(remoteClaimRefs(remote), [
+    "refs/agentic-sdlc/claims/ST-1/000001/claim",
+    "refs/agentic-sdlc/claims/ST-1/000001/release",
+  ]);
+});
+
+test("an older claim without a host is released by the same git e-mail from another worktree", () => {
+  const { first, remote } = sharedProject("own-email");
+  mustRunJson(claim(first, "ST-1", "alice"), first);
+  git(first, ["checkout", "--quiet", "-b", "feature/ST-1"]);
+  const claimPath = path.join(first, ".sdlc", "stories", "ST-1", "claim.json");
+  const record = JSON.parse(fs.readFileSync(claimPath, "utf8"));
+  delete record.audit.run.host;
+  record.audit.git.user.email = git(first, ["config", "user.email"]);
+  fs.writeFileSync(claimPath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
+  git(first, ["add", "-A"]);
+  git(first, ["commit", "--quiet", "-m", "feat: claim ST-1"]);
+  git(first, ["checkout", "--quiet", "main"]);
+  const closing = temporaryDirectory("own-email-closing");
+  fs.rmSync(closing, { recursive: true, force: true });
+  git(first, ["worktree", "add", "--quiet", closing, "feature/ST-1"]);
+  const released = mustRunJson(["story", "release", "--root", closing, "--id", "ST-1", "--agent", "alice"], closing);
+  assert.equal(released.shared_release.status, "shared");
+  assert.equal(remoteClaimRefs(remote).length, 2);
 });
