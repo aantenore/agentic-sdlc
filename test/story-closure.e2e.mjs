@@ -451,3 +451,39 @@ test("a tampered closure or a story changed after closure fails closed", () => {
   assert.equal(story.orchestration_state, "blocked");
   assert.equal(story.lifecycle_source, "invalid_story_closure");
 });
+
+test("story abandon closes a started story that delivered nothing and releases its claim", () => {
+  const project = createTrialProject("closure-abandon");
+  writeJson(storyPath(project, "ST-005", "claim.json"), {
+    story_id: "ST-005",
+    agent: "fixture-agent",
+    status: "active",
+  });
+  const base = ["story", "abandon", "--root", project, "--id", "ST-005", "--reason", "Never delivered", "--replaced-by", "ST-MVP"];
+
+  mustFail([...base, "--actor-type", "agent", "--approval-source", "automation", "--summary", "Abandon"], /Only a person can abandon/u);
+  assert.equal(fs.existsSync(storyPath(project, "ST-005", "closure.json")), false);
+
+  const done = mustRunJson([...base, ...humanApproval("Abandon the story that never delivered")]);
+  assert.equal(done.status, "superseded");
+  const closure = readJson(storyPath(project, "ST-005", "closure.json"));
+  assert.equal(closure.replacement_id, "ST-MVP");
+  assert.equal(closure.subject.reason, "Abbandonata: Never delivered");
+  assert.deepEqual(closure.subject.started_work.deliveries, []);
+  assert.equal(readJson(storyPath(project, "ST-005", "claim.json")).status, "released");
+  const trace = fs.readFileSync(path.join(project, ".sdlc", "traces", "ST-005.jsonl"), "utf8");
+  assert.match(trace, /workflow\.cancel/u);
+});
+
+test("story abandon refuses a story with delivered work", () => {
+  const project = createTrialProject("closure-abandon-refused");
+  const registryFile = path.join(project, ".sdlc", "output-contracts", "registry.json");
+  const registry = readJson(registryFile);
+  registry.links = [{ story_id: "ST-005", path: "out.txt" }];
+  writeJson(registryFile, registry);
+  mustFail([
+    "story", "abandon", "--root", project, "--id", "ST-005", "--reason", "Nope",
+    ...humanApproval("Abandon"),
+  ], /ST-005 delivered work and cannot be abandoned: it has linked outputs/u);
+  assert.equal(fs.existsSync(storyPath(project, "ST-005", "closure.json")), false);
+});

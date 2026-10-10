@@ -559,6 +559,7 @@ function normalizeClosure(value) {
     event: closure.event,
     replacementId,
     replacementIds: replacementIds.length ? replacementIds : replacementId ? [replacementId] : [],
+    reason: readable(closure.reason, "") || null,
   };
 }
 

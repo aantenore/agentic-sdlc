@@ -356,6 +356,13 @@ test("only a person supersedes a recorded evidence file", () => {
   assert.match(verdict.reason, /ask the user to run this exact command themselves/u);
 });
 
+test("only a person abandons a story, and a message that mentions it is not blocked", () => {
+  const verdict = evaluatePreToolUse(shell("node bin/agentic-sdlc.mjs story abandon --id ST-DEMO-001 --reason x --actor-type human"));
+  assert.equal(verdict?.decision, "deny");
+  assert.match(verdict.reason, /ask the user to run this exact command themselves/u);
+  assert.equal(evaluatePreToolUse(shell("git commit -m \"docs: story abandon per ST-DEMO-001\"")), null);
+});
+
 test("only a person acknowledges a merge made outside the plugin", () => {
   for (const command of [
     "node bin/agentic-sdlc.mjs autonomy delivery reconcile --id AUT-1 --pr-url https://github.com/o/r/pull/1 --actor-type human",

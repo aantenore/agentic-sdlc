@@ -928,6 +928,15 @@ node bin/agentic-sdlc.mjs story cancel --root <project> --id ST-004 \
   --actor-type human --approval-source explicit-user --summary "Drop ST-004"
 ```
 
+`story abandon --id <story> --reason <text> [--replaced-by <story>]` (person only,
+`--actor-type human --approval-source explicit-user --summary <text>`) closes a
+story whose workflow started but delivered nothing. It writes the same closure
+record (reason prefixed "Abbandonata: ", a cancellation or, with
+`--replaced-by`, a supersession), releases the claim and records a
+`workflow.cancel` decision on the workflow run; nothing is deleted. It is
+refused when a delivery, linked output, certification, or implementation, test
+or release history exists.
+
 Each closed story gets an immutable `.sdlc/stories/<story-id>/closure.json`
 bound to the approved subject (story contents, replacement, breakdown, reason)
 and a `story.supersede` or `story.cancel` project trace; `story.json` is never

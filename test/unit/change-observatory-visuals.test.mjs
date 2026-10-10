@@ -165,6 +165,19 @@ test("closed and claimed stories follow the same rules as status", () => {
   assert.equal(storyState({ status: "ready", claimed: true, phases: phasesOf(["complete", "complete", "complete"]) }), "live");
 });
 
+test("a recorded closure keeps its reason and the headline counts closed stories apart", async (t) => {
+  useBrowserDocument(t);
+  const raw = JSON.parse(await readFile(FIXTURE, "utf8"));
+  raw.iterations[0] = { ...raw.iterations[0], closure: { event: "cancelled", reason: "Abbandonata: sostituita da ST-B" } };
+  const model = normalizeViewModel(raw);
+  assert.equal(model.iterations[0].closure.reason, "Abbandonata: sostituita da ST-B");
+  setLocale("it");
+  const container = globalThis.document.createElement("main");
+  renderPrimary(container, model, { view: "overview", selectedId: null, filters: {}, explore: defaultExploreState() });
+  setLocale("en");
+  assert.match(container.textContent, /\d+ consegnate · 1 chiuse · \d+ in corso\/da fare/u);
+});
+
 test("only diagnostics a reader can act on raise the evidence banner", () => {
   assert.equal(isActionableDiagnostic({ code: "schema_version_missing", severity: "info" }), false);
   assert.equal(isActionableDiagnostic({ code: "dossier_link_target_missing", severity: "warning" }), false);
