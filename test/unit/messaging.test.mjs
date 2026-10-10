@@ -171,12 +171,18 @@ test("a computer without messaging set up keeps working: commands succeed and se
   assert.equal((await runCli(["message", "read"], { root })).code, 0);
 });
 
-test("an unreachable messaging server fails send and is reported by read", async () => {
+test("an unreachable messaging server queues send (exit 75) and is reported by read", async () => {
   const root = projectDir();
   const env = { AGENTIC_SDLC_MESSAGING_SERVER: "http://127.0.0.1:9" };
   const sent = await runCli(["message", "send", "--text", "hello", "--json"], { root, env });
-  assert.notEqual(sent.code, 0);
-  assert.match(sent.stderr, /^MESSAGE NOT SENT:/u);
+  assert.equal(sent.code, 75);
+  assert.match(sent.stderr, /^MESSAGE QUEUED \(not sent yet\):/mu);
+  assert.equal(JSON.parse(sent.stdout).queued, true);
+  const listed = await runCli(["message", "outbox", "--json"], { root, env });
+  assert.equal(JSON.parse(listed.stdout).count, 1);
+  const dropped = await runCli(["message", "outbox", "--drop", JSON.parse(listed.stdout).items[0].id], { root, env });
+  assert.equal(dropped.code, 0, dropped.stderr);
+  assert.equal(JSON.parse((await runCli(["message", "outbox", "--json"], { root, env })).stdout).count, 0);
   const read = await runCli(["message", "read"], { root, env });
   assert.equal(read.code, 0, read.stderr);
   assert.match(read.stdout, /unavailable/u);
@@ -286,7 +292,7 @@ test("kinds travel in tags, pending replies are listed and --skip-own honours an
   }
 });
 
-test("send fails with a quota hint when the server answers HTTP 429", async () => {
+test("send queues with a quota hint when the server answers HTTP 429", async () => {
   const root = projectDir();
   const providers = {
     ntfy: () => ({
@@ -296,8 +302,8 @@ test("send fails with a quota hint when the server answers HTTP 429", async () =
     }),
   };
   const env = { AGENTIC_SDLC_MESSAGING_SERVER: "http://127.0.0.1:9", AGENTIC_SDLC_MESSAGING_TOPIC: "agentic-sdlc-test-topic-0001" };
-  await assert.rejects(
-    messageSend({ root, text: "hello" }, env, providers),
-    (error) => /HTTP 429/u.test(error.message) && /quota giornaliera/u.test(error.message),
-  );
+  const queued = await messageSend({ root, text: "hello", json: true }, env, providers);
+  assert.equal(queued.queued, true);
+  assert.match(queued.reason, /HTTP 429/u);
+  assert.match(queued.reason, /quota giornaliera/u);
 });

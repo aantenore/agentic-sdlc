@@ -31,7 +31,16 @@ setx AGENTIC_SDLC_HOST_LABEL PC1            # Windows (new terminals)
 agentic-sdlc message send --story ST-UX-001 --text "Tests on this story still take 30 minutes here"
 agentic-sdlc message read --since 2h --skip-own
 agentic-sdlc message listen --skip-own --json      # stays open; run it in the background
+agentic-sdlc message outbox [--flush | --drop <id>] # messages waiting to be sent
 ```
+
+### When the server refuses: the outbox
+
+If the server answers HTTP 429 (daily quota of the network/IP), a server error (5xx), or cannot be reached (network down, no answer within 10 seconds), `message send` does not lose the message. It keeps it in the local outbox (`.git/agentic-sdlc/messaging-outbox.json`, mode 0600, never in git), prints `MESSAGE QUEUED (not sent yet): <reason>` and exits with code **75** (distinct from the generic error 1: the message is not lost and must not be sent again). Permanent refusals (HTTP 4xx other than 429, invalid or secret-looking text) are errors as before and are never queued.
+
+The queue is sent, oldest first, by the next `message send` (a new message waits behind the queued ones to keep the order), by `message read` and `listen`, and by the host hook (short timeout), at most once every 5 minutes (`AGENTIC_SDLC_MESSAGING_OUTBOX_RETRY_MINUTES`); each new failure doubles the wait, up to 12 times, so a server in quota is not hammered. Messages that go out leave the queue and are remembered as this computer's own, with their `reply_to`. `message outbox --flush` retries now; `--drop <id>` discards one; `message status` shows the queue. A queued message that the server later refuses for good is dropped with a notice.
+
+A queued answer (`--reply-to X`) counts as an answer in progress: question X no longer appears as unanswered in the host hook and does not block the Stop hook. The Stop hook instead mentions once, without blocking: "N messaggi in coda, non ancora inviati (reason); cambia rete o configura AGENTIC_SDLC_MESSAGING_SERVER".
 
 ### Automatic messages
 
@@ -71,6 +80,7 @@ Each setting is taken from the first place that has it:
 | `AGENTIC_SDLC_MESSAGING_AUTO_TIMEOUT_SECONDS` | network limit for one automatic step (default 3) |
 | `AGENTIC_SDLC_MESSAGING_POLL_SECONDS` | minimum gap between two reads by the host hook (default 45) |
 | `AGENTIC_SDLC_MESSAGING_ESCALATE_MINUTES` | wait before the one reminder for an unanswered question (default 10) |
+| `AGENTIC_SDLC_MESSAGING_OUTBOX_RETRY_MINUTES` | minimum gap between two automatic attempts to send the queued messages (default 5, doubled after each failure) |
 | `AGENTIC_SDLC_HOST_LABEL` | the sender name shown to the others |
 
 The settings are not in `.sdlc/config.json`, so older plugins keep working; they only lack the `message` commands until they update. Messages are not stored in git and change no project record; ntfy.sh keeps them for about 12 hours.

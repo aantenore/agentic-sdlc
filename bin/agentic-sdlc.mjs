@@ -149,6 +149,7 @@ import {
 import { runObserveCommand } from "../lib/change-observatory/cli.mjs";
 import {
   messageListen,
+  messageOutbox,
   messageRead,
   messageSend,
   messageSetup,
@@ -1208,7 +1209,9 @@ async function sendRunAlert() {
     const blockers = Array.isArray(result?.human_blockers) ? result.human_blockers : result?.errors;
     const alert = alertFor(action, options, { error, exitCode: process.exitCode, blockers, result, extra });
     const sent = alert ? await sendAutoAlert(root, alert, { stderr: (text) => process.stderr.write(text) }) : null;
-    const failed = Boolean(error) || (Number(process.exitCode) || 0) !== 0;
+    // A message waiting in the outbox is not a failure to announce.
+    const queued = action === "message.send" && process.exitCode === EXIT_CODES.queued;
+    const failed = !queued && (Boolean(error) || (Number(process.exitCode) || 0) !== 0);
     recordRunOutcome(root, { action, failed, error: error?.message, alerted: sent?.sent === true || sent?.skipped === "repeat" });
   } catch {
     // Automatic messages are best effort.
@@ -1252,7 +1255,16 @@ function buildCliRuntimeHandlerRegistry() {
     // Messages need only the project folder: they read no governed records.
     "message.status": bootstrap(({ options }) => messageStatus(options)),
     "message.setup": bootstrap(({ options }) => messageSetup(options)),
-    "message.send": bootstrap(({ options }) => messageSend(options)),
+    "message.send": bootstrap(async ({ options }) => {
+      const result = await messageSend(options);
+      if (result?.queued) {
+        // Not an error and not sent: the message waits in the local outbox.
+        process.stderr.write(`MESSAGE QUEUED (not sent yet): ${String(result.reason).split("\n")[0]}\n`);
+        process.exitCode = EXIT_CODES.queued;
+      }
+      return result;
+    }),
+    "message.outbox": bootstrap(({ options }) => messageOutbox(options)),
     "message.read": bootstrap(({ options }) => messageRead(options)),
     "message.listen": bootstrap(({ options }) => messageListen(options)),
     "runs.list": bootstrap(({ options }) => runsList(options)),

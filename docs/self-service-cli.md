@@ -550,6 +550,7 @@ operator problem.
 | `2` | Usage error: the command or its options could not be resolved. | Fix the invocation; `help` lists the real options. |
 | `3` | Governance denial: the mutation guard refused to change a governed record or file that the agreed limits or authorization do not cover. | A person decides whether to amend the agreement. Do not retry unchanged. |
 | `4` | Environment error: the host cannot run this software as installed. | Repair the installation; `doctor` names the fix. |
+| `75` | Queued: `message send` could not reach the messaging server for a temporary reason and kept the message in the local outbox. Not an error of the request. | Do nothing: it is sent automatically later; `message outbox` lists it. Do not send it again. |
 | `70` | Internal error: the software failed in a way the caller cannot correct. | Report it with the correlation ID from the output. |
 
 Usage errors include an unknown option, a missing or repeated option value, a
