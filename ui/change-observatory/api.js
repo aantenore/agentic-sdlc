@@ -191,6 +191,13 @@ export class ObservatoryApi {
     return parseJsonResponse(response, "record source");
   }
 
+  // Who is doing what across computers right now. Optional: an older
+  // server answers 404 and the panel stays hidden.
+  async loadNow({ signal } = {}) {
+    const response = await this.#request("/api/v1/now", { signal, headers: { Accept: "application/json" } });
+    return parseJsonResponse(response, "now");
+  }
+
   // Stories on the remote base branch that this computer has not pulled.
   // Optional: an older server answers 404 and nothing is added.
   async loadRemoteStories(portfolioProjectId = null, { signal } = {}) {

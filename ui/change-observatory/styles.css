@@ -3993,3 +3993,53 @@ mark {
 
 .nav-group-toggle[aria-expanded="true"] .nav-group-chevron { transform: none; }
 .nav-expert[hidden] { display: none; }
+
+.now-panel {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  padding: 12px 28px;
+}
+
+.now-panel[hidden] {
+  display: none;
+}
+
+.now-details > summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.now-section h3 {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.now-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.now-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.now-meta,
+.now-note,
+.now-empty {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.now-flag {
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+}
