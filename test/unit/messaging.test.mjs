@@ -8,6 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { resolveMessagingConfig } from "../../lib/messaging/config.mjs";
+import { messageSend } from "../../lib/messaging/commands.mjs";
 import { fromNtfyEvent, toNtfyPayload } from "../../lib/messaging/providers/ntfy.mjs";
 
 const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../bin/agentic-sdlc.mjs");
@@ -168,12 +169,12 @@ test("a computer without messaging set up keeps working: commands succeed and se
   assert.equal((await runCli(["message", "read"], { root })).code, 0);
 });
 
-test("an unreachable messaging server is reported without failing", async () => {
+test("an unreachable messaging server fails send and is reported by read", async () => {
   const root = projectDir();
   const env = { AGENTIC_SDLC_MESSAGING_SERVER: "http://127.0.0.1:9" };
   const sent = await runCli(["message", "send", "--text", "hello", "--json"], { root, env });
-  assert.equal(sent.code, 0, sent.stderr);
-  assert.equal(JSON.parse(sent.stdout).unavailable, true);
+  assert.notEqual(sent.code, 0);
+  assert.match(sent.stderr, /^MESSAGE NOT SENT:/u);
   const read = await runCli(["message", "read"], { root, env });
   assert.equal(read.code, 0, read.stderr);
   assert.match(read.stdout, /unavailable/u);
@@ -281,4 +282,20 @@ test("kinds travel in tags, pending replies are listed and --skip-own honours an
   } finally {
     await ntfy.close();
   }
+});
+
+test("send fails with a quota hint when the server answers HTTP 429", async () => {
+  const root = projectDir();
+  const providers = {
+    ntfy: () => ({
+      publish: async () => {
+        throw new Error('ntfy publish failed with HTTP 429: {"code":42908,"error":"limit reached: daily message quota reached"}');
+      },
+    }),
+  };
+  const env = { AGENTIC_SDLC_MESSAGING_SERVER: "http://127.0.0.1:9", AGENTIC_SDLC_MESSAGING_TOPIC: "agentic-sdlc-test-topic-0001" };
+  await assert.rejects(
+    messageSend({ root, text: "hello" }, env, providers),
+    (error) => /HTTP 429/u.test(error.message) && /quota giornaliera/u.test(error.message),
+  );
 });
