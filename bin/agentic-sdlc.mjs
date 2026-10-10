@@ -1095,6 +1095,7 @@ import {
 import {
   grantDelegation,
   listDelegations,
+  publishDelegation,
   revokeDelegation,
 } from "../lib/engine/delegation.mjs";
 import {
@@ -1378,6 +1379,7 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.delegation.grant": call(grantDelegation),
     "autonomy.delegation.revoke": call(revokeDelegation),
     "autonomy.delegation.list": call(listDelegations),
+    "autonomy.delegation.publish": call(publishDelegation),
     "contract.create": call(createContract),
     "contract.approve": call(approveContract),
     "story.create": call(createStory),
