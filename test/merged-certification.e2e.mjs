@@ -1,3 +1,5 @@
+import { createBareOrigin, createFixtureDir } from "./helpers/test-isolation.mjs";
+
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -28,7 +30,7 @@ after(() => {
 // ---------------------------------------------------------------------------
 
 function temporaryDirectory(label) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), `agentic-sdlc-merged-${label}-`));
+  const directory = createFixtureDir(`agentic-sdlc-merged-${label}-`);
   TEMPORARY_PATHS.add(directory);
   return directory;
 }
@@ -157,7 +159,7 @@ function initializeGitProject(project, { projectName = "Merged certification", c
   mustGit(project, ["add", "."]);
   mustGit(project, ["commit", "-m", "test: establish governed baseline"]);
   mustGit(project, ["branch", "-M", "main"]);
-  mustGit(project, ["remote", "add", "origin", REMOTE_URL]);
+  createBareOrigin(project, { urlAlias: REMOTE_URL });
   mustGit(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
   if (claimsRemote) {
     mustGit(project, ["remote", "add", "claims", claimsRemote]);

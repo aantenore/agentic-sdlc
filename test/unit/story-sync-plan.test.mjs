@@ -10,6 +10,7 @@ import {
   isOwnStoryRecordPath,
   localRecordExtendsBase,
   pathInWritePaths,
+  publishTargetMismatch,
   reapplyDecision,
   selectHandoffFiles,
   unionOutputRegistries,
@@ -143,4 +144,12 @@ test("a story's own records stay local when they extend or supersede the base co
   const decide = (extra) => reapplyDecision(".sdlc/stories/ST-X/claim.json", { localBlob: "l", oldHeadBlob: null, newHeadBlob: "n", ...extra });
   assert.equal(decide({}), "conflict");
   assert.equal(decide({ ownExtends: true }), "reapply");
+});
+
+test("a publication target holding another project is refused", () => {
+  assert.equal(publishTargetMismatch({ localProject: { project_id: "a" }, baseProject: { project_id: "a" } }), null);
+  assert.equal(publishTargetMismatch({ localProject: { project_id: "a" }, baseProject: null }), null);
+  assert.equal(publishTargetMismatch({ localProject: { project_id: "a" }, baseProject: {} }), null);
+  assert.match(publishTargetMismatch({ localProject: { project_id: "a" }, baseProject: { project_id: "b" } }), /'a'.*'b'/u);
+  assert.match(publishTargetMismatch({ localProject: null, baseProject: { project_id: "b" } }), /no identity/u);
 });

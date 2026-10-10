@@ -1,3 +1,5 @@
+import "./helpers/test-isolation.mjs";
+
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { generateKeyPairSync } from "node:crypto";

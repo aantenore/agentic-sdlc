@@ -1,3 +1,5 @@
+import { createBareOrigin, createFixtureDir } from "./helpers/test-isolation.mjs";
+
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -32,7 +34,7 @@ after(() => {
 });
 
 function temporaryProject(label) {
-  const project = fs.mkdtempSync(path.join(os.tmpdir(), `agentic-sdlc-finalization-${label}-`));
+  const project = createFixtureDir(`agentic-sdlc-finalization-${label}-`);
   TEMPORARY_PROJECTS.add(project);
   return project;
 }
@@ -365,7 +367,7 @@ function initializeGitProject(project, branch, configureProject = null) {
   mustGit(project, ["add", "."]);
   mustGit(project, ["commit", "-m", "test: establish governed baseline"]);
   mustGit(project, ["branch", "-M", "main"]);
-  mustGit(project, ["remote", "add", "origin", "https://github.com/aantenore/agentic-sdlc.git"]);
+  createBareOrigin(project, { urlAlias: "https://github.com/aantenore/agentic-sdlc.git" });
   mustGit(project, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
   mustGit(project, ["checkout", "-b", branch]);
 }

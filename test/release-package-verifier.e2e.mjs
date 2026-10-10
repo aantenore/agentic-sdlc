@@ -1,3 +1,5 @@
+import "./helpers/test-isolation.mjs";
+
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
