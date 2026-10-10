@@ -175,3 +175,49 @@ test("a person's evidence supersede is honored by the trace drift check", () => 
   fs.writeFileSync(filePath, "changed again\n");
   assert.equal(isDrift(gate(dir)), true, "a further change after the supersede is drift again");
 });
+
+test("a person's trace-bound evidence supersede is honored by the trace drift check", () => {
+  const dir = project("trace-bound");
+  fs.mkdirSync(path.join(dir, "evidence"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "evidence", "build.log"), "line one\r\nline two\r\n");
+  const appended = JSON.parse(mustRun([
+    "trace", "append", "--root", dir, "--type", "test", "--summary", "Build", "--outcome", "passed",
+    "--evidence", "evidence/build.log", "--json",
+  ]).stdout);
+  const refPath = appended.event.evidence_refs[0].path;
+  fs.writeFileSync(path.join(dir, ...refPath.split("/")), "line one\nline two\n");
+  const isDrift = (report) => report.errors.some((e) => e.includes(`evidence content drift detected for ${refPath}`));
+  assert.equal(isDrift(gate(dir)), true);
+
+  const base = {
+    id: "AUT-EVSUP-TR",
+    kind: "delivery_evidence_supersede_record",
+    schema_version: "delivery-evidence-supersede:v1",
+    trace_ref: { id: appended.event.id, story_id: appended.event.story_id },
+    evidence: {
+      path: refPath,
+      recorded_sha256: appended.event.evidence_refs[0].sha256,
+      current_sha256: crypto.createHash("sha256").update("line one\nline two\n").digest("hex"),
+    },
+    reason: "line endings converted by a rebase",
+    recorded_by: { id: "alice", type: "human" },
+    recorded_at: "2026-10-10T00:00:00.000Z",
+  };
+  const record = { ...base, record_hash: evidenceSupersedeHash(base), hash_algorithm: "sha256:stable-json:v1" };
+  const root = path.join(dir, ".sdlc", "autonomy", "trace-evidence-supersede");
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, "AUT-EVSUP-TR.json"), `${JSON.stringify(record, null, 2)}\n`);
+  const honored = gate(dir);
+  assert.equal(isDrift(honored), false, honored.errors.join("\n"));
+  assert.equal(honored.warnings.some((w) => w.includes(`evidence ${refPath} superseded by a person`)), true);
+});
+
+test("evidence files are declared not text-converted, once", async () => {
+  const { ensureEvidenceGitattributes, EVIDENCE_GITATTRIBUTES_RULE } = await import("../../lib/engine/evidence-eol.mjs");
+  const dir = project("eol");
+  const target = path.join(dir, ".gitattributes");
+  fs.writeFileSync(target, "* text=auto");
+  assert.equal(ensureEvidenceGitattributes({ root: dir }), true);
+  assert.equal(ensureEvidenceGitattributes({ root: dir }), false);
+  assert.equal(fs.readFileSync(target, "utf8"), `* text=auto\n${EVIDENCE_GITATTRIBUTES_RULE}\n`);
+});
