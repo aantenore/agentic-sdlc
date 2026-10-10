@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { collectWork, decideKeepGoing, isFreshForeignStory, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
+import { claimOwnership, collectWork, decideKeepGoing, isFreshForeignStory, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
 
 const claim = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation"] }) };
 
@@ -208,6 +208,33 @@ test("claims of sibling worktrees are this computer's work; only truly free stor
     assert.equal(decideKeepGoing({ available: [] }).block, false);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claim ownership: host of this computer, any agent name or worktree; e-mail for claims without host", async () => {
+  const owns = await claimOwnership(["/nonexistent"], { selfHost: "pc-a", selfEmail: "Me@Example.com" });
+  const shared = { scope: "shared", remote_fingerprint: "x", epoch: 1, ref: "refs/agentic-sdlc/claims/ST-1/000001/claim" };
+  assert.equal(owns({ agent: "other-name", branch: "x", shared_claim: shared, audit: { run: { host: "pc-a" } } }), true);
+  assert.equal(owns({ shared_claim: shared, audit: { run: { host: "pc-b" }, git: { user: { email: "me@example.com" } } } }), false);
+  assert.equal(owns({ shared_claim: shared, audit: { git: { user: { email: "me@example.com" } } } }), true);
+  assert.equal(owns({ shared_claim: shared, audit: { git: { user: { email: "else@example.com" } } } }), false);
+  assert.equal(owns({ shared_claim: shared }), false);
+  assert.equal(owns({ status: "active" }), true);
+});
+
+test("own claims of this computer show their next step, or delegated work with the marker", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-own-"));
+  try {
+    for (const id of ["ST-A", "ST-B"]) {
+      fs.mkdirSync(path.join(root, ".sdlc", "stories", id), { recursive: true });
+      fs.writeFileSync(path.join(root, ".sdlc", "stories", id, "claim.json"), JSON.stringify({ status: "active", story_id: id }));
+    }
+    const work = collectWork(root, { working: { "ST-B": { until: "2099-01-01T00:00:00Z", reason: "subagent" } } });
+    const decision = decideKeepGoing(work);
+    assert.match(decision.reason, /ST-A: .*agentic-sdlc story complete-step/u);
+    assert.match(decision.note, /ST-B: lavoro delegato/u);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
