@@ -1111,6 +1111,7 @@ import {
   publishCodeReviews,
 } from "../lib/engine/review-shared.mjs";
 import {
+  publishBaseline,
   refreshBaseline,
   withdrawBaselineRefresh,
 } from "../lib/engine/baseline-refresh.mjs";
@@ -1327,6 +1328,7 @@ function buildCliRuntimeHandlerRegistry() {
     "baseline.approve": call(approveBaseline),
     "baseline.refresh": call(refreshBaseline),
     "baseline.refresh.withdraw": call(withdrawBaselineRefresh),
+    "baseline.publish": call(publishBaseline),
     "baseline.status": call(showBaselineStatus),
     "assessment.proposal.prepare": call(prepareAssessmentProposal),
     "assessment.proposal.approve": call(approveAssessmentProposal),
