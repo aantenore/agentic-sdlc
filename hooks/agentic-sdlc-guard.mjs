@@ -135,13 +135,29 @@ async function reapRuns(payload) {
   reapUnregisteredProcesses(commonDir);
 }
 
+/** Keeps the agent working while this computer has work in the project (see lib/host-hooks/keep-going.mjs). */
+async function keepGoing(payload) {
+  const root = governedRoot(payload.cwd);
+  if (!root) return;
+  const { keepGoingStop } = await import("../lib/host-hooks/keep-going.mjs");
+  const { findGitCommonDir } = await import("../lib/runtime/run-registry.mjs");
+  const output = await keepGoingStop(root, payload, { commonDir: findGitCommonDir(root) });
+  if (output) process.stdout.write(`${JSON.stringify(output)}\n`);
+}
+
 try {
   const event = process.argv[2];
   const payload = readPayload();
   if (event === "pre-tool-use") preToolUse(payload);
   else if (event === "session-start") await sessionStart(payload);
   else if (event === "post-tool-use") await coordinationMessages(payload, "PostToolUse");
-  else if (event === "stop" || event === "session-end") await reapRuns(payload);
+  else if (event === "stop") {
+    try {
+      await reapRuns(payload);
+    } finally {
+      await keepGoing(payload);
+    }
+  } else if (event === "session-end") await reapRuns(payload);
   else if (event === "user-prompt-submit") await coordinationMessages(payload, "UserPromptSubmit");
 } catch {
   process.exitCode = 0;

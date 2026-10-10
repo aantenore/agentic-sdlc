@@ -1207,6 +1207,35 @@ Common fail-closed cases include:
 - a visual artifact lacks separate render evidence;
 - release lineage is incomplete or a rollback target does not match the source revision.
 
+### Keep going
+
+The agent continues with the next step until no work remains; it stops only
+for human decisions. At the end of each turn the Claude Code `Stop` hook reads
+local files only (no network: questions come from the messages already fetched
+by the throttled poll) and, when this computer still has work, answers
+`{"decision":"block","reason":"..."}` with the next steps and exact commands:
+
+1. an active story claim of this clone whose lifecycle is not certified: the
+   next missing step (`story complete-step ...`), then
+   `gate check --story <id> --scope story --strict --lifecycle-complete`;
+2. coordination questions or requests to this computer not yet answered
+   (`message send --kind answer --reply-to <id> ...`);
+3. with neither, stories without a claim that are not done (check their
+   dependencies with `agentic-sdlc status` before claiming one).
+
+Items that need a person, such as an expired claim to renew or force, never
+block: they are only mentioned. If the turn already continued because of this
+hook and the next step is unchanged, the stop is allowed after 3 identical
+blocks in a row (state in `<git-common-dir>/agentic-sdlc/keep-going.json`).
+`AGENTIC_SDLC_KEEP_GOING=off` disables the check.
+
+Hosts without a blocking end-of-turn hook, such as Codex, use the same
+decision through `agentic-sdlc next` (read-only, local files only): the shared
+skill tells the agent to run it before ending a turn and to continue while it
+prints a next step. The hook script also accepts a Codex `Stop` payload
+(`cwd`, `stop_hook_active`) and answers in the same format, so it can be
+registered as a Codex `Stop` hook where hooks are enabled.
+
 ### No process left running
 
 Each plugin command records itself under `<git-common-dir>/agentic-sdlc/runs/`
