@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.72.0 Works
+# How Agentic SDLC 0.73.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -198,7 +198,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.72.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.73.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -1218,6 +1218,26 @@ plugin versions, after checking the process is still an agentic-sdlc command.
 The Change Observatory is never stopped. `agentic-sdlc runs list` and
 `agentic-sdlc runs stop [--older-than <minutes>] [--pid <pid>]` do the same by
 hand.
+
+Heavy commands also run one at a time. Gate check, story complete-step,
+workflow instance start/transition, autonomy delivery
+action/propose/approve/evidence supersede, task start, story claim/release,
+output link, test record, secret scan and story overlap confirm take a lock
+per story (from `--story`, or `--id` when it is a story id; otherwise per
+command); trace rebase, baseline refresh/approve and story publish-records take
+one lock per repository. The lock is a file under
+`<git-common-dir>/agentic-sdlc/locks/` created exclusively; a second start
+while the holder is a live agentic-sdlc process exits with code 5 and says which
+pid holds it. A dead, foreign or over-limit holder is taken over, and the
+reaper removes stale locks. `AGENTIC_SDLC_WAIT_FOR_LOCK_SECONDS` (default 0)
+waits instead of refusing. Read-only commands are never blocked.
+
+With messaging on, the plugin also tells the topic when a story enters a
+workflow phase, a commit, push or pull request completes, a test run is
+recorded and a strict gate passes. From the host hook it sends a short status
+every `AGENTIC_SDLC_MESSAGING_HEARTBEAT_MINUTES` (default 15, `0` off) while this
+clone holds active claims, and at most once an hour an offer to help when it
+holds none. `AGENTIC_SDLC_MESSAGING_AUTO=off` stops all of these.
 
 ## 8. Active-Release Migration
 

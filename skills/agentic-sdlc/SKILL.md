@@ -972,6 +972,24 @@ The dedicated assessment journey remains the exception described above: it packa
    `AGENTIC_SDLC_LISTEN_MAX_HOURS` (default 8); `agentic-sdlc runs list` and
    `runs stop` show and stop the ones still running.
 
+   **One heavy command at a time per story.** Never start the same plugin
+   command twice in parallel, and run one heavy command at a time per story
+   (gate check, story complete-step, workflow transitions, delivery actions,
+   test record, ...); trace rebase, baseline refresh/approve and story
+   publish-records run one at a time per repository. A duplicate start is
+   refused with exit code 5 and names the running pid: wait for it to finish
+   (or set `AGENTIC_SDLC_WAIT_FOR_LOCK_SECONDS`), use `runs stop --pid <pid>`
+   only if it is stuck. Read-only commands are never blocked.
+
+   **Communicate often.** Before each piece of work announce what you are
+   about to do and which files you will touch; call out shared files; ask on
+   the topic before touching another agent's scope; close every thread of
+   work with a message. The plugin also sends `[auto]` notices (phase
+   changes, commits, pushes, pull requests, test records, strict gates), a
+   periodic status while this computer holds claims
+   (`AGENTIC_SDLC_MESSAGING_HEARTBEAT_MINUTES`, default 15, 0 = off) and an
+   offer to help when it holds none.
+
    When the project has a git remote, the claim is first recorded on it
    (`refs/agentic-sdlc/claims/`), so every computer working on the project sees
    it; `orchestrate status` lists stories claimed on other computers as

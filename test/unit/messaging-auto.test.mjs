@@ -81,7 +81,7 @@ test("alerts name the story and the reason, and ignore ordinary runs", () => {
   const merged = alertFor("autonomy.delivery.action", { id: "AUT-1", action: "pull_request.merge", outcome: "passed" }, { extra: { story: "ST-A-001", unblocked: ["ST-C-003"] } });
   assert.match(merged.text, /merged for ST-A-001\. Now unblocked: ST-C-003/u);
   assert.match(merged.next, /task start --story ST-C-003/u);
-  assert.equal(alertFor("autonomy.delivery.action", { id: "AUT-1", action: "git.push", outcome: "passed" }), null);
+  assert.equal(alertFor("autonomy.delivery.action", { id: "AUT-1", action: "git.push", outcome: "passed" }).text, "git push done.");
   assert.match(alertFor("story.publish-records", { id: "ST-A-001" }, { extra: { unblocked: [] } }).text, /records of ST-A-001 published/u);
   assert.match(alertFor("gate.check", { story: "ST-A-001", "lifecycle-complete": true }, { exitCode: 0 }).text, /certified/u);
   assert.match(alertFor("baseline.refresh", {}, { exitCode: 0 }).text, /baseline refreshed/u);
