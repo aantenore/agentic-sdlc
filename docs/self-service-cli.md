@@ -674,6 +674,39 @@ claim, `gate check --strict --lifecycle-complete` and
   `.git/agentic-sdlc/close/<story>.log` and announcing the outcome on the
   coordination channel.
 
+### Phases completed retroactively (backfill)
+
+When the work of a phase was done (commits, tests, a strict gate) but its
+`story complete-step` was never recorded, completing it after a later phase
+would break the phase order. `story complete-step --backfill` records it
+honestly instead:
+
+```bash
+agentic-sdlc story complete-step --id <story> --step implementation \
+  --backfill --reason "<why it was not recorded when done>"
+```
+
+- It applies only to a phase that is still open while a later phase is
+  completed or the workflow moved past it, and it requires `--reason`.
+- It cites sealed trace events of the story that already exist and predate
+  the next phase: a recorded decision, `contract.approve` or
+  `task.start.confirm` for discovery, analysis and design; a passed
+  `git.commit` (or implementation trace) for implementation; a passed test
+  record or strict `gate.check` for validation. Without such evidence it is
+  refused and names what is missing. A project can replace the rules of a
+  phase with `story_backfill.evidence.<phase>` in `.sdlc/config.json`
+  (a list of `{ type, action, outcome }` matchers).
+- The step keeps `completed_at` (when it was recorded) and adds
+  `completion_mode: "backfill"`, `effective_at` (its latest evidence) and the
+  evidence references. The lifecycle gate orders phases by `effective_at`,
+  re-checks every cited event against the trace, and lists the phases as
+  "completata a posteriori".
+- `story close` runs this automatically in its `phase_backfill` phase, after
+  the release steps, and reports `backfilled_phases`; when a skipped phase has
+  no evidence it stops and says which evidence is missing.
+- The keep-going hook suggests `story complete-step` as soon as an open phase
+  already has evidence, so the gap does not build up.
+
 `secret scan --incremental` reads only the story's net diff (for a merged
 story, what its merge commit brought in; otherwise the diff against the
 merge-base with the remote base branch) plus the story's `.sdlc` records.

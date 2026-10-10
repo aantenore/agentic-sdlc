@@ -150,7 +150,7 @@ test("story close on a merged story runs sync, scan and release trace with one s
   assert.match(trace, /"type":"release"/u);
   // A governed chain without delivery records stops before certification, with the command to run.
   if (closed.json.status === "blocked") {
-    assert.ok(["release_steps", "claim_release", "gate", "publish_records"].includes(closed.json.blocked_phase), closed.result.stdout);
+    assert.ok(["release_steps", "phase_backfill", "claim_release", "gate", "publish_records"].includes(closed.json.blocked_phase), closed.result.stdout);
     assert.ok(closed.json.message.length > 0);
   }
   // Idempotent: the release trace is not appended twice.
@@ -158,6 +158,70 @@ test("story close on a merged story runs sync, scan and release trace with one s
   const releases = fs.readFileSync(path.join(project, ".sdlc", "traces", `${STORY}.jsonl`), "utf8")
     .split("\n").filter((line) => line.includes("\"type\":\"release\""));
   assert.equal(releases.length, 1);
+});
+
+function mergedWithTraces(types) {
+  const { project } = mergedProject();
+  git(project, ["checkout", "--quiet", "main"]);
+  git(project, ["merge", "--quiet", "--no-ff", "-m", `Merge ${STORY}`, `feature/${STORY}`]);
+  git(project, ["push", "--quiet", "origin", "main"]);
+  write(project, `.sdlc/tests/${STORY}-merge.json`, "{\"merged\":true}\n");
+  for (const type of types) {
+    mustRun(["trace", "append", "--root", project, "--story", STORY, "--type", type, "--outcome", "passed", "--summary", `${type} evidence`]);
+  }
+  // Release recorded while the earlier phases were never completed (the real case).
+  const merge = `.sdlc/tests/${STORY}-merge.json`;
+  mustRun(["trace", "append", "--root", project, "--story", STORY, "--type", "release", "--outcome", "passed", "--summary", "merged", "--evidence", merge]);
+  for (const step of ["release", "operations"]) {
+    mustRun(["story", "complete-step", "--root", project, "--id", STORY, "--step", step, "--summary", `${step} after merge`, "--evidence", merge, "--allow-unapproved-contract-output"]);
+  }
+  return project;
+}
+
+test("story close stops at skipped phases without evidence and names what is missing", () => {
+  const project = mergedWithTraces(["decision"]);
+  const closed = closeJson(project, ["--no-fetch", "--allow-unapproved-contract-output", "--evidence", `.sdlc/tests/${STORY}-merge.json`]);
+  assert.equal(closed.json.blocked_phase, "phase_backfill", closed.result.stdout);
+  assert.match(closed.json.message, /implementation \(needed: a passed git\.commit/u);
+  assert.match(closed.json.message, /validation \(needed: a passed test record/u);
+  assert.equal(fs.existsSync(path.join(project, ".sdlc", "stories", STORY, "steps", "design.json")), false);
+});
+
+test("story close completes skipped phases retroactively from evidence that predates release", () => {
+  const project = mergedWithTraces(["decision", "implementation", "test"]);
+  const closed = closeJson(project, ["--no-fetch", "--allow-unapproved-contract-output", "--evidence", `.sdlc/tests/${STORY}-merge.json`]);
+  const byName = Object.fromEntries(closed.json.phases.map((phase) => [phase.name, phase]));
+  assert.equal(byName.phase_backfill.status, "done", closed.result.stdout);
+  assert.deepEqual(closed.json.backfilled_phases.map((entry) => entry.phase), ["discovery", "analysis", "design", "implementation", "validation"]);
+  const steps = path.join(project, ".sdlc", "stories", STORY, "steps");
+  const release = JSON.parse(fs.readFileSync(path.join(steps, "release.json"), "utf8"));
+  let previous = 0;
+  for (const phase of ["discovery", "analysis", "design", "implementation", "validation"]) {
+    const record = JSON.parse(fs.readFileSync(path.join(steps, `${phase}.json`), "utf8"));
+    assert.equal(record.completion_mode, "backfill");
+    assert.ok(record.backfill.reason.length > 0);
+    assert.ok(record.backfill.evidence_refs.length > 0);
+    assert.ok(Date.parse(record.effective_at) >= previous, phase);
+    assert.ok(Date.parse(record.effective_at) <= Date.parse(release.completed_at), phase);
+    previous = Date.parse(record.effective_at);
+  }
+  assert.match(closed.result.stdout, /"backfilled_phases"/u);
+});
+
+test("story complete-step --backfill needs a reason and evidence of the phase", () => {
+  const project = mergedWithTraces(["decision"]);
+  const base = ["story", "complete-step", "--root", project, "--id", STORY, "--backfill", "--allow-unapproved-contract-output"];
+  const noReason = run([...base, "--step", "design"]);
+  assert.notEqual(noReason.status, 0);
+  assert.match(noReason.stderr + noReason.stdout, /requires --reason/u);
+  const noEvidence = run([...base, "--step", "implementation", "--reason", "not recorded when done"]);
+  assert.notEqual(noEvidence.status, 0);
+  assert.match(noEvidence.stderr + noEvidence.stdout, /no evidence of it exists.*git\.commit/su);
+  mustRun([...base, "--step", "design", "--reason", "not recorded when done"]);
+  const record = JSON.parse(fs.readFileSync(path.join(project, ".sdlc", "stories", STORY, "steps", "design.json"), "utf8"));
+  assert.equal(record.completion_mode, "backfill");
+  assert.equal(record.backfill.label, "completata a posteriori");
+  assert.ok(Date.parse(record.effective_at) < Date.parse(record.completed_at));
 });
 
 test("automatic close is opt-in", async () => {
