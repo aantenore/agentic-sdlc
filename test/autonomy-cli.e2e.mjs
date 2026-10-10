@@ -2357,6 +2357,110 @@ test("an in-flight v1 push authorization completes through its legacy verifier",
   assert.equal(completion.action_receipt.action_details.remote_verification.observed_sha, afterCommit);
 });
 
+function setupCommitScopeProject(name) {
+  const id = name.toUpperCase();
+  const project = tmpProject(`commit-scope-${name}`);
+  initializeAutonomyProject(project);
+  createApprovedImplementationContract(project, {
+    storyId: `ST-${id}`,
+    contractId: `CONTRACT-${id}`,
+    profileId: `AUT-${id}`,
+  });
+  mustRunJson([
+    "autonomy", "delivery", "propose",
+    "--root", project,
+    "--id", `AUT-${id}`,
+    "--delivery", `PR-${id}`,
+    "--kind", "pull_request", "--code-review", "not-required", "--code-review-actor-type", "human", "--code-review-approval-source", "explicit-user", "--code-review-summary", "No review needed for this story",
+    "--story", `ST-${id}`,
+    "--contract", `CONTRACT-${id}`,
+    "--requirement", "REQ-AUTONOMY",
+    "--level", "bounded-autonomous",
+    "--repository", "aantenore/agentic-sdlc",
+    "--base", "main",
+    "--head", "codex/pr-1",
+    "--write-path", "src",
+  ]);
+  mustRunJson([
+    "autonomy", "delivery", "approve",
+    "--root", project,
+    "--id", `AUT-${id}`,
+    "--phase", "implementation",
+    ...humanApproval(`Approve the exact commit scope regression delivery ${name}`),
+  ]);
+  const started = mustRunJson([
+    "task", "start",
+    "--root", project,
+    "--intent-json", taskIntent(`ST-${id}`),
+    "--delivery-profile", `AUT-${id}`,
+  ]);
+  assert.equal(started.execution_allowed, true);
+  for (const [relative, content] of [
+    ["src/a/one.mjs", "export const one = 1;\n"],
+    ["src/a/two.txt", "two\n"],
+    ["src/b/three.mjs", "export const three = 3;\n"],
+  ]) {
+    const target = path.join(project, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content, "utf8");
+  }
+  mustGit(project, ["add", "--", "src"]);
+  return { project, profile: `AUT-${id}` };
+}
+
+test("git.commit scope accepts directories, globs and --staged expanded to the exact staged paths", () => {
+  const allPaths = ["src/a/one.mjs", "src/a/two.txt", "src/b/three.mjs"];
+  const commitAction = (fixture, ...extra) => [
+    "autonomy", "delivery", "action",
+    "--root", fixture.project,
+    "--id", fixture.profile,
+    "--action", "git.commit",
+    ...extra,
+  ];
+
+  const directory = setupCommitScopeProject("scope-dir");
+  const byDirectory = mustRunJson(commitAction(directory, "--scope-path", "src/"));
+  assert.equal(byDirectory.status, "authorized");
+  assert.deepEqual(byDirectory.action_receipt.action_details.changed_paths, allPaths);
+  mustGit(directory.project, ["commit", "-m", "test: commit by directory"]);
+  const completed = mustRunJson(commitAction(
+    directory,
+    "--scope-path", "src/",
+    "--outcome", "passed",
+    "--authorization-receipt", byDirectory.action_receipt.id,
+    "--evidence", "src/a/one.mjs",
+  ));
+  assert.equal(completed.status, "completed");
+
+  const glob = setupCommitScopeProject("scope-glob");
+  mustFail(commitAction(glob, "--scope-path", "docs/**/*.md"), /matches no staged file/u);
+  mustFail(commitAction(glob, "--scope-path", "src/**/*.mjs"), /staged file set to match the exact --scope-path set/u);
+  const byGlob = mustRunJson(commitAction(glob, "--scope-path", "src/**/*.mjs", "--scope-path", "src/a/two.txt"));
+  assert.deepEqual(byGlob.action_receipt.action_details.changed_paths, allPaths);
+
+  const exact = setupCommitScopeProject("scope-exact");
+  const byExact = mustRunJson(commitAction(exact, ...allPaths.flatMap((item) => ["--scope-path", item])));
+  assert.deepEqual(byExact.action_receipt.action_details.changed_paths, allPaths);
+
+  const staged = setupCommitScopeProject("scope-staged");
+  const byStaged = mustRunJson(commitAction(staged, "--staged"));
+  assert.deepEqual(byStaged.action_receipt.action_details.changed_paths, allPaths);
+
+  const stagedUnion = setupCommitScopeProject("scope-union");
+  const byUnion = mustRunJson(commitAction(stagedUnion, "--staged", "--scope-path", "src/a/one.mjs"));
+  assert.deepEqual(byUnion.action_receipt.action_details.changed_paths, allPaths);
+
+  const empty = setupCommitScopeProject("scope-empty");
+  mustGit(empty.project, ["reset", "--quiet"]);
+  mustFail(commitAction(empty, "--staged"), /--staged found no staged files/u);
+
+  const outside = setupCommitScopeProject("scope-outside");
+  fs.mkdirSync(path.join(outside.project, "docs"), { recursive: true });
+  fs.writeFileSync(path.join(outside.project, "docs", "outside.md"), "outside\n", "utf8");
+  mustGit(outside.project, ["add", "--", "docs/outside.md"]);
+  mustFail(commitAction(outside, "--staged"), /outside|write scope|write path/iu);
+});
+
 test("git.push rejects commits created outside the exact delivery action chain", () => {
   const contentProject = tmpProject("commit-content-substitution");
   initializeAutonomyProject(contentProject);

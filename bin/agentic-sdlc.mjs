@@ -9,6 +9,7 @@ import {
   waiveCodeReview,
 } from "../lib/engine/code-review-requirement.mjs";
 import { rebaseTraceHistory } from "../lib/engine/trace-rebase.mjs";
+import { repairWorkflowTraces } from "../lib/engine/workflow-trace-repair.mjs";
 import { deriveStoriesVerification } from "../lib/engine/derived-verification.mjs";
 import {
   autoPublishStoryRecords,
@@ -1287,6 +1288,7 @@ function buildCliRuntimeHandlerRegistry() {
     "workflow.overlay.explain": call(explainWorkflowOverlay),
     "workflow.instance.start": call(startWorkflowInstance),
     "workflow.instance.transition": call(noteForMessages(transitionWorkflowInstance)),
+    "workflow.instance.repair-traces": call(repairWorkflowTraces),
     "workflow.instance.status": report((context, options) => showWorkflowInstance(context, options, { explain: false })),
     "workflow.instance.explain": report((context, options) => showWorkflowInstance(context, options, { explain: true })),
     "budget.usage.record": call(budgetUsageRecordCommand),

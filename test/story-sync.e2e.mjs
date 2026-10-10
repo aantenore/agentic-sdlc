@@ -144,7 +144,7 @@ function autoPublish(project, env = {}) {
     console.log(JSON.stringify(result));
   `;
   const result = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
-    cwd: repoRoot, encoding: "utf8", timeout: 60_000, env: { ...process.env, AGENTIC_SDLC_MESSAGING_AUTO: "off", ...env },
+    cwd: repoRoot, encoding: "utf8", timeout: 60_000, env: { ...process.env, AGENTIC_SDLC_MESSAGING_AUTO: "off", AGENTIC_SDLC_AUTO_PUBLISH: "on", ...env },
   });
   assert.equal(result.status, 0, result.stderr);
   return { ...JSON.parse(result.stdout.trim().split("\n").at(-1)), stderr: result.stderr };
@@ -234,4 +234,125 @@ test("story sync keeps the base copy of a regenerated gate file instead of faili
   const synced = mustRunJson(["story", "sync", "--root", second, "--id", STORY]);
   assert.equal(synced.status, "synced");
   assert.equal(JSON.parse(fs.readFileSync(path.join(second, gate), "utf8")).source, "base");
+});
+
+test("story sync sets uncommitted code changes aside and puts them back", () => {
+  const { first, second } = twoComputers("code-stash");
+  write(second, "src/story.txt", "story work\n");
+  git(second, ["add", "src/story.txt"]);
+  git(second, ["commit", "--quiet", "-m", "Story work"]);
+  write(second, "src/shared.txt", "one\nlocal edit\n");
+  write(first, "src/base.txt", "base\n");
+  git(first, ["add", "src/base.txt"]);
+  git(first, ["commit", "--quiet", "-m", "Base work"]);
+  git(first, ["push", "--quiet"]);
+
+  const planned = mustRunJson(["story", "sync", "--root", second, "--id", STORY, "--dry-run"]);
+  assert.deepEqual(planned.blockers, []);
+  assert.deepEqual(planned.code_changes, ["src/shared.txt"]);
+  const synced = mustRunJson(["story", "sync", "--root", second, "--id", STORY]);
+  assert.equal(synced.status, "synced");
+  assert.equal(synced.code_changes_stash.status, "restored");
+  assert.equal(fs.readFileSync(path.join(second, "src/shared.txt"), "utf8"), "one\nlocal edit\n");
+  assert.equal(fs.readFileSync(path.join(second, "src/base.txt"), "utf8"), "base\n");
+  assert.equal(git(second, ["stash", "list"]).stdout.trim(), "");
+  assert.equal(git(second, ["merge-base", "--is-ancestor", "origin/main", "HEAD"], { allowFailure: true }).status, 0);
+});
+
+test("story sync keeps uncommitted code changes in the stash when they no longer apply, and leaves a clean tree", () => {
+  const { first, second } = twoComputers("code-stash-conflict");
+  write(second, "src/story.txt", "story work\n");
+  git(second, ["add", "src/story.txt"]);
+  git(second, ["commit", "--quiet", "-m", "Story work"]);
+  write(second, "src/shared.txt", "local edit\n");
+  write(first, "src/shared.txt", "base edit\n");
+  git(first, ["commit", "--quiet", "-am", "Base edit"]);
+  git(first, ["push", "--quiet"]);
+
+  const synced = mustRunJson(["story", "sync", "--root", second, "--id", STORY]);
+  assert.equal(synced.status, "synced");
+  assert.equal(synced.code_changes_stash.status, "kept");
+  assert.equal(fs.readFileSync(path.join(second, "src/shared.txt"), "utf8"), "base edit\n");
+  assert.match(git(second, ["stash", "list"]).stdout, /agentic-sdlc story sync ST-SYNC-001/u);
+  assert.equal(git(second, ["show", "stash@{0}:src/shared.txt"]).stdout, "local edit\n");
+});
+
+test("story sync puts uncommitted code changes back when the rebase conflicts", () => {
+  const { first, second } = twoComputers("code-stash-refused");
+  write(second, "src/shared.txt", "second\n");
+  git(second, ["commit", "--quiet", "-am", "Story edit"]);
+  write(second, "src/story.txt", "tracked later\n");
+  git(second, ["add", "src/story.txt"]);
+  write(second, "src/story.txt", "tracked later, edited\n");
+  write(first, "src/shared.txt", "first\n");
+  git(first, ["commit", "--quiet", "-am", "Base edit"]);
+  git(first, ["push", "--quiet"]);
+  const refused = run(["story", "sync", "--root", second, "--id", STORY]);
+  assert.notEqual(refused.status, 0);
+  assert.match(refused.stderr + refused.stdout, /conflicts in src\/shared\.txt/u);
+  assert.equal(fs.readFileSync(path.join(second, "src/story.txt"), "utf8"), "tracked later, edited\n");
+  assert.equal(git(second, ["stash", "list"]).stdout.trim(), "");
+});
+
+// Both computers recorded decisions and output links: the history forked and the registry differs.
+function divergedPublication(name) {
+  const { first, second } = twoComputers(name);
+  const registry = ".sdlc/output-contracts/registry.json";
+  const addDecision = (project, id) => {
+    const file = path.join(project, registry);
+    const content = JSON.parse(fs.readFileSync(file, "utf8"));
+    content.decisions = [...(content.decisions || []), { id, type: "fixture", status: "recorded" }];
+    content.updated_at = new Date().toISOString();
+    fs.writeFileSync(file, `${JSON.stringify(content, null, 2)}\n`);
+  };
+  write(second, ".sdlc/stories/ST-SYNC-001/final.json", "{}\n");
+  record(second, "Closing decision");
+  addDecision(second, "DEC-SECOND");
+  record(first, "Base decision");
+  addDecision(first, "DEC-FIRST");
+  git(first, ["commit", "--quiet", "-am", "Base work"]);
+  git(first, ["push", "--quiet"]);
+  return { first, second, registry };
+}
+
+test("publish-records merges the shared history and the output registry instead of leaving them out", () => {
+  const { first, second, registry } = divergedPublication("publish-records-shared");
+  const published = mustRunJson(["story", "publish-records", "--root", second, "--id", STORY]);
+  assert.equal(published.status, "published");
+  assert.ok(published.published.includes(TRACE), JSON.stringify(published));
+  assert.ok(published.published.includes(".sdlc/traces/.integrity/project.jsonl.checkpoint.json"), JSON.stringify(published));
+  assert.ok(published.published.includes(registry), JSON.stringify(published));
+  assert.deepEqual(published.skipped, []);
+
+  git(first, ["fetch", "--quiet", "origin", published.branch]);
+  git(first, ["merge", "--quiet", "--no-edit", `origin/${published.branch}`]);
+  const summaries = fs.readFileSync(path.join(first, TRACE), "utf8").trimEnd().split("\n").map((line) => JSON.parse(line).summary);
+  assert.deepEqual(summaries.slice(-2), ["Base decision", "Closing decision"]);
+  assert.equal(run(["trace", "verify", "--root", first, "--json"]).status, 0);
+  const merged = JSON.parse(fs.readFileSync(path.join(first, registry), "utf8"));
+  assert.deepEqual(merged.decisions.map((entry) => entry.id).filter((id) => id.startsWith("DEC-")).sort(), ["DEC-FIRST", "DEC-SECOND"]);
+  assert.equal(fs.existsSync(path.join(first, ".sdlc/stories/ST-SYNC-001/final.json")), true);
+});
+
+test("publish-records publishes nothing when the shared history cannot be merged", () => {
+  const { second } = divergedPublication("publish-records-unmergeable");
+  const tracePath = path.join(second, TRACE);
+  const tampered = fs.readFileSync(tracePath, "utf8").replace("Closing decision", "Edited decision");
+  fs.writeFileSync(tracePath, tampered);
+  const refused = run(["story", "publish-records", "--root", second, "--id", STORY, "--json"]);
+  assert.notEqual(refused.status, 0);
+  assert.match(refused.stdout + refused.stderr, /STORY_RECORDS_SHARED_HISTORY_UNMERGEABLE/u);
+  assert.match(refused.stdout + refused.stderr, /Nothing was published/u);
+  const heads = git(second, ["ls-remote", "--heads", "origin"]).stdout;
+  assert.doesNotMatch(heads, /sdlc-records/u);
+});
+
+test("the automatic publication does not publish partially when the shared history cannot be merged", () => {
+  const { second } = divergedPublication("auto-unmergeable");
+  const tracePath = path.join(second, TRACE);
+  fs.writeFileSync(tracePath, fs.readFileSync(tracePath, "utf8").replace("Closing decision", "Edited decision"));
+  const result = autoPublish(second);
+  assert.equal(result.status, "failed");
+  assert.match(result.problem, /shared history cannot be merged/u);
+  assert.doesNotMatch(git(second, ["ls-remote", "origin", "refs/heads/main"]).stdout, new RegExp(git(second, ["rev-parse", "HEAD"]).stdout.trim(), "u"));
 });
