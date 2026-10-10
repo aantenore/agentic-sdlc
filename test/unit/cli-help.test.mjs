@@ -525,3 +525,9 @@ test("trace help lists valid types, reads naturally, and does not claim the grou
   assert.match(italianGroup.human.impact, /Alcune di queste azioni modificano/u);
   assert.equal(buildHelpModel(["preset"]).technical_details.effect, "read");
 });
+
+test("story sync help names their flags and runnable examples in both languages", () => {
+  const sync = renderHelp(["story", "sync"], { locale: "en", version: "0.11.0" });
+  assert.match(sync, /story sync --id <story-id> \[--onto <remote>\/<branch>\] \[--dry-run\]/u);
+  assert.match(sync, /--dry-run\n\s+Show the plan without changing anything\./u);
+});

@@ -1478,6 +1478,14 @@ A story found merged while its records show it ready is never ready to start: `s
 
 `story publish-records --id <story>` publishes what the story's work left on this computer after its pull request (final receipt, release of the claim, later steps): it fetches the remote base branch, builds one commit on top of it (or of an earlier unmerged publication) with the story's records the base branch lacks, through a private index, and pushes it as `<prefix><story>`. The checkout, its index, and its branches are not changed. A record the base branch changed after this work started is left out and listed as `skipped`. Nothing is ever deleted on the base branch.
 
+After `autonomy delivery action --action pull_request.merge --outcome passed` and after a passing `gate check --lifecycle-complete`, the records are published automatically and directly to the base branch: the shared history is rebuilt on the remote base first (like `trace rebase --apply`), the output registry keeps every entry of both sides, and one commit with only `.sdlc` files (`sdlc: record di <story> (<event>)`, configured git identity) is pushed on top of the base branch, rebuilt once when the push races another computer. It never changes the command's result. `AGENTIC_SDLC_AUTO_PUBLISH=off` turns it off; a failure prints `story publish-records --id <story>` and sends a question on the messaging topic.
+
+### Keeping a story aligned
+
+| Command | What it does |
+| --- | --- |
+| `story sync --id <story> [--onto <remote>/<branch>] [--dry-run]` | Fetches; sets local `.sdlc` changes aside (a copy stays under `<git-common-dir>/agentic-sdlc/sync-backup/` until the sync ends well); fast-forwards or rebases the story branch onto the base. Conflicts on the shared history or output registry are rebuilt; any other conflict aborts the rebase, restores everything, and is refused (`STORY_SYNC_CONFLICT`) with the files. Local records are put back where the base did not change them; the history is rebuilt in-process like `trace rebase --apply`; `registry.json` keeps the union of `links`, `decisions`, `templates` (deduplicated by JSON content); untracked files the base adds with the same bytes are removed. Uncommitted code changes or untracked files with different bytes block it. |
+
 ## Claims Seen From Other Computers
 
 `status` and `orchestrate status` show, for each claim held on another computer:
