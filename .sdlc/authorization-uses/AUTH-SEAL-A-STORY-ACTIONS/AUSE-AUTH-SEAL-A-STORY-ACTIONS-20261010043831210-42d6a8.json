@@ -1,0 +1,53 @@
+{
+  "id": "AUSE-AUTH-SEAL-A-STORY-ACTIONS-20261010043831210-42d6a8",
+  "kind": "authorization_usage_receipt",
+  "schema_version": "authorization-usage-receipt:legacy-v2",
+  "authorization_id": "AUTH-SEAL-A-STORY-ACTIONS",
+  "authorization_hash": "d554d6cbf3b053b516b90908406467ad9b4a4b13c2a7ff3e05fac21d27bc2e90",
+  "proposal_ref": null,
+  "action": "story.complete-step",
+  "subject_id": "ST-SEAL-A",
+  "artifact_types": [],
+  "approval_boundaries": [],
+  "scope": "Approve the exact governed story actions for ST-SEAL-A.",
+  "authority_assurance": "audit_only",
+  "authorization_snapshot": {
+    "status_at_use": "active",
+    "expires_at": "2026-10-11T04:38:28.352Z",
+    "allowed_actions": [
+      "story.complete-step",
+      "story.claim",
+      "output.link"
+    ],
+    "allowed_subjects": [
+      "ST-SEAL-A"
+    ],
+    "allowed_uses": [
+      {
+        "action": "story.complete-step",
+        "subject_id": "ST-SEAL-A",
+        "use_hash": "75f0aabbce19737b9e68cd9b2b9bd98fc69b0e8121291780be250b3098afae43"
+      },
+      {
+        "action": "story.claim",
+        "subject_id": "ST-SEAL-A",
+        "use_hash": "cd9ce09964782325f536eca3030ecb3ee5916f668997a5431ad17385ee787351"
+      },
+      {
+        "action": "output.link",
+        "subject_id": "ST-SEAL-A",
+        "use_hash": "e905966a499105c8a16aee131b3288a70570efff93ced38e44483eb81db6a910"
+      }
+    ],
+    "allowed_artifact_types": [
+      "implementation-summary"
+    ],
+    "allowed_approval_boundaries": []
+  },
+  "use_key": "60702c88db42f9ddae9a263dc7b30650ea0c0e9e1d25df703f44b01992c806f2",
+  "status": "accepted",
+  "used_at": "2026-10-10T04:38:31.210Z",
+  "valid_at_use": true,
+  "receipt_hash": "6c3c42f8f806b5a3980a0da5fabc94004fd464e0460bcc07f5ebba2d5fecd78d",
+  "hash_algorithm": "sha256:stable-json:v1"
+}
