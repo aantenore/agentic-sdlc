@@ -39,6 +39,7 @@ import {
   sortStories,
   storyInsights,
   storyStateCounts,
+  storyStatus,
 } from "./insights.js";
 
 const KIND_BY_KEY = new Map(EVENT_KINDS.map((kind) => [kind.key, kind]));
@@ -192,7 +193,9 @@ function stateDot(stateKey, { recent = false } = {}) {
 function stateBadge(stateKey, options = {}) {
   return node("span", { className: "state-badge", dataset: { state: stateKey } }, [
     stateDot(stateKey, options),
-    node("span", { text: STATE_BY_KEY.get(stateKey)?.label ?? stateKey, i18n: true }),
+    options.label
+      ? node("span", { text: options.label })
+      : node("span", { text: STATE_BY_KEY.get(stateKey)?.label ?? stateKey, i18n: true }),
   ]);
 }
 
@@ -541,11 +544,11 @@ function storyCard(story, storiesById) {
   return node("li", { className: `now-card${live ? " is-active" : ""}`, dataset: { state: story.state } }, [
     node("button", {
       className: "now-card-button",
-      attrs: { type: "button", "aria-label": `${storyTitle(story)}: ${t(STATE_BY_KEY.get(story.state).label)}` },
+      attrs: { type: "button", "aria-label": `${storyTitle(story)}: ${storyStatus(story).label}` },
       dataset: { action: "open-story", storyId: story.id },
     }, [
       node("span", { className: "now-card-head" }, [
-        stateBadge(story.state, { recent: story.recent }),
+        stateBadge(story.state, { recent: story.recent, label: storyStatus(story).label }),
         node("span", { className: "now-card-time", text: relativeTime(story.lastActivity) }),
       ]),
       node("strong", { className: "now-card-title", text: storyTitle(story) }),
@@ -565,6 +568,8 @@ function storyNextText(story, storiesById) {
   if (story.state === "delivered" && changer) {
     return `${t(changer.state === "live" ? "Being changed by" : "Change planned in")} ${storyTitle(changer)}`;
   }
+  if (story.state === "delivered") return storyStatus(story).reason;
+  if (story.holder?.state === "reserved" && story.state !== "live" && !story.holder.expired) return storyStatus(story).reason;
   if (story.state === "live" && story.holder) {
     const who = story.holder.holder ?? story.holder.agent ?? t("another computer");
     // A declared wait (story wait) or no recent push, from the shared claim's health.
@@ -574,10 +579,7 @@ function storyNextText(story, storiesById) {
     if (story.holder.health === "idle") return `${t("No recent push from")} ${who}`;
     return `${t("Worked on by")} ${who}`;
   }
-  if (story.state === "parked") {
-    const reason = story.holder?.reason ?? story.iteration?.parked?.reason;
-    return `${t("Set aside by a person until resumed")}${reason ? `: ${reason}` : ""}`;
-  }
+  if (story.state === "parked") return storyStatus(story).reason;
   if (story.state === "abandoned") {
     const who = story.holder?.holder ?? story.holder?.agent ?? story.iteration?.claimExpired?.agent;
     return `${t("Claim expired without release")}${who ? ` (${who})` : ""}: ${t("a person takes it over or parks it")}`;
@@ -825,7 +827,7 @@ function storyRow(story, state, insight) {
     node("span", { className: "story-main" }, [
       node("strong", { className: "story-title" }, [highlighted(storyTitle(story), exploreState.query)]),
       node("span", { className: "story-sub" }, [
-        stateBadge(story.state, { recent: story.recent }),
+        stateBadge(story.state, { recent: story.recent, label: storyStatus(story).label }),
         node("span", { text: ["waiting", "replaced"].includes(story.state) || story.holder || story.changedBy?.length || story.remoteOnly
           ? storyNextText(story, insight.storiesById)
           : relativeTime(story.lastActivity) }),
@@ -1158,10 +1160,10 @@ function planView(state, insight) {
       const detail = [
         shared ? story.id : null,
         (story.state === "delivered" && !story.changedBy?.length) || (story.state === "idle" && !story.waitingOn.length)
-          ? t(STATE_BY_KEY.get(story.state).label)
+          ? storyStatus(story).label
           : storyNextText(story, insight.storiesById),
       ].filter(Boolean).join(" · ");
-      const stateLabel = t(STATE_BY_KEY.get(story.state).label);
+      const stateLabel = storyStatus(story).label;
       const focused = story.id === focus;
       const dimmed = chain && !chain.has(story.id);
       const live = story.state === "live" || story.recent;
@@ -1323,7 +1325,7 @@ function storyMapView(model, state, insight, hasPlan) {
       const kind = entry.story ? "story" : COLUMN_KIND[column.key];
       const label = mapNodeLabel(entry, kind);
       const detail = entry.story
-        ? `${t(STATE_BY_KEY.get(story.state).label)} · ${story.completed}/${PHASES.length}`
+        ? `${storyStatus(story).label} · ${story.completed}/${PHASES.length}`
         : mapNodeDetail(entry, label);
       const live = entry.story && story.state === "live";
       const group = svgNode("g", {
@@ -1441,7 +1443,7 @@ function storyMapView(model, state, insight, hasPlan) {
       "How this story was built",
       "From the request to the checks. Select a box to see what was recorded.",
       node("div", { className: "map-scroll", attrs: { tabindex: "0", "aria-label": t("How this story was built") } }, [svg]),
-      { actions: [stateBadge(story.state)] },
+      { actions: [stateBadge(story.state, { label: storyStatus(story).label })] },
     ),
     node("div", { className: "map-legend" }, [
       kindLegend(),
