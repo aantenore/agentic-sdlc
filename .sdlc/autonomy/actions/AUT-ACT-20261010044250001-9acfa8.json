@@ -1,0 +1,383 @@
+{
+  "id": "AUT-ACT-20261010044250001-9acfa8",
+  "kind": "delivery_action_receipt",
+  "schema_version": "delivery-action-receipt:v2",
+  "profile_ref": {
+    "id": "AUT-RECHK-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-RECHK-A.json",
+    "hash": "5f1512d7591916adb30193835dd8e3c2b3ec850f5edcb226a0b335305fb2ad03"
+  },
+  "delivery": {
+    "id": "LOCAL-RECHK-A",
+    "kind": "local_release"
+  },
+  "action": "rollback.verify",
+  "effective_level": "supervised",
+  "checkpoint_required": true,
+  "approval": null,
+  "runtime_target": null,
+  "action_details": {
+    "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+    "allowed_write_paths": [
+      "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app"
+    ],
+    "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+    "rollback_verification": {
+      "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+      "allowed_write_paths": [
+        "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app"
+      ],
+      "rollback_procedure": "Restore the previous governed local release snapshot.",
+      "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6",
+      "evidence": [
+        {
+          "path": "docs/rollback-rehearsal-rechk-a.json",
+          "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+        }
+      ]
+    },
+    "local_target_materialization_ref": {
+      "source": "build.local",
+      "outcome": "passed",
+      "receipt_ref": {
+        "id": "AUT-ACT-20261010044247993-12b2ff",
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010044247993-12b2ff.json",
+        "hash": "973aa151e72aed163efd087280f654e668b806f75371a16b0268643a427b5fa7"
+      },
+      "snapshot_hash": "c8c0578b638e88754e30892c9ca82040802d4a753355fbccf34d52859fa504ab"
+    },
+    "provider_operation": {
+      "binding": {
+        "action": "rollback.verify",
+        "provider_id": "local-filesystem",
+        "source": "explicit-v2",
+        "provider_bindings_hash": "ecfd23f81c4fcf02b316534f89295aa9a44d72cd29d44005cba79307970b0c9f"
+      },
+      "precondition_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010044248994-797022:precondition",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T04:42:48.994Z",
+        "operation": {
+          "action": "rollback.verify",
+          "id": "AUT-ACT-20261010044248994-797022",
+          "phase": "precondition"
+        },
+        "precondition_receipt_ref": null,
+        "proof": {
+          "allowed_write_paths": [
+            {
+              "identity": {
+                "device": "16777232",
+                "inode": "131475520",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+                "type": "directory"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+              "status": "present"
+            }
+          ],
+          "evidence": [
+            {
+              "byte_size": "18",
+              "identity": {
+                "device": "16777232",
+                "inode": "131475764",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/rollback-rehearsal-rechk-a.json",
+                "type": "file"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/rollback-rehearsal-rechk-a.json",
+              "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009",
+              "status": "present"
+            }
+          ],
+          "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6",
+          "evidence_root_identity": {
+            "device": "16777232",
+            "inode": "131455968",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6",
+            "type": "directory"
+          },
+          "rollback_procedure": "Restore the previous governed local release snapshot.",
+          "root_identity": {
+            "device": "16777232",
+            "inode": "131475519",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+            "type": "directory"
+          },
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release"
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "local-filesystem",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "7cfdab0f7cd8b2ad396340c2c32fbfa79a69af78f1b5931f68b23ef491227c29",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "allowed_write_paths": [
+            "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app"
+          ],
+          "evidence": [
+            {
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/rollback-rehearsal-rechk-a.json",
+              "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+            }
+          ],
+          "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6",
+          "rollback_procedure": "Restore the previous governed local release snapshot.",
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release"
+        },
+        "subject_hash": "457e38bfde1877bba9a036329805ca57f9106abb5630afd844613fbc3af9b064",
+        "version": 1
+      },
+      "completion_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010044248994-797022:completion",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T04:42:50.001Z",
+        "operation": {
+          "action": "rollback.verify",
+          "id": "AUT-ACT-20261010044248994-797022",
+          "phase": "completion"
+        },
+        "precondition_receipt_ref": {
+          "hash": "7cfdab0f7cd8b2ad396340c2c32fbfa79a69af78f1b5931f68b23ef491227c29",
+          "id": "AUT-ACT-20261010044248994-797022:precondition"
+        },
+        "proof": {
+          "allowed_write_paths": [
+            {
+              "identity": {
+                "device": "16777232",
+                "inode": "131475520",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+                "type": "directory"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+              "status": "present"
+            }
+          ],
+          "evidence": [
+            {
+              "byte_size": "18",
+              "identity": {
+                "device": "16777232",
+                "inode": "131475764",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/rollback-rehearsal-rechk-a.json",
+                "type": "file"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/rollback-rehearsal-rechk-a.json",
+              "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009",
+              "status": "present"
+            }
+          ],
+          "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6",
+          "evidence_root_identity": {
+            "device": "16777232",
+            "inode": "131455968",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6",
+            "type": "directory"
+          },
+          "precondition_receipt_hash": "7cfdab0f7cd8b2ad396340c2c32fbfa79a69af78f1b5931f68b23ef491227c29",
+          "rollback_procedure": "Restore the previous governed local release snapshot.",
+          "rollback_procedure_sha256": "8b759ca018247eabcdd67700d30335b97311cfd4540fd4d6d867cd5e2ff8457e",
+          "root_identity": {
+            "device": "16777232",
+            "inode": "131475519",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+            "type": "directory"
+          },
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+          "transition": "rollback_evidence_verified",
+          "verified": true
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "local-filesystem",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "be814a8fcd3785488f7e77bdc61cb33e33dcd37e9baa9fd931e2eb6971763549",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "allowed_write_paths": [
+            "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app"
+          ],
+          "evidence": [
+            {
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/rollback-rehearsal-rechk-a.json",
+              "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+            }
+          ],
+          "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6",
+          "rollback_procedure": "Restore the previous governed local release snapshot.",
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release"
+        },
+        "subject_hash": "457e38bfde1877bba9a036329805ca57f9106abb5630afd844613fbc3af9b064",
+        "version": 1
+      }
+    },
+    "checkpoint_policy": {
+      "schema_version": "delivery-action-checkpoint-policy:v1",
+      "action": "rollback.verify",
+      "delivery_kind": "local_release",
+      "effective_level": "supervised",
+      "profile_ref": {
+        "id": "AUT-RECHK-A",
+        "hash": "5f1512d7591916adb30193835dd8e3c2b3ec850f5edcb226a0b335305fb2ad03"
+      },
+      "preset_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "policy_source_ref": {
+        "path": ".sdlc/autonomy/policy-sources/5582347d22a9d60eac3731a3bf93e21a7067856043a5c7ad10067e01f8aa5723.json",
+        "hash": "5582347d22a9d60eac3731a3bf93e21a7067856043a5c7ad10067e01f8aa5723",
+        "effective_config_hash": "c1361b73d4df4aa8c9b62b7c193ddd78e4e925aae8c35935c4010af43f3eab6c"
+      },
+      "profile_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "boundary_actions": [
+        "deploy.remote",
+        "pull_request.merge",
+        "rollback.verify"
+      ],
+      "local_boundary_checkpoint": false,
+      "local_boundary_source": {
+        "schema_version": "delivery-local-boundary-source:v1",
+        "target_hash": "eb2761308bc76ce1392e81ea6ae5faeec064052550199667f4b85ef83a057d5f",
+        "platform": "darwin",
+        "workspace_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6",
+        "target_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+        "global_roots": [
+          "/Applications",
+          "/Library",
+          "/opt",
+          "/usr"
+        ],
+        "target_outside_workspace": false,
+        "target_machine_global": false,
+        "writes_outside_workspace_require_checkpoint": true,
+        "machine_global_changes_require_checkpoint": true
+      },
+      "local_boundary_source_hash": "9828fe70d23943617d0866f25ad8caf8b2e9fa4a82931b7f2578ee082820ab23",
+      "required": true,
+      "policy_hash": "19817a1d1a984ee7e57176a34b946ec3840abe9dcff07d6d8f4ad1b42f662ed6"
+    }
+  },
+  "authorization_receipt_ref": {
+    "id": "AUT-ACT-20261010044248994-797022",
+    "path": ".sdlc/autonomy/actions/AUT-ACT-20261010044248994-797022.json",
+    "hash": "098a146c6c112b3395fcc91b5d6f107900adf5fef1c0959261c029b1d0f3519e"
+  },
+  "completion_request": {
+    "schema_version": "delivery-action-completion-request:v1",
+    "profile_ref": {
+      "id": "AUT-RECHK-A",
+      "path": ".sdlc/autonomy/deliveries/AUT-RECHK-A.json",
+      "hash": "5f1512d7591916adb30193835dd8e3c2b3ec850f5edcb226a0b335305fb2ad03"
+    },
+    "action": "rollback.verify",
+    "outcome": "passed",
+    "authorization_receipt_ref": {
+      "id": "AUT-ACT-20261010044248994-797022",
+      "path": ".sdlc/autonomy/actions/AUT-ACT-20261010044248994-797022.json",
+      "hash": "098a146c6c112b3395fcc91b5d6f107900adf5fef1c0959261c029b1d0f3519e"
+    },
+    "evidence": [
+      {
+        "path": "docs/rollback-rehearsal-rechk-a.json",
+        "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+      }
+    ],
+    "operation_args": {},
+    "request_hash": "26c019c7ba590648a0701f35a9878b38c7ff97dcc5c79daa426c0506ffa11a3c",
+    "hash_algorithm": "sha256:stable-json:v1"
+  },
+  "local_release_verification": null,
+  "rollback_verification": {
+    "action": "rollback.verify",
+    "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+    "allowed_write_paths": [
+      "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app"
+    ],
+    "rollback_procedure": "Restore the previous governed local release snapshot.",
+    "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6",
+    "evidence": [
+      {
+        "path": "docs/rollback-rehearsal-rechk-a.json",
+        "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+      }
+    ],
+    "verification": "evidence_verified",
+    "verified": true
+  },
+  "evidence": [
+    {
+      "path": "docs/rollback-rehearsal-rechk-a.json",
+      "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+    }
+  ],
+  "outcome": "passed",
+  "status": "completed",
+  "authorized_by": {
+    "id": "codex",
+    "type": "agent",
+    "name": "Codex",
+    "email": null,
+    "source": "default"
+  },
+  "authorized_at": "2026-10-10T04:42:50.001Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-RECHK-A",
+      "head_sha": "755a32b3c979aa352451f6b20037f669adc4e1dd",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  },
+  "receipt_hash": "0d347445550e4a6bf6fcbfced5f35909e34eb6767d362a0d67b676979f6e35ac",
+  "hash_algorithm": "sha256:stable-json:v1"
+}

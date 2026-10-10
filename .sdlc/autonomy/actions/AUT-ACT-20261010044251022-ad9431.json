@@ -1,0 +1,345 @@
+{
+  "id": "AUT-ACT-20261010044251022-ad9431",
+  "kind": "delivery_action_receipt",
+  "schema_version": "delivery-action-receipt:v3",
+  "profile_ref": {
+    "id": "AUT-RECHK-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-RECHK-A.json",
+    "hash": "5f1512d7591916adb30193835dd8e3c2b3ec850f5edcb226a0b335305fb2ad03"
+  },
+  "delivery": {
+    "id": "LOCAL-RECHK-A",
+    "kind": "local_release"
+  },
+  "action": "release.local",
+  "effective_level": "supervised",
+  "checkpoint_required": true,
+  "approval": {
+    "id": "APR-20261010044251-b87ce4",
+    "profile_id": "AUT-RECHK-A",
+    "status": "approved",
+    "summary": "Approve the RECHK-A local release",
+    "scope": {
+      "principle": "A human approval applies only to the specific artifact or decision shown to the user before the approval.",
+      "subject_id": "AUT-RECHK-A",
+      "subject_label": "delivery action release.local for AUT-RECHK-A",
+      "applies_only_to_presented_subject": true,
+      "does_not_approve_future_artifacts": true,
+      "requires_fresh_user_confirmation_for_new_artifacts": true,
+      "approval_level": "delivery-action:release.local"
+    },
+    "evidence": [],
+    "approval_source": "explicit-user",
+    "authorization_ref": null,
+    "authorization_use_ref": null,
+    "authorization_action": null,
+    "explicit_user_confirmation": true,
+    "provisional": false,
+    "approved_content_hash": "38c213c72dca10b3a12eaa4e0d9ec36d4780a6288090e7623a10de1db376fe25",
+    "hash_algorithm": "sha256:stable-json:v1",
+    "approved_by": {
+      "id": "antonioantenore",
+      "type": "human",
+      "name": "Finalization E2E",
+      "email": "finalization-e2e@example.invalid",
+      "source": "cli"
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-RECHK-A",
+      "head_sha": "755a32b3c979aa352451f6b20037f669adc4e1dd",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    },
+    "created_at": "2026-10-10T04:42:51.597Z",
+    "authority_assurance": {
+      "mode": "audit_only"
+    }
+  },
+  "runtime_target": null,
+  "action_details": {
+    "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+    "allowed_write_paths": [
+      "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app"
+    ],
+    "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+    "local_release_integrity": {
+      "schema_version": "local-release-integrity:v2",
+      "smoke_execution_policy": {
+        "schema_version": "local-smoke-sandbox-policy:v2",
+        "host": {
+          "platform": "darwin",
+          "arch": "arm64"
+        },
+        "plugin_build": {
+          "package_version": "0.94.0",
+          "build_fingerprint": "fafbfc13f9589db5501db34db65ea8d65ca5db2078aa4a3b4fd29746c4e64cbb",
+          "git_commit": "0179cdadf3ecd1cd881fe18b9057c9ee9ccf34d6",
+          "provenance": null
+        },
+        "boundary": {
+          "schema_version": "local-smoke-execution-boundary:v1",
+          "filesystem_writes": "denied",
+          "readable_files": "host_account_scope",
+          "confidentiality_isolation": "not_provided",
+          "transitive_code_attestation": "not_provided",
+          "external_network": "denied",
+          "reviewed_code_required": true,
+          "explicit_entrypoint_binding": "artifact_manifest_bound",
+          "portable_recommendation": "do_not_depend_on_network_or_listeners",
+          "recommended_patterns": [
+            "exercise an exported API handler in-process",
+            "validate built artifact files without opening sockets"
+          ],
+          "provider": "macos-sandbox-exec-readonly-no-network",
+          "provider_available": true,
+          "loopback_network": "denied",
+          "listener_based_smoke": "unsupported"
+        },
+        "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+        "launchers": [
+          {
+            "command": [
+              "node",
+              "--version"
+            ],
+            "sandbox": "macos-sandbox-exec-readonly-no-network",
+            "wrapper_executable": "/usr/bin/sandbox-exec",
+            "wrapper_executable_sha256": "abc5bb136d6b5cce8fa85d789f78e3326c51ca60cae637b2064adfb67a1dcd9a",
+            "wrapper_args": [
+              "-p",
+              "(version 1) (deny default) (allow process*) (allow file-read*) (allow sysctl-read) (allow mach-lookup)",
+              "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin/node",
+              "--version"
+            ],
+            "wrapper_args_sha256": "1f4535e14a82f1348177da50d3ca2b9a6670577cb6863e0999de9dbea0bbb210",
+            "environment": {
+              "PATH": "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin:/usr/bin:/bin",
+              "TMPDIR": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/"
+            },
+            "environment_sha256": "4c83ec093cd129b06ae72026268482d331ee3725da60a5568c664a89040b82f8",
+            "command_executable": "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin/node",
+            "command_executable_sha256": "3200fbd9f7fd4410426dd541e10d1ab829d3472f270d743c7fabd1696c03fe32",
+            "runtime_executable": "/Users/antonioantenore/.local/opt/node-v24.15.0-darwin-arm64/bin/node",
+            "runtime_executable_sha256": "3200fbd9f7fd4410426dd541e10d1ab829d3472f270d743c7fabd1696c03fe32",
+            "interpreter": null,
+            "launcher_kind": "direct-interpreter",
+            "payload_bindings": [],
+            "hash_algorithm": "sha256:stable-json:v1",
+            "launcher_hash": "1f1788fca4186260308d697f83e7f62cef3cf8278d2977a5bbf661d109ebd819"
+          }
+        ],
+        "hash_algorithm": "sha256:stable-json:v1",
+        "policy_hash": "d91d7d718f3545235eeeba0467175ef3a201a3a15104d08ae04f313ddfb40780"
+      },
+      "artifact_manifest_policy": {
+        "schema_version": "local-release-artifact-manifest-policy:v1",
+        "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+        "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+        "allowed_write_paths": [
+          "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app"
+        ],
+        "symlinks": "rejected",
+        "special_files": "rejected",
+        "maximum_entries_per_path": 10000,
+        "maximum_bytes_per_path": 536870912,
+        "snapshot_passes": 2,
+        "hash_algorithm": "sha256:stable-json:v1",
+        "policy_hash": "b0b13b98fed726df0f48de8a968486e3956f4540e209f116099f73102f0175e4"
+      },
+      "hash_algorithm": "sha256:stable-json:v1",
+      "integrity_hash": "dec6fd1133717e541b7bb338e9b5e9f50fccef80df55d2488f63e8e3cc1e5168"
+    },
+    "local_target_materialization_ref": {
+      "source": "build.local",
+      "outcome": "passed",
+      "receipt_ref": {
+        "id": "AUT-ACT-20261010044247993-12b2ff",
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010044247993-12b2ff.json",
+        "hash": "973aa151e72aed163efd087280f654e668b806f75371a16b0268643a427b5fa7"
+      },
+      "snapshot_hash": "c8c0578b638e88754e30892c9ca82040802d4a753355fbccf34d52859fa504ab"
+    },
+    "provider_operation": {
+      "binding": {
+        "action": "release.local",
+        "provider_id": "local-filesystem",
+        "source": "explicit-v2",
+        "provider_bindings_hash": "ecfd23f81c4fcf02b316534f89295aa9a44d72cd29d44005cba79307970b0c9f"
+      },
+      "precondition_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010044251022-ad9431:precondition",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T04:42:51.022Z",
+        "operation": {
+          "action": "release.local",
+          "id": "AUT-ACT-20261010044251022-ad9431",
+          "phase": "precondition"
+        },
+        "precondition_receipt_ref": null,
+        "proof": {
+          "allowed_write_paths": [
+            {
+              "identity": {
+                "device": "16777232",
+                "inode": "131475520",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+                "type": "directory"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+              "status": "present"
+            }
+          ],
+          "root_identity": {
+            "device": "16777232",
+            "inode": "131475519",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+            "type": "directory"
+          },
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release"
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "local-filesystem",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "b7ddc24b9fbdfa453ef12c29fdbbb95ccfed34427ee9938a872949087ed6c6e8",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "allowed_write_paths": [
+            "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app"
+          ],
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release"
+        },
+        "subject_hash": "e6a2009bb4e1cbcdacad0e1b3436272524a4b1ec404c554351455e5548f3d99e",
+        "version": 1
+      },
+      "completion_receipt": null
+    },
+    "checkpoint_policy": {
+      "schema_version": "delivery-action-checkpoint-policy:v1",
+      "action": "release.local",
+      "delivery_kind": "local_release",
+      "effective_level": "supervised",
+      "profile_ref": {
+        "id": "AUT-RECHK-A",
+        "hash": "5f1512d7591916adb30193835dd8e3c2b3ec850f5edcb226a0b335305fb2ad03"
+      },
+      "preset_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "policy_source_ref": {
+        "path": ".sdlc/autonomy/policy-sources/5582347d22a9d60eac3731a3bf93e21a7067856043a5c7ad10067e01f8aa5723.json",
+        "hash": "5582347d22a9d60eac3731a3bf93e21a7067856043a5c7ad10067e01f8aa5723",
+        "effective_config_hash": "c1361b73d4df4aa8c9b62b7c193ddd78e4e925aae8c35935c4010af43f3eab6c"
+      },
+      "profile_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "boundary_actions": [
+        "deploy.remote",
+        "pull_request.merge",
+        "rollback.verify"
+      ],
+      "local_boundary_checkpoint": false,
+      "local_boundary_source": {
+        "schema_version": "delivery-local-boundary-source:v1",
+        "target_hash": "eb2761308bc76ce1392e81ea6ae5faeec064052550199667f4b85ef83a057d5f",
+        "platform": "darwin",
+        "workspace_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6",
+        "target_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+        "global_roots": [
+          "/Applications",
+          "/Library",
+          "/opt",
+          "/usr"
+        ],
+        "target_outside_workspace": false,
+        "target_machine_global": false,
+        "writes_outside_workspace_require_checkpoint": true,
+        "machine_global_changes_require_checkpoint": true
+      },
+      "local_boundary_source_hash": "9828fe70d23943617d0866f25ad8caf8b2e9fa4a82931b7f2578ee082820ab23",
+      "required": true,
+      "policy_hash": "6f703f1395719dcf5ba79691aab5eb1de212840d3dc528aebf8b840f302976a5"
+    }
+  },
+  "authorization_receipt_ref": null,
+  "local_release_verification": null,
+  "evidence": [],
+  "outcome": null,
+  "status": "authorized",
+  "authorized_by": {
+    "id": "antonioantenore",
+    "type": "human",
+    "name": "Finalization E2E",
+    "email": "finalization-e2e@example.invalid",
+    "source": "cli"
+  },
+  "authorized_at": "2026-10-10T04:42:51.022Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-RECHK-A",
+      "head_sha": "755a32b3c979aa352451f6b20037f669adc4e1dd",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  },
+  "receipt_hash": "734b47df634a2024bcdb455def393d6be2106dbd96f41c50178a578afb237942",
+  "hash_algorithm": "sha256:stable-json:v1"
+}

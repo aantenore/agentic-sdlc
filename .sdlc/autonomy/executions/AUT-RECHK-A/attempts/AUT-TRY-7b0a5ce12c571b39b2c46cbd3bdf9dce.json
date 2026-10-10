@@ -1,0 +1,96 @@
+{
+  "id": "AUT-TRY-7b0a5ce12c571b39b2c46cbd3bdf9dce",
+  "kind": "delivery_action_attempt_receipt",
+  "schema_version": "delivery-action-attempt-receipt:v1",
+  "profile_ref": {
+    "id": "AUT-RECHK-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-RECHK-A.json",
+    "hash": "5f1512d7591916adb30193835dd8e3c2b3ec850f5edcb226a0b335305fb2ad03"
+  },
+  "delivery": {
+    "id": "LOCAL-RECHK-A",
+    "kind": "local_release"
+  },
+  "action": "release.local",
+  "authorization_receipt_ref": {
+    "id": "AUT-ACT-20261010044251022-ad9431",
+    "path": ".sdlc/autonomy/actions/AUT-ACT-20261010044251022-ad9431.json",
+    "hash": "734b47df634a2024bcdb455def393d6be2106dbd96f41c50178a578afb237942"
+  },
+  "completion_request": {
+    "schema_version": "delivery-action-completion-request:v1",
+    "profile_ref": {
+      "id": "AUT-RECHK-A",
+      "path": ".sdlc/autonomy/deliveries/AUT-RECHK-A.json",
+      "hash": "5f1512d7591916adb30193835dd8e3c2b3ec850f5edcb226a0b335305fb2ad03"
+    },
+    "action": "release.local",
+    "outcome": "passed",
+    "authorization_receipt_ref": {
+      "id": "AUT-ACT-20261010044251022-ad9431",
+      "path": ".sdlc/autonomy/actions/AUT-ACT-20261010044251022-ad9431.json",
+      "hash": "734b47df634a2024bcdb455def393d6be2106dbd96f41c50178a578afb237942"
+    },
+    "evidence": [
+      {
+        "path": "docs/release-proof-rechk-a.json",
+        "sha256": "a0ebede9daa59c38b107b0f587b71fe510dfbe7d551e0ab41563d9353eb174c7"
+      }
+    ],
+    "operation_args": {
+      "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+      "smoke_tests": [
+        "[\"node\",\"--version\"]"
+      ],
+      "rollback": "Restore the previous governed local release snapshot."
+    },
+    "request_hash": "aace08d3bef297545f8d15bd09ad99fcbae9c5ab76a246308acb6e3d77457f26",
+    "hash_algorithm": "sha256:stable-json:v1"
+  },
+  "smoke_execution_policy_ref": {
+    "policy_hash": "d91d7d718f3545235eeeba0467175ef3a201a3a15104d08ae04f313ddfb40780"
+  },
+  "artifact_before_smoke": {
+    "schema_version": "local-release-artifact-manifest:v1",
+    "policy": {
+      "schema_version": "local-release-artifact-manifest-policy:v1",
+      "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+      "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+      "allowed_write_paths": [
+        "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app"
+      ],
+      "symlinks": "rejected",
+      "special_files": "rejected",
+      "maximum_entries_per_path": 10000,
+      "maximum_bytes_per_path": 536870912,
+      "snapshot_passes": 2,
+      "hash_algorithm": "sha256:stable-json:v1",
+      "policy_hash": "b0b13b98fed726df0f48de8a968486e3956f4540e209f116099f73102f0175e4"
+    },
+    "root_identity": {
+      "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+      "present": true,
+      "kind": "directory",
+      "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release",
+      "device": "16777232",
+      "inode": "131475519",
+      "mode": 493
+    },
+    "paths": [
+      {
+        "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-history-recheck-K9Xys6/docs/local-release/app",
+        "present": true,
+        "kind": "directory",
+        "file_count": 1,
+        "entry_count": 2,
+        "total_bytes": 14,
+        "tree_hash": "53ad2a80f2a134784829b67116dec61fed10aa23488fe71c540013b6d9cd1acc"
+      }
+    ],
+    "hash_algorithm": "sha256:stable-json:v1",
+    "manifest_hash": "19645a76e8f4dae518970b1817e73b564c34c74b7975dce980c5c7ad7780ef8f"
+  },
+  "started_at": "2026-10-10T04:42:52.473Z",
+  "receipt_hash": "332b942465fcc4f308af8ee80041cddca7077982579c0fb6f79ec9474f056054",
+  "hash_algorithm": "sha256:stable-json:v1"
+}
