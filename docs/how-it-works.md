@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.128.0 Works
+# How Agentic SDLC 0.129.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -201,7 +201,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.128.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.129.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -313,6 +313,8 @@ The refresh never rewrites the approved baseline. It creates a new revision (`BA
 A change counts as delivered when a merged pull-request delivery started from the previous baseline, the path lies inside every write scope its requirements approved, and the merged commit holds exactly the bytes the new snapshot records. When every change is delivered and `baseline_policy.auto_approve_explained_refresh` is `true`, the successor is approved by that project policy and nothing is asked. Any other change (a manual edit, a file outside the approved scopes, a local release, a commit missing from this clone) leaves the successor proposed, lists those files under "Needs Review" in its report, and waits for a normal `baseline approve`. Baseline discovery, refresh, and freshness checks follow Git's ignore rules (nested `.gitignore` files, `.git/info/exclude`, `core.excludesFile`): an ignored folder is not entered, an ignored file is not read, and a file an earlier snapshot hashed before Git ignored it is set aside under `refresh.ignored_paths` instead of counting as a change. Files named explicitly with `--source` stay bound. Set `baseline_policy.ignored_files` to `include` for the earlier behaviour.
 
 The strict gate re-verifies a policy approval from the records every time: the delta must match the two snapshots, every change must still be attributed to a merged delivery, the predecessor must rest on a person's or CI approval, and, when the merged commit is in the clone, its bytes must match. Projects created before this setting existed keep asking for every refresh until they opt in through `config migrate`.
+
+Baseline drift and story gates: `gate check --scope story` (strict and `--lifecycle-complete` included) reports changed baseline sources as a warning with the suggested `baseline refresh --from <id>` command, because every merged story changes those files. Drift stays a blocker for the project gate and for a story whose contract lists the baseline (`.sdlc/baseline/<id>.json`) among its context sources.
 
 Several computers can deliver and refresh at the same time. Before writing anything, a refresh claims the single successor of its baseline as a create-only ref on the git remote (`refs/agentic-sdlc/baseline-refresh/<baseline>/successor`), under the same `orchestration_policy.coordination` setting as shared story claims. Of two computers refreshing the same baseline at once, exactly one push is accepted; the other writes nothing and is told which successor won. After pulling, it runs the same refresh again: a refresh asked from a baseline that already has a successor continues from the newest one in the line and re-reads the current files, so the next revision holds the changes of both computers instead of replaying the older delta. Stories that started from any baseline of the same lineage still explain their merged changes. A story already running against an older baseline keeps working while other stories merge around it: bytes that another story's merged delivery produced inside its own write scope are not treated as drift for the running story. When sharing is on but the remote cannot be reached, the refresh stops without writing. A successor written while sharing was off is checked again when it is approved: if the remote already records another successor for the same baseline, it is an orphan and is never approved. An approved baseline is never replaced in place either: `baseline propose --force` on it is refused and points to `baseline refresh`.
 
