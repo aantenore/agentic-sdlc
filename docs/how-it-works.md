@@ -1210,7 +1210,7 @@ Common fail-closed cases include:
 ### No process left running
 
 Each plugin command records itself under `<git-common-dir>/agentic-sdlc/runs/`
-and stops itself after `AGENTIC_SDLC_MAX_RUN_MINUTES` (default 30, `0` for
+and stops itself after `AGENTIC_SDLC_MAX_RUN_MINUTES` (default 10, `0` for
 none); `message listen` after `AGENTIC_SDLC_LISTEN_MAX_HOURS` (default 8).
 Every command, and the host hook at the end of a turn or session, stops this
 user's plugin commands that outlived their limit, also those started by older
