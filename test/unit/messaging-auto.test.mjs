@@ -7,7 +7,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { alertFor } from "../../lib/messaging/auto.mjs";
+import { alertFor, rememberOwnMessage } from "../../lib/messaging/auto.mjs";
+import { pendingQuestions } from "../../lib/host-hooks/keep-going.mjs";
 
 const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../bin/agentic-sdlc.mjs");
 const TOPIC = "sdlc-auto-test-0123456789abcdef";
@@ -126,4 +127,19 @@ test("without a topic or with the server down nothing changes", async () => {
   assert.equal(result.code, 1);
   assert.match(result.stderr, /automatic message not sent/u);
   assert.ok(Date.now() - started < 10_000);
+});
+
+test("a reply sent here counts as answered before the next poll", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentic-auto-"));
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  fs.mkdirSync(path.join(root, ".git/agentic-sdlc"));
+  fs.writeFileSync(path.join(root, ".git/agentic-sdlc/messaging.json"), JSON.stringify({ topic: TOPIC, server: "http://127.0.0.1:9" }));
+  const statePath = path.join(root, ".git/agentic-sdlc/messaging-auto.json");
+  const question = { id: "Q1", from: "PC2", kind: "question", text: "help?", time: new Date().toISOString() };
+  fs.writeFileSync(statePath, JSON.stringify({ own: [], attention: { window: [question] } }));
+  assert.equal(pendingQuestions(JSON.parse(fs.readFileSync(statePath, "utf8")), "PC1").length, 1);
+  rememberOwnMessage(root, "A1", {}, { from: "PC3", kind: "answer", reply_to: "Q1", text: "done", time: new Date().toISOString() });
+  const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  assert.deepEqual(state.own, ["A1"]);
+  assert.deepEqual(pendingQuestions(state, "PC1"), []);
 });
