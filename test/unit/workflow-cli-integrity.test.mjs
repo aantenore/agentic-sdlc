@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
-import { verifyTraceIntegrity } from "../../lib/trace-integrity.mjs";
+import { sealTraceEvent, verifyTraceIntegrity } from "../../lib/trace-integrity.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const CLI = path.join(ROOT, "bin", "agentic-sdlc.mjs");
@@ -1103,4 +1103,36 @@ test("repair-traces on a healthy run changes nothing", () => {
   const result = mustRunJson(["workflow", "instance", "repair-traces", "--root", project, "--id", instanceId], project);
   assert.equal(result.status, "nothing_to_repair");
   assert.deepEqual(fs.readFileSync(files.trace), before);
+});
+
+test("a transition trace present twice as the same record counts once; a different second record still fails", () => {
+  const project = temporaryProject("duplicate-transition-trace");
+  const instanceId = "change-duplicate-transition-trace";
+  startChangeRequest(project, instanceId);
+  assert.equal(transition(project, instanceId, "duplicate-1", ["--json"]).status, 0);
+  const files = instanceFiles(project, instanceId);
+  const integrityOptions = { boundaryRoot: path.join(project, ".sdlc"), tracePath: files.trace };
+  const { _trace_integrity: _envelope, ...copy } = projectTraceEvents(project)
+    .find((entry) => entry.action === "workflow.instance.transition");
+  // The shared history rebuilt from another copy holds the same record again, sealed anew.
+  sealTraceEvent({ ...integrityOptions, event: copy });
+  assert.equal(verifyTraceIntegrity(integrityOptions).valid, true);
+  assert.equal(projectTraceEvents(project).filter((entry) => entry.id === copy.id).length, 2);
+  const ok = statusOf(project, instanceId);
+  assert.equal(ok.status, 0, `${ok.stdout}\n${ok.stderr}`);
+  const repair = mustRunJson(["workflow", "instance", "repair-traces", "--root", project, "--id", instanceId], project);
+  assert.equal(repair.status, "nothing_to_repair");
+
+  // A second record with the same id but different content is a conflict, not a copy.
+  sealTraceEvent({ ...integrityOptions, event: { ...copy, summary: "Different transition record" } });
+  const blocked = statusOf(project, instanceId);
+  assert.notEqual(blocked.status, 0);
+  assert.match(`${blocked.stdout}${blocked.stderr}`, /exactly one matching transition trace/u);
+});
+
+test("a transition trace missing from the project history still fails", () => {
+  const { project, instanceId } = startAndLoseTransitionTrace("missing-still-fails");
+  const blocked = statusOf(project, instanceId);
+  assert.notEqual(blocked.status, 0);
+  assert.match(`${blocked.stdout}${blocked.stderr}`, /exactly one matching transition trace/u);
 });
