@@ -6,7 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { describeEvent, relevantMessageEvents, runWatch, watchActive, watchPromptDecision, WATCH_ENV, NO_EVENT_TEXT } from "../../lib/host-hooks/watch.mjs";
+import { execFileSync } from "node:child_process";
+import { describeEvent, relevantMessageEvents, runWatch, storyTerminalOnBase, watchActive, watchPromptDecision, WATCH_ENV, NO_EVENT_TEXT } from "../../lib/host-hooks/watch.mjs";
 
 const names = new Set(["Antonio", "pc1"]);
 const msg = (id, extra = {}) => ({ id: String(id), from: "Alice", host: "pc2", time: "2026-01-01T00:00:00Z", kind: "info", text: "ciao", ...extra });
@@ -46,6 +47,39 @@ test("message filter: [auto] offers pass; a newer plugin version announced is an
   const update = relevantMessageEvents([msg(2, { version: "1.2.0", text: "[auto] plugin 1.2.0" }), msg(3, { version: "0.9.0", kind: "offer", text: "[auto] x" })], { names, installedVersion: "1.0.0" });
   assert.deepEqual(update.map((event) => [event.type, event.message.id]), [["plugin", "2"], ["offer", "3"]]);
   assert.match(describeEvent(update[0]), /release del plugin 1\.2\.0.*Alice/u);
+});
+
+test("message filter: [auto] released offers of terminal stories do not wake, non-terminal ones do", () => {
+  const offers = [
+    msg(1, { kind: "offer", story: "ST-DONE", text: "[auto] ST-DONE released and free to take." }),
+    msg(2, { kind: "offer", story: "ST-OPEN", text: "[auto] ST-OPEN released and free to take." }),
+    msg(3, { kind: "offer", text: "[auto] libero: posso prendere lavoro o aiutare" }),
+  ];
+  const events = relevantMessageEvents(offers, { names, installedVersion: "1.0.0", isTerminal: (id) => id === "ST-DONE" });
+  assert.deepEqual(events.map((event) => event.message.id), ["2", "3"]);
+  assert.equal(relevantMessageEvents(offers, { names, installedVersion: "1.0.0" }).length, 3);
+});
+
+test("storyTerminalOnBase: closure, lifecycle-complete report, operations step or merged status are terminal on base", () => {
+  const run = (cwd, ...args) => execFileSync("git", args, { cwd, stdio: "pipe" });
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "watch-base-"));
+  run(root, "init", "-q", "-b", "main");
+  const put = (file, value) => { fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); fs.writeFileSync(path.join(root, file), JSON.stringify(value)); };
+  put(".sdlc/stories/ST-OPEN/story.json", { status: "in_progress" });
+  put(".sdlc/stories/ST-CLOSED/story.json", { status: "in_progress" });
+  put(".sdlc/stories/ST-CLOSED/closure.json", {});
+  put(".sdlc/stories/ST-FINAL/story.json", { status: "in_progress" });
+  put(".sdlc/reports/ST-FINAL-lifecycle-complete.json", {});
+  put(".sdlc/stories/ST-OPS/story.json", { status: "in_progress" });
+  put(".sdlc/stories/ST-OPS/steps/operations.json", { status: "completed" });
+  put(".sdlc/stories/ST-MERGED/story.json", { status: "merged" });
+  run(root, "add", "-A");
+  run(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x");
+  const ref = "HEAD";
+  assert.equal(storyTerminalOnBase(root, "ST-OPEN", { ref }), false);
+  for (const id of ["ST-CLOSED", "ST-FINAL", "ST-OPS", "ST-MERGED"]) assert.equal(storyTerminalOnBase(root, id, { ref }), true, id);
+  assert.equal(storyTerminalOnBase(root, "ST-UNKNOWN", { ref }), false);
+  assert.equal(storyTerminalOnBase(root, "ST-OPEN", { ref: null }), false);
 });
 
 test("describeEvent: readable summary with sender, computer and story label", () => {

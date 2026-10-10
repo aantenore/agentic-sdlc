@@ -62,6 +62,10 @@ test("alerts name the story and the reason, and ignore ordinary runs", () => {
   const released = alertFor("story.release", { id: "ST-A-001" });
   assert.equal(released.kind, "offer");
   assert.match(released.next, /story availability/u);
+  const doneRelease = alertFor("story.release", { id: "ST-A-001" }, { extra: { story: "ST-A-001", unblocked: [], completed: true } });
+  assert.notEqual(doneRelease.kind, "offer");
+  assert.match(doneRelease.text, /ST-A-001 released: completed/u);
+  assert.doesNotMatch(doneRelease.text, /free to take/u);
   const merged = alertFor("autonomy.delivery.action", { id: "AUT-1", action: "pull_request.merge", outcome: "passed" }, { extra: { story: "ST-A-001", unblocked: ["ST-C-003"] } });
   assert.match(merged.text, /merged for ST-A-001\. Now unblocked: ST-C-003/u);
   assert.match(merged.next, /task start --story ST-C-003/u);
