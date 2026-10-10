@@ -10,6 +10,11 @@ import {
 } from "../lib/engine/code-review-requirement.mjs";
 import { rebaseTraceHistory } from "../lib/engine/trace-rebase.mjs";
 import {
+  autoPublishStoryRecords,
+  syncStory,
+} from "../lib/engine/story-sync.mjs";
+import { autoPublishEvent } from "../lib/story-sync-plan.mjs";
+import {
   childProcess,
   console,
   crypto,
@@ -1157,6 +1162,28 @@ function factsAfter(handler, positional = false) {
   };
 }
 
+/**
+ * After a passed merge completion or lifecycle-complete gate, publish the
+ * story's records to the base branch (lib/engine/story-sync.mjs). Best
+ * effort: it never changes the command's result or exit code.
+ */
+function publishRecordsAfter(handler) {
+  return async (invocation) => {
+    const value = await handler(invocation);
+    try {
+      const { context, options } = invocation;
+      const event = autoPublishEvent(AUTO_MESSAGING.action, options, process.exitCode);
+      const storyId = event === "lifecycle-complete"
+        ? normalizeId(String(options.story))
+        : event ? AUTO_MESSAGING.extra?.story ?? deliveryProfileStoryIds(context, options)[0] ?? null : null;
+      if (storyId) await autoPublishStoryRecords(context, { storyId, event, options });
+    } catch {
+      // Publication is best effort; its own failure path already reported the problem.
+    }
+    return value;
+  };
+}
+
 function rememberResult(value) {
   AUTO_MESSAGING.result = value;
   return value;
@@ -1267,8 +1294,8 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.delivery.propose": call(proposeDeliveryAutonomy),
     "autonomy.delivery.approve": call(approveDeliveryAutonomy),
     "autonomy.delivery.revoke": call(revokeDeliveryAutonomy),
-    "autonomy.delivery.action": project(factsAfter(({ context, options }) =>
-      withSealedReceiptTrust(deliveryProfileStoryIds(context, options), () => evaluateDeliveryAction(context, options)))),
+    "autonomy.delivery.action": project(publishRecordsAfter(factsAfter(({ context, options }) =>
+      withSealedReceiptTrust(deliveryProfileStoryIds(context, options), () => evaluateDeliveryAction(context, options))))),
     "autonomy.delivery.close": call(closeDeliveryAutonomy),
     "autonomy.delivery.reconcile": call(noteForMessages(reconcileExternalMerge)),
     "autonomy.delivery.evidence.supersede": call((context, options) => rememberResult(supersedeDeliveryEvidence(context, options))),
@@ -1293,6 +1320,7 @@ function buildCliRuntimeHandlerRegistry() {
     "story.resume": call(resumeStory),
     "story.wait": call(storyWait),
     "story.publish-records": call(noteForMessages(publishStoryRecords)),
+    "story.sync": call(syncStory),
     "story.overlap": report(showStoryOverlap),
     "story.overlap.confirm": call(confirmStoryOverlap),
     "story.base.acknowledge": call(acknowledgeStoryBaseCommit),
@@ -1366,7 +1394,7 @@ function buildCliRuntimeHandlerRegistry() {
     // in full (AGENTIC_SDLC_STATUS_CHECKS=full verifies them all). The
     // lifecycle-complete gate writes and re-checks the final receipt, so it
     // keeps reading live and only trusts the other stories' sealed receipts.
-    "gate.check": project(factsAfter(({ context, options }) => rememberResult(options["lifecycle-complete"] === true
+    "gate.check": project(publishRecordsAfter(factsAfter(({ context, options }) => rememberResult(options["lifecycle-complete"] === true
       ? withSealedReceiptTrust(
         options.story
           && !options["release-manifest"]
@@ -1381,7 +1409,7 @@ function buildCliRuntimeHandlerRegistry() {
           && String(options.scope || "story") === "story"
           && sealedReceiptTrustEnabled(),
         verifyStoryId: options.story ? normalizeId(String(options.story)) : null,
-      })))),
+      }))))),
     "orchestrate.status": report(showOrchestrationStatus),
     "orchestrate.plan": report(showOrchestrationPlan),
     "route.decide": call(decideRoute),

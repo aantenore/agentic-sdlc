@@ -54,6 +54,7 @@ test("catalog covers the dispatch families and the self-service commands", () =>
     "contract create",
     "story acceptance add",
     "story handoff close",
+    "story sync",
     "work item create",
     "breakdown policy set",
     "dependency approve",
