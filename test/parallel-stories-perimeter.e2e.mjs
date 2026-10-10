@@ -294,6 +294,23 @@ test("a branch fast-forwarded onto a merged story keeps only its own commits in 
   assert.match(errors[0], /approved requirement write paths: src\/a\/feature\.ts /u);
 });
 
+test("a path touched outside the scope and then restored is not charged, one left changed is", () => {
+  const { project } = storyAMergedWhileBInProgress();
+  git(project, ["merge", "--ff-only", "-q", "origin/main"]);
+  commitFiles(project, { "src/b/feature.ts": "export const b = 2;\n" }, "feat: story B");
+  const original = fs.readFileSync(path.join(project, "src/index.ts"), "utf8");
+  commitFiles(project, { ".gitattributes": "* text=auto\n", "package.json": "{}\n", "src/b/one.ts": "export const one = 1;\n" }, "chore: touch files outside the scope");
+  assert.equal(scopeErrors(project, "ST-B").length, 1, "touched and left changed is charged");
+
+  // The restoring commit also carries other work, so it is no mirror image.
+  writeFile(project, "src/b/two.ts", "export const two = 2;\n");
+  git(project, ["rm", "-q", "--", ".gitattributes", "package.json"]);
+  git(project, ["add", "--", "src/b/two.ts"]);
+  git(project, ["commit", "-q", "-m", "chore: put them back"]);
+  assert.equal(fs.readFileSync(path.join(project, "src/index.ts"), "utf8"), original);
+  assert.deepEqual(scopeErrors(project, "ST-B"), [], "touched and restored is not charged");
+});
+
 test("git.commit accepts a branch that only picked up merged deliveries", () => {
   const { project } = storyAMergedWhileBInProgress();
   git(project, ["merge", "--ff-only", "-q", "origin/main"]);
