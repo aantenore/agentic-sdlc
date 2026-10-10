@@ -931,7 +931,12 @@ The dedicated assessment journey remains the exception described above: it packa
    way, and do not repeat those notes with `message send`.
 
    **Coordinating through messages.** Keep `message listen --skip-own --json --since 1m`
-   running. Messages carry a kind: `info`, `question`, `answer`, `ack`, `offer`,
+   running; the plugin's host hook also reads the topic while you work (at most
+   every 45 s) and puts unanswered questions and requests for you in front of
+   you. A `question` or `request` addressed to you or to everyone takes
+   precedence over the current work: answer it, or at least `ack` it ("received,
+   will answer in 20 minutes"), before continuing; when you are free, offer help.
+   Messages carry a kind: `info`, `question`, `answer`, `ack`, `offer`,
    `request` (`message send --kind <kind> [--reply-to <id>] [--to <sender>]`;
    `answer` and `ack` need `--reply-to`). When a `question` or `request` addressed
    to you (`--to` your name) or to everyone arrives, reason about it and answer

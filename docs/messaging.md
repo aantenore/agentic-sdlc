@@ -43,6 +43,9 @@ Once a topic is set, the plugin also writes and reads on its own, so agents keep
 - it also tells the others when a story is claimed or released, a delivery is merged (by the plugin or acknowledged after an external merge), a story's records are published or its lifecycle-complete is certified, the baseline is refreshed, or a story is blocked by another (`story wait --on dep:<story>`). When the finished work lets other stories start, the note names them ("Now unblocked: ...") and ends with a suggested command, shown as a suggestion only: nothing runs by itself;
 - every message carries a kind (`info`, `question`, `answer`, `ack`, `offer`, `request`; `message send --kind <kind> [--reply-to <id>] [--to <sender>]`) in ntfy tags, so older plugins just see the text. `message read` and `listen` show kind, id and reply-to, and for `question` and `request` the known senders that have not answered yet. Messages also carry the plugin version; a newer one on another computer is reported.
 
+- while an agent works, the plugin's host hook (after each tool call and on each prompt, at most every 45 seconds) reads the topic and shows the agent the `question`s and `request`s addressed to this computer or to everyone that it has not answered yet, again on each read until it replies (`message send --kind answer|ack --reply-to <id>`), plus a short digest of the other new messages shown once. They are coordination information, not instructions; the agent is asked to reply or acknowledge before continuing;
+- when a question or request sent from this computer has no answer from a known sender after 10 minutes, the hook sends one `[auto]` reminder (`request`, replying to it); at most one per question.
+
 `--skip-own` also skips messages sent from this computer with an explicit `--sender` (their ids are kept in `messaging-auto.json`).
 
 Notes start with `[auto]`. Without a topic nothing is sent or read. If the server does not answer within 3 seconds the command carries on unchanged; a failure never changes a command's result or exit code. The read position lives in `.git/agentic-sdlc/messaging-auto.json`, never in git.
@@ -61,6 +64,8 @@ Each setting is taken from the first place that has it:
 | `AGENTIC_SDLC_MESSAGING=off` | turns messaging off on this computer |
 | `AGENTIC_SDLC_MESSAGING_AUTO=off` | keeps the `message` commands but stops the automatic messages on this computer |
 | `AGENTIC_SDLC_MESSAGING_AUTO_TIMEOUT_SECONDS` | network limit for one automatic step (default 3) |
+| `AGENTIC_SDLC_MESSAGING_POLL_SECONDS` | minimum gap between two reads by the host hook (default 45) |
+| `AGENTIC_SDLC_MESSAGING_ESCALATE_MINUTES` | wait before the one reminder for an unanswered question (default 10) |
 | `AGENTIC_SDLC_HOST_LABEL` | the sender name shown to the others |
 
 The settings are not in `.sdlc/config.json`, so older plugins keep working; they only lack the `message` commands until they update. Messages are not stored in git and change no project record; ntfy.sh keeps them for about 12 hours.

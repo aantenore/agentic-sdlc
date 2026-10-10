@@ -24,19 +24,36 @@ function readPayload() {
   }
 }
 
-/** True when the working directory is inside a project that uses agentic-sdlc (a `.sdlc` folder up the tree). */
-function insideGovernedProject(start) {
+/** The nearest folder up the tree that holds a `.sdlc` folder (a project that uses agentic-sdlc), or null. */
+function governedRoot(start) {
   let current = path.resolve(String(start || process.cwd()));
   for (;;) {
     try {
-      if (fs.statSync(path.join(current, ".sdlc")).isDirectory()) return true;
+      if (fs.statSync(path.join(current, ".sdlc")).isDirectory()) return current;
     } catch {
       // keep walking up
     }
     const parent = path.dirname(current);
-    if (parent === current) return false;
+    if (parent === current) return null;
     current = parent;
   }
+}
+
+function insideGovernedProject(start) {
+  return governedRoot(start) !== null;
+}
+
+/**
+ * Puts unanswered coordination questions and a digest of new messages in
+ * front of the agent (after a tool call or on a prompt). Never blocks.
+ */
+async function coordinationMessages(payload, hookEventName) {
+  const root = governedRoot(payload.cwd);
+  if (!root) return;
+  // Loaded here so a problem with it never disables the edit guard.
+  const { checkAttention } = await import("../lib/messaging/attention.mjs");
+  const context = await checkAttention(root);
+  if (context) process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName, additionalContext: context } })}\n`);
 }
 
 function preToolUse(payload) {
@@ -109,6 +126,8 @@ try {
   const payload = readPayload();
   if (event === "pre-tool-use") preToolUse(payload);
   else if (event === "session-start") await sessionStart(payload);
+  else if (event === "post-tool-use") await coordinationMessages(payload, "PostToolUse");
+  else if (event === "user-prompt-submit") await coordinationMessages(payload, "UserPromptSubmit");
 } catch {
   process.exitCode = 0;
 }

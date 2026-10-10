@@ -1,5 +1,5 @@
 {
-  "description": "Agentic SDLC guard: only the user approves a standing approval, standing-approval records and their shared refs stay out of direct edits, and each session starts with the project's standing approvals.",
+  "description": "Agentic SDLC guard: only the user approves a standing approval, standing-approval records and their shared refs stay out of direct edits, and each session starts with the project's standing approvals, and questions from other computers reach the agent while it works.",
   "hooks": {
     "SessionStart": [
       {
@@ -20,6 +20,30 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/agentic-sdlc-guard.mjs\" pre-tool-use",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/agentic-sdlc-guard.mjs\" post-tool-use",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/agentic-sdlc-guard.mjs\" user-prompt-submit",
             "timeout": 10
           }
         ]
