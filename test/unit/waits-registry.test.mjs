@@ -14,9 +14,11 @@ import {
   deriveFreezeWaits,
   deriveQuestionWaits,
   freezeUntil,
+  isReleaseAnnouncement,
   planWaitActions,
   resolveWaitsPolicy,
   waitSnapshot,
+  waitTransitions,
   waitStatusLines,
 } from "../../lib/waits-registry.mjs";
 import { decideKeepGoing } from "../../lib/host-hooks/keep-going.mjs";
@@ -179,4 +181,74 @@ test("message send --kind freeze --until: the end as an ISO time, only for that 
   assert.equal(freezeUntilOption("info", undefined, NOW), null);
   assert.throws(() => freezeUntilOption("info", "30m", NOW), /only for --kind freeze/u);
   assert.throws(() => freezeUntilOption("freeze", undefined, NOW), /needs --until/u);
+});
+
+const ME = new Set(["pc3"]);
+const waitsOf = (messages, extra = {}) => deriveQuestionWaits({ messages, names: ME, now: NOW, policy, ...extra });
+
+test("release announcements are never question waits", () => {
+  const messages = [
+    { id: "r1", from: "pc3", host: "pc3", kind: "request", text: "rilasciato agentic-sdlc 0.131.0: aggiornate e ack", time: at(30) },
+    { id: "r2", from: "pc3", host: "pc3", kind: "request", text: "Plugin rilasciato agentic-sdlc 0.132.0, aggiornate", time: at(20) },
+    { id: "x", from: "pc1", host: "pc1", kind: "info", text: "ciao", time: at(25) },
+  ];
+  assert.deepEqual(waitsOf(messages), []);
+  assert.equal(isReleaseAnnouncement(messages[0]), true);
+  assert.equal(isReleaseAnnouncement({ text: "serve la baseline R31?" }), false);
+});
+
+test("a request is answered by ANY later message of the recipient in its thread", () => {
+  const base = { id: "q1", from: "pc3", host: "pc3", kind: "request", to: "pc1", text: "baseline R31?", time: at(30) };
+  assert.equal(waitsOf([base, { id: "a", from: "pc1", host: "pc1", kind: "info", text: "ok", time: at(40) }]).length, 1, "a message before the request does not count");
+  assert.equal(waitsOf([base, { id: "a", from: "pc1", host: "pc1", kind: "info", text: "fatto", time: at(10) }]).length, 1, "outside the thread does not count");
+  assert.deepEqual(waitsOf([base, { id: "a", from: "pc1", host: "pc1", kind: "info", text: "fatto", reply_to: "q1", time: at(10) }]), []);
+  const chain = [base, { id: "m", from: "pc3", host: "pc3", kind: "info", text: "e poi?", reply_to: "q1", time: at(20) }, { id: "a", from: "pc1", host: "pc1", kind: "info", text: "ecco", reply_to: "m", time: at(10) }];
+  assert.deepEqual(waitsOf(chain), [], "reply further down the thread");
+  assert.deepEqual(waitsOf([base, { id: "a", from: "pc1", host: "pc1", kind: "ack", text: "ok", reply_to: "q1", time: at(10) }]), []);
+});
+
+test("a request naming a story is answered once that story changed state", () => {
+  const messages = [{ id: "q1", from: "pc3", host: "pc3", kind: "request", to: "pc1", story: "ST-1", text: "chiudi ST-1", time: at(30) }];
+  assert.equal(waitsOf(messages, { storyChangedSince: () => false }).length, 1);
+  const seen = [];
+  assert.deepEqual(waitsOf(messages, { storyChangedSince: (id, since) => { seen.push([id, since]); return true; } }), []);
+  assert.deepEqual(seen, [["ST-1", NOW - 30 * 60_000]]);
+});
+
+test("older than question_max_age (default 2h, configurable) is stale; stale never suggests", () => {
+  const messages = [
+    { id: "old", from: "pc3", host: "pc3", kind: "question", text: "vecchia?", time: at(200) },
+    { id: "mid", from: "pc3", host: "pc3", kind: "question", text: "media?", time: at(60) },
+    { id: "pc1", from: "pc1", host: "pc1", kind: "info", text: "ciao", time: at(5) },
+  ];
+  const waits = waitsOf(messages);
+  assert.deepEqual(waits.map((item) => [item.id, item.state]), [["q:old", "stale"], ["q:mid", "expired"]]);
+  assert.deepEqual(planWaitActions(waits, { now: NOW, policy }).suggestions.map((item) => item.wait_id), ["q:mid"]);
+  const short = resolveWaitsPolicy({ host_policy: { waits: { question_max_age: "30m" } } });
+  assert.equal(short.question_max_age_ms, 30 * 60_000);
+  assert.equal(policy.question_max_age_ms, 2 * 3600_000);
+  assert.deepEqual(waitsOf(messages, { policy: short }).map((item) => item.state), ["stale", "stale"]);
+  assert.deepEqual(waitTransitions({}, waits).map((event) => event.id), ["q:mid"], "stale does not wake a watch");
+});
+
+test("keep-going: stale waits are a note, never a block", () => {
+  const waits = { list: [{ id: "q:old", state: "stale", blocker: { type: "question", ref: "old" } }], suggestions: [], freeze: null };
+  const decision = decideKeepGoing({ waits, now: NOW });
+  assert.equal(decision.block, false);
+  assert.match(decision.note, /1 attese vecchie \(stale\), non bloccanti/u);
+});
+
+test("keep-going: at most 3 wait suggestions with a counter, and the same set blocks only once", () => {
+  const suggestions = [1, 2, 3, 4, 5].map((n) => ({ wait_id: `q:${n}`, text: `nessuna risposta a #${n}: decidi`, command: `wait resolve --id q:${n}` }));
+  const first = decideKeepGoing({ waits: { list: [], suggestions, freeze: null }, now: NOW });
+  assert.equal(first.block, true);
+  assert.equal(first.reason.split("\n").filter((line) => line.startsWith("- nessuna risposta")).length, 3);
+  assert.match(first.reason, /e altre \(2\) attese/u);
+  // Same set, even long after the loop window: not blocked again.
+  const again = decideKeepGoing({ waits: { list: [], suggestions, freeze: null }, now: NOW + 3 * 3600_000, previous: first.state });
+  assert.equal(again.block, false);
+  assert.match(again.note, /5 attese gia' segnalate/u);
+  // A different set blocks again.
+  const changed = decideKeepGoing({ waits: { list: [], suggestions: suggestions.slice(0, 2), freeze: null }, now: NOW + 3 * 3600_000, previous: again.state });
+  assert.equal(changed.block, true);
 });

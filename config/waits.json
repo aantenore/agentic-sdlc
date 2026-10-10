@@ -2,6 +2,7 @@
   "schema_version": "agentic-sdlc.waits-defaults.v1",
   "principle": "Defaults of the waits registry (who or what a computer or story waits for, and the rule that resolves each wait). A project overrides any value in .sdlc/config.json under host_policy.waits.",
   "question_decide_after_minutes": 10,
+  "question_max_age": "2h",
   "plugin_update_request_every_minutes": 60,
   "freeze_default_minutes": 30,
   "explicit_default_until": "2h",
