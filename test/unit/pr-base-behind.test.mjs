@@ -204,3 +204,67 @@ test("merge commit whose base advanced before the merge: first parent from an ac
   assert.equal(build({ "app/x.js": "9\n" }).check().valid, false);
   assert.equal(records.check(undefined, {}).valid, false);
 });
+
+test("merge commit whose base gained code inside the write paths before the merge: accepted only with an overlap review", async () => {
+  const { computeStableHash } = await import("../../lib/canonical.mjs");
+  const f = fixture();
+  git(f.root, "checkout", "-q", "-b", "feature/ST-1", f.base0);
+  const source = commit(f.root, { "app/z.js": "feature\n" }, "feature");
+  git(f.root, "checkout", "-q", "-b", "feature/ST-2", f.base0);
+  const otherHead = commit(f.root, { "app/x.js": "other story\n" }, "ST-2 work");
+  git(f.root, "checkout", "-q", "main");
+  git(f.root, "reset", "-q", "--hard", f.base0);
+  git(f.root, "merge", "-q", "--no-ff", "-m", "Merge pull request #79 from acme/feature/ST-2", otherHead);
+  const firstParent = git(f.root, "rev-parse", "HEAD");
+  git(f.root, "merge", "-q", "--no-ff", "-m", "merge PR", source);
+  const merged = git(f.root, "rev-parse", "HEAD");
+  // A merge whose second parent is not the authorized head.
+  git(f.root, "checkout", "-q", "-b", "wrong", firstParent);
+  git(f.root, "merge", "-q", "--no-ff", "-m", "wrong", git(f.root, "rev-parse", "feature/ST-1~1"));
+  const wrongMerge = git(f.root, "rev-parse", "HEAD");
+  const runtime = (baseSha) => ({ branch: "feature/ST-1", head_sha: source, base_ref: "main", base_sha: baseSha, remotes: [] });
+  const authorization = {
+    runtime_target: runtime(f.base0),
+    action_details: {
+      merge: { source_sha: source, base_sha: f.base0 },
+      provider_operation: { precondition_receipt: { subject: { base_sha: f.base0 }, proof: { base_sha: f.base0 } } },
+    },
+  };
+  const check = (mergeSha = merged) => validatePullRequestMergeRuntimeTransition(
+    f.context, authorization, runtime(mergeSha), { merge_commit_sha: mergeSha, base_sha: f.base0 },
+    { acceptBaseAdvance: mergeResultBaseAdvanceAcceptor(f.context, f.profile) },
+  );
+
+  const refused = check();
+  assert.equal(refused.valid, false);
+  assert.match(refused.errors.join("; "), /app\/x\.js/u);
+  assert.match(refused.errors.join("; "), /story overlap confirm --id ST-1/u);
+
+  const writeReview = (overlap) => {
+    const review = {
+      schema: "story-overlap-review:v1", id: "OVR-1", story_id: "ST-1", summary: "checked",
+      overlaps: [{ kind: "write_scope", delivery_profile_id: "AUT-2", sha256: "a".repeat(64), ...overlap }],
+      created_at: "2026-10-10T00:00:00.000Z",
+    };
+    review.review_hash = computeStableHash(review);
+    const dir = path.join(f.root, ".sdlc/stories/ST-1/overlap-reviews");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "OVR-1.json"), JSON.stringify(review));
+  };
+  // A review of an unrelated file and delivery covers nothing.
+  writeReview({ path: "app/other.js", story_id: "ST-9", merge_commit_sha: "e".repeat(40) });
+  assert.equal(check().valid, false);
+  // Covered by the story that introduced it.
+  writeReview({ path: "app/other.js", story_id: "ST-2", merge_commit_sha: "e".repeat(40) });
+  const byStory = check();
+  assert.equal(byStory.valid, true);
+  assert.equal(byStory.mode, "merge-commit");
+  assert.equal(byStory.base_advance_before_merge.reason, "base_advanced_before_merge_overlap_confirmed");
+  // Covered by the commit, and by the file itself.
+  writeReview({ path: "app/other.js", story_id: "ST-9", merge_commit_sha: firstParent });
+  assert.equal(check().valid, true);
+  writeReview({ path: "app/x.js", story_id: "ST-9", merge_commit_sha: "e".repeat(40) });
+  assert.equal(check().valid, true);
+  // A wrong second parent stays refused even with the review.
+  assert.equal(check(wrongMerge).valid, false);
+});

@@ -213,6 +213,23 @@
             "strict"
           ]
         },
+        "records": {
+          "type": "object",
+          "properties": {
+            "principle": {
+              "type": "string"
+            },
+            "shared_history_paths": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        },
         "waits": {
           "type": "object",
           "properties": {

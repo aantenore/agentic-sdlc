@@ -6,6 +6,7 @@ import {
   autoPublishEnabled,
   autoPublishEvent,
   classifySyncConflicts,
+  sharedHistoryPaths,
   duplicateRegistryIds,
   identicalUntrackedFiles,
   isOwnStoryRecordPath,
@@ -189,4 +190,15 @@ test("a merged registry names the delegation records its delegated decisions res
   ]);
   assert.deepEqual(registryDelegationRecordPaths({ decisions: [{ id: "D1", delegation: { id: "DLG-1" } }] }, "sdlc"), ["sdlc/autonomy/delegations/DLG-1/delegation.json"]);
   assert.deepEqual(registryDelegationRecordPaths(null), []);
+});
+
+test("shared-history paths come from host_policy.records and their sync conflicts take the base copy", () => {
+  assert.deepEqual(sharedHistoryPaths(), [".sdlc/traces/project.jsonl", ".sdlc/traces/.integrity/project.jsonl.checkpoint.json"]);
+  const config = { host_policy: { records: { shared_history_paths: ["ledgers/team.jsonl"] } } };
+  assert.deepEqual(sharedHistoryPaths(".records", config), [".records/ledgers/team.jsonl"]);
+  assert.deepEqual(classifySyncConflicts([".sdlc/ledgers/team.jsonl", "src/a.ts"], ".sdlc", sharedHistoryPaths(".sdlc", config)), {
+    automatic: [".sdlc/ledgers/team.jsonl"],
+    blocking: ["src/a.ts"],
+  });
+  assert.deepEqual(classifySyncConflicts([".sdlc/ledgers/team.jsonl"]).blocking, [".sdlc/ledgers/team.jsonl"]);
 });

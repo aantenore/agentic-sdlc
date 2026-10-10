@@ -1758,6 +1758,10 @@
       "include_patterns": [],
       "exclude_patterns": [],
       "scope_paths": []
+    },
+    "records": {
+      "principle": "shared_history_paths lists, relative to the records folder, the shared-history files every records publication changes. They never travel in a story's commits (the governed git.commit leaves them out and keeps the working copy): story publish-records merges them onto the base branch, and story sync takes the base copy when they conflict.",
+      "shared_history_paths": ["traces/project.jsonl", "traces/.integrity/project.jsonl.checkpoint.json"]
     }
   },
   "standing_approval_policy": {

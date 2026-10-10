@@ -414,3 +414,26 @@ test("story sync sets aside uncommitted tracked and staged records together with
   assert.equal(fs.readFileSync(path.join(second, "src/shared.txt"), "utf8"), "one\nlocal edit\n");
   assert.equal(git(second, ["stash", "list"]).stdout.trim(), "");
 });
+
+test("story sync takes the base copy of a shared history the story committed, so the branch no longer carries it", () => {
+  const { first, second } = twoComputers("shared-history");
+  write(second, "src/story.txt", "story work\n");
+  record(second, "Second computer decision");
+  git(second, ["add", "-A"]);
+  git(second, ["commit", "--quiet", "-m", "Story work with the shared history"]);
+
+  record(first, "Base decision");
+  git(first, ["add", "-A"]);
+  git(first, ["commit", "--quiet", "-m", "Records published"]);
+  git(first, ["push", "--quiet"]);
+
+  const synced = mustRunJson(["story", "sync", "--root", second, "--id", STORY]);
+  assert.equal(synced.status, "synced");
+  assert.ok(synced.auto_resolved.includes(TRACE));
+  // The story branch no longer changes the shared history against the base: its PR cannot conflict on it.
+  assert.equal(git(second, ["diff", "--name-only", "origin/main", "HEAD", "--", ".sdlc/traces/project.jsonl", ".sdlc/traces/.integrity"]).stdout.trim(), "");
+  assert.equal(fs.readFileSync(path.join(second, "src/story.txt"), "utf8"), "story work\n");
+  const summaries = fs.readFileSync(path.join(second, TRACE), "utf8").trimEnd().split("\n").map((line) => JSON.parse(line).summary);
+  assert.ok(summaries.includes("Base decision"));
+  assert.ok(summaries.includes("Second computer decision"));
+});
