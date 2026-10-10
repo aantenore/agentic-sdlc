@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   canonicalJson,
@@ -40,4 +43,32 @@ test("immutableJson clones and recursively freezes the result", () => {
   assert.throws(() => {
     result.nested.value = 3;
   }, TypeError);
+});
+
+test("memoizes canonical form and hash only for deeply frozen values", async () => {
+  const { computeStableHash, canonicalJson, deepFreeze, isDeepFrozen } = await import("../../lib/canonical.mjs");
+  const mutable = { a: { b: 1 } };
+  const first = computeStableHash(mutable);
+  mutable.a.b = 2;
+  assert.notEqual(computeStableHash(mutable), first);
+  assert.equal(isDeepFrozen(mutable), false);
+  const frozen = deepFreeze({ a: { b: 1 } });
+  assert.equal(isDeepFrozen(frozen), true);
+  assert.equal(computeStableHash(frozen), first);
+  assert.equal(computeStableHash(frozen), first);
+  assert.equal(canonicalJson(frozen), canonicalJson({ a: { b: 1 } }));
+});
+
+test("readProjectJsonFrozen parses once per file version and invalidates on rewrite", async (t) => {
+  const { readProjectJsonFrozen, clearFrozenJsonMemo } = await import("../../lib/engine/storage.mjs");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "frozen-json-memo-"));
+  t.after(() => { clearFrozenJsonMemo(); fs.rmSync(root, { recursive: true, force: true }); });
+  const file = path.join(root, "r.json");
+  fs.writeFileSync(file, JSON.stringify({ n: 1 }));
+  const context = { root };
+  const one = readProjectJsonFrozen(context, file);
+  assert.equal(readProjectJsonFrozen(context, file), one);
+  assert.equal(Object.isFrozen(one), true);
+  fs.writeFileSync(file, JSON.stringify({ n: 22 }));
+  assert.equal(readProjectJsonFrozen(context, file).n, 22);
 });
