@@ -1,0 +1,16 @@
+{
+  "schema_version": "agentic-sdlc.waits-defaults.v1",
+  "principle": "Defaults of the waits registry (who or what a computer or story waits for, and the rule that resolves each wait). A project overrides any value in .sdlc/config.json under host_policy.waits.",
+  "question_decide_after_minutes": 10,
+  "plugin_update_request_every_minutes": 60,
+  "freeze_default_minutes": 30,
+  "explicit_default_until": "2h",
+  "explicit_max_until": "7d",
+  "escalate_approvals": true,
+  "escalate_delegations": true,
+  "list_limit": 20,
+  "freeze_patterns": [
+    "(\\d{1,4})\\s*(?:min|minuti|minutes|m)\\b[^\\n]{0,20}?\\bsenza\\s+(?:merge|push)(?:\\s*(?:/|e|o|,)\\s*(?:merge|push))?\\s+su\\s+main",
+    "freeze\\s+(?:di\\s+)?(\\d{1,4})\\s*(?:min|minuti|minutes|m)\\b"
+  ]
+}

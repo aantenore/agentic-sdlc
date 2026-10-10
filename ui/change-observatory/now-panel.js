@@ -35,6 +35,11 @@ const ITALIAN = Object.freeze({
   updated: "aggiornato",
   inconsistent: "incoerente",
   "branch not on the remote": "branch assente sul remoto",
+  "Who waits for whom": "Chi aspetta chi",
+  expired: "scaduta",
+  escalated: "passata a una persona",
+  open: "aperta",
+  deadline: "scadenza",
 });
 
 const SOURCE_KIND = Object.freeze({ base: "base", branch: "branch", claim: "claim" });
@@ -102,6 +107,15 @@ function openItem(message) {
   ]);
 }
 
+function waitItem(item) {
+  const deadline = item.until ? ` · ${label("deadline")} ${new Date(item.until).toLocaleString()}` : "";
+  return node("li", { className: "now-item" }, [
+    node("strong", { text: item.waiter }),
+    node("span", { className: "now-flag", text: label(item.state) }),
+    node("span", { className: "now-meta", text: `${item.type} ${item.ref} · ${label("since")} ${relativeTime(item.since)}${deadline}` }),
+  ]);
+}
+
 export function renderNowPanel(container, view) {
   const wasOpen = container.querySelector("details")?.open ?? true;
   container.replaceChildren();
@@ -124,6 +138,8 @@ export function renderNowPanel(container, view) {
   ];
   if (view.messaging === "off") children.push(node("p", { className: "now-note", text: label("Messaging is off: only the shared claims are shown.") }));
   if (view.messaging === "unavailable") children.push(node("p", { className: "now-note", text: label("Messages could not be read right now.") }));
+  const waits = Array.isArray(view.waits) ? view.waits : [];
+  if (waits.length) children.push(section("Who waits for whom", waits.map(waitItem)));
   if (open.length) children.push(section("Open questions and requests", open.map(openItem)));
   if (free.length) {
     children.push(section("Free computers", free.map((entry) => node("li", { className: "now-item" }, [

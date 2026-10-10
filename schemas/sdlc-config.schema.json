@@ -213,6 +213,22 @@
             "strict"
           ]
         },
+        "waits": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "question_decide_after_minutes": { "type": "number", "exclusiveMinimum": 0 },
+            "plugin_update_request_every_minutes": { "type": "number", "exclusiveMinimum": 0 },
+            "freeze_default_minutes": { "type": "number", "exclusiveMinimum": 0 },
+            "explicit_default_until": { "type": "string", "pattern": "^[0-9]{1,9}[smhdw]?$" },
+            "explicit_max_until": { "type": "string", "pattern": "^[0-9]{1,9}[smhdw]?$" },
+            "escalate_approvals": { "type": "boolean" },
+            "escalate_delegations": { "type": "boolean" },
+            "list_limit": { "type": "integer", "minimum": 1 },
+            "freeze_patterns": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          },
+          "additionalProperties": false
+        },
         "process_reaper": {
           "type": "object",
           "properties": {

@@ -34,6 +34,8 @@ agentic-sdlc watch --timeout 30m                    # background alarm: exits at
 agentic-sdlc message outbox [--flush | --drop <id>] # messages waiting to be sent
 agentic-sdlc message identity [--name "Antonio · PC3"] # who this computer is in the channel
 agentic-sdlc message who [--since 7d]               # who is in the channel
+agentic-sdlc message send --kind freeze --until 30m --text "Release in progress"  # no merge/push on main until then
+agentic-sdlc wait list [--all] [--json]             # who waits for what (see "Waits registry")
 ```
 
 ### Identity, join and roster
@@ -77,6 +79,48 @@ When a command fails, a gate is blocked or a wait goes past about 10 minutes, th
 `--skip-own` also skips messages this computer sent under an earlier name (their ids are kept in `messaging-auto.json`).
 
 Notes start with `[auto]`. Without a channel nothing is sent or read. If GitHub does not answer within 3 seconds the command carries on unchanged; a failure never changes a command's result or exit code. The read position lives in `.git/agentic-sdlc/messaging-auto.json`, never in git.
+
+## Waits registry
+
+Who or what a computer (or a story) is waiting for used to live only in the agent's conversation. The waits registry keeps it where every computer and every tool can see it. A wait is `{ id, waiter (host/story), blocker type and ref, since, until, rule, state open|resolved|expired|escalated, resolution }`, where the blocker type is one of `person`, `question`, `story`, `pr`, `plugin_version`, `freeze`, `approval`, `delegation`.
+
+**Derived waits** are computed every time from data that already exists and are never written:
+
+| Source | Wait | Rule |
+|---|---|---|
+| dependency graph (`.sdlc/dependencies/graph.json`) | a story waits for a dependency not merged yet | merged: the story is ready, keep-going and `watch` suggest starting it right away |
+| channel questions/requests without an answer | the asker waits, with the age of the question | after `question_decide_after_minutes` (10): for this computer's own question, "decide, announce the decision, proceed"; the decision is recorded with `wait resolve --id q:<message id> --resolution "..."` |
+| `message who` roster | the channel waits for a computer with an old plugin | one automatic update request to that computer, at most once per `plugin_update_request_every_minutes` (60), whoever sent it |
+| channel freezes | everyone waits for the end of the freeze | `message send --kind freeze --until <duration>` carries the end explicitly; an announcement such as "30 minuti senza merge/push su main" is recognised too (`freeze_patterns`). During the freeze keep-going does not ask to publish records; when it ends it suggests resuming the suspended actions |
+| pending human approvals (breakdown, dependency, contract, requirement, autonomy profile...) | this computer waits for a person | one message to the person with the exact command, then the wait is `escalated` and never repeated; keep-going does not block on it |
+| expired approval delegations | same as approvals | same as approvals, with the `autonomy delegation grant` command |
+
+**Explicit waits** are declared and closed by hand:
+
+```bash
+agentic-sdlc wait add --on person:Antonio --until 2h --story ST-UX-002 --reason "layout choice"
+agentic-sdlc wait resolve --id WAIT-20261010120000-a1b2c3 --resolution "two-column layout"
+agentic-sdlc wait list [--all] [--offline] [--json]
+```
+
+They are kept as dedicated refs on the project remote, the same mechanism as the shared claims, independent of every branch:
+
+```
+refs/agentic-sdlc/wait-registry/<wait id>/open      declaration (sealed JSON in a parentless commit)
+refs/agentic-sdlc/wait-registry/<wait id>/resolve   resolution, created once: the first one wins
+```
+
+Each record is pushed create-only (`--force-with-lease=<ref>:`), so two computers never overwrite each other, nothing lands on `main` or on a story branch, and there is nothing to merge or publish: every computer sees the wait right after the push (`wait list` fetches the unseen records; status, keep-going, watch and the observatory read the copies already fetched, never the network). Without a remote the record stays a local ref with the same name and is listed as not shared. A derived wait can be resolved the same way (`wait resolve --id q:<message id>`), which is how a decision is recorded. The history of closed waits stays in these refs; copying it into a story's `.sdlc` records when the story is published is possible later but not done today.
+
+Where the waits show up:
+
+- `status`: section "In attesa di", one group per waiter, with age and deadline.
+- `next` / keep-going: open waits and the suggested actions; escalated waits on a person never block; no publish request during a freeze.
+- `watch`: also wakes up when a wait expires, is resolved (for example a dependency merged) or is escalated.
+- the host hook that reads the channel applies the automatic rules (update requests, one message per approval or delegation) and shows each suggestion once; `AGENTIC_SDLC_WAIT_RULES=off` turns the automatic messages off on this computer.
+- Change Observatory: panel "Chi aspetta chi" (Who waits for whom) in the Now panel, with ages and deadlines.
+
+The rules are configured in `.sdlc/config.json` under `host_policy.waits` (defaults in the plugin's `config/waits.json`): `question_decide_after_minutes`, `plugin_update_request_every_minutes`, `freeze_default_minutes`, `explicit_default_until`, `explicit_max_until`, `escalate_approvals`, `escalate_delegations`, `list_limit`, `freeze_patterns`. What has been sent already (escalations, update requests) is remembered per clone in `.git/agentic-sdlc/waits-state.json`.
 
 ## Settings
 
