@@ -1274,7 +1274,7 @@ pid holds it. A dead, foreign or over-limit holder is taken over, and the
 reaper removes stale locks. `AGENTIC_SDLC_WAIT_FOR_LOCK_SECONDS` (default 0)
 waits instead of refusing. Read-only commands are never blocked.
 
-With messaging on, the plugin also tells the topic when a story enters a
+With messaging on, the plugin also tells the channel when a story enters a
 workflow phase, a commit, push or pull request completes, a test run is
 recorded and a strict gate passes. From the host hook it sends a short status
 every `AGENTIC_SDLC_MESSAGING_HEARTBEAT_MINUTES` (default 15, `0` off) while this

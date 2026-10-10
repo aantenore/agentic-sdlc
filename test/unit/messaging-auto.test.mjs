@@ -3,7 +3,6 @@ import "../helpers/test-isolation.mjs";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
-import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -11,36 +10,18 @@ import { fileURLToPath } from "node:url";
 
 import { alertFor, rememberOwnMessage } from "../../lib/messaging/auto.mjs";
 import { pendingQuestions } from "../../lib/host-hooks/keep-going.mjs";
+import { installFakeGh } from "../helpers/fake-gh.mjs";
 
 const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../bin/agentic-sdlc.mjs");
-const TOPIC = "sdlc-auto-test-0123456789abcdef";
+const CONFIG = { provider: "github", repo: "acme/shop", issue: 1 };
 
-// A minimal ntfy: JSON publish on "/", NDJSON poll on "/<topic>/json" honouring since=<id>.
-async function fakeNtfy() {
-  const messages = [];
-  const server = http.createServer((request, response) => {
-    const url = new URL(request.url, "http://localhost");
-    if (request.method === "POST" && url.pathname === "/") {
-      let body = "";
-      request.on("data", (chunk) => { body += chunk; });
-      request.on("end", () => {
-        const event = { id: `msg${String(messages.length + 1).padStart(9, "0")}`, time: 1760000000 + messages.length, event: "message", ...JSON.parse(body) };
-        messages.push(event);
-        response.end(JSON.stringify(event));
-      });
-      return;
-    }
-    if (request.method === "GET" && url.pathname === `/${TOPIC}/json`) {
-      const since = url.searchParams.get("since");
-      const after = messages.findIndex((event) => event.id === since);
-      response.end(messages.slice(after + 1).map((event) => `${JSON.stringify(event)}\n`).join(""));
-      return;
-    }
-    response.statusCode = 404;
-    response.end();
+// A fake gh on PATH serving an in-file GitHub with the channel issue #1; no test reaches the real one.
+function fakeGh() {
+  return installFakeGh(fs.mkdtempSync(path.join(os.tmpdir(), "agentic-gh-")), {
+    issues: [{ number: 1, title: "Agentic SDLC · canale tra computer", state: "open", labels: [{ name: "agentic-sdlc-channel" }] }],
+    nextIssue: 2,
+    start: Date.now(),
   });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  return { url: `http://127.0.0.1:${server.address().port}`, messages, close: () => new Promise((resolve) => server.close(resolve)) };
 }
 
 function runCli(args, root, env = {}) {
@@ -56,12 +37,12 @@ function runCli(args, root, env = {}) {
   });
 }
 
-async function project(server) {
+async function project(configured) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentic-auto-"));
   execFileSync("git", ["init", "-q"], { cwd: root });
   fs.mkdirSync(path.join(root, ".git/agentic-sdlc"));
-  if (server) {
-    fs.writeFileSync(path.join(root, ".git/agentic-sdlc/messaging.json"), JSON.stringify({ topic: TOPIC, server }));
+  if (configured) {
+    fs.writeFileSync(path.join(root, ".git/agentic-sdlc/messaging.json"), JSON.stringify(CONFIG));
   }
   const init = await runCli(["init"], root);
   assert.equal(init.code, 0, init.stderr);
@@ -95,37 +76,38 @@ test("alerts name the story and the reason, and ignore ordinary runs", () => {
 });
 
 test("a failing gate tells the other computers once, and claims show new messages once", async () => {
-  const ntfy = await fakeNtfy();
-  try {
-    const root = await project(ntfy.url);
-    const gate = await runCli(["gate", "check", "--scope", "all", "--strict"], root);
-    assert.equal(gate.code, 1);
-    assert.equal(ntfy.messages.length, 1);
-    assert.match(ntfy.messages[0].message, /^\[auto\] need help: gate check failed: .*; reply with --kind answer --reply-to <id>$/u);
-    assert.ok(ntfy.messages[0].tags.includes("kind:question"));
-    assert.ok(ntfy.messages[0].tags.includes("from:PC1"));
-    assert.equal((await runCli(["gate", "check", "--scope", "all", "--strict"], root)).code, 1);
-    assert.equal(ntfy.messages.length, 1, "the same alert is not repeated");
+  const gh = fakeGh();
+  const root = await project(true);
+  const env = gh.env;
+  const gate = await runCli(["gate", "check", "--scope", "all", "--strict"], root, env);
+  assert.equal(gate.code, 1);
+  assert.equal(gh.read().comments.length, 1);
+  const [comment] = gh.read().comments;
+  assert.match(comment.body, /^\*\*PC1\*\* · question\n\n\[auto\] need help: gate check failed: .*; reply with --kind answer --reply-to <id>\n\n<!-- agentic-sdlc:/u);
+  assert.equal((await runCli(["gate", "check", "--scope", "all", "--strict"], root, env)).code, 1);
+  assert.equal(gh.read().comments.length, 1, "the same alert is not repeated");
 
-    ntfy.messages.push({ id: "other0001", time: 1760000100, event: "message", message: "ST-B-002 is mine", tags: ["agentic-sdlc", "from:PC2"] });
-    const claim = await runCli(["story", "claim", "--id", "ST-NOPE-001", "--agent", "a1"], root);
-    assert.match(claim.stderr, /PC2: ST-B-002 is mine/u);
-    assert.doesNotMatch(claim.stderr, /PC1/u, "own messages are not shown");
-    const again = await runCli(["story", "claim", "--id", "ST-NOPE-001", "--agent", "a1"], root);
-    assert.doesNotMatch(again.stderr, /ST-B-002 is mine/u);
-  } finally {
-    await ntfy.close();
-  }
+  gh.write((state) => {
+    const at = new Date(Date.now() + 5000).toISOString().replace(/\.\d{3}Z$/u, "Z");
+    state.comments.push({ id: 4999999990, issue: 1, body: "**PC2**\n\nST-B-002 is mine\n\n<!-- agentic-sdlc:{\"v\":1,\"from\":\"PC2\",\"kind\":\"info\"} -->", created_at: at, updated_at: at, user: { login: "antonio" } });
+  });
+  const claim = await runCli(["story", "claim", "--id", "ST-NOPE-001", "--agent", "a1"], root, env);
+  assert.match(claim.stderr, /PC2: ST-B-002 is mine/u);
+  assert.doesNotMatch(claim.stderr, /PC1/u, "own messages are not shown");
+  const again = await runCli(["story", "claim", "--id", "ST-NOPE-001", "--agent", "a1"], root, env);
+  assert.doesNotMatch(again.stderr, /ST-B-002 is mine/u);
 });
 
-test("without a topic or with the server down nothing changes", async () => {
-  const quiet = await project(null);
+test("without a channel or with GitHub unreachable nothing changes", async () => {
+  const quiet = await project(false);
   const off = await runCli(["gate", "check", "--scope", "all", "--strict"], quiet);
   assert.equal(off.code, 1);
   assert.doesNotMatch(off.stderr, /automatic message|told the other/u);
-  const down = await project("http://127.0.0.1:9");
+  const down = await project(true);
+  const gh = fakeGh();
+  gh.write((state) => { state.noAuth = true; });
   const started = Date.now();
-  const result = await runCli(["gate", "check", "--scope", "all", "--strict"], down);
+  const result = await runCli(["gate", "check", "--scope", "all", "--strict"], down, gh.env);
   assert.equal(result.code, 1);
   assert.match(result.stderr, /automatic message not sent/u);
   assert.ok(Date.now() - started < 10_000);
@@ -135,7 +117,7 @@ test("a reply sent here counts as answered before the next poll", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentic-auto-"));
   execFileSync("git", ["init", "-q"], { cwd: root });
   fs.mkdirSync(path.join(root, ".git/agentic-sdlc"));
-  fs.writeFileSync(path.join(root, ".git/agentic-sdlc/messaging.json"), JSON.stringify({ topic: TOPIC, server: "http://127.0.0.1:9" }));
+  fs.writeFileSync(path.join(root, ".git/agentic-sdlc/messaging.json"), JSON.stringify(CONFIG));
   const statePath = path.join(root, ".git/agentic-sdlc/messaging-auto.json");
   const question = { id: "Q1", from: "PC2", kind: "question", text: "help?", time: new Date().toISOString() };
   fs.writeFileSync(statePath, JSON.stringify({ own: [], attention: { window: [question] } }));
