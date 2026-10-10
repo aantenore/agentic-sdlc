@@ -474,7 +474,7 @@ test("keeps the representative v1 wire model deterministic with one dossier copy
   });
   const digest = crypto.createHash("sha256").update(JSON.stringify(model)).digest("hex");
 
-  assert.equal(digest, "fd2f5037b3c4d08fe348ff5d0ffe7c78d93c80d83c6211bba37f04a230a0c065");
+  assert.equal(digest, "16aa1c3023014078cb33226cd39609ee12026722a7fd75ff121d8c91c6e5b6bb");
 });
 
 test("builds proof-bound dossiers without cross-story, shared, or ambiguous lineage", async (t) => {

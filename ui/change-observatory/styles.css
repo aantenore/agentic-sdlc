@@ -4089,3 +4089,33 @@ mark {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
+
+/* Story in brief: five labelled lines at the top of a story and its dossier. */
+.story-brief {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #d9dde3);
+  border-radius: 8px;
+  background: var(--surface-2, transparent);
+}
+.story-brief-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 8rem) 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+.story-brief dt {
+  font-weight: 600;
+  font-size: 0.85em;
+}
+.story-brief dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.story-brief-row[data-verdict="failed"] dd { color: var(--danger, #b42318); }
+.story-brief-row[data-verdict="passed"] dd { color: var(--success, #2e7d32); }
+@media (max-width: 600px) {
+  .story-brief-row { grid-template-columns: 1fr; gap: 0; }
+}

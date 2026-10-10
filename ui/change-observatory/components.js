@@ -5,6 +5,7 @@ import {
   firstSummaryItem,
   formatTimestamp,
   groupChangesByIntent,
+  iterationRelevance,
   narrativeFor,
   preferredDossierIteration,
   rawHrefForPath,
@@ -30,8 +31,9 @@ import {
   t,
 } from "./i18n.js";
 import { icon, node } from "./dom.js";
-import { INSIGHT_SETTINGS } from "./insights.js";
+import { INSIGHT_SETTINGS, deliveryReason } from "./insights.js";
 import { activityView, dashboardView, mapView, storiesView } from "./visuals.js";
+import { storyBriefCard } from "./story-brief.js";
 
 const LIST_PAGE_SIZE = INSIGHT_SETTINGS.timelinePageSize;
 
@@ -654,9 +656,46 @@ function dossierMissingLane(laneState) {
   ]);
 }
 
-function dossierLane(dossier, definition, state, iterationId, index, sharedGuidance = null) {
-  const items = dossierLaneItems(dossier, definition.key);
-  const laneState = dossierLaneState(dossier, definition.key, items);
+// Collections that hold the same kind of evidence as each dossier lane.
+const LANE_COLLECTIONS = Object.freeze({
+  asked: (model) => model.summary?.asked ?? [],
+  decided: (model) => model.decisions ?? [],
+  contract: (model) => model.contracts ?? [],
+  done: (model) => model.changes ?? [],
+  verified: (model) => model.verification ?? [],
+});
+
+// When a lane has no linked item (for example a server limit cut it), the
+// records the story row shows for that kind of evidence are listed instead.
+function storyRecordsForLane(model, laneKey, storyId) {
+  if (!model || !storyId) return [];
+  return (LANE_COLLECTIONS[laneKey]?.(model) ?? [])
+    .filter((item) => item.storyId === storyId)
+    .map((item) => ({ item, sourceLane: laneKey }));
+}
+
+function dossierStatus(iteration) {
+  const relevance = iterationRelevance(iteration);
+  const delivery = iteration?.brief?.delivery;
+  if (relevance === "delivered") return { label: t(delivery?.state === "merged" ? "Merged" : "Delivered"), reason: deliveryReason(delivery) };
+  if (relevance === "superseded") return { label: t("Closed"), reason: null };
+  if (delivery?.state === "open") return { label: t("In progress"), reason: deliveryReason(delivery) };
+  return { label: t(relevance === "active" ? "In progress" : "Not started"), reason: null };
+}
+
+function dossierLane(dossier, definition, state, iterationId, index, sharedGuidance = null, model = null) {
+  const linked = dossierLaneItems(dossier, definition.key);
+  const fallback = linked.length ? [] : storyRecordsForLane(model, definition.key, dossier.storyId);
+  const items = linked.length ? linked : fallback;
+  const laneState = fallback.length
+    ? { status: "recorded", provenance: "inferred" }
+    : dossierLaneState(dossier, definition.key, items);
+  const laneTotal = dossier.lanes[definition.key]?.total;
+  const countText = fallback.length
+    ? `${items.length} ${t(items.length === 1 ? "record from the story activity" : "records from the story activity")}`
+    : laneTotal > items.length
+      ? `${items.length} ${t("of")} ${laneTotal} ${t("linked records")}`
+      : null;
   return node("section", {
     className: "dossier-lane",
     attrs: { "aria-labelledby": `dossier-lane-${definition.key}` },
@@ -666,7 +705,9 @@ function dossierLane(dossier, definition, state, iterationId, index, sharedGuida
       node("span", { className: "dossier-step", text: String(index + 1), attrs: { "aria-hidden": "true" } }),
       node("div", {}, [
         node("h3", { text: definition.label, i18n: true, attrs: { id: `dossier-lane-${definition.key}` } }),
-        node("span", { text: items.length ? `${items.length} linked ${items.length === 1 ? "record" : "records"}` : "Evidence missing", i18n: true }),
+        node("span", countText
+          ? { text: countText }
+          : { text: items.length ? `${items.length} linked ${items.length === 1 ? "record" : "records"}` : "Evidence missing", i18n: true }),
       ]),
       provenanceBadge(items.length ? laneState.provenance : "missing"),
     ]),
@@ -762,6 +803,8 @@ function dossierPanel(model, state) {
     ]),
   ]);
   panel.append(dossierMeta);
+  const brief = storyBriefCard(selectedIteration, dossierStatus(selectedIteration));
+  if (brief) panel.append(brief);
 
   if (!dossier) {
     panel.append(node("div", { className: "dossier-unavailable", attrs: { role: "status" } }, [
@@ -796,7 +839,7 @@ function dossierPanel(model, state) {
     },
   }, [
     node("div", { className: "dossier-flow" }, DOSSIER_LANES.map((definition, index) =>
-      dossierLane(dossier, definition, state, selectedIteration.id, index, sharedGuidance),
+      dossierLane(dossier, definition, state, selectedIteration.id, index, sharedGuidance, model),
     )),
   ]);
   const unlinked = unlinkedLineageDisclosure(model.unlinkedLineage, state, sharedGuidance);
@@ -1286,7 +1329,13 @@ function humanGuidanceSection(guidance) {
   ]);
 }
 
+// Ordinary records (recorded, or without a declared status) get no fixed
+// paragraph: it would repeat on every item and say nothing about it. Only
+// proposals and items no longer in effect keep a caution.
+const SILENT_GUIDANCE_BUCKETS = new Set(["recorded", "status_missing"]);
+
 function humanGuidanceBlock(item) {
+  if (SILENT_GUIDANCE_BUCKETS.has(recordGuidanceBucket(item))) return null;
   return humanGuidanceSection(humanGuidanceForItem(item));
 }
 
@@ -1307,8 +1356,8 @@ function sharedGuidanceTracker() {
 function cardGuidanceBlock(item, sharedGuidance) {
   const bucket = sharedGuidance ? recordGuidanceBucket(item) : null;
   if (!bucket) return humanGuidanceBlock(item);
+  if (SILENT_GUIDANCE_BUCKETS.has(bucket)) return null;
   sharedGuidance.buckets.add(bucket);
-  if (bucket === "recorded") return null;
   return node("p", {
     className: "human-guidance-notice",
     text: humanGuidanceForItem(item).outcome,

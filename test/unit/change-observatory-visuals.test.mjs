@@ -305,8 +305,10 @@ test("navigation adds the visual views and keeps every existing view address", a
 test("summaries keep story and request IDs and records without a title still say what happened", () => {
   assert.equal(
     humanizeRecordedText("Riviste le modifiche di ST-WEB-003 (merge 77e2440) in evidence/ST-WEB-003.md", { keepWorkIds: true }),
-    "Riviste le modifiche di ST-WEB-003 (merge 77e2440) in a file",
+    "Riviste le modifiche di ST-WEB-003 (merge 77e2440) in <path>",
   );
+  assert.equal(humanizeRecordedText("Il test porta a /Users/me/app/src/rete.ts"), "Il test porta a rete.ts");
+  assert.equal(humanizeRecordedText("Errore in C:\\work\\app\\config.json"), "Errore in config.json");
   assert.equal(humanizeRecordedText("Linked story ST-A to contract contract-ST-A-implementation"), "Linked story to contract");
   assert.equal(humanizeRecordedText("Ended (AUT-PR-A cancelled)"), "Ended (cancelled)");
   const titleOf = (record) => displayTextForItem({ status: "missing", provenance: "recorded", ...record });

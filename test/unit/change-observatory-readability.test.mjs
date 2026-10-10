@@ -155,13 +155,14 @@ test("dossier cards explain each kind of recorded state once per view in English
     assert.equal(shared[0].tagName, "details", `${locale}/shared explanation is collapsible`);
     assert.deepEqual(
       shared[0].querySelectorAll(".human-guidance-kind").map((kind) => kind.dataset.guidance),
-      ["recorded", "proposed", "status_missing"],
+      ["proposed"],
       locale,
     );
     for (const kind of shared[0].querySelectorAll(".human-guidance-kind")) {
       assert.equal(kind.querySelectorAll("dt").length, 5, `${locale}/${kind.dataset.guidance}/five fields`);
     }
-    assert.equal(occurrences(container.textContent, SHARED_SENTENCE[locale]), 1, locale);
+    assert.equal(occurrences(container.textContent, SHARED_SENTENCE[locale]), 0, `${locale}/no boilerplate for ordinary records`);
+    assert.equal(occurrences(container.textContent, missingStatusOutcome[locale]), 0, `${locale}/no notice for a missing status`);
 
     const cards = container.querySelectorAll(".dossier-item");
     assert.equal(cards.length, 11, locale);
@@ -174,7 +175,7 @@ test("dossier cards explain each kind of recorded state once per view in English
       .filter(Boolean);
     assert.deepEqual(
       notices.map((notice) => notice.dataset.guidance).sort(),
-      ["proposed", "proposed", "status_missing", "status_missing"],
+      ["proposed", "proposed"],
       `${locale}/cautionary states keep a visible notice on the card`,
     );
     for (const notice of notices) {
@@ -204,7 +205,7 @@ test("dossier with only delivery-control records renders no shared explanation",
   assert.ok(cards[0].querySelector(".human-guidance"), "the agreement keeps its own guidance");
 });
 
-test("summary answers share one explanation while the inspector keeps the full guidance", (t) => {
+test("ordinary records show no fixed explanation in summary or details", (t) => {
   useBrowserDocument(t);
   const items = [
     linkedItem("REQ-001", "requirement", "Plan trips"),
@@ -222,16 +223,13 @@ test("summary answers share one explanation while the inspector keeps the full g
       assert.ok(article.querySelector(".summary-recorded-answer"), `${locale}/recorded answer stays prominent`);
     }
     const shared = summary.children.filter((child) => hasClass(child, "summary-shared-guidance"));
-    assert.equal(shared.length, 1, locale);
-    assert.equal(shared[0].querySelectorAll("dt").length, 5, `${locale}/all five fields remain available`);
-    assert.equal(occurrences(summary.textContent, SHARED_SENTENCE[locale]), 1, locale);
+    assert.equal(shared.length, 0, `${locale}/ordinary records need no shared boilerplate`);
+    assert.equal(occurrences(summary.textContent, SHARED_SENTENCE[locale]), 0, locale);
 
     const inspector = globalThis.document.createElement("aside");
     renderInspector(inspector, items[0]);
-    const guidance = inspector.querySelectorAll(".human-guidance");
-    assert.equal(guidance.length, 1, `${locale}/inspector guidance`);
+    assert.equal(inspector.querySelectorAll(".human-guidance").length, 0, `${locale}/no fixed paragraph in details`);
     assert.equal(inspector.querySelectorAll(".human-guidance-shared").length, 0, locale);
-    assert.match(guidance[0].textContent, new RegExp(SHARED_SENTENCE[locale], "u"), locale);
   }
 });
 

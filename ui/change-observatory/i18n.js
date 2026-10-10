@@ -445,6 +445,30 @@ const ITALIAN = Object.freeze({
   "A record newer than the final report": "Un record è più recente del report finale",
   "run the final certification again": "rifai la certificazione finale",
   "Merged, no valid final report yet: run the final certification": "Mergiata, manca un report finale valido: esegui la certificazione finale",
+  "Story in brief": "La story in breve",
+  "Asked for": "Cosa chiedeva",
+  "Checks": "Verifiche",
+  "Who": "Chi",
+  "Status": "Stato",
+  "request": "richiesta",
+  "No pull request recorded yet": "Nessuna pull request registrata",
+  "Pull request": "Pull request",
+  "merged": "mergiata",
+  "on": "il",
+  "open, not merged yet": "aperta, non ancora mergiata",
+  "merge": "merge",
+  "branch": "branch",
+  "No checks recorded": "Nessuna verifica registrata",
+  "not run": "non eseguiti",
+  "open (pull request)": "aperta",
+  "Not run": "Non eseguita",
+  "with": "con",
+  "computer": "computer",
+  "approved by": "approvata da",
+  "of": "di",
+  "linked records": "record collegati",
+  "record from the story activity": "record dall’attività della story",
+  "records from the story activity": "record dall’attività della story",
   "Reserved, not started yet": "Prenotata, non ancora avviata",
   "Someone is working on it": "Qualcuno ci sta lavorando",
   "test record": "record di test",
@@ -888,12 +912,24 @@ function humanizedText(value) {
     && humanizeRecordedText(prefixed[2])) {
     text = prefixed[2];
   }
+  // A path becomes its file name ("porta a rete.ts"), protected from the word
+  // rewrites below; a name that is itself a record ID becomes a placeholder.
+  const files = [];
+  const keepFileName = (match) => {
+    const prefix = match.match(/^[\s("'`]/u)?.[0] ?? "";
+    const base = match.slice(prefix.length).split(/[\\/]/u).filter(Boolean).pop() ?? "";
+    if (!base || STRIPPABLE_RECORD_ID.test(base) || containsInternalPrimaryText(base)) {
+      return `${prefix}${activeLocale === "it" ? "<percorso>" : "<path>"}`;
+    }
+    files.push(base);
+    return `${prefix}\uE002${files.length - 1}\uE003`;
+  };
   text = text
-    .replace(globalPattern(EXECUTABLE_COMMAND_LINE), (match) => `${match.match(/^[\s("'`]/u)?.[0] ?? ""}a command`)
-    .replace(globalPattern(WINDOWS_UNC_PATH), (match) => `${match.match(/^[\s("'`]/u)?.[0] ?? ""}a file`)
-    .replace(globalPattern(WINDOWS_DRIVE_PATH), "a file")
-    .replace(globalPattern(POSIX_ABSOLUTE_PATH), (match) => `${match.match(/^[\s("'`]/u)?.[0] ?? ""}a file`)
-    .replace(/[\w.-]*(?:\/[\w.-]+)+/gu, (match) => (STRIPPABLE_RECORD_ID.test(match) ? "a file" : match))
+    .replace(globalPattern(EXECUTABLE_COMMAND_LINE), (match) => `${match.match(/^[\s("'`]/u)?.[0] ?? ""}${activeLocale === "it" ? "un comando" : "a command"}`)
+    .replace(globalPattern(WINDOWS_UNC_PATH), keepFileName)
+    .replace(globalPattern(WINDOWS_DRIVE_PATH), keepFileName)
+    .replace(globalPattern(POSIX_ABSOLUTE_PATH), keepFileName)
+    .replace(/[\w.-]*(?:\/[\w.-]+)+/gu, (match) => (STRIPPABLE_RECORD_ID.test(match) ? keepFileName(match) : match))
     .replace(globalPattern(STRIPPABLE_RECORD_ID), " ")
     .replace(globalPattern(CANONICAL_RECORD_ID), " ");
   for (const [pattern, words] of INTERNAL_TERM_WORDS) text = text.replace(pattern, words);
@@ -916,6 +952,7 @@ function humanizedText(value) {
     text = text.replace(/[\s:;,–-]+$/u, "").replace(DANGLING_WORDS, "").trim();
   } while (text !== previous);
   if (text.length < 4 || containsInternalPrimaryText(text)) return null;
+  text = text.replace(/\uE002(\d+)\uE003/gu, (_, index) => files[Number(index)]);
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 

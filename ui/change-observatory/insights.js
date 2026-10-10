@@ -99,8 +99,12 @@ const FAILED_CHECK = /fail|error|reject|block|denied|invalid/u;
 const PENDING_CHECK = /pending|running|progress|queued|waiting|required/u;
 const PASSED_CHECK = /^(pass|ready|approved|success|succeeded|green|ok|complete|verified|certified)/u;
 
+const NOT_RUN_CHECK = /^(blocked|skipped|not[ _-]?run|cancelled)$/u;
+
 export function checkOutcome(item) {
+  if (item?.verdict) return item.verdict;
   const status = String(item?.status ?? "").toLowerCase();
+  if (NOT_RUN_CHECK.test(status)) return "notRun";
   if (!status) return "recorded";
   if (FAILED_CHECK.test(status)) return "failed";
   if (PASSED_CHECK.test(status) && !status.includes("pending")) return "passed";
@@ -110,7 +114,7 @@ export function checkOutcome(item) {
 }
 
 export function checkHealth(events) {
-  const health = { passed: 0, failed: 0, pending: 0, recorded: 0, total: 0 };
+  const health = { passed: 0, failed: 0, pending: 0, notRun: 0, recorded: 0, total: 0 };
   for (const event of events) {
     if (event.kind !== "check") continue;
     health[checkOutcome(event.item)] += 1;
@@ -258,6 +262,18 @@ export function applySharedClaims(stories, claims = []) {
   });
 }
 
+// "PR #70 merged on 10 Oct" from the structured pull request records.
+export function deliveryReason(delivery) {
+  if (!delivery) return null;
+  const pr = delivery.number ? `PR #${delivery.number}` : t("Pull request");
+  const time = Date.parse(delivery.at ?? "");
+  const when = Number.isFinite(time)
+    ? new Date(time).toLocaleDateString(getLocale() === "it" ? "it-IT" : "en-GB", { day: "numeric", month: "short" })
+    : null;
+  if (delivery.state === "open") return `${pr} ${t("open (pull request)")}`;
+  return `${pr} ${t("merged")}${when ? ` ${t("on")} ${when}` : ""}`;
+}
+
 const PHASE_TITLE = (phase) => t(phase.charAt(0).toUpperCase() + phase.slice(1));
 
 // The status a person reads for a story: the coarse state refined by the
@@ -279,7 +295,7 @@ export function storyStatus(story) {
         reason: `${t("A record newer than the final report")}${what ? ` (${what})` : ""}: ${t("run the final certification again")}`,
       };
     }
-    return { key: "merged", label: t("Merged"), reason: t("Merged, no valid final report yet: run the final certification") };
+    return { key: "merged", label: t("Merged"), reason: deliveryReason(story?.iteration?.brief?.delivery) ?? t("Merged") };
   }
   if (story?.state === "live") {
     const phase = story.livePhase ?? story.iteration?.currentPhase ?? null;
@@ -326,6 +342,8 @@ export function changeRequestLinks(stories) {
   }));
 }
 
+const DONE_STATES = new Set(["delivered", "replaced", "stopped"]);
+
 export function applyDependencies(stories, edges = [], {
   now = Date.now(),
   recentHours = INSIGHT_SETTINGS.recentActivityHours,
@@ -335,7 +353,8 @@ export function applyDependencies(stories, edges = [], {
   return stories.map((story) => {
     const prerequisites = (index.from.get(story.id) ?? []).filter((edge) => byId.has(edge.to)).map((edge) => edge.to);
     const dependents = (index.to.get(story.id) ?? []).filter((edge) => byId.has(edge.from)).map((edge) => edge.from);
-    const waitingOn = prerequisites.filter((id) => byId.get(id).state !== "delivered");
+    // A prerequisite that was delivered, replaced, or closed no longer holds anything up.
+    const waitingOn = prerequisites.filter((id) => !DONE_STATES.has(byId.get(id).state));
     const recent = story.lastActivity !== null && story.lastActivity !== undefined
       && now - story.lastActivity <= recentHours * 3_600_000;
     return {

@@ -313,6 +313,64 @@ export function normalizeStandingBudget(value) {
   };
 }
 
+const TEST_VERDICTS = new Set(["passed", "failed", "notRun"]);
+const counterOrZero = (value) => (Number.isSafeInteger(value) && value >= 0 ? value : 0);
+
+// Older servers send no verdict; the fields are then absent.
+function normalizeTestResult(item) {
+  if (!TEST_VERDICTS.has(item.verdict)) return {};
+  const totals = objectOrEmpty(item.testTotals);
+  return {
+    verdict: item.verdict,
+    ...(item.testTotals ? {
+      testTotals: {
+        passed: counterOrZero(totals.passed),
+        failed: counterOrZero(totals.failed),
+        skipped: counterOrZero(totals.skipped),
+      },
+    } : {}),
+  };
+}
+
+// The story card: what was asked, what was delivered, the checks, and who.
+// Older servers send no brief; it is then null.
+function normalizeBrief(value) {
+  if (!value || typeof value !== "object") return null;
+  const asked = objectOrEmpty(value.asked);
+  const delivery = value.delivery && typeof value.delivery === "object" ? value.delivery : null;
+  const tests = objectOrEmpty(value.tests);
+  const who = objectOrEmpty(value.who);
+  const text = (entry) => readable(entry, "") || null;
+  return {
+    asked: {
+      title: text(asked.title),
+      summary: text(asked.summary),
+      requirementId: text(asked.requirementId),
+      requirementTitle: text(asked.requirementTitle),
+    },
+    delivery: delivery && ["merged", "open"].includes(delivery.state) ? {
+      state: delivery.state,
+      number: Number.isSafeInteger(delivery.number) ? delivery.number : null,
+      url: /^https:\/\//u.test(String(delivery.url ?? "")) ? delivery.url : null,
+      branch: text(delivery.branch),
+      mergeSha: /^[0-9a-f]{7,64}$/u.test(String(delivery.mergeSha ?? "")) ? delivery.mergeSha : null,
+      at: text(delivery.at),
+    } : null,
+    tests: {
+      passed: counterOrZero(tests.passed),
+      failed: counterOrZero(tests.failed),
+      notRun: counterOrZero(tests.notRun),
+      total: counterOrZero(tests.total),
+    },
+    who: {
+      person: text(who.person),
+      agent: text(who.agent),
+      computer: text(who.computer),
+      approvers: arrayOrEmpty(who.approvers).map((entry) => readable(entry, "")).filter(Boolean),
+    },
+  };
+}
+
 export function normalizeItem(value) {
   const item = objectOrEmpty(value);
   const sourceRefs = arrayOrEmpty(item.sourceRefs).map(normalizeSourceRef).filter(Boolean);
@@ -383,6 +441,7 @@ export function normalizeItem(value) {
     outputs: arrayOrEmpty(item.outputs).map(normalizeMappedEntry).filter(Boolean),
     alternatives: arrayOrEmpty(item.alternatives).map(normalizeMappedEntry).filter(Boolean),
     evidence: arrayOrEmpty(item.evidence).map(normalizeMappedEntry).filter(Boolean),
+    ...normalizeTestResult(item),
     ...(item.deliveryMetrics ? { deliveryMetrics: normalizeDeliveryMetrics(item.deliveryMetrics) } : {}),
     ...(normalizeStandingBudget(item.standingBudget) ? { standingBudget: normalizeStandingBudget(item.standingBudget) } : {}),
   };
@@ -543,6 +602,7 @@ function normalizeIteration(value, index, dossier = null) {
     phases: PHASES.map((phase) => normalizePhase(byPhase.get(phase), phase)),
     claimed: value?.claimed === true,
     closure: normalizeClosure(value?.closure),
+    brief: normalizeBrief(value?.brief),
     ...normalizeFixLinks(value),
     dossier,
   };
@@ -805,6 +865,7 @@ export function iterationRelevance(iteration) {
   if (
     DELIVERED_ITERATION_STATUSES.has(iterationStatusKey(iteration))
     || releasePhase?.status === "complete"
+    || iteration?.brief?.delivery?.state === "merged"
   ) {
     return "delivered";
   }

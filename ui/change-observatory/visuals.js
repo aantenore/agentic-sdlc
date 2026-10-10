@@ -11,6 +11,7 @@ import {
   t,
 } from "./i18n.js";
 import { icon, node, svgNode } from "./dom.js";
+import { storyBriefCard } from "./story-brief.js";
 import {
   EVENT_KINDS,
   INSIGHT_SETTINGS,
@@ -232,8 +233,12 @@ function kindChip(kindKey) {
 function outcomeBadge(item) {
   const outcome = checkOutcome(item);
   if (outcome === "recorded") return null;
-  const label = { passed: "Passed", failed: "Failed", pending: "Pending" }[outcome];
-  return node("span", { className: "outcome-badge", text: label, i18n: true, dataset: { outcome } });
+  const label = t({ passed: "Passed", failed: "Failed", pending: "Pending", notRun: "Not run" }[outcome]);
+  const totals = item.testTotals;
+  const counters = totals && (totals.passed + totals.failed + totals.skipped) > 1
+    ? ` ${totals.passed}/${totals.passed + totals.failed + totals.skipped}`
+    : "";
+  return node("span", { className: "outcome-badge", text: `${label}${counters}`, dataset: { outcome } });
 }
 
 const PLACEHOLDER_SUMMARIES = new Set(["No recorded summary."]);
@@ -854,8 +859,9 @@ function storyRow(story, state, insight) {
 
   const summary = recordedText(story.iteration).summary;
   const preview = story.events.slice(0, INSIGHT_SETTINGS.storyEventPreviewCount);
+  const brief = storyBriefCard(story.iteration, storyStatus(story));
   article.append(node("div", { className: "story-body", attrs: { id: bodyId } }, [
-    summary ? node("p", { className: "story-summary", text: summary }) : null,
+    brief ?? (summary ? node("p", { className: "story-summary", text: summary }) : null),
     phaseTrack(story, { labels: true }),
     storyLinks("Replaced by", story.iteration?.closure?.replacementIds, insight),
     storyLinks("Fixes", story.iteration?.fixes ? [story.iteration.fixes.storyId] : null, insight),
@@ -868,7 +874,8 @@ function storyRow(story, state, insight) {
     storyLinks("Fixed by", story.iteration?.fixedBy, insight),
     storyLinks("Changes the work of", story.changes, insight),
     storyLinks("Being changed by", story.changedBy, insight),
-    storyLinks("Needs first", story.prerequisites, insight),
+    // Only prerequisites still open hold this story up; delivered ones are history.
+    storyLinks("Needs first", story.waitingOn, insight),
     storyLinks("Unlocks", story.dependents, insight),
     node("div", { className: "story-actions" }, [
       linkButton("Show on the map", { action: "open-map", storyId: story.id }, "is-primary"),
