@@ -87,3 +87,17 @@ test("a failed command is reminded once, only when no automatic alert covered it
   assert.equal(failureReminder({ ...failure, reminded: true }), null);
   assert.equal(failureReminder(null), null);
 });
+
+test("reminders skip this computer's own names and senders silent for over two hours", () => {
+  const messages = [
+    msg("m1", "PC3", "question", { ago: 30 }),
+    msg("x1", "pc-self", "info", { ago: 20 }),
+    msg("x2", "Host", "info", { ago: 20 }),
+    msg("x3", "PC2", "info", { ago: 300 }),
+    msg("x4", "pc-other", "info", { ago: 5 }),
+  ];
+  const result = selectAttention({ messages, self: "pc-self", selfNames: new Set(["Host"]), own: new Set(["m1"]), now: NOW });
+  assert.deepEqual(result.escalate.map((item) => item.waiting), [["pc-other"]]);
+  const alone = selectAttention({ messages: messages.filter((m) => m.from !== "pc-other"), self: "pc-self", selfNames: new Set(["Host"]), own: new Set(["m1"]), now: NOW });
+  assert.deepEqual(alone.escalate, []);
+});
