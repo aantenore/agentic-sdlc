@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { decideKeepGoing, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
+import { collectWork, decideKeepGoing, heldClaimRefs, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
 
 const claim = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation"] }) };
 
@@ -110,4 +110,54 @@ test("claims this clone cannot prove are not its work", async () => {
   assert.deepEqual(collectWork(root, {}).claims.map((c) => c.storyId), ["ST-A", "ST-B"]);
   const mine = collectWork(root, { ownsClaim: (claim) => claim.story_id === "ST-B" });
   assert.deepEqual(mine.claims.map((c) => c.storyId), ["ST-B"]);
+});
+
+test("claims of sibling worktrees are this computer's work; only truly free stories are available", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-worktrees-"));
+  try {
+    const main = path.join(dir, "main");
+    const sibling = path.join(dir, "sibling");
+    const put = (root, file, value) => {
+      fs.mkdirSync(path.dirname(path.join(root, ".sdlc", file)), { recursive: true });
+      fs.writeFileSync(path.join(root, ".sdlc", file), JSON.stringify(value));
+    };
+    const story = (id, extra = {}) => put(main, `stories/${id}/story.json`, { id, status: "ready", requirement_refs: [{ id: `REQ-${id}` }], ...extra });
+    for (const id of ["ST-FREE", "ST-CLOSED", "ST-PARENT", "ST-PARENTA", "ST-OLD", "ST-HELD", "ST-DONE", "ST-MINE", "ST-ELSE"]) story(id);
+    story("ST-OLD", { requirement_refs: [{ id: "REQ-OLD" }] });
+    put(main, "requirements/REQ-OLD.json", { id: "REQ-OLD", logical_id: "REQ-OLD", revision: 1 });
+    put(main, "requirements/REQ-OLD-R2.json", { id: "REQ-OLD-R2", logical_id: "REQ-OLD", revision: 2 });
+    put(main, "stories/ST-CLOSED/closure.json", { status: "superseded" });
+    put(main, "reports/ST-DONE-lifecycle-complete.json", {});
+    put(sibling, "stories/ST-MINE/claim.json", { story_id: "ST-MINE", status: "active" });
+    put(sibling, "stories/ST-MINE/steps/discovery.json", { status: "completed" });
+    put(sibling, "stories/ST-ELSE/claim.json", { story_id: "ST-ELSE", status: "active", shared_claim: { scope: "shared" } });
+    const work = collectWork(main, {
+      roots: [main, sibling],
+      ownsClaim: (claim) => claim.story_id !== "ST-ELSE",
+      heldRefs: new Set(["ST-HELD"]),
+      base: { closed: ["ST-FREE-GONE"], claims: [{ claim: { story_id: "ST-BASE", status: "active" }, completedSteps: [] }] },
+    });
+    assert.deepEqual(work.claims.map((c) => c.storyId), ["ST-BASE", "ST-MINE"]);
+    assert.match(work.claims[1].next.command, /--step analysis/u);
+    assert.deepEqual(work.available, ["ST-FREE", "ST-PARENTA"]);
+    assert.equal(decideKeepGoing({ available: work.available }).block, true);
+    assert.equal(decideKeepGoing({ available: [] }).block, false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("claim refs: a story is held while its latest claim has no release", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-refs-"));
+  try {
+    execFileSync("git", ["init", "-q", "-b", "main", dir]);
+    const git = (...args) => execFileSync("git", ["-C", dir, ...args], { stdio: "pipe", env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@e", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@e" } }).toString().trim();
+    git("commit", "-q", "--allow-empty", "-m", "x");
+    const head = git("rev-parse", "HEAD");
+    const base = "refs/agentic-sdlc-shared/claims/0123456789abcdef";
+    for (const ref of ["ST-A/000001/claim", "ST-A/000001/release", "ST-B/000001/claim", "ST-B/000001/release", "ST-B/000002/claim", "ST-C/000001/claim"]) git("update-ref", `${base}/${ref}`, head);
+    assert.deepEqual([...heldClaimRefs(dir)].sort(), ["ST-B", "ST-C"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
