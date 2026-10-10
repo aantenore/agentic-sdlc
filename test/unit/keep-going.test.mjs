@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
-import { decideKeepGoing, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions } from "../../lib/host-hooks/keep-going.mjs";
+import { decideKeepGoing, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
 
 const claim = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation"] }) };
 
@@ -50,4 +54,48 @@ test("pending questions are those to this computer not yet answered", () => {
     { id: "d", kind: "answer", from: "pc-1", reply_to: "c" },
   ] } };
   assert.deepEqual(pendingQuestions(state, "pc-1").map((q) => q.id), ["a"]);
+});
+
+test("unpublished records: local .sdlc changes of a story not on the remote base come first", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-unpublished-"));
+  try {
+    const remote = path.join(dir, "remote.git");
+    const root = path.join(dir, "clone");
+    const git = (cwd, ...args) => execFileSync("git", ["-C", cwd, ...args], { stdio: "pipe", env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@e", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@e" } }).toString();
+    execFileSync("git", ["init", "-q", "--bare", "-b", "main", remote]);
+    execFileSync("git", ["init", "-q", "-b", "main", root]);
+    git(root, "remote", "add", "origin", remote);
+    const write = (file, text) => {
+      fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      fs.writeFileSync(path.join(root, file), text);
+    };
+    write(".sdlc/stories/ST-1/story.json", "{}\n");
+    write(".sdlc/stories/ST-2/story.json", "{}\n");
+    git(root, "add", "-A");
+    git(root, "commit", "-q", "-m", "base");
+    git(root, "push", "-q", "origin", "main");
+    git(root, "remote", "set-head", "origin", "main");
+    assert.deepEqual(unpublishedRecords(root), []);
+
+    write(".sdlc/gates/ST-1-final.json", "{}\n");
+    git(root, "add", "-A");
+    git(root, "commit", "-q", "-m", "final gate");
+    write(".sdlc/stories/ST-2/steps/design.json", "{}\n");
+    const found = unpublishedRecords(root);
+    assert.deepEqual(found.map((item) => [item.storyId, item.files]), [
+      ["ST-1", [".sdlc/gates/ST-1-final.json"]],
+      ["ST-2", [".sdlc/stories/ST-2/steps/design.json"]],
+    ]);
+    assert.equal(found[0].base, "origin/main");
+    assert.match(found[0].command, /story publish-records --id ST-1 --to-base/u);
+
+    const decision = decideKeepGoing({ unpublished: found, claims: [claim] });
+    assert.equal(decision.block, true);
+    assert.match(decision.reason.split("\n")[1], /ST-1: record non pubblicati/u);
+
+    git(root, "push", "-q", "origin", "main");
+    assert.deepEqual(unpublishedRecords(root).map((item) => item.storyId), ["ST-2"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

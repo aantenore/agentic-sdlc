@@ -1165,8 +1165,10 @@ function factsAfter(handler, positional = false) {
 
 /**
  * After a passed merge completion or lifecycle-complete gate, publish the
- * story's records to the base branch (lib/engine/story-sync.mjs). Best
- * effort: it never changes the command's result or exit code.
+ * story's records to the base branch (lib/engine/story-sync.mjs), right
+ * after the outcome and before any other post-processing (messages,
+ * dependents scan). Best effort: it never changes the command's result or
+ * exit code.
  */
 function publishRecordsAfter(handler) {
   return async (invocation) => {
@@ -1296,7 +1298,7 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.delivery.propose": call(proposeDeliveryAutonomy),
     "autonomy.delivery.approve": call(approveDeliveryAutonomy),
     "autonomy.delivery.revoke": call(revokeDeliveryAutonomy),
-    "autonomy.delivery.action": project(publishRecordsAfter(factsAfter(({ context, options }) =>
+    "autonomy.delivery.action": project(factsAfter(publishRecordsAfter(({ context, options }) =>
       withSealedReceiptTrust(deliveryProfileStoryIds(context, options), () => evaluateDeliveryAction(context, options))))),
     "autonomy.delivery.close": call(closeDeliveryAutonomy),
     "autonomy.delivery.reconcile": call(noteForMessages(reconcileExternalMerge)),
@@ -1396,7 +1398,7 @@ function buildCliRuntimeHandlerRegistry() {
     // in full (AGENTIC_SDLC_STATUS_CHECKS=full verifies them all). The
     // lifecycle-complete gate writes and re-checks the final receipt, so it
     // keeps reading live and only trusts the other stories' sealed receipts.
-    "gate.check": project(publishRecordsAfter(factsAfter(({ context, options }) => rememberResult(options["lifecycle-complete"] === true
+    "gate.check": project(factsAfter(publishRecordsAfter(({ context, options }) => rememberResult(options["lifecycle-complete"] === true
       ? withSealedReceiptTrust(
         options.story
           && !options["release-manifest"]
