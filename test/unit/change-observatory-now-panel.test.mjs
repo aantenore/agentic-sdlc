@@ -68,8 +68,8 @@ test("the messaging snapshot is skipped when messaging is off and cached otherwi
 
   let polls = 0;
   let clock = 0;
-  const providers = { ntfy: () => ({ poll: async () => { polls += 1; return [MESSAGES[0]]; } }) };
-  const env = { AGENTIC_SDLC_MESSAGING_TOPIC: "topic_test" };
+  const providers = { github: () => ({ poll: async () => { polls += 1; return [MESSAGES[0]]; } }) };
+  const env = { AGENTIC_SDLC_MESSAGING_REPO: "acme/shop" };
   const on = createMessagingSnapshot(process.cwd(), { env, providers, clock: () => clock });
   assert.equal((await on.read()).messaging, "on");
   await on.read();
@@ -81,7 +81,7 @@ test("the messaging snapshot is skipped when messaging is off and cached otherwi
 
   const failing = createMessagingSnapshot(process.cwd(), {
     env,
-    providers: { ntfy: () => ({ poll: async () => { throw new Error("down"); } }) },
+    providers: { github: () => ({ poll: async () => { throw new Error("down"); } }) },
   });
   assert.deepEqual(await failing.read(), { messaging: "unavailable", messages: null });
 });

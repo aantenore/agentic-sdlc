@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.111.0 Works
+# How Agentic SDLC 0.112.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -198,7 +198,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.111.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.112.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -1274,7 +1274,7 @@ pid holds it. A dead, foreign or over-limit holder is taken over, and the
 reaper removes stale locks. `AGENTIC_SDLC_WAIT_FOR_LOCK_SECONDS` (default 0)
 waits instead of refusing. Read-only commands are never blocked.
 
-With messaging on, the plugin also tells the topic when a story enters a
+With messaging on, the plugin also tells the channel when a story enters a
 workflow phase, a commit, push or pull request completes, a test run is
 recorded and a strict gate passes. From the host hook it sends a short status
 every `AGENTIC_SDLC_MESSAGING_HEARTBEAT_MINUTES` (default 15, `0` off) while this

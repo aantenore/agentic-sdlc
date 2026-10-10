@@ -11,7 +11,7 @@ import { selectAttention } from "../../lib/messaging/attention.mjs";
 import { ownMessageIds } from "../../lib/messaging/auto.mjs";
 import { enqueue, isTemporaryFailure, outboxPath, readOutbox, OUTBOX_ENV } from "../../lib/messaging/outbox.mjs";
 
-const TOPIC = "agentic-sdlc-test-topic-0001";
+const REPO = "acme/shop";
 const quiet = (fn) => async (...args) => {
   const log = console.log;
   console.log = () => {};
@@ -22,7 +22,7 @@ const send = quiet(messageSend);
 function project() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentic-outbox-"));
   execFileSync("git", ["init", "-q"], { cwd: root });
-  const env = { AGENTIC_SDLC_MESSAGING_TOPIC: TOPIC, AGENTIC_SDLC_HOST_LABEL: "PC1", AGENTIC_SDLC_MESSAGING_AUTO: "on" };
+  const env = { AGENTIC_SDLC_MESSAGING_REPO: REPO, AGENTIC_SDLC_HOST_LABEL: "PC1", AGENTIC_SDLC_MESSAGING_AUTO: "on" };
   return { root, env };
 }
 
@@ -33,7 +33,7 @@ function scripted(...answers) {
   return {
     calls,
     providers: {
-      ntfy: () => ({
+      github: () => ({
         publish: async ({ message }) => {
           calls.push(message);
           const answer = answers.length > 0 ? answers.shift() : "ok";
@@ -46,7 +46,8 @@ function scripted(...answers) {
   };
 }
 
-const quota = () => new Error('ntfy publish failed with HTTP 429: {"code":42908,"error":"limit reached"}');
+const quota = () => Object.assign(new Error("GitHub send failed with HTTP 429: rate limit"), { status: 429, rateLimited: true });
+const secondary = (retryAfterMs) => Object.assign(new Error("GitHub send failed with HTTP 403: You have exceeded a secondary rate limit."), { status: 403, rateLimited: true, retryAfterMs });
 
 test("a 429 queues the message in a 0600 outbox file with the reason", async () => {
   const { root, env } = project();
@@ -66,12 +67,14 @@ test("a 429 queues the message in a 0600 outbox file with the reason", async () 
 test("network errors and timeouts are temporary; other 4xx and validation are not", async () => {
   assert.equal(isTemporaryFailure(new Error("fetch failed")), true);
   assert.equal(isTemporaryFailure(Object.assign(new Error("aborted"), { name: "TimeoutError" })), true);
-  assert.equal(isTemporaryFailure(new Error("ntfy publish failed with HTTP 503")), true);
+  assert.equal(isTemporaryFailure(new Error("GitHub send failed with HTTP 503")), true);
   assert.equal(isTemporaryFailure(quota()), true);
-  assert.equal(isTemporaryFailure(new Error("ntfy publish failed with HTTP 400: bad")), false);
-  assert.equal(isTemporaryFailure(new Error("ntfy publish failed with HTTP 403")), false);
+  assert.equal(isTemporaryFailure(new Error("GitHub send failed with HTTP 400: bad")), false);
+  assert.equal(isTemporaryFailure(new Error("GitHub send failed with HTTP 403: Resource not accessible")), false);
+  assert.equal(isTemporaryFailure(secondary(30_000)), true, "a 403 rate limit waits");
+  assert.equal(isTemporaryFailure(Object.assign(new Error("gh is not signed in"), { setup: true })), true, "kept until gh is ready");
   const { root, env } = project();
-  const { providers } = scripted(new Error("ntfy publish failed with HTTP 400: bad request"));
+  const { providers } = scripted(new Error("GitHub send failed with HTTP 400: bad request"));
   await assert.rejects(send({ root, text: "hello" }, env, providers), /HTTP 400/u);
   assert.equal(readOutbox(root).items.length, 0);
   await assert.rejects(send({ root, text: "" }, env, providers), /needs --text/u);
@@ -100,13 +103,13 @@ test("backoff: nothing is attempted before the schedule, and each failure double
   const { providers, calls } = scripted(quota());
   await send({ root, text: "a" }, env, providers);
   assert.equal(calls.length, 1);
-  // Inside the wait a new send is queued behind the first without touching the server.
+  // Inside the wait a new send is queued behind the first without touching GitHub.
   const second = await send({ root, text: "b" }, env, providers);
   assert.equal(second.queued, true);
   assert.equal(calls.length, 1);
   assert.equal(readOutbox(root).items.length, 2);
   // At the scheduled time one attempt is made, fails, and the next one is further away.
-  const config = { enabled: true, provider: "ntfy", server: "http://127.0.0.1:9", topic: TOPIC };
+  const config = { enabled: true, provider: "github", repo: REPO, issue: 1 };
   const gap = 5 * 60_000;
   const t0 = readOutbox(root).next_attempt;
   const failing = scripted(quota(), quota());
@@ -116,13 +119,13 @@ test("backoff: nothing is attempted before the schedule, and each failure double
   Date.now = () => t0 + 1;
   try {
     const { flushOutbox } = await import("../../lib/messaging/outbox.mjs");
-    const run1 = await flushOutbox(root, { config, provider: failing.providers.ntfy(), env, now: t0 + 1 });
+    const run1 = await flushOutbox(root, { config, provider: failing.providers.github(), env, now: t0 + 1 });
     assert.equal(run1.attempted, true);
     assert.equal(run1.sent.length, 0);
     assert.equal(failing.calls.length, 1, "stops at the first refusal");
     const next1 = readOutbox(root).next_attempt;
     assert.equal(next1, t0 + 1 + gap * 4);
-    const run2 = await flushOutbox(root, { config, provider: failing.providers.ntfy(), env, now: next1 + 1 });
+    const run2 = await flushOutbox(root, { config, provider: failing.providers.github(), env, now: next1 + 1 });
     assert.equal(run2.attempted, true);
     assert.equal(readOutbox(root).next_attempt, next1 + 1 + gap * 8);
   } finally {
@@ -139,12 +142,12 @@ test("the retry gap is configurable", async () => {
   assert.ok(wait > 0 && wait <= 60_000, `wait ${wait}`);
 });
 
-test("a queued message the server refuses for good is dropped on flush", async () => {
+test("a queued message GitHub refuses for good is dropped on flush", async () => {
   const { root, env } = project();
   enqueue(root, { from: "PC1", host: "PC1", story: null, text: "bad", kind: "info", replyTo: null, to: null }, "offline", 1);
   enqueue(root, { from: "PC1", host: "PC1", story: null, text: "good", kind: "info", replyTo: null, to: null }, "offline", 1);
-  const { providers, calls } = scripted(new Error("ntfy publish failed with HTTP 400: nope"), "ok");
-  const config = { enabled: true, provider: "ntfy", server: "http://127.0.0.1:9", topic: TOPIC };
+  const { providers, calls } = scripted(new Error("GitHub send failed with HTTP 400: nope"), "ok");
+  const config = { enabled: true, provider: "github", repo: REPO, issue: 1 };
   const flushed = await flushMessageOutbox(root, config, { env, providers, force: true });
   assert.equal(flushed.rejected.length, 1);
   assert.equal(flushed.sent.length, 1);
@@ -167,7 +170,7 @@ test("a queued answer settles its question for keep-going and attention", () => 
   const outbox = { count: 1, reason: "HTTP 429", notified: false };
   const decision = decideKeepGoing({ questions: [], outbox });
   assert.equal(decision.block, false);
-  assert.match(decision.note, /1 messaggi in coda, non ancora inviati \(HTTP 429\).*AGENTIC_SDLC_MESSAGING_SERVER/u);
+  assert.match(decision.note, /1 messaggi in coda, non ancora inviati \(HTTP 429\).*gh auth status/u);
   assert.equal(decideKeepGoing({ questions: [], outbox: { ...outbox, notified: true } }).note, null);
 });
 
@@ -189,4 +192,19 @@ test("message status and message outbox show the queue; --drop removes one", asy
   }
   assert.equal(readOutbox(root).items.length, 0);
   await assert.rejects(messageOutbox({ root, drop: "nope" }, env, providers), /No queued message/u);
+});
+
+test("a secondary rate limit pushes the next attempt past the retry-after, in the queue and on flush", async () => {
+  const { root, env } = project();
+  const now = 1_000_000;
+  enqueue(root, { from: "PC1", host: "PC1", story: null, text: "a", kind: "info", replyTo: null, to: null }, "HTTP 403", now, env, { retryAfterMs: 20 * 60_000 });
+  assert.equal(readOutbox(root).next_attempt, now + 20 * 60_000, "the wait GitHub asked for beats the 5 minute gap");
+  const { flushOutbox } = await import("../../lib/messaging/outbox.mjs");
+  const config = { enabled: true, provider: "github", repo: REPO, issue: 1 };
+  const limited = scripted(secondary(45 * 60_000));
+  const run = await flushOutbox(root, { config, provider: limited.providers.github(), env, now: now + 20 * 60_000 + 1 });
+  assert.equal(run.attempted, true);
+  assert.equal(run.rejected.length, 0, "a rate limit is never a permanent refusal");
+  assert.equal(readOutbox(root).items.length, 1);
+  assert.equal(readOutbox(root).next_attempt, now + 20 * 60_000 + 1 + 45 * 60_000);
 });
