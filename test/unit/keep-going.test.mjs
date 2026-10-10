@@ -109,6 +109,17 @@ test("pending questions are those to this computer not yet answered", () => {
   assert.deepEqual(pendingQuestions(state, "pc-1").map((q) => q.id), ["a"]);
 });
 
+test("pending questions: host identity, manual names and answered reminders", () => {
+  const state = { own: ["m1"], attention: { window: [
+    { id: "m1", kind: "answer", from: "PC3", host: "pc-1", reply_to: "q" },
+    { id: "q", kind: "question", from: "pc-2", host: "pc-2", text: "pronto?" },
+    { id: "r", kind: "request", from: "pc-2", host: "pc-2", reply_to: "q", text: "[auto] reminder" },
+    { id: "z", kind: "question", from: "pc-2", host: "pc-2", to: "PC3", text: "a me" },
+    { id: "own", kind: "question", from: "PC3", host: "pc-1", text: "mia" },
+  ] } };
+  assert.deepEqual(pendingQuestions(state, "pc-1").map((q) => q.id), ["z"]);
+});
+
 test("unpublished records: local .sdlc changes of a story not on the remote base come first", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-unpublished-"));
   try {

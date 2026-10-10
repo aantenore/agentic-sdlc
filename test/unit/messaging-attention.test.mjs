@@ -101,3 +101,33 @@ test("reminders skip this computer's own names and senders silent for over two h
   const alone = selectAttention({ messages: messages.filter((m) => m.from !== "pc-other"), self: "pc-self", selfNames: new Set(["Host"]), own: new Set(["m1"]), now: NOW });
   assert.deepEqual(alone.escalate, []);
 });
+
+test("a reply sent under a manual name counts for the computer's host identity", async () => {
+  const { pendingReplies } = await import("../../lib/messaging/kinds.mjs");
+  const messages = [
+    msg("q1", "pc-a", "question", { host: "pc-a" }),
+    msg("r1", "PC3", "answer", { host: "pc-b7b5ff", reply_to: "q1" }),
+    msg("i1", "pc-b7b5ff", "info", { host: "pc-b7b5ff" }),
+  ];
+  assert.deepEqual(pendingReplies(messages).q1, []);
+  // Old message without host: the sender name is the identity.
+  assert.deepEqual(pendingReplies([...messages, msg("q2", "pc-old", "question")]).q2.sort(), ["pc-a", "pc-b7b5ff"]);
+  // --to works with the display name and with the host.
+  for (const to of ["PC3", "pc-b7b5ff"]) {
+    assert.deepEqual(pendingReplies([...messages, msg("q3", "pc-a", "question", { host: "pc-a", to })]).q3, ["pc-b7b5ff"]);
+  }
+  // No reminder is generated for the answered question.
+  const selected = selectAttention({ messages: [messages[0], messages[1], messages[2]], self: "pc-a", now: NOW, escalateMs: 60_000 });
+  assert.deepEqual(selected.escalate, []);
+  const late = selectAttention({ messages: [{ ...messages[0], ago: 30, time: at(30) }, messages[1], messages[2]], self: "pc-a", now: NOW, escalateMs: 60_000 });
+  assert.deepEqual(late.escalate, []);
+});
+
+test("a message answered under a manual name is mine through its host", () => {
+  const messages = [
+    msg("q1", "pc-x", "question", { host: "pc-x" }),
+    msg("a1", "PC3", "answer", { host: "pc-me", reply_to: "q1" }),
+  ];
+  const selected = selectAttention({ messages, self: "pc-me", now: NOW });
+  assert.deepEqual(selected.pending, []);
+});

@@ -192,7 +192,7 @@ test("send, read and listen through the CLI", async () => {
     const sent = await runCli(["message", "send", "--story", "ST-UX-001", "--text", "Tests still take 30 minutes"], { root, env });
     assert.equal(sent.code, 0, sent.stderr);
     assert.equal(ntfy.messages.length, 1);
-    assert.deepEqual(ntfy.messages[0].tags.filter((tag) => !tag.startsWith("v:")), ["agentic-sdlc", "from:PC1", "story:ST-UX-001"]);
+    assert.deepEqual(ntfy.messages[0].tags.filter((tag) => !tag.startsWith("v:")), ["agentic-sdlc", "from:PC1", "host:PC1", "story:ST-UX-001"]);
 
     const heard = await listening;
     assert.equal(heard.code, 0, heard.stderr);
@@ -263,13 +263,13 @@ test("kinds travel in tags, pending replies are listed and --skip-own honours an
   const root = projectDir();
   const env = { AGENTIC_SDLC_MESSAGING_SERVER: ntfy.url };
   try {
-    const asked = JSON.parse((await runCli(["message", "send", "--json", "--kind", "question", "--sender", "PC1", "--text", "who can publish?"], { root, env })).stdout);
+    const asked = JSON.parse((await runCli(["message", "send", "--json", "--kind", "question", "--sender", "PC1", "--text", "who can publish?"], { root, env: { ...env, AGENTIC_SDLC_HOST_LABEL: "PC1" } })).stdout);
     assert.equal(asked.kind, "question");
     assert.ok(ntfy.messages[0].tags.includes("kind:question"));
-    await runCli(["message", "send", "--json", "--sender", "PC2", "--text", "hello"], { root, env });
+    await runCli(["message", "send", "--json", "--sender", "PC2", "--text", "hello"], { root, env: { ...env, AGENTIC_SDLC_HOST_LABEL: "PC2" } });
     const read = JSON.parse((await runCli(["message", "read", "--json"], { root, env: { ...env, AGENTIC_SDLC_HOST_LABEL: "PC1" } })).stdout);
     assert.deepEqual(read.messages[0].pending_replies, ["PC2"]);
-    await runCli(["message", "send", "--json", "--kind", "answer", "--reply-to", asked.id, "--sender", "PC2", "--text", "me"], { root, env });
+    await runCli(["message", "send", "--json", "--kind", "answer", "--reply-to", asked.id, "--sender", "PC2", "--text", "me"], { root, env: { ...env, AGENTIC_SDLC_HOST_LABEL: "PC2" } });
     const after = JSON.parse((await runCli(["message", "read", "--json"], { root, env: { ...env, AGENTIC_SDLC_HOST_LABEL: "PC1" } })).stdout);
     assert.deepEqual(after.messages[0].pending_replies, []);
     assert.equal(after.messages[2].reply_to, asked.id);
