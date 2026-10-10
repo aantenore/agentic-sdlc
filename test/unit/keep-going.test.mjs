@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { claimOwnership, collectWork, decideKeepGoing, deliveryProgress, personRequests, withPersonRequest, withWorktreeProgress, isFreshForeignStory, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
+import { claimOwnership, collectWork, decideKeepGoing, deliveryProgress, personRequests, withPersonRequest, withWorktreeProgress, isFreshForeignStory, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, MAX_IDENTICAL_BLOCKS, MAX_SUGGESTION_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
 
 const claim = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation"] }) };
 
@@ -407,4 +407,31 @@ test("a step that needs a person with an open request is shown as waiting and do
   // Answered request: the step is proposed again.
   const answered = personRequests({ ...state, attention: { window: [...state.attention.window, { id: "m3", kind: "answer", reply_to: "m1", text: "ok" }] } });
   assert.equal(withPersonRequest(release, answered).awaitingPerson, undefined);
+});
+
+test("suggestion-only stops: same set within the window passes with a summary, a new set blocks", () => {
+  const w1 = { ...claim, storyId: "ST-1", waiting: "attesa umana" };
+  const w2 = { ...claim, storyId: "ST-2", awaitingPerson: { command: "agentic-sdlc approve" } };
+  const first = decideKeepGoing({ claims: [w1, w2], available: ["ST-5"], now: 1000 });
+  assert.equal(first.block, true);
+  const second = decideKeepGoing({ claims: [w2, w1], available: ["ST-5"], previous: first.state, now: 2000 });
+  assert.equal(second.block, false);
+  assert.match(second.note, /Passi in attesa/u);
+  assert.match(second.note, /ST-1, ST-2/u);
+  const other = decideKeepGoing({ claims: [w1, w2], available: ["ST-6"], previous: first.state, now: 3000 });
+  assert.equal(other.block, true);
+  const firm = decideKeepGoing({ claims: [w1, claim], available: ["ST-5"], previous: first.state, now: 4000 });
+  assert.equal(firm.block, true);
+});
+
+test("suggestion-only stops: the same set blocked MAX_SUGGESTION_BLOCKS times in a row passes even beyond the window", () => {
+  const w1 = { ...claim, storyId: "ST-1", waiting: "attesa umana" };
+  let state = {};
+  const blocks = [];
+  for (let index = 0; index < MAX_SUGGESTION_BLOCKS + 1; index += 1) {
+    const result = decideKeepGoing({ claims: [w1], available: ["ST-5"], previous: state, now: 1000 + index * (IDENTICAL_BLOCKS_WINDOW_MS + 10) });
+    blocks.push(result.block);
+    state = result.state;
+  }
+  assert.deepEqual(blocks, [...Array(MAX_SUGGESTION_BLOCKS).fill(true), false]);
 });
