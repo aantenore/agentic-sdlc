@@ -148,12 +148,14 @@ import {
 } from "../lib/context-optimization.mjs";
 import { runObserveCommand } from "../lib/change-observatory/cli.mjs";
 import {
+  messageIdentity,
   messageListen,
   messageOutbox,
   messageRead,
   messageSend,
   messageSetup,
   messageStatus,
+  messageWho,
 } from "../lib/messaging/commands.mjs";
 import { alertFor, readsMessagesBefore, recordRunOutcome, sendAutoAlert, showNewMessages } from "../lib/messaging/auto.mjs";
 import { createPortfolioRuntime } from "../lib/change-observatory/portfolio-runtime.mjs";
@@ -1265,6 +1267,8 @@ function buildCliRuntimeHandlerRegistry() {
       return result;
     }),
     "message.outbox": bootstrap(({ options }) => messageOutbox(options)),
+    "message.identity": bootstrap(({ options }) => messageIdentity(options)),
+    "message.who": bootstrap(({ options }) => messageWho(options)),
     "message.read": bootstrap(({ options }) => messageRead(options)),
     "message.listen": bootstrap(({ options }) => messageListen(options)),
     "runs.list": bootstrap(({ options }) => runsList(options)),
