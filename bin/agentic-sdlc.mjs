@@ -1091,6 +1091,11 @@ import {
   releasePhaseLock,
 } from "../lib/engine/storage.mjs";
 import {
+  grantDelegation,
+  listDelegations,
+  revokeDelegation,
+} from "../lib/engine/delegation.mjs";
+import {
   approveStandingApproval,
   explainStandingApproval,
   proposeStandingApproval,
@@ -1349,6 +1354,9 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.standing.status": call(showStandingApprovals),
     "autonomy.standing.explain": call(explainStandingApproval),
     "autonomy.standing.sync": call(syncStandingApproval),
+    "autonomy.delegation.grant": call(grantDelegation),
+    "autonomy.delegation.revoke": call(revokeDelegation),
+    "autonomy.delegation.list": call(listDelegations),
     "contract.create": call(createContract),
     "contract.approve": call(approveContract),
     "story.create": call(createStory),
