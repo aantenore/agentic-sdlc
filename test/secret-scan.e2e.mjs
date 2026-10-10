@@ -229,3 +229,52 @@ test("a repository without its first commit is scanned from the working tree", (
     fs.rmSync(project, { force: true, recursive: true });
   }
 });
+
+test("a scan from the remote base branch satisfies the gate once the branch contains that base", () => {
+  const project = createProject();
+  const remote = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "sdlc-secret-scan-remote-")));
+  try {
+    git(remote, ["init", "--bare", "--initial-branch", "main"]);
+    git(project, ["remote", "add", "origin", remote]);
+    git(project, ["push", "--quiet", "origin", "main"]);
+    git(project, ["fetch", "--quiet", "origin"]);
+    git(project, ["remote", "set-head", "origin", "main"]);
+    const deliveryBase = git(project, ["rev-parse", "HEAD"]);
+    writeJson(path.join(path.dirname(storyPath(project)), "task-start.json"), { audit: { git: { head_sha: deliveryBase } } });
+    const story = readJson(storyPath(project));
+    writeJson(storyPath(project), { ...story, phase: "validation", status: "validation" });
+
+    // Other work reaches the base branch while the story branch works on its own commit.
+    git(project, ["checkout", "--quiet", "-b", "story/secret"]);
+    fs.mkdirSync(path.join(project, "src"), { recursive: true });
+    fs.writeFileSync(path.join(project, "src", "safe.js"), "export const safe = true;\n", "utf8");
+    git(project, ["add", "src/safe.js"]);
+    git(project, ["commit", "-m", "story work"]);
+    const storyCommit = git(project, ["rev-parse", "HEAD"]);
+    git(project, ["checkout", "--quiet", "main"]);
+    fs.writeFileSync(path.join(project, "other.txt"), "other work\n", "utf8");
+    git(project, ["add", "other.txt"]);
+    git(project, ["commit", "-m", "other work"]);
+    git(project, ["push", "--quiet", "origin", "main"]);
+    git(project, ["checkout", "--quiet", "story/secret"]);
+    git(project, ["rebase", "--quiet", "main"]);
+    git(project, ["fetch", "--quiet", "origin"]);
+    const secretErrors = () => gateErrors(project).filter((error) => error.toLowerCase().includes("secret scan"));
+
+    // A scan that starts at the story's own commit leaves part of the delivery unread.
+    const narrow = run(["secret", "scan", "--root", project, "--story", STORY_ID, "--base", "HEAD", "--json"]);
+    assert.equal(narrow.status, 0, narrow.stderr || narrow.stdout);
+    assert.ok(secretErrors().length > 0, "a scan from a commit the remote base lacks was accepted");
+    assert.notEqual(storyCommit, git(project, ["rev-parse", "HEAD"]), "the rebase moved the story commit");
+
+    const scanned = run(["secret", "scan", "--root", project, "--story", STORY_ID, "--base", "origin/main", "--json"]);
+    assert.equal(scanned.status, 0, scanned.stderr || scanned.stdout);
+    const payload = JSON.parse(scanned.stdout);
+    assert.equal(payload.covers_delivery_base, true);
+    assert.deepEqual(payload.secret_scan.scanned_paths, ["src/safe.js"]);
+    assert.deepEqual(secretErrors(), [], "a scan from the remote base did not satisfy the gate");
+  } finally {
+    fs.rmSync(project, { force: true, recursive: true });
+    fs.rmSync(remote, { force: true, recursive: true });
+  }
+});

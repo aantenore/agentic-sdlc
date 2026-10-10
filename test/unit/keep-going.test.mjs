@@ -279,3 +279,12 @@ test("anti-loop: the same bare suggestion is not blocked twice, real work still 
   const withClaim = decideKeepGoing({ claims: [claim], now: 1000 });
   assert.equal(decideKeepGoing({ claims: [claim], previous: withClaim.state, now: 2000 }).block, true);
 });
+
+test("the release step names the sync-before-commit, strict gate and transition order", () => {
+  const release = nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation", "validation"] });
+  assert.match(release.label, /story sync.*git\.commit/u);
+  assert.match(release.label, /gate check --strict.*workflow instance transition --request-id/u);
+  assert.match(release.label, /authorize e `gh pr create` subito di seguito/u);
+  const behind = decideKeepGoing({ claims: [{ ...claim, behind: 2 }] }).reason;
+  assert.match(behind, /PRIMA del git\.commit governato/u);
+});
