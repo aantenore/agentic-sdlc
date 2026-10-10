@@ -123,3 +123,54 @@ test("a v1 proof keeps its exact shape when the head descends from the base", (t
   assert.equal("merge_base_sha" in built.proof, false);
   assert.equal(root.length > 0, true);
 });
+
+test("commits already on the remote story branch are not checked again", (t) => {
+  const { root, start, context } = fixture(t);
+  git(root, ["checkout", "-q", "-b", "feature", start]);
+  const pushed = commitFile(root, "src/pushed.txt", "pushed\n", "already on the remote branch");
+  const head = commitFile(root, "src/new.txt", "new\n", "new commit");
+
+  // Without the remote tip both commits lack a receipt.
+  const all = buildGitCommitCoverageProof(context, PROFILE, { base_sha: start, head_sha: head });
+  assert.equal(all.proof, null);
+  assert.equal(all.errors.length, 2);
+
+  // With the remote tip only the new commit is checked, and still refused.
+  const runtimeTarget = { base_sha: start, head_sha: head, remote_branch_sha: pushed };
+  const built = buildGitCommitCoverageProof(context, PROFILE, runtimeTarget);
+  assert.equal(built.proof, null);
+  assert.equal(built.errors.length, 1);
+  assert.match(built.errors[0], new RegExp(`Commit ${head} requires exactly one`, "u"));
+  assert.doesNotMatch(built.errors[0], new RegExp(pushed, "u"));
+  const legacy = gitCommitReceiptCoverageErrors(context, PROFILE, runtimeTarget, []);
+  assert.equal(legacy.length, 1);
+  assert.match(legacy[0], new RegExp(head, "u"));
+});
+
+test("a push with nothing new beyond the remote branch keeps the v1 proof", (t) => {
+  const { root, start, context } = fixture(t);
+  git(root, ["checkout", "-q", "-b", "feature", start]);
+  const pushed = commitFile(root, "src/pushed.txt", "pushed\n", "already on the remote branch");
+  const runtimeTarget = { base_sha: start, head_sha: pushed, remote_branch_sha: pushed };
+  const built = buildGitCommitCoverageProof(context, PROFILE, runtimeTarget);
+  assert.deepEqual(built.errors, []);
+  assert.equal(built.proof.schema_version, "git-commit-coverage:v1");
+  assert.equal(built.proof.remote_branch_sha, pushed);
+  assert.deepEqual(built.proof.entries, []);
+  assert.deepEqual(validateGitCommitCoverageProof(context, PROFILE, runtimeTarget, built.proof), []);
+  assert.deepEqual(
+    validateGitCommitCoverageProof(context, PROFILE, { ...runtimeTarget, remote_branch_sha: start }, built.proof),
+    ["Git commit coverage proof is stale or invalid."],
+  );
+});
+
+test("a remote branch tip missing from this clone excludes nothing", (t) => {
+  const { root, start, context } = fixture(t);
+  git(root, ["checkout", "-q", "-b", "feature", start]);
+  const head = commitFile(root, "src/new.txt", "new\n", "new commit");
+  const runtimeTarget = { base_sha: start, head_sha: head, remote_branch_sha: "f".repeat(40) };
+  const built = buildGitCommitCoverageProof(context, PROFILE, runtimeTarget);
+  assert.equal(built.proof, null);
+  assert.match(built.errors.join("\n"), new RegExp(`Commit ${head} requires exactly one`, "u"));
+  assert.equal(root.length > 0, true);
+});
