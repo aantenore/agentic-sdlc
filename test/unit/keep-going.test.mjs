@@ -99,3 +99,15 @@ test("unpublished records: local .sdlc changes of a story not on the remote base
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("claims this clone cannot prove are not its work", async () => {
+  const { collectWork } = await import("../../lib/host-hooks/keep-going.mjs");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-claims-"));
+  for (const id of ["ST-A", "ST-B"]) {
+    fs.mkdirSync(path.join(root, ".sdlc", "stories", id), { recursive: true });
+    fs.writeFileSync(path.join(root, ".sdlc", "stories", id, "claim.json"), JSON.stringify({ status: "active", story_id: id }));
+  }
+  assert.deepEqual(collectWork(root, {}).claims.map((c) => c.storyId), ["ST-A", "ST-B"]);
+  const mine = collectWork(root, { ownsClaim: (claim) => claim.story_id === "ST-B" });
+  assert.deepEqual(mine.claims.map((c) => c.storyId), ["ST-B"]);
+});
