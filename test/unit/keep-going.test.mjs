@@ -278,6 +278,7 @@ test("anti-loop: the same bare suggestion is not blocked twice, real work still 
   assert.equal(decideKeepGoing({ available: ["ST-3"], previous: first.state, now: 1000 + IDENTICAL_BLOCKS_WINDOW_MS + 1 }).block, true);
   const withClaim = decideKeepGoing({ claims: [claim], now: 1000 });
   assert.equal(decideKeepGoing({ claims: [claim], previous: withClaim.state, now: 2000 }).block, true);
+});
 
 test("the release step names the sync-before-commit, strict gate and transition order", () => {
   const release = nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation", "validation"] });
