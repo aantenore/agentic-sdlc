@@ -1,4 +1,5 @@
 import { ObservatoryApi, accessTokenFromHash } from "./api.js";
+import { mountNowPanel } from "./now-panel.js";
 import {
   phaseSelectionId,
   phaseSelectionItem,
@@ -1172,4 +1173,5 @@ if (portfolioMode) {
 else {
   setGenericWorkspaceContext();
   loadModel();
+  mountNowPanel({ api, anchor: elements.summary });
 }
