@@ -26,6 +26,7 @@ import {
   withReadSnapshot,
   withSealedReceiptTrust,
 } from "../lib/engine/read-snapshot.mjs";
+import { supersedeDeliveryEvidence } from "../lib/engine/evidence-supersede.mjs";
 import { reconcileExternalMerge } from "../lib/engine/external-merge.mjs";
 import { fileURLToPath } from "node:url";
 import {
@@ -1144,7 +1145,7 @@ async function sendRunAlert() {
     const { action, options, root, error, result } = AUTO_MESSAGING;
     if (!action || !root) return;
     const blockers = Array.isArray(result?.human_blockers) ? result.human_blockers : result?.errors;
-    const alert = alertFor(action, options, { error, exitCode: process.exitCode, blockers });
+    const alert = alertFor(action, options, { error, exitCode: process.exitCode, blockers, result });
     if (alert) await sendAutoAlert(root, alert, { stderr: (text) => process.stderr.write(text) });
   } catch {
     // Automatic messages are best effort.
@@ -1242,6 +1243,7 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.delivery.action": storyWrite(evaluateDeliveryAction, deliveryProfileStoryIds),
     "autonomy.delivery.close": call(closeDeliveryAutonomy),
     "autonomy.delivery.reconcile": call(reconcileExternalMerge),
+    "autonomy.delivery.evidence.supersede": call((context, options) => rememberResult(supersedeDeliveryEvidence(context, options))),
     "autonomy.delivery.status": call(showDeliveryAutonomy),
     "autonomy.delivery.explain": call(explainDeliveryAutonomy),
     "autonomy.delivery.checks": call(showDeliveryChecks),
