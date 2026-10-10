@@ -30,9 +30,9 @@ const minutesAgo = (minutes) => new Date(NOW - minutes * 60_000).toISOString();
 const entry = (pid, command, ageMinutes, max = 30) => ({ file: `${pid}.json`, record: { pid, command, started_at: minutesAgo(ageMinutes), max_minutes: max } });
 
 test("limits come from the environment with safe defaults", () => {
-  assert.equal(maxRunMinutes({}), 30);
+  assert.equal(maxRunMinutes({}), 10);
   assert.equal(maxRunMinutes({ AGENTIC_SDLC_MAX_RUN_MINUTES: "0" }), 0);
-  assert.equal(maxRunMinutes({ AGENTIC_SDLC_MAX_RUN_MINUTES: "nope" }), 30);
+  assert.equal(maxRunMinutes({ AGENTIC_SDLC_MAX_RUN_MINUTES: "nope" }), 10);
   assert.equal(limitMinutesFor("message.listen", {}), 480);
   assert.equal(limitMinutesFor("message.listen", { AGENTIC_SDLC_LISTEN_MAX_HOURS: "2" }), 120);
 });

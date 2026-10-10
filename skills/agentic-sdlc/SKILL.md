@@ -980,7 +980,7 @@ The dedicated assessment journey remains the exception described above: it packa
    **No processes left behind.** Never leave unbounded background loops,
    listeners or waits: give every one a deadline (`message listen --timeout`,
    `--limit`). Plugin commands stop themselves after
-   `AGENTIC_SDLC_MAX_RUN_MINUTES` (default 30) and `message listen` after
+   `AGENTIC_SDLC_MAX_RUN_MINUTES` (default 10; a command that needs longer is a performance defect to fix) and `message listen` after
    `AGENTIC_SDLC_LISTEN_MAX_HOURS` (default 8); `agentic-sdlc runs list` and
    `runs stop` show and stop the ones still running.
 

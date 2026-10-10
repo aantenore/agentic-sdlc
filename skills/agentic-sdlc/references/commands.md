@@ -1739,7 +1739,7 @@ silences it; stdout and `--json` output are unchanged).
 
 No plugin process runs for hours. Each command records itself in
 `<git-common-dir>/agentic-sdlc/runs/<pid>.json` while it runs and stops itself
-after `AGENTIC_SDLC_MAX_RUN_MINUTES` (default 30, `0` for none) with a non-zero
+after `AGENTIC_SDLC_MAX_RUN_MINUTES` (default 10, `0` for none) with a non-zero
 exit code; `message listen` stops after `AGENTIC_SDLC_LISTEN_MAX_HOURS`
 (default 8). Every command, and the host hook when a turn or session ends,
 stops this user's plugin commands that outlived their limit by 5 minutes
