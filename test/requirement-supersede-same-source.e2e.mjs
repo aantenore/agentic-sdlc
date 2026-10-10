@@ -33,7 +33,7 @@ test("a revision that rewrites the same source supersedes its parent and its uns
   ]);
   mustRun(cwd, ["requirement", "approve", "--id", "REQ-ORCH", ...HUMAN]);
   mustRun(cwd, [
-    "story", "create", "--id", "ST-OLD", "--title", "Old story",
+    "story", "create", "--no-derived-verification", "--id", "ST-OLD", "--title", "Old story",
     "--requirement", "REQ-ORCH", "--acceptance", "Old behavior works",
   ]);
 
@@ -51,7 +51,7 @@ test("a revision that rewrites the same source supersedes its parent and its uns
   assert.deepEqual(superseded.stories_bound_to_superseded, ["ST-OLD"]);
 
   mustRun(cwd, [
-    "story", "create", "--id", "ST-NEW", "--title", "New story",
+    "story", "create", "--no-derived-verification", "--id", "ST-NEW", "--title", "New story",
     "--requirement", "REQ-ORCH-R2", "--acceptance", "New behavior works",
   ]);
   mustRun(cwd, ["story", "supersede", "--id", "ST-OLD", "--by", "ST-NEW", "--reason", "Moved to R2", ...HUMAN]);

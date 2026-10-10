@@ -178,7 +178,7 @@ function preparePullRequestDelivery({ codeReview = "not-required", merge = null,
   mustRun(["output", "template", "propose", "--root", project, "--type", "implementation-summary", "--summary", "Implementation evidence"]);
   mustRun(["output", "template", "approve", "--root", project, "--id", "implementation-summary-v1", ...humanApproval("Approve the format")]);
   mustRunJson([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", STORY_ID,
     "--title", "Implement the change",
     "--phase", "implementation",

@@ -1060,6 +1060,8 @@ The dedicated assessment journey remains the exception described above: it packa
    node <plugin-root>/bin/agentic-sdlc.mjs sync record --root <target-project> --story ST-001 --event push --summary "Pushed feature/ST-001"
    ```
 
+   Stories and requirements may carry `derived_acceptance` (secondary to the explicit acceptance). Produce those checks as well and record each one with `test record --acceptance DV-<rule-id>`; the strict gate flags a derived criterion with no passing run (see "Derived Verification Criteria" in `references/commands.md`).
+
    For validation, record test evidence with `test record` instead: it binds the story to the exact executed test command, its exit code, its result counts, and at least one immutable evidence file in a durable `test-run:v1` record. Treat a plain `trace append --type test` entry as the legacy weaker form; the validation gate warns when a story in validation has only that trace and no `test record`:
 
    ```bash

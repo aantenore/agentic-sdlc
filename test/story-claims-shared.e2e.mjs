@@ -130,7 +130,7 @@ function prepareStories(project, storyIds) {
   mustRun(["output", "template", "approve", "--root", project, "--id", "functional-analysis-v1", ...humanApproval("Approve the template")], project);
   for (const storyId of storyIds) {
     mustRun([
-      "story", "create", "--root", project, "--id", storyId, "--title", `Story ${storyId}`,
+      "story", "create", "--no-derived-verification", "--root", project, "--id", storyId, "--title", `Story ${storyId}`,
       "--acceptance", "The result is observable", "--phase", "design", "--status", "ready",
     ], project);
     mustRun([
@@ -614,7 +614,7 @@ test("a claim deleted from the remote, or ended there, no longer counts as held"
 /** A story that is not started and waits on ST-1 (a hard dependency), so it can be reserved but not started. */
 function blockedStory(project) {
   mustRun([
-    "story", "create", "--root", project, "--id", "ST-B", "--title", "Story ST-B",
+    "story", "create", "--no-derived-verification", "--root", project, "--id", "ST-B", "--title", "Story ST-B",
     "--acceptance", "The result is observable", "--phase", "design", "--status", "ready",
   ], project);
   mustRun(["dependency", "propose", "--root", project, "--id", "DEP-B", "--edge", "ST-B:ST-1:blocks:implementation:done"], project);

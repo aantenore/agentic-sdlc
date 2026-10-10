@@ -62,7 +62,7 @@ test("Italian first-user capability and implementation-output prompts stay in co
   runCli(["init", "--root", project, "--project-name", "First User Language"]);
   runCli([
     "story",
-    "create",
+    "create", "--no-derived-verification",
     "--root",
     project,
     "--id",

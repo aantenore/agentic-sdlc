@@ -205,7 +205,7 @@ test("a structured Codex handoff reaches one executable PR task in lifecycle ord
   assert.equal(Boolean(planningOnly.task_start_receipt), false);
 
   const story = mustRunJson([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", "ST-NOVICE-001",
     "--title", "Implement the health response",

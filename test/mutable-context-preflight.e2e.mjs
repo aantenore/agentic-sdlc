@@ -199,7 +199,7 @@ function establishBrownfieldGovernance(project) {
   ], project);
 
   mustRun([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", "ST-BROWNFIELD",
     "--title", "Implement the ready status",

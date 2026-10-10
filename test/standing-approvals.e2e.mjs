@@ -244,7 +244,7 @@ function prepareDelivery(project, suffix, standingId, options = {}) {
   const releaseOutput = path.join(releaseRoot, "app");
   const requirementId = options.requirementId || "REQ-TOIL";
   mustRun([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", storyId,
     "--title", `Clean up flag ${suffix}`,
@@ -586,7 +586,7 @@ function setCoordination(project, coordination) {
 
 function createBrief(project, suffix, requirementId) {
   mustRun([
-    "story", "create", "--root", project, "--id", `ST-${suffix}`, "--title", suffix, "--phase", "implementation",
+    "story", "create", "--no-derived-verification", "--root", project, "--id", `ST-${suffix}`, "--title", suffix, "--phase", "implementation",
     "--status", "ready", "--requirement", requirementId, "--acceptance", "Observable.",
   ], project);
   mustRun([
@@ -658,7 +658,7 @@ test("a delivery to a destination the standing approval does not cover is refuse
   const project = initializeProject("destination");
   const standingId = grantStanding(project, { destination: "pull_request" });
   const result = run([
-    "story", "create", "--root", project, "--id", "ST-DEST", "--title", "Destination", "--phase", "implementation",
+    "story", "create", "--no-derived-verification", "--root", project, "--id", "ST-DEST", "--title", "Destination", "--phase", "implementation",
     "--status", "ready", "--requirement", "REQ-TOIL", "--acceptance", "Observable.",
   ], project);
   assert.equal(result.status, 0, result.stderr);
@@ -689,7 +689,7 @@ test("an expired standing approval covers nothing", () => {
   const standingId = grantStanding(project, { expiresAt: isoAfter(4_000) });
   sleep(5_000);
   const result = run([
-    "story", "create", "--root", project, "--id", "ST-EXP", "--title", "Expiry", "--phase", "implementation",
+    "story", "create", "--no-derived-verification", "--root", project, "--id", "ST-EXP", "--title", "Expiry", "--phase", "implementation",
     "--status", "ready", "--requirement", "REQ-TOIL", "--acceptance", "Observable.",
   ], project);
   assert.equal(result.status, 0, result.stderr);
@@ -723,7 +723,7 @@ test("the delivery count is enforced and exhaustion falls back", () => {
   assert.equal(status.standing_approvals[0].status, "exhausted");
   assert.equal(status.standing_approvals[0].remaining, 0);
   mustRun([
-    "story", "create", "--root", project, "--id", "ST-TWO", "--title", "Second", "--phase", "implementation",
+    "story", "create", "--no-derived-verification", "--root", project, "--id", "ST-TWO", "--title", "Second", "--phase", "implementation",
     "--status", "ready", "--requirement", "REQ-TOIL-2", "--acceptance", "Observable.",
   ], project);
   mustRun([
@@ -775,7 +775,7 @@ test("a configuration change after approval suspends the standing approval", () 
   assert.equal(status.standing_approvals[0].status, "stale");
   assert.match(status.standing_approvals[0].reasons.join("\n"), /configuration changed/u);
   mustRun([
-    "story", "create", "--root", project, "--id", "ST-CFG", "--title", "Config", "--phase", "implementation",
+    "story", "create", "--no-derived-verification", "--root", project, "--id", "ST-CFG", "--title", "Config", "--phase", "implementation",
     "--status", "ready", "--requirement", "REQ-TOIL", "--acceptance", "Observable.",
   ], project);
   mustRun([
@@ -859,7 +859,7 @@ test("merge and production are never coverable by a standing approval", () => {
   const standingId = grantStanding(project, { destination: "pull_request", writePaths: ["src"] });
   for (const [suffix, merge] of [["MERGE", true], ["PR", false]]) {
     mustRun([
-      "story", "create", "--root", project, "--id", `ST-${suffix}`, "--title", suffix, "--phase", "implementation",
+      "story", "create", "--no-derived-verification", "--root", project, "--id", `ST-${suffix}`, "--title", suffix, "--phase", "implementation",
       "--status", "ready", "--requirement", suffix === "PR" ? "REQ-TOIL" : "REQ-TOIL-2", "--acceptance", "Observable.",
     ], project);
     mustRun([
@@ -906,7 +906,7 @@ test("a delegated pull request never pushes outside its repository and branch pr
     ["CONTRACT-REL", "release", "AUT-REL", "ST-REL"],
   ]) {
     mustRun([
-      "story", "create", "--root", project, "--id", storyId, "--title", storyId, "--phase", "implementation",
+      "story", "create", "--no-derived-verification", "--root", project, "--id", storyId, "--title", storyId, "--phase", "implementation",
       "--status", "ready", "--requirement", "REQ-TOIL", "--acceptance", "Observable.",
     ], project);
     mustRun([
@@ -1297,7 +1297,7 @@ test("a tampered standing approval record covers nothing", () => {
   assert.equal(status.standing_approvals[0].status, "invalid");
   assert.match(status.standing_approvals[0].reasons.join("\n"), /changed after it was proposed/u);
   mustRun([
-    "story", "create", "--root", project, "--id", "ST-TAMPER", "--title", "Tamper", "--phase", "implementation",
+    "story", "create", "--no-derived-verification", "--root", project, "--id", "ST-TAMPER", "--title", "Tamper", "--phase", "implementation",
     "--status", "ready", "--requirement", "REQ-TOIL", "--acceptance", "Observable.",
   ], project);
   mustRun([

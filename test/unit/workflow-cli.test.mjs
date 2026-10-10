@@ -214,7 +214,7 @@ test("the distributed integration-review overlay supports init, migration, propo
   );
   fs.copyFileSync(INTEGRATION_REVIEW_DEFINITION, projectTemplate);
   mustRunJson([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", "ST-DISTRIBUTED-TEMPLATE",
     "--title", "Use the distributed integration-review workflow",
@@ -494,7 +494,7 @@ test("preset definition approval and an event-sourced run are stable and retry-s
     "--summary", "Approved the exact workflow test requirement.",
   ], project);
   mustRunJson([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", "ST-WORKFLOW-42",
     "--title", "Exercise canonical workflow transitions",
@@ -727,7 +727,7 @@ test("a story-bound workflow must pin the exact configured custom phase order", 
   pinProjectConfig(project);
 
   mustRunJson([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", "ST-CUSTOM-PHASE",
     "--title", "Exercise a custom workflow phase",

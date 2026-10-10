@@ -123,7 +123,7 @@ function planStory(project, { story, requirement, contract, writePaths }) {
   ]);
   mustRunJson(["requirement", "approve", "--root", project, "--id", requirement, ...humanApproval("Approve the requirement")]);
   mustRunJson([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", story,
     "--title", `Deliver ${story}`,
     "--phase", "implementation",

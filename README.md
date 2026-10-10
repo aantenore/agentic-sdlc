@@ -753,6 +753,14 @@ uv run --with pyyaml python /path/to/skill-creator/scripts/quick_validate.py ski
 
 If the plugin is absent or shows an older version, rerun the installer and `codex plugin add`, confirm the result with `codex plugin list --json`, then open a new Codex task. See [Portable Codex Install](docs/portable-install.md) for the full troubleshooting matrix.
 
+## Derived Verification
+
+Requirements and stories get implicit verification criteria without anyone writing them. `requirement propose`, `requirement revise` and `story create` read the write scope (and integrations) and add `derived_acceptance` entries (`source: "derived"`, `rule_id`, `priority: "secondary"`) next to the explicit `acceptance`, which is never changed and always wins. Default rules: automated tests of the touched units (always); an end-to-end user-flow test plus a basic accessibility check when the scope touches UI (`apps/web`, `src/app`, `pages`, `components`, `*.tsx` ...); integration or contract tests for API paths or declared integrations; executable documented steps for docs and demos. A rule is skipped, and reported under `derived_verification.covered_by_explicit`, when an explicit criterion already covers it. `--no-derived-verification` turns derivation off for one record and is recorded in it.
+
+The policy is data, not code: the default is `templates/verification-policy.json` and a project overrides it with a `verification_policy` object in `.sdlc/config.json` (`enabled`, `enforce`, `backfill_enforce`, and `rules` merged by id; `"enabled": false` drops a rule, a new id adds one, `when.write_paths` takes path or glob patterns). Output of `requirement propose` and `story create` carries `assistant_message` with the derived list, and `next` shows the pending ids of a claimed story.
+
+The strict gate (story in validation, and `--lifecycle-complete`) looks for a passing `test record` per derived criterion: it must name the id (`--acceptance DV-ui-e2e`) or its command, framework or summary must match the rule's `evidence_patterns`. `enforce` is stored per record: `block` for new records (default), `warn` for backfilled ones (`backfill_enforce`). Existing open stories are filled in with `story derive-verification --all-open` (or `--id`): idempotent and additive; a story already bound by a contract, task start, claim or delivery profile is only reported, because its record hash is what those bind, and it is not gated.
+
 ## Rilascio
 
 Da un branch di lavoro con le modifiche già committate:

@@ -153,7 +153,7 @@ function prepareDelivery({ codeReview = "not-required" } = {}) {
   mustRun(["output", "template", "approve", "--root", project, "--id", "implementation-summary-v1", ...humanApproval("Approve the format")]);
   for (const id of [STORY_ID, DOWNSTREAM_ID]) {
     mustRunJson([
-      "story", "create", "--root", project,
+      "story", "create", "--no-derived-verification", "--root", project,
       "--id", id,
       "--title", id === STORY_ID ? "Deliver the change" : "Build on the merged change",
       "--phase", "implementation",

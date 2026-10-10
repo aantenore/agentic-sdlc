@@ -1,0 +1,49 @@
+{
+  "schema_version": "verification-policy:v1",
+  "principle": "Derived verification criteria are generated from the write scope of a requirement or story and never replace the explicit acceptance criteria, which keep priority. A project overrides this default with the verification_policy key of .sdlc/config.json: top-level fields replace these, and rules are merged by id (set enabled to false to drop one, or add new ids).",
+  "enabled": true,
+  "enforce": "block",
+  "backfill_enforce": "warn",
+  "rules": [
+    {
+      "id": "unit-tests",
+      "verification_type": "automated_tests",
+      "when": { "always": true },
+      "criterion": "Automated tests cover the units and modules touched by this work and pass.",
+      "explicit_coverage_patterns": ["unit test", "automated test", "test automatic", "test unitari", "\\btests? (pass|cover)"],
+      "evidence_patterns": []
+    },
+    {
+      "id": "ui-e2e",
+      "verification_type": "e2e_user_flow",
+      "when": { "write_paths": ["apps/web", "src/app", "pages", "components", "*.tsx", "*.jsx", "*.vue", "*.svelte"] },
+      "criterion": "An end-to-end test drives the running app as a user would through the flow described by this work and checks usability: the flow completes without dead ends and gives clear feedback.",
+      "explicit_coverage_patterns": ["end-to-end", "\\be2e\\b", "playwright", "cypress", "usabilit", "user flow", "flusso utente"],
+      "evidence_patterns": ["e2e", "end-to-end", "playwright", "cypress", "puppeteer", "webdriver", "selenium"]
+    },
+    {
+      "id": "ui-accessibility",
+      "verification_type": "accessibility",
+      "when": { "write_paths": ["apps/web", "src/app", "pages", "components", "*.tsx", "*.jsx", "*.vue", "*.svelte"] },
+      "criterion": "A basic accessibility check (automated scan plus keyboard navigation and labels) passes on the screens touched by this work.",
+      "explicit_coverage_patterns": ["accessib", "\\ba11y\\b", "wcag", "screen reader"],
+      "evidence_patterns": ["a11y", "accessib", "axe", "pa11y", "lighthouse", "wcag"]
+    },
+    {
+      "id": "api-integration",
+      "verification_type": "integration_contract",
+      "when": { "write_paths": ["api", "routes", "services", "integrations", "*.openapi.*", "openapi.*", "*.proto", "*.graphql"], "has_integrations": true },
+      "criterion": "Integration or contract tests exercise the API or integration boundaries touched by this work and pass.",
+      "explicit_coverage_patterns": ["integration test", "contract test", "test di integrazione", "\\bpact\\b", "api test"],
+      "evidence_patterns": ["integration", "contract", "pact", "supertest", "newman", "e2e"]
+    },
+    {
+      "id": "docs-executable",
+      "verification_type": "documentation_steps",
+      "when": { "write_paths": ["docs", "README*", "*.md", "*.mdx", "demo", "examples"] },
+      "criterion": "Every step documented or demonstrated by this work is executed as written and works.",
+      "explicit_coverage_patterns": ["documented steps", "passi document", "follow the (docs|readme)", "demo.*(run|work|esegu)"],
+      "evidence_patterns": ["docs", "readme", "doc-test", "mdx", "markdown", "smoke", "demo"]
+    }
+  ]
+}
