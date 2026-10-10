@@ -17,19 +17,19 @@ test("message filter: questions, requests, offers and direct messages are releva
     msg(2, { kind: "request", to: "pc1" }),
     msg(3, { kind: "info" }),
     msg(4, { kind: "info", to: "Antonio" }),
+    msg(7, { kind: undefined, text: "ok, ST-X è tua" }),
     msg(5, { kind: "offer", text: "ST-9 released and free to take." }),
     msg(6, { kind: "answer", reply_to: "100" }),
   ], { names, own: new Set(["100"]), installedVersion: "1.0.0" });
-  assert.deepEqual(events.map((event) => [event.message.id, event.type]), [["1", "question"], ["2", "question"], ["4", "message"], ["5", "offer"], ["6", "answer"]]);
+  assert.deepEqual(events.map((event) => [event.message.id, event.type]), [["1", "question"], ["2", "question"], ["3", "message"], ["4", "message"], ["7", "message"], ["5", "offer"], ["6", "answer"]]);
 });
 
-test("message filter: skips own messages, handshakes, other-addressed, answered and [auto] status", () => {
+test("message filter: skips own messages, handshakes, answered and [auto] status", () => {
   const events = relevantMessageEvents([
     msg(1, { kind: "question", from: "Antonio" }),
     msg(2, { kind: "question", host: "pc1", from: "Other" }),
     msg(3, { kind: "join" }),
     msg(4, { kind: "welcome" }),
-    msg(5, { kind: "request", to: "pc9" }),
     msg(6, { kind: "question" }),
     msg(7, { kind: "answer", from: "Antonio", reply_to: "6" }),
     msg(8, { kind: "info", text: "[auto] ST-1 claimed: work started" }),
@@ -37,14 +37,14 @@ test("message filter: skips own messages, handshakes, other-addressed, answered 
     msg(10, { kind: "info", to: "pc1" }),
     msg(11, { kind: "answer", reply_to: "999" }),
   ], { names, own: new Set(["1"]), installedVersion: "1.0.0" });
-  assert.deepEqual(events.map((event) => event.message.id), ["10"]);
+  assert.deepEqual(events.map((event) => event.message.id), ["10", "11"]);
 });
 
 test("message filter: [auto] offers pass; a newer plugin version announced is an event, an older one is not", () => {
   const pass = relevantMessageEvents([msg(1, { kind: "offer", text: "[auto] ST-2 released and free to take." })], { names, installedVersion: "1.0.0" });
   assert.deepEqual(pass.map((event) => event.type), ["offer"]);
-  const update = relevantMessageEvents([msg(2, { version: "1.2.0", text: "[auto] plugin 1.2.0" }), msg(3, { version: "0.9.0" })], { names, installedVersion: "1.0.0" });
-  assert.deepEqual(update.map((event) => [event.type, event.message.id]), [["plugin", "2"]]);
+  const update = relevantMessageEvents([msg(2, { version: "1.2.0", text: "[auto] plugin 1.2.0" }), msg(3, { version: "0.9.0", kind: "offer", text: "[auto] x" })], { names, installedVersion: "1.0.0" });
+  assert.deepEqual(update.map((event) => [event.type, event.message.id]), [["plugin", "2"], ["offer", "3"]]);
   assert.match(describeEvent(update[0]), /release del plugin 1\.2\.0.*Alice/u);
 });
 
@@ -79,12 +79,14 @@ function context({ rounds = [], stories = [[]] } = {}) {
   };
 }
 
+const PRE = "1970-01-01T00:00:00Z"; // before the fake clock start (1970-01-01T00:16:40Z)
+const LATE = "1970-01-01T00:20:00Z";
 const env = { [WATCH_ENV.poll]: "10", [WATCH_ENV.story]: "10" };
 
 test("watch exits on the first relevant message, ignoring the baseline and irrelevant ones", async () => {
   const root = repo();
   try {
-    const ctx = context({ rounds: [[msg(1, { kind: "question", time: "2026-01-01T00:00:00Z" })], [msg(2, { kind: "info" })], [msg(3, { kind: "question", story: "ST-X", text: "serve aiuto" })]] });
+    const ctx = context({ rounds: [[msg(1, { kind: "question", time: PRE })], [msg(2, { kind: "info", from: "Antonio", host: "pc1", time: LATE })], [msg(3, { kind: "question", story: "ST-X", text: "serve aiuto" })]] });
     const result = await runWatch(root, { env, timeout: "30m", context: ctx, ...clock() });
     assert.equal(result.status, "event");
     assert.deepEqual(result.events.map((event) => event.id), ["3"]);
@@ -111,7 +113,7 @@ test("watch exits on a new free story, not on stories seen at start or created h
 test("watch times out with exit-0 semantics and 'nessun evento'", async () => {
   const root = repo();
   try {
-    const ctx = context({ rounds: [[msg(1, { kind: "info" })]] });
+    const ctx = context({ rounds: [[msg(1, { kind: "info", time: PRE })], []] });
     const result = await runWatch(root, { env, timeout: "60s", context: ctx, ...clock() });
     assert.equal(result.status, "timeout");
     assert.equal(result.summary, NO_EVENT_TEXT);
@@ -155,6 +157,41 @@ test("Stop hook: blocks once without a watch, passes with an active watch, anti-
     // switches
     assert.equal(watchPromptDecision(common, { env: { [WATCH_ENV.prompt]: "off" }, now: t0 + 99_000_000 }), null);
     assert.equal(watchPromptDecision(null, { env: {}, now: t0 }), null);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("watch wakes up for the exact kind-less message addressed to Antonio in the text", async () => {
+  const root = repo();
+  try {
+    const alice = { id: "9", from: "Alice · PC1 (alicegibellato)", host: "pc-1", time: LATE, text: "Alice · PC1 -> Antonio: ok, ST-CHAT-003B … è tua …" };
+    const ctx = { ...context({ rounds: [[], [alice]] }), names: new Set(["Antonio · PC3", "pc-b7b5ff", "aantenore"]) };
+    const result = await runWatch(root, { env, timeout: "30m", context: ctx, ...clock() });
+    assert.equal(result.status, "event");
+    assert.deepEqual(result.events.map((event) => event.id), ["9"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("watch: message arriving between start and first poll wakes up, one already there at start does not", async () => {
+  const root = repo();
+  try {
+    const gap = await runWatch(root, { env, timeout: "30m", context: context({ rounds: [[msg(1, { time: PRE }), msg(2, { time: "1970-01-01T00:16:41Z" })]] }), ...clock() });
+    assert.deepEqual(gap.events.map((event) => event.id), ["2"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("watch: plain message, foreign [auto] status and own message across polls", async () => {
+  const root = repo();
+  try {
+    const ctx = context({ rounds: [[], [msg(1, { text: "[auto] ST-1 claimed", time: LATE }), msg(2, { from: "Antonio", host: "pc1", time: LATE })], [], [msg(3, { kind: undefined, text: "ok", time: LATE })]] });
+    const result = await runWatch(root, { env, timeout: "30m", context: ctx, ...clock() });
+    assert.deepEqual(result.events.map((event) => event.id), ["3"]);
+    assert.ok(ctx.polls() >= 4);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
