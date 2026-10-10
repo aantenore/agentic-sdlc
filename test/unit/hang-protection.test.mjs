@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import {
   boundChildProcess,
   describeGitCall,
+  gateBudgetSeconds,
   gitTimeoutSeconds,
   parseLimitSeconds,
 } from "../../lib/runtime/bounded-child-process.mjs";
@@ -27,6 +28,13 @@ test("limits read as durations; 0 turns one off and a bad value keeps the defaul
   assert.equal(gitTimeoutSeconds({ AGENTIC_SDLC_GIT_TIMEOUT_SECONDS: "0" }), 0);
   assert.equal(gitTimeoutSeconds({ AGENTIC_SDLC_GIT_TIMEOUT_SECONDS: "x" }), 300);
   assert.equal(describeGitCall(["-C", "/repo", "-c", "a=b", "status", "--porcelain"]), "git status --porcelain");
+});
+
+test("the whole-project gate budget defaults to 8 minutes, reads durations, and 0 removes it", () => {
+  assert.equal(gateBudgetSeconds({}), 480);
+  assert.equal(gateBudgetSeconds({ AGENTIC_SDLC_GATE_BUDGET_SECONDS: "20m" }), 1200);
+  assert.equal(gateBudgetSeconds({ AGENTIC_SDLC_GATE_BUDGET_SECONDS: "0" }), 0);
+  assert.equal(gateBudgetSeconds({ AGENTIC_SDLC_GATE_BUDGET_SECONDS: "soon" }), 480);
 });
 
 test("a git call without a limit gets one and never prompts; other programs are untouched", () => {
