@@ -218,7 +218,29 @@ test("send refuses text that looks like a secret", async () => {
     const result = await runCli(["message", "send", "--text", "key AKIAABCDEFGHIJKLMNOP"], { root, env: { AGENTIC_SDLC_MESSAGING_SERVER: ntfy.url } });
     assert.notEqual(result.code, 0);
     assert.match(result.stderr, /secret/u);
+    assert.match(result.stderr, /^MESSAGE NOT SENT:/u);
     assert.equal(ntfy.messages.length, 0);
+  } finally {
+    await ntfy.close();
+  }
+});
+
+test("send accepts the text as one argument and refuses both forms together", async () => {
+  const ntfy = await fakeNtfy();
+  const root = projectDir();
+  const env = { AGENTIC_SDLC_MESSAGING_SERVER: ntfy.url };
+  try {
+    const sent = await runCli(["message", "send", "Build is green", "--sender", "X"], { root, env });
+    assert.equal(sent.code, 0, sent.stderr);
+    assert.equal(ntfy.messages.length, 1);
+    assert.equal(ntfy.messages[0].message, "Build is green");
+    const both = await runCli(["message", "send", "one", "--text", "two"], { root, env });
+    assert.notEqual(both.code, 0);
+    assert.match(both.stderr.split("\n")[0], /^MESSAGE NOT SENT: .*not both/u);
+    const many = await runCli(["message", "send", "one", "two"], { root, env });
+    assert.notEqual(many.code, 0);
+    assert.match(many.stderr, /^MESSAGE NOT SENT:/u);
+    assert.equal(ntfy.messages.length, 1);
   } finally {
     await ntfy.close();
   }
