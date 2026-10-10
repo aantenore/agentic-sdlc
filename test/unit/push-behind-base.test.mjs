@@ -11,6 +11,7 @@ import {
   buildGitCommitCoverageProof,
   coverageBaseDrift,
   gitCommitReceiptCoverageErrors,
+  isBaseRecordsOnlyAdvance,
   isBaseRecordsSyncMerge,
   validateGitCommitCoverageProof,
 } from "../../lib/engine/git.mjs";
@@ -173,4 +174,20 @@ test("a remote branch tip missing from this clone excludes nothing", (t) => {
   assert.equal(built.proof, null);
   assert.match(built.errors.join("\n"), new RegExp(`Commit ${head} requires exactly one`, "u"));
   assert.equal(root.length > 0, true);
+});
+
+test("pull_request.create completion tolerates a base that only gained project records", (t) => {
+  const { root, start } = fixture(t);
+  const target = (baseSha, extra = {}) => ({ head_sha: "h".repeat(40), base_ref: "origin/main", base_sha: baseSha, ...extra });
+  const records = commitFile(root, ".sdlc/stories/ST-X/record.json", "{}\n", "records");
+  assert.equal(isBaseRecordsOnlyAdvance(root, target(start), target(records)), true);
+  assert.equal(isBaseRecordsOnlyAdvance(root, target(start), target(start)), false);
+  // Any other difference in the target still counts as a change.
+  assert.equal(isBaseRecordsOnlyAdvance(root, target(start), target(records, { head_sha: "i".repeat(40) })), false);
+  // A base that gained code is a real change.
+  const code = commitFile(root, "src/app.txt", "app2\n", "code");
+  assert.equal(isBaseRecordsOnlyAdvance(root, target(start), target(code)), false);
+  assert.equal(isBaseRecordsOnlyAdvance(root, target(records), target(code)), false);
+  // A base that moved backwards or sideways is not an advance.
+  assert.equal(isBaseRecordsOnlyAdvance(root, target(records), target(start)), false);
 });

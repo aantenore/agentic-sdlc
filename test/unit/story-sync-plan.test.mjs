@@ -13,6 +13,7 @@ import {
   pathInWritePaths,
   publishTargetMismatch,
   reapplyDecision,
+  registryDelegationRecordPaths,
   selectHandoffFiles,
   unionOutputRegistries,
   writePathPrefix,
@@ -169,4 +170,23 @@ test("a publication target holding another project is refused", () => {
   assert.equal(publishTargetMismatch({ localProject: { project_id: "a" }, baseProject: {} }), null);
   assert.match(publishTargetMismatch({ localProject: { project_id: "a" }, baseProject: { project_id: "b" } }), /'a'.*'b'/u);
   assert.match(publishTargetMismatch({ localProject: null, baseProject: { project_id: "b" } }), /no identity/u);
+});
+
+test("a merged registry names the delegation records its delegated decisions rest on", () => {
+  const registry = {
+    links: [{ id: "L1" }],
+    decisions: [
+      { id: "D1", approval_source: "delegated", delegation: { id: "DLG-1", use_path: ".sdlc/autonomy/delegations/DLG-1/uses/U1.json" } },
+      { id: "D2", approval_source: "delegated", delegation: { id: "DLG-1", use_path: ".sdlc/autonomy/delegations/DLG-1/uses/U2.json" } },
+      { id: "D3", approval_source: "human" },
+      { id: "D4", delegation: { id: "../x", use_path: "elsewhere/U3.json" } },
+    ],
+  };
+  assert.deepEqual(registryDelegationRecordPaths(registry), [
+    ".sdlc/autonomy/delegations/DLG-1/delegation.json",
+    ".sdlc/autonomy/delegations/DLG-1/uses/U1.json",
+    ".sdlc/autonomy/delegations/DLG-1/uses/U2.json",
+  ]);
+  assert.deepEqual(registryDelegationRecordPaths({ decisions: [{ id: "D1", delegation: { id: "DLG-1" } }] }, "sdlc"), ["sdlc/autonomy/delegations/DLG-1/delegation.json"]);
+  assert.deepEqual(registryDelegationRecordPaths(null), []);
 });

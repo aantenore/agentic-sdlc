@@ -17,6 +17,7 @@ import {
   parseDelegationUntil,
   sealDelegationRecord,
 } from "../../lib/approval-delegation.mjs";
+import { delegatedApprovalRecordErrors } from "../../lib/engine/delegation-records.mjs";
 import { evaluatePreToolUse } from "../../lib/host-hooks/guard.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -199,4 +200,50 @@ test("delivery.policy is delegable and its answers are parsed strictly", () => {
   assert.deepEqual(evaluateDelegationUse(record, { action: "delivery.policy", target: { story: "ST-1" }, now: AT }), { valid: true, errors: [] });
   assert.match(evaluateDelegationUse(record, { action: "delivery.policy", now: new Date("2026-11-01T00:00:00.000Z") }).errors.join(), /expired/u);
   assert.match(evaluateDelegationUse(sampleDelegation(), { action: "delivery.policy", target: { story: "ST-1" }, now: AT }).errors.join(), /does not cover the action delivery\.policy/u);
+});
+
+test("delegated output decisions: legacy records rest on the recorded actor and the receipt, new ones on approved_by", () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "sdlc-delegated-record-")));
+  projects.add(root);
+  const context = { root, sdlcRoot: path.join(root, ".sdlc") };
+  const agent = { id: "claude-code", type: "agent", name: "Claude Code" };
+  const record = sampleDelegation({ actions: ["output.link"], scope: { kind: "project", id: null } });
+  const dir = path.join(context.sdlcRoot, "autonomy", "delegations", record.id);
+  fs.mkdirSync(path.join(dir, "uses"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "delegation.json"), JSON.stringify(record));
+  const writeUse = (overrides = {}) => {
+    const use = sealDelegationRecord({
+      id: "DLGUSE-1", schema_version: "approval-delegation-use:v1",
+      delegation_ref: { id: record.id, record_hash: record.record_hash }, action: "output.link",
+      valid_at_use: { checked_at: AT.toISOString(), expires_at: record.expires_at, revoked: false, hash_valid: true, action_covered: true, scope_covered: true },
+      used_by: agent, used_at: AT.toISOString(), ...overrides,
+    });
+    const usePath = path.join(".sdlc", "autonomy", "delegations", record.id, "uses", "DLGUSE-1.json");
+    fs.writeFileSync(path.join(root, usePath), JSON.stringify(use));
+    return { use_path: usePath, use_hash: use.record_hash };
+  };
+  const decision = (overrides = {}) => ({
+    approval_source: "delegated",
+    delegation: { id: record.id, record_hash: record.record_hash, action: "output.link", ...writeUse(overrides) },
+  });
+  const actorError = "a delegated approval must be applied by an agent actor";
+
+  // Legacy: no approved_by, the agent is recorded in audit.decided_by and passed by the caller.
+  assert.deepEqual(delegatedApprovalRecordErrors(context, decision(), agent), []);
+  assert.ok(delegatedApprovalRecordErrors(context, decision()).includes(actorError));
+  assert.ok(delegatedApprovalRecordErrors(context, decision(), { id: "antonio", type: "human" }).includes(actorError));
+  assert.ok(delegatedApprovalRecordErrors(context, decision(), { id: "other-agent", type: "agent" }).some((e) => /is not the agent claude-code/u.test(e)));
+  // New: approved_by is written and is the actor that counts.
+  assert.deepEqual(delegatedApprovalRecordErrors(context, { ...decision(), approved_by: agent }), []);
+  assert.ok(delegatedApprovalRecordErrors(context, { ...decision(), approved_by: { type: "human" } }, agent).includes(actorError));
+  // The receipt must show the delegation valid for this action at use.
+  const invalid = (overrides) => delegatedApprovalRecordErrors(context, decision(overrides), agent);
+  assert.ok(invalid({ action: "story.abandon" }).some((e) => /covers story\.abandon, not output\.link/u.test(e)));
+  for (const flag of [{ action_covered: false }, { revoked: true }, { scope_covered: false }, { checked_at: "2027-01-01T00:00:00.000Z" }]) {
+    const valid_at_use = { checked_at: AT.toISOString(), expires_at: record.expires_at, revoked: false, hash_valid: true, action_covered: true, scope_covered: true, ...flag };
+    assert.ok(invalid({ valid_at_use }).some((e) => /was not valid for this action at use/u.test(e)), JSON.stringify(flag));
+  }
+  assert.ok(invalid({ used_by: { id: "antonio", type: "human" } }).some((e) => /not recorded by an agent actor/u.test(e)));
+  assert.ok(delegatedApprovalRecordErrors(context, { ...decision(), delegation: { ...decision().delegation, id: "DLG-NONE" } }, agent)
+    .some((e) => /DLG-NONE does not exist/u.test(e)));
 });
