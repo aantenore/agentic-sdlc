@@ -1,0 +1,409 @@
+{
+  "id": "AUT-ACT-20261010044107646-b13f88",
+  "kind": "delivery_action_receipt",
+  "schema_version": "delivery-action-receipt:v2",
+  "profile_ref": {
+    "id": "AUT-REC-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-REC-A.json",
+    "hash": "3e6562afffdad039d96fc44bea84e7019b4879140d521ff06b82d43eeb196361"
+  },
+  "delivery": {
+    "id": "PR-100148",
+    "kind": "pull_request"
+  },
+  "action": "pull_request.update",
+  "effective_level": "supervised",
+  "checkpoint_required": true,
+  "approval": null,
+  "runtime_target": {
+    "branch": "codex/ST-REC-A",
+    "head_sha": "3934d4214b494d2fd6fe2db08eaba92ef145177f",
+    "base_ref": "refs/remotes/origin/main",
+    "base_sha": "5b94ad4394e8e46dab28bae1b59d9c03470cd090",
+    "matching_remotes": [
+      "origin"
+    ],
+    "remote_fingerprint": "b52b349508a568a41c8033bf11f9699084542232ac4932cd744656e49874f2b2"
+  },
+  "action_details": {
+    "repository": "github.com/aantenore/agentic-sdlc",
+    "base_branch": "main",
+    "head_branch": "codex/ST-REC-A",
+    "source_sha": "3934d4214b494d2fd6fe2db08eaba92ef145177f",
+    "changed_paths": [
+      ".sdlc/authorization-uses/AUTH-REC-A-STORY-ACTIONS/AUSE-AUTH-REC-A-STORY-ACTIONS-20261010044049969-65efd2.json",
+      ".sdlc/authorization-uses/AUTH-REC-A-STORY-ACTIONS/AUSE-AUTH-REC-A-STORY-ACTIONS-20261010044050847-6c7398.json",
+      ".sdlc/authorization-uses/AUTH-REC-A-STORY-ACTIONS/AUSE-AUTH-REC-A-STORY-ACTIONS-20261010044051643-10b8d4.json",
+      ".sdlc/authorization-uses/AUTH-REC-A-STORY-ACTIONS/AUSE-AUTH-REC-A-STORY-ACTIONS-20261010044057433-636df2.json",
+      ".sdlc/authorizations/AUTH-REC-A-STORY-ACTIONS.json",
+      ".sdlc/autonomy/approvals/AUT-APR-20261010044037828-e8ff4e.json",
+      ".sdlc/autonomy/approvals/AUT-APR-20261010044045210-58ce0b.json",
+      ".sdlc/autonomy/decisions/AUT-DEC-20261010044045217-3a12c8.json",
+      ".sdlc/autonomy/decisions/AUT-DEC-20261010044047412-359ad8.json",
+      ".sdlc/autonomy/deliveries/AUT-REC-A.json",
+      ".sdlc/autonomy/executions/AUT-REC-A/context-preflight.json",
+      ".sdlc/autonomy/executions/AUT-REC-A/start.json",
+      ".sdlc/autonomy/requirements/AUT-REQ-REC-A-R1.json",
+      ".sdlc/contracts/CONTRACT-REC-A.json",
+      ".sdlc/gates/ST-REC-A-strict.json",
+      ".sdlc/output-contracts/registry.json",
+      ".sdlc/output-contracts/templates/implementation-summary-v1.md",
+      ".sdlc/receipts/verification/VERIFY-OUT-ST-REC-A-implementation-summary-01531197-ef466084.json",
+      ".sdlc/requirements/REQ-REC-A.json",
+      ".sdlc/security/ST-REC-A-secret-scan-20261010044101512-f61b91.json",
+      ".sdlc/stories/ST-REC-A/claim.json",
+      ".sdlc/stories/ST-REC-A/implementation-log.md",
+      ".sdlc/stories/ST-REC-A/plan.md",
+      ".sdlc/stories/ST-REC-A/steps/analysis.json",
+      ".sdlc/stories/ST-REC-A/steps/design.json",
+      ".sdlc/stories/ST-REC-A/steps/discovery.json",
+      ".sdlc/stories/ST-REC-A/steps/history.jsonl",
+      ".sdlc/stories/ST-REC-A/steps/implementation.json",
+      ".sdlc/stories/ST-REC-A/steps/validation.json",
+      ".sdlc/stories/ST-REC-A/story.json",
+      ".sdlc/stories/ST-REC-A/task-start.json",
+      ".sdlc/tests/ST-REC-A-test.json",
+      ".sdlc/traces/.integrity/ST-REC-A.jsonl.checkpoint.json",
+      ".sdlc/traces/.integrity/project.jsonl.checkpoint.json",
+      ".sdlc/traces/ST-REC-A.jsonl",
+      ".sdlc/traces/evidence/TR-20261010044059-15595f/01-ST-REC-A-test.json",
+      ".sdlc/traces/project.jsonl",
+      ".sdlc/workflows/instances/delivery-rec-a/checkpoint.json",
+      ".sdlc/workflows/instances/delivery-rec-a/events.jsonl",
+      ".sdlc/workflows/instances/delivery-rec-a/instance.json",
+      "docs/implementation-summary-rec-a.md",
+      "docs/pr-update-proof-rec-a.txt",
+      "src/feature.mjs"
+    ],
+    "allowed_write_paths": [
+      "docs",
+      "src"
+    ],
+    "story_record_paths": [
+      ".sdlc/authorization-uses/AUTH-REC-A-STORY-ACTIONS/AUSE-AUTH-REC-A-STORY-ACTIONS-20261010044049969-65efd2.json",
+      ".sdlc/authorization-uses/AUTH-REC-A-STORY-ACTIONS/AUSE-AUTH-REC-A-STORY-ACTIONS-20261010044050847-6c7398.json",
+      ".sdlc/authorization-uses/AUTH-REC-A-STORY-ACTIONS/AUSE-AUTH-REC-A-STORY-ACTIONS-20261010044051643-10b8d4.json",
+      ".sdlc/authorization-uses/AUTH-REC-A-STORY-ACTIONS/AUSE-AUTH-REC-A-STORY-ACTIONS-20261010044057433-636df2.json",
+      ".sdlc/authorizations/AUTH-REC-A-STORY-ACTIONS.json",
+      ".sdlc/autonomy/approvals/AUT-APR-20261010044037828-e8ff4e.json",
+      ".sdlc/autonomy/approvals/AUT-APR-20261010044045210-58ce0b.json",
+      ".sdlc/autonomy/decisions/AUT-DEC-20261010044045217-3a12c8.json",
+      ".sdlc/autonomy/decisions/AUT-DEC-20261010044047412-359ad8.json",
+      ".sdlc/autonomy/deliveries/AUT-REC-A.json",
+      ".sdlc/autonomy/executions/AUT-REC-A/context-preflight.json",
+      ".sdlc/autonomy/executions/AUT-REC-A/start.json",
+      ".sdlc/autonomy/requirements/AUT-REQ-REC-A-R1.json",
+      ".sdlc/contracts/CONTRACT-REC-A.json",
+      ".sdlc/gates/ST-REC-A-strict.json",
+      ".sdlc/output-contracts/registry.json",
+      ".sdlc/output-contracts/templates/implementation-summary-v1.md",
+      ".sdlc/receipts/verification/VERIFY-OUT-ST-REC-A-implementation-summary-01531197-ef466084.json",
+      ".sdlc/requirements/REQ-REC-A.json",
+      ".sdlc/security/ST-REC-A-secret-scan-20261010044101512-f61b91.json",
+      ".sdlc/stories/ST-REC-A/claim.json",
+      ".sdlc/stories/ST-REC-A/implementation-log.md",
+      ".sdlc/stories/ST-REC-A/plan.md",
+      ".sdlc/stories/ST-REC-A/steps/analysis.json",
+      ".sdlc/stories/ST-REC-A/steps/design.json",
+      ".sdlc/stories/ST-REC-A/steps/discovery.json",
+      ".sdlc/stories/ST-REC-A/steps/history.jsonl",
+      ".sdlc/stories/ST-REC-A/steps/implementation.json",
+      ".sdlc/stories/ST-REC-A/steps/validation.json",
+      ".sdlc/stories/ST-REC-A/story.json",
+      ".sdlc/stories/ST-REC-A/task-start.json",
+      ".sdlc/tests/ST-REC-A-test.json",
+      ".sdlc/traces/.integrity/ST-REC-A.jsonl.checkpoint.json",
+      ".sdlc/traces/.integrity/project.jsonl.checkpoint.json",
+      ".sdlc/traces/ST-REC-A.jsonl",
+      ".sdlc/traces/evidence/TR-20261010044059-15595f/01-ST-REC-A-test.json",
+      ".sdlc/traces/project.jsonl",
+      ".sdlc/workflows/instances/delivery-rec-a/checkpoint.json",
+      ".sdlc/workflows/instances/delivery-rec-a/events.jsonl",
+      ".sdlc/workflows/instances/delivery-rec-a/instance.json"
+    ],
+    "pull_request": {
+      "mode": "existing",
+      "pr_number": 100148,
+      "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/100148",
+      "source_sha": "3934d4214b494d2fd6fe2db08eaba92ef145177f",
+      "expected": {
+        "is_draft": false
+      }
+    },
+    "provider_operation": {
+      "binding": {
+        "action": "pull_request.update",
+        "provider_id": "github-cli",
+        "source": "explicit-v2",
+        "provider_bindings_hash": "7d56af3b8e2ac52c8d507b35a8f5281f3505f8d25a6ec245293ff52c25e40c4d"
+      },
+      "precondition_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010044105149-6080f4:precondition",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T04:41:05.149Z",
+        "operation": {
+          "action": "pull_request.update",
+          "id": "AUT-ACT-20261010044105149-6080f4",
+          "phase": "precondition"
+        },
+        "precondition_receipt_ref": null,
+        "proof": {
+          "base_branch": "main",
+          "base_sha": "5b94ad4394e8e46dab28bae1b59d9c03470cd090",
+          "current": {
+            "base_branch": "main",
+            "body_sha256": null,
+            "is_draft": true,
+            "title": null
+          },
+          "expected": {
+            "is_draft": false
+          },
+          "head_branch": "codex/ST-REC-A",
+          "head_sha": "3934d4214b494d2fd6fe2db08eaba92ef145177f",
+          "is_draft": true,
+          "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/100148",
+          "state": "OPEN"
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "github-cli",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "e3bf0e2ca2a7184e30fe240953d5ae9e215321a74a564ded7bc22d39ae191b1f",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "authorized_at": "2026-10-10T04:41:05.149Z",
+          "base_branch": "main",
+          "expected": {
+            "is_draft": false
+          },
+          "head_branch": "codex/ST-REC-A",
+          "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/100148",
+          "repository": "github.com/aantenore/agentic-sdlc",
+          "source_sha": "3934d4214b494d2fd6fe2db08eaba92ef145177f"
+        },
+        "subject_hash": "d85b49550123c1bc886873c2b916d7c75047e244cb02095485eb7fa7045c7c4f",
+        "version": 1
+      },
+      "completion_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010044105149-6080f4:completion",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T04:41:07.646Z",
+        "operation": {
+          "action": "pull_request.update",
+          "id": "AUT-ACT-20261010044105149-6080f4",
+          "phase": "completion"
+        },
+        "precondition_receipt_ref": {
+          "hash": "e3bf0e2ca2a7184e30fe240953d5ae9e215321a74a564ded7bc22d39ae191b1f",
+          "id": "AUT-ACT-20261010044105149-6080f4:precondition"
+        },
+        "proof": {
+          "base_branch": "main",
+          "base_sha": "5b94ad4394e8e46dab28bae1b59d9c03470cd090",
+          "expected": {
+            "is_draft": false
+          },
+          "head_branch": "codex/ST-REC-A",
+          "head_sha": "3934d4214b494d2fd6fe2db08eaba92ef145177f",
+          "is_draft": false,
+          "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/100148",
+          "precondition_receipt_hash": "e3bf0e2ca2a7184e30fe240953d5ae9e215321a74a564ded7bc22d39ae191b1f",
+          "state": "OPEN",
+          "updated_at": "2026-10-10T04:41:06.149Z"
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "github-cli",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "faad8d410bdd69a0194b2aade05cca3d6152a5d5f9373b51ab8e13d1575c7b88",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "authorized_at": "2026-10-10T04:41:05.149Z",
+          "base_branch": "main",
+          "expected": {
+            "is_draft": false
+          },
+          "head_branch": "codex/ST-REC-A",
+          "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/100148",
+          "repository": "github.com/aantenore/agentic-sdlc",
+          "source_sha": "3934d4214b494d2fd6fe2db08eaba92ef145177f"
+        },
+        "subject_hash": "d85b49550123c1bc886873c2b916d7c75047e244cb02095485eb7fa7045c7c4f",
+        "version": 1
+      }
+    },
+    "provider_precondition": {
+      "provider": "github-cli",
+      "base_branch": "main",
+      "base_sha": "5b94ad4394e8e46dab28bae1b59d9c03470cd090",
+      "current": {
+        "base_branch": "main",
+        "body_sha256": null,
+        "is_draft": true,
+        "title": null
+      },
+      "expected": {
+        "is_draft": false
+      },
+      "head_branch": "codex/ST-REC-A",
+      "head_sha": "3934d4214b494d2fd6fe2db08eaba92ef145177f",
+      "is_draft": true,
+      "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/100148",
+      "state": "OPEN"
+    },
+    "checkpoint_policy": {
+      "schema_version": "delivery-action-checkpoint-policy:v1",
+      "action": "pull_request.update",
+      "delivery_kind": "pull_request",
+      "effective_level": "supervised",
+      "profile_ref": {
+        "id": "AUT-REC-A",
+        "hash": "3e6562afffdad039d96fc44bea84e7019b4879140d521ff06b82d43eeb196361"
+      },
+      "preset_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "policy_source_ref": {
+        "path": ".sdlc/autonomy/policy-sources/22a360ebbadbec680137e9ef033544f4420205e16c077e9717d92116c7ccbd0c.json",
+        "hash": "22a360ebbadbec680137e9ef033544f4420205e16c077e9717d92116c7ccbd0c",
+        "effective_config_hash": "5c180aab5e3dcd10bf13198ccbc3c185299c40366c34815848bb382b4925b1d4"
+      },
+      "profile_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "boundary_actions": [
+        "deploy.remote",
+        "pull_request.merge"
+      ],
+      "local_boundary_checkpoint": false,
+      "local_boundary_source": null,
+      "local_boundary_source_hash": null,
+      "required": true,
+      "policy_hash": "536af14aeb2ea2d96070075b670e15950a380fc24e27786e8f66ad8cc16fa332"
+    },
+    "provider_verification": {
+      "provider": "github-cli",
+      "base_branch": "main",
+      "base_sha": "5b94ad4394e8e46dab28bae1b59d9c03470cd090",
+      "expected": {
+        "is_draft": false
+      },
+      "head_branch": "codex/ST-REC-A",
+      "head_sha": "3934d4214b494d2fd6fe2db08eaba92ef145177f",
+      "is_draft": false,
+      "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/100148",
+      "precondition_receipt_hash": "e3bf0e2ca2a7184e30fe240953d5ae9e215321a74a564ded7bc22d39ae191b1f",
+      "state": "OPEN",
+      "updated_at": "2026-10-10T04:41:06.149Z"
+    }
+  },
+  "authorization_receipt_ref": {
+    "id": "AUT-ACT-20261010044105149-6080f4",
+    "path": ".sdlc/autonomy/actions/AUT-ACT-20261010044105149-6080f4.json",
+    "hash": "ac6a9babab1bc2e5ef2c799ddf51b1fbb87400e759cca58142e054f8bd7e132e"
+  },
+  "completion_request": {
+    "schema_version": "delivery-action-completion-request:v1",
+    "profile_ref": {
+      "id": "AUT-REC-A",
+      "path": ".sdlc/autonomy/deliveries/AUT-REC-A.json",
+      "hash": "3e6562afffdad039d96fc44bea84e7019b4879140d521ff06b82d43eeb196361"
+    },
+    "action": "pull_request.update",
+    "outcome": "passed",
+    "authorization_receipt_ref": {
+      "id": "AUT-ACT-20261010044105149-6080f4",
+      "path": ".sdlc/autonomy/actions/AUT-ACT-20261010044105149-6080f4.json",
+      "hash": "ac6a9babab1bc2e5ef2c799ddf51b1fbb87400e759cca58142e054f8bd7e132e"
+    },
+    "evidence": [
+      {
+        "path": "docs/pr-update-proof-rec-a.txt",
+        "sha256": "6d8d4f40c66398d8c715eca5fec663fcb9cafa6e483582836d9f764039f90e28"
+      }
+    ],
+    "operation_args": {
+      "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/100148",
+      "expected_pr_title": null,
+      "expected_pr_body_sha256": null,
+      "expected_pr_state": "ready",
+      "expected_pr_base": null
+    },
+    "request_hash": "e7b5b8dc927328c9961ea7bb0ba9aa891e15cf849bfc583a2463e4bc8f67b7ef",
+    "hash_algorithm": "sha256:stable-json:v1"
+  },
+  "local_release_verification": null,
+  "evidence": [
+    {
+      "path": "docs/pr-update-proof-rec-a.txt",
+      "sha256": "6d8d4f40c66398d8c715eca5fec663fcb9cafa6e483582836d9f764039f90e28"
+    }
+  ],
+  "outcome": "passed",
+  "status": "completed",
+  "authorized_by": {
+    "id": "codex",
+    "type": "agent",
+    "name": "Codex",
+    "email": null,
+    "source": "default"
+  },
+  "authorized_at": "2026-10-10T04:41:07.646Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-REC-A",
+      "head_sha": "3934d4214b494d2fd6fe2db08eaba92ef145177f",
+      "is_dirty": true,
+      "user": {
+        "name": "Merged Certification E2E",
+        "email": "merged-certification-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  },
+  "receipt_hash": "4f5bc9be8f77e70bd71ca9c2178bf23100efb3fe11ebcf439c5f55c8f7f0212d",
+  "hash_algorithm": "sha256:stable-json:v1"
+}
