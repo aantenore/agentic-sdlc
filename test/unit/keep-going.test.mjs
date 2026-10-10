@@ -439,3 +439,33 @@ test("suggestion-only stops: the same set blocked MAX_SUGGESTION_BLOCKS times in
   }
   assert.deepEqual(blocks, [...Array(MAX_SUGGESTION_BLOCKS).fill(true), false]);
 });
+
+test("unpublished records of a delegated story (working marker) do not block", () => {
+  const unpublished = [{ storyId: "ST-D", base: "origin/main", files: ["a", "b"], command: "publish" }];
+  const claim = { storyId: "ST-D", next: { phase: "implementation", label: "x", command: "y" }, delegated: { until: "t", reason: "agente" } };
+  const decision = decideKeepGoing({ unpublished, claims: [claim] });
+  assert.equal(decision.block, false);
+  assert.match(decision.note, /lavoro delegato: li pubblica chi ci lavora/u);
+});
+
+test("unpublished records growing between checks do not block", () => {
+  const item = (n) => ({ storyId: "ST-G", base: "origin/main", files: Array.from({ length: n }, (_, i) => `f${i}`), command: "publish" });
+  const first = decideKeepGoing({ unpublished: [item(4)] });
+  assert.equal(first.block, true);
+  const second = decideKeepGoing({ unpublished: [item(13)], previous: first.state });
+  assert.equal(second.block, false);
+  assert.match(second.note, /lavoro delegato/u);
+});
+
+test("unpublished records, no marker and stable: block, then anti-loop after MAX_IDENTICAL_BLOCKS", () => {
+  const unpublished = [{ storyId: "ST-S", base: "origin/main", files: ["a"], command: "publish" }];
+  let state = {};
+  for (let i = 0; i < MAX_IDENTICAL_BLOCKS; i += 1) {
+    const decision = decideKeepGoing({ unpublished, previous: state });
+    assert.equal(decision.block, true);
+    assert.match(decision.reason, /pubblicali prima di tutto/u);
+    state = decision.state;
+  }
+  const last = decideKeepGoing({ unpublished, previous: state });
+  assert.equal(last.block, false);
+});
