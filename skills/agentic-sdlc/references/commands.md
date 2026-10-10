@@ -1327,7 +1327,7 @@ node bin/agentic-sdlc.mjs story create --root <project> --id ST-001-FIX-2 --titl
 
 The story records `fixes: {story_id, incident_id}` and inherits the fixed story's requirements unless `--requirement` is given. Short cycle: it starts its workflow, completes `discovery` and `analysis` as inherited from the fixed story (summary-only steps, no output) and moves to `design`; contract, implementation, validation, release and operations follow as usual, and lifecycle certification still sees every phase completed. It runs the ordinary `workflow instance start`, `story complete-step` and `workflow instance transition`, so the records are the same an older plugin reads. If a check refuses (for example the inherited requirement is not approved), it stops there, says why, and `story fast-track --id <fix-story>` resumes it. `--full-cycle` keeps every phase. The Change Observatory shows "Fixes" / "Opened from incident" on the fix and "Fixed by" on the corrected story.
 
-An agent may open fix stories and new requirement proposals itself (the creator is recorded as the agent); they land unclaimed in the backlog for any computer, and every human approval (requirement, contract) still applies before work starts.
+An agent may open fix stories and new requirement proposals itself (the creator is recorded as the agent); they land unclaimed in the backlog for any computer, and its approvals follow the agreed contract, requirement and autonomy rules exactly as for any other story, no more and no fewer.
 
 ## Record A Code Review
 
