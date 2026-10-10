@@ -28,6 +28,7 @@ import { registerCurrentRun } from "../lib/runtime/run-registry.mjs";
 import { acquireSingleFlight, LOCK_BUSY_EXIT_CODE } from "../lib/runtime/single-flight.mjs";
 import { runsList, runsStop } from "../lib/cli/runs-commands.mjs";
 import { nextCommand } from "../lib/cli/next-command.mjs";
+import { storyWorking } from "../lib/host-hooks/working-marker.mjs";
 import { syncProjectForStatus } from "../lib/engine/status-sync.mjs";
 import { assertPluginSatisfiesProject } from "../lib/engine/plugin-compatibility.mjs";
 import {
@@ -1323,6 +1324,7 @@ function buildCliRuntimeHandlerRegistry() {
     "story.park": call(parkStory),
     "story.resume": call(resumeStory),
     "story.wait": call(storyWait),
+    "story.working": bootstrap(({ options }) => storyWorking(options)),
     "story.publish-records": call(noteForMessages(publishStoryRecords)),
     "story.sync": call(syncStory),
     "story.overlap": report(showStoryOverlap),

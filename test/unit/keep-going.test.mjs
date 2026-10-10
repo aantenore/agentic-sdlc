@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { collectWork, decideKeepGoing, heldClaimRefs, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
+import { collectWork, decideKeepGoing, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
 
 const claim = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation"] }) };
 
@@ -34,16 +34,69 @@ test("available stories only when no claim or question", () => {
   assert.doesNotMatch(decideKeepGoing({ claims: [claim], available: ["ST-3"] }).reason, /ST-3/u);
 });
 
-test("allows the stop after identical consecutive blocks", () => {
+test("allows the stop after identical blocks within the window, whatever the host reports", () => {
   let state = {};
   const blocks = [];
   for (let index = 0; index < MAX_IDENTICAL_BLOCKS + 1; index += 1) {
-    const result = decideKeepGoing({ claims: [claim], previous: state, stopHookActive: index > 0 });
+    const result = decideKeepGoing({ claims: [claim], previous: state, now: 1000 + index });
     blocks.push(result.block);
     state = result.state;
   }
   assert.deepEqual(blocks, [...Array(MAX_IDENTICAL_BLOCKS).fill(true), false]);
-  assert.equal(decideKeepGoing({ claims: [claim], previous: state, stopHookActive: false }).block, true);
+  assert.equal(decideKeepGoing({ claims: [claim], previous: state, now: 1000 + IDENTICAL_BLOCKS_WINDOW_MS + 10 }).block, true);
+  assert.equal(decideKeepGoing({ claims: [claim, { ...claim, storyId: "ST-9" }], previous: state, now: 2000 }).block, true);
+});
+
+test("priority: questions, unpublished, plugin update, claims, then available", () => {
+  const reason = decideKeepGoing({
+    claims: [claim],
+    questions: [{ id: "q1", from: "pc-2", text: "ok?" }],
+    unpublished: [{ storyId: "ST-1", base: "origin/main", files: ["a"], command: "publish" }],
+    update: { version: "9.9.9", from: "pc-2" },
+  }).reason.split("\n").slice(1);
+  const order = ["rispondi", "record non pubblicati", "plugin 9.9.9", "completa"].map((word) => reason.findIndex((line) => line.includes(word)));
+  assert.deepEqual(order, [0, 1, 2, 3]);
+  assert.match(reason[2], /claude plugin update agentic-sdlc@aantenore/u);
+  assert.match(reason[2], /priorita/u);
+});
+
+test("a waiting or delegated claim is not idle: parallel story and no blocking step", () => {
+  const waiting = { ...claim, waiting: "dipendenza ST-0 non ancora mergiata" };
+  const result = decideKeepGoing({ claims: [waiting], available: ["ST-5", "ST-6"], ready: ["ST-6"] });
+  assert.equal(result.block, true);
+  assert.match(result.reason, /lavora in parallelo su ST-6 -> `agentic-sdlc story claim --id ST-6/u);
+  assert.doesNotMatch(result.reason, /complete-step/u);
+  const none = decideKeepGoing({ claims: [waiting], available: ["ST-5"], ready: [] });
+  assert.equal(none.block, false);
+  assert.match(none.note, /in attesa/u);
+  const delegated = decideKeepGoing({ claims: [{ ...claim, delegated: { until: "2099-01-01T00:00:00Z", reason: "subagente" } }] });
+  assert.equal(delegated.block, false);
+  assert.match(delegated.note, /delegato/u);
+});
+
+test("look-ahead reserves the next story at release; sync when behind the base", () => {
+  const release = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation", "validation"] }) };
+  const result = decideKeepGoing({ claims: [release], available: ["ST-7"], ready: ["ST-7"] });
+  assert.match(result.reason, /story reserve --id ST-7/u);
+  assert.doesNotMatch(decideKeepGoing({ claims: [claim], ready: ["ST-7"], available: ["ST-7"] }).reason, /story reserve/u);
+  const behind = decideKeepGoing({ claims: [{ ...release, behind: 3 }] }).reason;
+  assert.ok(behind.indexOf("story sync --id ST-1") < behind.indexOf("complete-step"));
+});
+
+test("collectWork: unmet dependency marks the claim waiting and the story not ready; working marker delegates", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-deps-"));
+  const write = (rel, data) => {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), JSON.stringify(data));
+  };
+  for (const id of ["ST-A", "ST-B", "ST-C"]) write(`.sdlc/stories/${id}/story.json`, { id });
+  write(".sdlc/stories/ST-A/claim.json", { status: "active", agent: "x" });
+  write(".sdlc/dependencies/graph.json", { edges: [{ from: "ST-A", to: "ST-B", type: "blocks" }, { from: "ST-C", to: "ST-B", type: "blocks" }] });
+  const work = collectWork(dir, { working: { "ST-A": { until: "2099-01-01T00:00:00Z" } } });
+  assert.match(work.claims[0].waiting, /ST-B/u);
+  assert.ok(work.claims[0].delegated);
+  assert.deepEqual(work.available, ["ST-B", "ST-C"]);
+  assert.deepEqual(work.ready, ["ST-B"]);
 });
 
 test("pending questions are those to this computer not yet answered", () => {
@@ -160,4 +213,17 @@ test("claim refs: a story is held while its latest claim has no release", () => 
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("story working marker: local to the git common dir, expires by itself, clearable", async () => {
+  const { activeWorking, storyWorking } = await import("../../lib/host-hooks/working-marker.mjs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-working-"));
+  execFileSync("git", ["init", "-q", dir]);
+  const quiet = (fn) => { const log = console.log; console.log = () => {}; try { return fn(); } finally { console.log = log; } };
+  quiet(() => storyWorking({ root: dir, id: "ST-1", until: "30m", reason: "subagente" }, { now: 1000 }));
+  assert.equal(activeWorking(dir, 2000)["ST-1"].reason, "subagente");
+  assert.deepEqual(activeWorking(dir, 1000 + 31 * 60 * 1000), {});
+  quiet(() => storyWorking({ root: dir, id: "ST-1", clear: true }, { now: 2000 }));
+  assert.deepEqual(activeWorking(dir, 2000), {});
+  assert.throws(() => storyWorking({ root: dir, id: "ST-1" }));
 });

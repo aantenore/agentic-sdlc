@@ -984,12 +984,26 @@ The dedicated assessment journey remains the exception described above: it packa
    `AGENTIC_SDLC_LISTEN_MAX_HOURS` (default 8); `agentic-sdlc runs list` and
    `runs stop` show and stop the ones still running.
 
-   **Keep going.** The agent continues with the next step until no work
-   remains; it stops only for human decisions. Before ending a turn run
-   `agentic-sdlc next`: if it prints a next step (active claim not yet
-   certified, unanswered questions to this computer, available stories),
-   continue with it. In Claude Code the end-of-turn hook does this check and
-   keeps the turn going; `AGENTIC_SDLC_KEEP_GOING=off` disables it.
+   **Restare in moto.** Never wait idle. The agent continues with the next
+   step until no work remains; it stops only for human decisions. Before
+   ending a turn run `agentic-sdlc next` (the Stop hook in Claude Code does
+   the same and keeps the turn going; `AGENTIC_SDLC_KEEP_GOING=off` disables
+   it). Priority: unanswered questions/requests, unpublished records, plugin
+   update (a message from another computer carries a newer `v:<version>`:
+   update first with the printed command), the next step of own claims,
+   parallel work, available stories. When an own claim waits (story wait,
+   dependency not merged, records of another computer, a human decision), do
+   not stop: claim another available story whose dependencies are satisfied
+   (`story claim`) or do pending plugin/maintenance work. When the own story
+   reaches release/operations, reserve the next available story
+   (`story reserve --id <id>`) so work continues right after certification.
+   When the story worktree is behind origin/main, run `story sync` before
+   commit/gate steps. Whoever delegates a step to a background helper
+   (subagent) runs `agentic-sdlc story working --id <story> --until <2h>
+   [--reason <text>]` (`--clear` when done): the marker is local, expires by
+   itself, and until then the check does not ask for that step and proposes
+   only parallel work. The same reason blocks at most 2 times in a row within
+   10 minutes, then the turn may end.
 
    **One heavy command at a time per story.** Never start the same plugin
    command twice in parallel, and run one heavy command at a time per story
