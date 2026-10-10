@@ -1,0 +1,69 @@
+{
+  "audit": {
+    "git": {
+      "branch": "codex/ST-RECHK-A",
+      "head_sha": "de5b352ba474e4ca568ef4a6a9d7858f625c7937",
+      "is_dirty": true,
+      "is_git_repo": true,
+      "remotes": [
+        "origin"
+      ],
+      "user": {
+        "email": "finalization-e2e@example.invalid",
+        "name": "Finalization E2E"
+      }
+    },
+    "run": {
+      "run_id": null,
+      "session_id": null,
+      "thread_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  },
+  "contract_ref": {
+    "hash": "d5a2462594d2d681e0d12870976a4a3d243eb7c9d165bd90bfc0b2abc92eeaac",
+    "id": "CONTRACT-RECHK-A",
+    "path": ".sdlc/contracts/CONTRACT-RECHK-A.json"
+  },
+  "created_at": "2026-10-10T04:35:07.397Z",
+  "created_by": {
+    "email": "finalization-e2e@example.invalid",
+    "id": "antonioantenore",
+    "name": "Finalization E2E",
+    "source": "cli",
+    "type": "human"
+  },
+  "delivery_profile_ref": {
+    "hash": "9367f452f6bb1a8c92932de63b8f54a160bfd14b1c46ecbcac89b168e8ffca69",
+    "id": "AUT-RECHK-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-RECHK-A.json"
+  },
+  "git_head_sha": "de5b352ba474e4ca568ef4a6a9d7858f625c7937",
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "PREFLIGHT-AUT-RECHK-A",
+  "kind": "execution_context_preflight_receipt",
+  "receipt_hash": "c17274ec68a3bca5927c6a3fa33380f979b5ce75b108517d2f1f882906f5afa6",
+  "requirement_scopes": [
+    {
+      "allowed_write_paths": [
+        "docs",
+        "src"
+      ],
+      "profile_ref": {
+        "hash": "1555ee5f009a2c1e88bdd92fcbf17d22e4c5bf8c022b12155974c8f2c74b1115",
+        "id": "AUT-REQ-RECHK-A-R1",
+        "path": ".sdlc/autonomy/requirements/AUT-REQ-RECHK-A-R1.json"
+      }
+    }
+  ],
+  "schema_version": "execution-context-preflight-receipt:v1",
+  "source_snapshots": [],
+  "status": "passed",
+  "story_ref": {
+    "hash": "05cff802f537c812ad069e40d0ad988cd15008e2520413429eb0c4bcabbaa326",
+    "id": "ST-RECHK-A",
+    "path": ".sdlc/stories/ST-RECHK-A/story.json"
+  },
+  "workspace_changes": []
+}

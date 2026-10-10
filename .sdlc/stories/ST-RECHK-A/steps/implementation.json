@@ -1,0 +1,65 @@
+{
+  "id": "STEP-ST-RECHK-A-implementation-20261010043516769-2a4367",
+  "story_id": "ST-RECHK-A",
+  "step": "implementation",
+  "status": "completed",
+  "phase": "implementation",
+  "summary": "implementation completed against the approved boundary",
+  "output_types": [
+    "implementation-summary"
+  ],
+  "output_links": [
+    {
+      "id": "OUT-ST-RECHK-A-implementation-summary-f534a1f9",
+      "artifact_type": "implementation-summary",
+      "artifact_path": "docs/implementation-summary-rechk-a.md",
+      "template_id": "implementation-summary-v1",
+      "mode": "new",
+      "base_artifact": null,
+      "requirements": [
+        "REQ-RECHK-A"
+      ]
+    }
+  ],
+  "artifacts": [],
+  "evidence": [],
+  "next_step": "validation",
+  "completed_at": "2026-10-10T04:35:16.769Z",
+  "authorization_ref": "AUTH-RECHK-A-STORY-ACTIONS",
+  "authorization_use_ref": ".sdlc/authorization-uses/AUTH-RECHK-A-STORY-ACTIONS/AUSE-AUTH-RECHK-A-STORY-ACTIONS-20261010043516635-7d9926.json",
+  "authorization_action": "story.complete-step",
+  "checkpoint_profile_ref": {
+    "id": "AUT-RECHK-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-RECHK-A.json",
+    "hash": "9367f452f6bb1a8c92932de63b8f54a160bfd14b1c46ecbcac89b168e8ffca69"
+  },
+  "audit": {
+    "completed_by": {
+      "id": "codex",
+      "type": "agent",
+      "name": "Codex",
+      "email": null,
+      "source": "default"
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-RECHK-A",
+      "head_sha": "de5b352ba474e4ca568ef4a6a9d7858f625c7937",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  }
+}
