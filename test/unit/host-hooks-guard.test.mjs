@@ -675,17 +675,20 @@ test("a repository listed in AGENTIC_SDLC_UNGOVERNED_REPOS is left out of the me
   }
 });
 
-test("the base-branch guard applies only to Agentic SDLC projects, unless the remote base turns it off", async () => {
+test("the base-branch guard applies only to Agentic SDLC projects, unless the trusted remote base turns it off", async () => {
   const { isGuardExempt } = await import("../../lib/host-hooks/merge-authorization.mjs");
+  const { recordTrustedRemote, TRUSTED_REMOTES_FILE_ENV } = await import("../../lib/host-hooks/trusted-remotes.mjs");
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "hook-scope-"));
+  const previousTrustFile = process.env[TRUSTED_REMOTES_FILE_ENV];
+  process.env[TRUSTED_REMOTES_FILE_ENV] = path.join(base, "trusted-remotes.json");
   const gitIn = (dir, ...args) => assert.equal(
     spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main", ...args], { cwd: dir }).status,
     0,
     `${dir}: git ${args.join(" ")}`,
   );
   const off = JSON.stringify({ host_policy: { guard: { protect_base_branch: false } } });
-  // A clone of a bare remote whose main holds `files`.
-  const repo = (name, files) => {
+  // A clone of a bare remote whose main holds `files`; its URL is trusted unless `trust` is false.
+  const repo = (name, files, { trust = true } = {}) => {
     const remote = path.join(base, `${name}.git`);
     const seed = path.join(base, `${name}-seed`);
     const work = path.join(base, name);
@@ -702,6 +705,7 @@ test("the base-branch guard applies only to Agentic SDLC projects, unless the re
     gitIn(seed, "push", "-q", remote, "main");
     gitIn(base, "clone", "-q", remote, work);
     fs.mkdirSync(path.join(work, "sub"), { recursive: true });
+    if (trust) recordTrustedRemote(work, remote, { type: "human", name: "t" });
     return work;
   };
   try {
@@ -753,10 +757,32 @@ test("the base-branch guard applies only to Agentic SDLC projects, unless the re
     fs.writeFileSync(path.join(removed, ".sdlc", "config.json"), off);
     assert.equal(evaluatePreToolUse(shell(toMain), options(removed))?.decision, "deny");
 
-    // A remote that cannot be reached, or no remote at all, exempts nothing.
-    const unreachable = repo("unreachable", { ".sdlc/project.json": "{}", ".sdlc/config.json": off });
-    gitIn(unreachable, "remote", "set-url", "origin", path.join(base, "gone.git"));
-    assert.equal(isGuardExempt(unreachable, { kind: "git push to main", direct: true, base: "main", dirs: [] }), false);
+    const toMainAttempt = { kind: "git push to main", direct: true, base: "main", dirs: [] };
+    assert.equal(isGuardExempt(releasing, toMainAttempt), true);
+    // 'origin' pointed at a fake remote that turns the rule off: the trusted URL no longer matches.
+    repo("fake", { ".sdlc/project.json": "{}", ".sdlc/config.json": off }, { trust: false });
+    const fakeRemote = path.join(base, "fake.git");
+    const redirected = repo("redirected", { ".sdlc/project.json": "{}" });
+    gitIn(redirected, "remote", "set-url", "origin", fakeRemote);
+    assert.equal(isGuardExempt(redirected, toMainAttempt), false);
+    assert.equal(evaluatePreToolUse(shell(toMain), options(redirected))?.decision, "deny");
+    // A different push URL, or a url.*.insteadOf that rewrites the trusted URL, exempts nothing either.
+    const pushRedirected = repo("push-redirected", { ".sdlc/project.json": "{}", ".sdlc/config.json": off });
+    gitIn(pushRedirected, "remote", "set-url", "--push", "origin", fakeRemote);
+    assert.equal(isGuardExempt(pushRedirected, toMainAttempt), false);
+    const rewrittenUrl = repo("rewritten-url", { ".sdlc/project.json": "{}", ".sdlc/config.json": off });
+    gitIn(rewrittenUrl, "config", `url.${fakeRemote}.insteadOf`, path.join(base, "rewritten-url.git"));
+    assert.equal(isGuardExempt(rewrittenUrl, toMainAttempt), false);
+    // Without a trusted URL nothing is exempt, even a remote base that turns the rule off.
+    const untrusted = repo("untrusted", { ".sdlc/project.json": "{}", ".sdlc/config.json": off }, { trust: false });
+    assert.equal(isGuardExempt(untrusted, toMainAttempt), false);
+    assert.equal(evaluatePreToolUse(shell(toMain), options(untrusted))?.decision, "deny");
+    // A trusted remote that cannot be reached, or no remote at all, exempts nothing.
+    const unreachable = repo("unreachable", { ".sdlc/project.json": "{}", ".sdlc/config.json": off }, { trust: false });
+    const gone = path.join(base, "gone.git");
+    gitIn(unreachable, "remote", "set-url", "origin", gone);
+    recordTrustedRemote(unreachable, gone, { type: "human", name: "t" });
+    assert.equal(isGuardExempt(unreachable, toMainAttempt), false);
     assert.equal(evaluatePreToolUse(shell(toMain), options(unreachable))?.decision, "deny");
     const local = path.join(base, "local");
     fs.mkdirSync(path.join(local, ".sdlc"), { recursive: true });
@@ -766,6 +792,8 @@ test("the base-branch guard applies only to Agentic SDLC projects, unless the re
     gitIn(local, "commit", "-q", "-m", "off");
     assert.equal(isGuardExempt(local, { kind: "git push to main", direct: true, base: "main", dirs: [] }), false);
   } finally {
+    if (previousTrustFile === undefined) delete process.env[TRUSTED_REMOTES_FILE_ENV];
+    else process.env[TRUSTED_REMOTES_FILE_ENV] = previousTrustFile;
     fs.rmSync(base, { recursive: true, force: true });
   }
 });
@@ -842,6 +870,44 @@ test("an agent never changes host_policy.guard in .sdlc/config.json", () => {
       assert.equal(evaluatePreToolUse(shell(command))?.decision, "deny", command);
     }
     assert.equal(evaluatePreToolUse(shell("cat .sdlc/config.json | jq .host_policy.guard")), null);
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test("only the person records a trusted remote; agents never run the command or write the file", () => {
+  const command = "agentic-sdlc guard trust-remote --root . --url https://github.com/acme/app.git --actor-type human --approval-source explicit-user";
+  for (const text of [command, `bash -c "${command}"`, `rtk ${command}`]) {
+    const verdict = evaluatePreToolUse(shell(text));
+    assert.equal(verdict?.decision, "deny", text);
+    assert.match(verdict.reason, /run this exact command themselves/u);
+  }
+  const file = path.join(os.homedir(), ".config", "agentic-sdlc", "trusted-remotes.json");
+  for (const payload of [
+    { tool_name: "Write", tool_input: { file_path: file, content: "{}" } },
+    { tool_name: "Edit", tool_input: { file_path: "~/.config/agentic-sdlc/trusted-remotes.json", old_string: "a", new_string: "b" } },
+    { tool_name: "apply_patch", tool_input: { command: "*** Update File: /tmp/x/trusted-remotes.json\n-a\n+b" } },
+    shell(`echo '{}' > ${file}`),
+    shell("cp /tmp/forged.json ~/.config/agentic-sdlc/trusted-remotes.json"),
+    shell("node -e \"require('fs').writeFileSync(process.env.HOME + '/.config/agentic-sdlc/trusted-remotes.json', '{}')\""),
+  ]) {
+    assert.equal(evaluatePreToolUse(payload)?.decision, "deny", JSON.stringify(payload));
+  }
+  assert.equal(evaluatePreToolUse(shell(`cat ${file}`)), null);
+});
+
+test("the trusted remote store keeps one URL per repository and rejects option-like URLs", async () => {
+  const { recordTrustedRemote, trustedRemoteUrl, validRemoteUrl } = await import("../../lib/host-hooks/trusted-remotes.mjs");
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), "trusted-store-"));
+  try {
+    const env = { AGENTIC_SDLC_TRUSTED_REMOTES_FILE: path.join(base, "t.json") };
+    assert.equal(trustedRemoteUrl(base, env), null);
+    recordTrustedRemote(base, "https://example.com/a.git", { type: "human", name: "t" }, env);
+    recordTrustedRemote(base, "https://example.com/b.git", { type: "human", name: "t" }, env);
+    assert.equal(trustedRemoteUrl(base, env), "https://example.com/b.git");
+    assert.equal(validRemoteUrl("--upload-pack=x"), false);
+    assert.equal(validRemoteUrl("a b"), false);
+    assert.throws(() => recordTrustedRemote(base, "-x", {}, env));
   } finally {
     fs.rmSync(base, { recursive: true, force: true });
   }

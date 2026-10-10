@@ -33,6 +33,7 @@ import {
 import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
 import { registerCurrentRun } from "../lib/runtime/run-registry.mjs";
 import { acquireSingleFlight, LOCK_BUSY_EXIT_CODE } from "../lib/runtime/single-flight.mjs";
+import { guardTrustRemote } from "../lib/cli/guard-commands.mjs";
 import { processesReap, runCommand } from "../lib/cli/process-commands.mjs";
 import { runsList, runsStop } from "../lib/cli/runs-commands.mjs";
 import { nextCommand } from "../lib/cli/next-command.mjs";
@@ -1311,6 +1312,7 @@ function buildCliRuntimeHandlerRegistry() {
     "wait.list": bootstrap(async ({ options }) => (await import("../lib/engine/wait-registry.mjs")).waitList(options)),
     run: bootstrap(({ options, parsed }) => runCommand(options, parsed.passthrough)),
     "processes.reap": bootstrap(({ options }) => processesReap(options)),
+    "guard.trust-remote": bootstrap(({ options }) => guardTrustRemote(options)),
     "runs.list": bootstrap(({ options }) => runsList(options)),
     next: bootstrap(({ options }) => nextCommand(options)),
     "runs.stop": bootstrap(({ options }) => runsStop(options)),
