@@ -17,6 +17,7 @@ import {
   mainThreadMode,
   orchestratorEditWarning,
   orchestratorSessionContext,
+  STORY_LABEL_INSTRUCTION,
   sessionStartContext,
   strictMainThreadVerdict,
 } from "../lib/host-hooks/guard.mjs";
@@ -63,6 +64,16 @@ function projectMainThreadMode(root) {
   return mainThreadMode(readJson(path.join(root, ".sdlc", "config.json")), process.env);
 }
 
+/** The governed project root plus every git worktree of it: the paths strict mode keeps closed to the main thread. */
+function governedTreeRoots(root) {
+  const roots = [root];
+  const listed = spawnSync("git", ["-C", root, "worktree", "list", "--porcelain"], { encoding: "utf8", timeout: 5000, windowsHide: true });
+  if (listed.status === 0) {
+    for (const line of listed.stdout.split("\n")) if (line.startsWith("worktree ")) roots.push(line.slice("worktree ".length).trim());
+  }
+  return roots;
+}
+
 function insideGovernedProject(start) {
   return governedRoot(start) !== null;
 }
@@ -102,7 +113,7 @@ function preToolUse(payload) {
     return;
   }
   const mode = projectMainThreadMode(root);
-  const strict = strictMainThreadVerdict(payload, mode, process.env);
+  const strict = strictMainThreadVerdict(payload, mode, process.env, { roots: governedTreeRoots(root) });
   if (strict) {
     process.stderr.write(`${strict.reason}\n`);
     process.exitCode = 2;
@@ -156,6 +167,7 @@ async function sessionStart(payload) {
   }
   const orchestrator = orchestratorSessionContext(projectMainThreadMode(governedRoot(root) ?? root));
   if (orchestrator) process.stdout.write(`${orchestrator}\n`);
+  else if (governedRoot(root)) process.stdout.write(`${STORY_LABEL_INSTRUCTION}\n`);
   const standingRoot = path.join(root, ".sdlc", "autonomy", "standing");
   let entries = [];
   try {

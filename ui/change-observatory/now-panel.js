@@ -74,7 +74,7 @@ function workItem(item) {
   const flag = item.state !== "claimed" ? item.state : item.health && item.health !== "active" ? item.health : null;
   const issues = Array.isArray(item.issues) ? item.issues : [];
   return node("li", { className: "now-item" }, [
-    node("strong", { text: item.storyId }),
+    node("strong", { text: item.title ? `${item.storyId} (${item.title})` : item.storyId }),
     node("span", { className: "now-who", text: item.who || item.agent || "" }),
     flag ? node("span", { className: "now-flag", text: label(flag) }) : null,
     node("span", { className: "now-meta", text: parts.join(" · ") }),

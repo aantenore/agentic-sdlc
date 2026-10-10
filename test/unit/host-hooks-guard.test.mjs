@@ -15,6 +15,7 @@ import {
   orchestratorEditWarning,
   orchestratorSessionContext,
   strictMainThreadVerdict,
+  STORY_LABEL_INSTRUCTION,
   sessionStartContext,
 } from "../../lib/host-hooks/guard.mjs";
 
@@ -610,7 +611,7 @@ test("the hook adds the orchestrator context and warning without blocking", () =
     fs.mkdirSync(path.join(project, ".sdlc"));
     const run = (event, payload) => spawnSync(process.execPath, [HOOK, event], { input: JSON.stringify({ cwd: project, ...payload }), encoding: "utf8" });
     const edit = { tool_name: "Edit", tool_input: { file_path: path.join(project, "a.js") } };
-    assert.equal(run("session-start", {}).stdout, "");
+    assert.equal(run("session-start", {}).stdout.trim(), STORY_LABEL_INSTRUCTION);
     assert.equal(run("pre-tool-use", edit).stdout, "");
     fs.writeFileSync(path.join(project, ".sdlc", "config.json"), JSON.stringify({ host_policy: { main_thread: "orchestrator" } }));
     assert.match(run("session-start", {}).stdout, /only coordinates/u);
@@ -699,4 +700,22 @@ test("strict main-thread mode honours the custom allowlist", () => {
   }
   assert.equal(strictMainThreadVerdict(shell("npm run build"), "strict", env)?.decision, "deny");
   assert.equal(strictMainThreadVerdict(shell("npm test > out.txt"), "strict", env)?.decision, "deny");
+});
+
+test("strict main-thread mode denies edits inside the project and worktrees, allows them outside", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "strict-root-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "strict-out-"));
+  try {
+    const roots = [root];
+    const edit = (file_path) => ({ tool_name: "Write", cwd: root, tool_input: { file_path } });
+    const verdict = (payload) => strictMainThreadVerdict(payload, "strict", { HOME: outside }, { roots });
+    assert.equal(verdict(edit(path.join(root, "src", "a.js")))?.decision, "deny");
+    assert.equal(verdict(edit("src/a.js"))?.decision, "deny");
+    assert.equal(verdict(edit(path.join(outside, "scratch.txt"))), null);
+    assert.equal(verdict(edit(path.join(outside, ".claude", "projects", "p", "memory", "m.md"))), null);
+    assert.equal(strictMainThreadVerdict(edit(path.join(outside, "x")), "strict", {})?.decision, "deny");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
 });
