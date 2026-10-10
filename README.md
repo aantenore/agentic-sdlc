@@ -20,7 +20,7 @@ One source tree, two host packagings: **OpenAI Codex** (`.codex-plugin/`) and **
 
 ## Technical summary
 
-Agentic SDLC 0.68.0 gives a coding agent a guided way to understand an existing software project, deliver verified work, and explain its recorded lineage visually. The normal experience is intentionally simple: Codex explains what it inferred, proposes the work in plain language, creates the requested real file, verifies it, and returns an auditable result.
+Agentic SDLC 0.69.0 gives a coding agent a guided way to understand an existing software project, deliver verified work, and explain its recorded lineage visually. The normal experience is intentionally simple: Codex explains what it inferred, proposes the work in plain language, creates the requested real file, verifies it, and returns an auditable result.
 
 Project state stays in the target repository under `.sdlc/`. The plugin installation contains reusable skills, templates, schemas, the cross-platform Node.js CLI, and the build-free Change Observatory UI.
 
@@ -752,6 +752,16 @@ uv run --with pyyaml python /path/to/skill-creator/scripts/quick_validate.py ski
 ```
 
 If the plugin is absent or shows an older version, rerun the installer and `codex plugin add`, confirm the result with `codex plugin list --json`, then open a new Codex task. See [Portable Codex Install](docs/portable-install.md) for the full troubleshooting matrix.
+
+## Rilascio
+
+Da un branch di lavoro con le modifiche già committate:
+
+```bash
+npm run release -- [--version X.Y.Z] [--title "..."] [--body "..."] [--no-update]
+```
+
+Lo script allinea il branch a `origin/main`, porta la versione al minor successivo (massimo tra `origin/main` e i tag `vX.Y.Z`), la aggiorna in manifest, README e `docs/`, committa `Versione X.Y.Z`, pubblica il branch (mai force), apre la PR e la unisce subito con merge commit. Senza `--no-update` aggiorna anche marketplace e plugin installati con `claude plugin`. Richiede `git`, `gh` autenticato e working tree pulito.
 
 ## Safety Boundaries
 
