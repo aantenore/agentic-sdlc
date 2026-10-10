@@ -1,0 +1,287 @@
+{
+  "id": "AUT-ACT-20261010053632099-0225b2",
+  "kind": "delivery_action_receipt",
+  "schema_version": "delivery-action-receipt:v2",
+  "profile_ref": {
+    "id": "AUT-PR-MERGE",
+    "path": ".sdlc/autonomy/deliveries/AUT-PR-MERGE.json",
+    "hash": "7feaceeb7701d50ede2760e0d51667748ba51f6c221cc26e19229adebff44830"
+  },
+  "delivery": {
+    "id": "PR-MERGE",
+    "kind": "pull_request"
+  },
+  "action": "pull_request.merge",
+  "effective_level": "checkpointed",
+  "checkpoint_required": true,
+  "approval": null,
+  "runtime_target": {
+    "branch": "codex/pr-1",
+    "head_sha": "133038bf06846be08fef35a118afbe1196f12586",
+    "base_ref": "refs/remotes/origin/main",
+    "base_sha": "133038bf06846be08fef35a118afbe1196f12586",
+    "matching_remotes": [
+      "origin"
+    ],
+    "remote_fingerprint": "b52b349508a568a41c8033bf11f9699084542232ac4932cd744656e49874f2b2"
+  },
+  "action_details": {
+    "repository": "github.com/aantenore/agentic-sdlc",
+    "base_branch": "main",
+    "head_branch": "codex/pr-1",
+    "source_sha": "133038bf06846be08fef35a118afbe1196f12586",
+    "changed_paths": [
+      "src/implementation-summary.md",
+      "src/merge-approval.txt",
+      "src/merge-proof.txt"
+    ],
+    "allowed_write_paths": [
+      "src"
+    ],
+    "pull_request": {
+      "mode": "new",
+      "pr_number": 999999,
+      "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/999999",
+      "source_sha": "133038bf06846be08fef35a118afbe1196f12586"
+    },
+    "merge": {
+      "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/999999",
+      "source_sha": "133038bf06846be08fef35a118afbe1196f12586",
+      "base_sha": "6ab5c246cc8752498922d5814979ec0f3d33c7d7",
+      "force": false
+    },
+    "provider_operation": {
+      "binding": {
+        "action": "pull_request.merge",
+        "provider_id": "github-cli",
+        "source": "explicit-v2",
+        "provider_bindings_hash": "359b42acd6e3d022ade2626fb386d564e4993541f0809a5d6f0feb61fda50fe7"
+      },
+      "precondition_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010053630090-3dc093:precondition",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T05:36:30.090Z",
+        "operation": {
+          "action": "pull_request.merge",
+          "id": "AUT-ACT-20261010053630090-3dc093",
+          "phase": "precondition"
+        },
+        "precondition_receipt_ref": null,
+        "proof": {
+          "base_branch": "main",
+          "base_sha": "6ab5c246cc8752498922d5814979ec0f3d33c7d7",
+          "head_branch": "codex/pr-1",
+          "head_sha": "133038bf06846be08fef35a118afbe1196f12586",
+          "is_draft": false,
+          "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/999999",
+          "state": "OPEN"
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "github-cli",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "1880d6983917efacdf99d0a6fcb6af19b6a5b610f6e0bc8485d43a9f72e54cd7",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "authorized_at": "2026-10-10T05:36:30.090Z",
+          "base_branch": "main",
+          "base_sha": "6ab5c246cc8752498922d5814979ec0f3d33c7d7",
+          "head_branch": "codex/pr-1",
+          "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/999999",
+          "repository": "github.com/aantenore/agentic-sdlc",
+          "source_sha": "133038bf06846be08fef35a118afbe1196f12586"
+        },
+        "subject_hash": "5e74867adb38840b9dae2a5dfd7c71c007d241148b2dd43493740dfb45b33f0f",
+        "version": 1
+      },
+      "completion_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010053630090-3dc093:completion",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T05:36:32.099Z",
+        "operation": {
+          "action": "pull_request.merge",
+          "id": "AUT-ACT-20261010053630090-3dc093",
+          "phase": "completion"
+        },
+        "precondition_receipt_ref": {
+          "hash": "1880d6983917efacdf99d0a6fcb6af19b6a5b610f6e0bc8485d43a9f72e54cd7",
+          "id": "AUT-ACT-20261010053630090-3dc093:precondition"
+        },
+        "proof": {
+          "base_branch": "main",
+          "base_sha": "6ab5c246cc8752498922d5814979ec0f3d33c7d7",
+          "head_branch": "codex/pr-1",
+          "head_sha": "133038bf06846be08fef35a118afbe1196f12586",
+          "is_draft": false,
+          "merge_commit_sha": "133038bf06846be08fef35a118afbe1196f12586",
+          "merged_at": "2026-10-10T05:36:31.090Z",
+          "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/999999",
+          "precondition_receipt_hash": "1880d6983917efacdf99d0a6fcb6af19b6a5b610f6e0bc8485d43a9f72e54cd7",
+          "state": "MERGED"
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "github-cli",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "7266e69ca8069c5adc7d9c1c02a06db46d997b97854c3f2afc782e164a17dea5",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "authorized_at": "2026-10-10T05:36:30.090Z",
+          "base_branch": "main",
+          "base_sha": "6ab5c246cc8752498922d5814979ec0f3d33c7d7",
+          "head_branch": "codex/pr-1",
+          "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/999999",
+          "repository": "github.com/aantenore/agentic-sdlc",
+          "source_sha": "133038bf06846be08fef35a118afbe1196f12586"
+        },
+        "subject_hash": "5e74867adb38840b9dae2a5dfd7c71c007d241148b2dd43493740dfb45b33f0f",
+        "version": 1
+      }
+    },
+    "merge_precondition": {
+      "provider": "github-cli",
+      "base_branch": "main",
+      "base_sha": "6ab5c246cc8752498922d5814979ec0f3d33c7d7",
+      "head_branch": "codex/pr-1",
+      "head_sha": "133038bf06846be08fef35a118afbe1196f12586",
+      "is_draft": false,
+      "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/999999",
+      "state": "OPEN"
+    },
+    "checkpoint_policy": {
+      "schema_version": "delivery-action-checkpoint-policy:v1",
+      "action": "pull_request.merge",
+      "delivery_kind": "pull_request",
+      "effective_level": "checkpointed",
+      "profile_ref": {
+        "id": "AUT-PR-MERGE",
+        "hash": "7feaceeb7701d50ede2760e0d51667748ba51f6c221cc26e19229adebff44830"
+      },
+      "preset_checkpoints": [
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify"
+      ],
+      "policy_source_ref": {
+        "path": ".sdlc/autonomy/policy-sources/ac873aebd1c1f40c831b6990381b4d5932e84f7a3e06236000a09e1c60b6aa88.json",
+        "hash": "ac873aebd1c1f40c831b6990381b4d5932e84f7a3e06236000a09e1c60b6aa88",
+        "effective_config_hash": "c1361b73d4df4aa8c9b62b7c193ddd78e4e925aae8c35935c4010af43f3eab6c"
+      },
+      "profile_checkpoints": [
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify"
+      ],
+      "boundary_actions": [
+        "deploy.remote",
+        "pull_request.merge"
+      ],
+      "local_boundary_checkpoint": false,
+      "local_boundary_source": null,
+      "local_boundary_source_hash": null,
+      "required": true,
+      "policy_hash": "6fb68e724e9aa2e52ceb09e56f9669deb1429f489143cd4b383535e9ae2b8d5d"
+    },
+    "provider_verification": {
+      "provider": "github-cli",
+      "base_branch": "main",
+      "base_sha": "6ab5c246cc8752498922d5814979ec0f3d33c7d7",
+      "head_branch": "codex/pr-1",
+      "head_sha": "133038bf06846be08fef35a118afbe1196f12586",
+      "is_draft": false,
+      "merge_commit_sha": "133038bf06846be08fef35a118afbe1196f12586",
+      "merged_at": "2026-10-10T05:36:31.090Z",
+      "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/999999",
+      "precondition_receipt_hash": "1880d6983917efacdf99d0a6fcb6af19b6a5b610f6e0bc8485d43a9f72e54cd7",
+      "state": "MERGED"
+    }
+  },
+  "authorization_receipt_ref": {
+    "id": "AUT-ACT-20261010053630090-3dc093",
+    "path": ".sdlc/autonomy/actions/AUT-ACT-20261010053630090-3dc093.json",
+    "hash": "f0ccc94d593bddcbfe67e5f07340d4f987d02753ae3b0e90beea7187d96cc91a"
+  },
+  "completion_request": {
+    "schema_version": "delivery-action-completion-request:v1",
+    "profile_ref": {
+      "id": "AUT-PR-MERGE",
+      "path": ".sdlc/autonomy/deliveries/AUT-PR-MERGE.json",
+      "hash": "7feaceeb7701d50ede2760e0d51667748ba51f6c221cc26e19229adebff44830"
+    },
+    "action": "pull_request.merge",
+    "outcome": "passed",
+    "authorization_receipt_ref": {
+      "id": "AUT-ACT-20261010053630090-3dc093",
+      "path": ".sdlc/autonomy/actions/AUT-ACT-20261010053630090-3dc093.json",
+      "hash": "f0ccc94d593bddcbfe67e5f07340d4f987d02753ae3b0e90beea7187d96cc91a"
+    },
+    "evidence": [
+      {
+        "path": "src/merge-proof.txt",
+        "sha256": "ee4992af96aabd714a506f8570b55bf614c6c47b8d8ce2abfe9658bc77e4968e"
+      }
+    ],
+    "operation_args": {
+      "pr_url": null,
+      "expected_pr_title": null,
+      "expected_pr_body_sha256": null,
+      "expected_pr_state": null,
+      "expected_pr_base": null
+    },
+    "request_hash": "98eacc0c0465badf472bec5c2b2d31ec03e290870bf7865b6af56bc7918f9213",
+    "hash_algorithm": "sha256:stable-json:v1"
+  },
+  "local_release_verification": null,
+  "evidence": [
+    {
+      "path": "src/merge-proof.txt",
+      "sha256": "ee4992af96aabd714a506f8570b55bf614c6c47b8d8ce2abfe9658bc77e4968e"
+    }
+  ],
+  "outcome": "passed",
+  "status": "completed",
+  "authorized_by": {
+    "id": "codex",
+    "type": "agent",
+    "name": "Codex",
+    "email": null,
+    "source": "default"
+  },
+  "authorized_at": "2026-10-10T05:36:32.099Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/pr-1",
+      "head_sha": "133038bf06846be08fef35a118afbe1196f12586",
+      "is_dirty": true,
+      "user": {
+        "name": "Autonomy E2E",
+        "email": "autonomy-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.101.0"
+    }
+  },
+  "receipt_hash": "bc22ee0c8f247152a287d2282452790e6320f1ae1a9cfa5f1ce9886809daff8f",
+  "hash_algorithm": "sha256:stable-json:v1"
+}
