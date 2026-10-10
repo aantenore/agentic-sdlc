@@ -387,3 +387,30 @@ test("records are never published from a project that is not its git repository 
   assert.equal(refused.status, "failed");
   assert.match(refused.problem, /not the root of its git repository/u);
 });
+
+function divergeForRebase(first, second) {
+  write(second, "src/story.txt", "story work\n");
+  git(second, ["add", "src/story.txt"]);
+  git(second, ["commit", "--quiet", "-m", "Story work"]);
+  write(first, "src/base.txt", "base\n");
+  git(first, ["add", "src/base.txt"]);
+  git(first, ["commit", "--quiet", "-m", "Base work"]);
+  git(first, ["push", "--quiet"]);
+}
+
+test("story sync sets aside uncommitted tracked and staged records together with code", () => {
+  const { first, second } = twoComputers("records-stash");
+  divergeForRebase(first, second);
+  const storyFile = `.sdlc/stories/${STORY}/story.json`;
+  const edited = fs.readFileSync(path.join(second, storyFile), "utf8").replace(/"title": "[^"]*"/u, '"title": "Edited locally"');
+  fs.writeFileSync(path.join(second, storyFile), edited);
+  write(second, ".sdlc/notes/new-record.md", "staged record\n");
+  git(second, ["add", ".sdlc/notes/new-record.md"]);
+  write(second, "src/shared.txt", "one\nlocal edit\n");
+  const synced = mustRunJson(["story", "sync", "--root", second, "--id", STORY]);
+  assert.equal(synced.status, "synced");
+  assert.equal(fs.readFileSync(path.join(second, storyFile), "utf8"), edited);
+  assert.equal(fs.readFileSync(path.join(second, ".sdlc/notes/new-record.md"), "utf8"), "staged record\n");
+  assert.equal(fs.readFileSync(path.join(second, "src/shared.txt"), "utf8"), "one\nlocal edit\n");
+  assert.equal(git(second, ["stash", "list"]).stdout.trim(), "");
+});

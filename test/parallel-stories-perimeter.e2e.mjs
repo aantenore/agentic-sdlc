@@ -455,3 +455,72 @@ test("a commit on main outside any delivery blocks until a person accepts it for
   mustRunJson(["story", "overlap", "confirm", "--root", project, "--id", "ST-B", ...humanApproval("Checked the shared file")]);
   assert.deepEqual(mustRunJson(["story", "overlap", "--root", project, "--id", "ST-B"]).unconfirmed, []);
 });
+
+const gitFails = (project, args) => spawnSync("git", ["-C", project, ...args], { encoding: "utf8", timeout: 60_000 });
+
+function mergeBaseIntoStoryB() {
+  const fixture = storyAMergedWhileBInProgress();
+  const { project } = fixture;
+  commitFiles(project, { "src/b/feature.ts": "export const b = 2;\n" }, "feat: story B");
+  const merged = gitFails(project, ["merge", "--no-ff", "--no-commit", "origin/main"]);
+  assert.equal(merged.status, 0, merged.stdout + merged.stderr);
+  return fixture;
+}
+
+test("git.commit of a merge from the base branch charges only what differs from the base", () => {
+  const { project } = mergeBaseIntoStoryB();
+  writeFile(project, "src/b/more.ts", "export const more = 1;\n");
+  const scope = ["src/a/feature.ts", "src/index.ts", "src/b/more.ts"];
+  const authorized = authorizeCommit(project, scope);
+  assert.equal(authorized.status, 0, `${authorized.stdout}\n${authorized.stderr}`);
+  const receipt = JSON.parse(authorized.stdout).action_receipt.action_details;
+  assert.deepEqual(receipt.changed_paths, [...scope].sort());
+  assert.equal(receipt.merge_from_base.schema_version, "merge-from-base:v1");
+  assert.equal(receipt.merge_from_base.merge_head_sha, git(project, ["rev-parse", "origin/main"]));
+  assert.deepEqual(receipt.merge_from_base.excluded_paths, ["src/a/feature.ts", "src/b/feature.ts", "src/index.ts"].filter((item) => scope.includes(item)));
+
+  // The merge commit is made as a normal git commit and the completion proves it.
+  git(project, ["commit", "-q", "-m", "merge: pick up main"]);
+  const completed = run([
+    "autonomy", "delivery", "action", "--root", project, "--id", "AUT-ST-B",
+    "--action", "git.commit", "--outcome", "passed", "--evidence", "src/b/more.ts", "--json",
+  ]);
+  assert.equal(completed.status, 0, `${completed.stdout}\n${completed.stderr}`);
+  assert.equal(JSON.parse(completed.stdout).status, "completed");
+});
+
+test("git.commit of a merge from the base branch still refuses the story's own files outside the scope", () => {
+  const { project } = mergeBaseIntoStoryB();
+  writeFile(project, "src/other/leak.ts", "export const leak = 1;\n");
+  const refused = authorizeCommit(project, ["src/a/feature.ts", "src/index.ts", "src/other/leak.ts"]);
+  const combined = `${refused.stdout}\n${refused.stderr}`;
+  assert.equal(refused.status, 1, combined);
+  assert.match(combined, /outside the approved write scope: src\/other\/leak\.ts\./u);
+  assert.doesNotMatch(combined, /scope: [^.]*src\/a\/feature\.ts/u);
+});
+
+test("git.commit of a merge from a branch that is not the base keeps the usual scope check", () => {
+  const { project, start } = storyAMergedWhileBInProgress();
+  commitFiles(project, { "src/b/feature.ts": "export const b = 2;\n" }, "feat: story B");
+  git(project, ["checkout", "-q", "-b", "side", start]);
+  // Same bytes as the base's copy, but they arrive from a branch the profile does not name.
+  commitFiles(project, { "src/a/feature.ts": "export const a = 1;\n" }, "feat: side copy");
+  git(project, ["checkout", "-q", BRANCH_B]);
+  const merged = gitFails(project, ["merge", "--no-ff", "--no-commit", "side"]);
+  assert.equal(merged.status, 0, merged.stdout + merged.stderr);
+  const refused = authorizeCommit(project, ["src/a/feature.ts"]);
+  const combined = `${refused.stdout}\n${refused.stderr}`;
+  assert.equal(refused.status, 1, combined);
+  assert.match(combined, /outside the approved write scope: src\/a\/feature\.ts\./u);
+});
+
+test("story scope check does not charge the story with files a merge of the base brought in", () => {
+  const { project } = mergeBaseIntoStoryB();
+  const clear = JSON.parse(mustRun(["story", "scope", "check", "--root", project, "--id", "ST-B", "--json"]).stdout);
+  assert.deepEqual(clear.out_of_scope, []);
+  assert.ok(clear.merge_from_base.excluded_paths.includes("src/a/feature.ts"));
+  writeFile(project, "src/other/leak.ts", "export const leak = 1;\n");
+  const result = run(["story", "scope", "check", "--root", project, "--id", "ST-B", "--json"]);
+  const leak = JSON.parse(result.stdout);
+  assert.deepEqual(leak.out_of_scope.map((item) => item.path), ["src/other/leak.ts"]);
+});
