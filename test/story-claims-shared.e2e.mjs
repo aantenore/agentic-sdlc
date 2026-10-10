@@ -41,7 +41,8 @@ function temporaryDirectory(label) {
 function cliEnvironment(extra = {}) {
   const env = { ...process.env };
   for (const key of ISOLATED_ENVIRONMENT_KEYS) delete env[key];
-  return { ...env, ...extra };
+  // Slow commands print "still working" lines on stderr, where refusals are also JSON: keep stderr parseable.
+  return { ...env, AGENTIC_SDLC_PROGRESS: "off", ...extra };
 }
 
 function run(args, project, env = {}) {
@@ -352,7 +353,7 @@ test("orchestrate status and status show the claims of every computer with one r
   assert.match(projectStatus.next_action.command, /story claim --id ST-2 --agent "<agent>" --force --reason "<why>" --actor-type human/u);
   const human = mustRun(["status", "--root", second], second).stdout;
   assert.match(human, /Shared claims through 'origin': 2 on other computers/u);
-  assert.match(human, /ST-1: alice on branch feature\/ST-1 since /u);
+  assert.match(human, /ST-1(?: \([^)]*\))?: alice on branch feature\/ST-1 since /u);
 
   // The holder sees its own claims as held here.
   const holder = mustRunJson(["orchestrate", "status", "--root", first], first);
@@ -436,6 +437,8 @@ test("a claim push whose answer is lost is recognised, and an interrupted claim 
   const { first, remote } = sharedProject("lost-answer", ["ST-1", "ST-2"]);
   setOrchestration(first, { coordination: { timeout_seconds: 6 } });
   const hook = path.join(remote, "hooks", "post-receive");
+  // The isolation config sets a global core.hooksPath; point the remote at its own hooks directory so the hook below runs.
+  spawnSync("git", ["-C", remote, "config", "core.hooksPath", path.join(remote, "hooks")]);
 
   // The ref is created, then the remote stops answering: the claim is still recognised as made.
   fs.writeFileSync(hook, "#!/bin/sh\ncase \"$(cat)\" in *refs/agentic-sdlc/claims/*) sleep 20;; esac\n", { mode: 0o755 });
@@ -564,7 +567,7 @@ test("status names other computers' claims with their identity and last push, an
   assert.equal(shared.activity.branch_on_remote, true);
   const statusText = mustRun(["status", "--root", first], first).stdout;
   assert.doesNotMatch(statusText.split("Technical details (optional):")[0], /\bST-\d/u, "story ids stay out of the primary lines");
-  assert.match(statusText, /- Ready to start: ST-2, ST-3/u);
+  assert.match(statusText, /- Ready to start: ST-2(?: \([^)]*\))?, ST-3(?: \([^)]*\))?/u);
 
   // ST-3 is merged into main by hand, without any recorded lifecycle step.
   fs.writeFileSync(path.join(first, "feature-3.txt"), "done\n", "utf8");
@@ -584,7 +587,7 @@ test("status names other computers' claims with their identity and last push, an
   assert.match(primary, /^Outcome: /u, "status keeps its own plain-language outcome");
   assert.match(primary, /Attention: this copy is 1 commit\(s\) behind origin\/main/u);
   assert.match(primary, /Attention: 1 story appears already merged into the main branch but still open/u);
-  assert.match(details, /ST-3: appears merged into main/u);
+  assert.match(details, /ST-3(?: \([^)]*\))?: appears merged into main/u);
   assert.equal(JSON.parse(fs.readFileSync(path.join(second, ".sdlc", "stories", "ST-3", "story.json"), "utf8")).status, "ready",
     "status never changes a story record");
 });
@@ -726,7 +729,7 @@ test("a ready story nobody claimed, with a branch naming it on the remote, is re
   assert.equal(availability.remote_work.branches[0].branch, "feature/ST-REPLAN-002");
   assert.equal(availability.remote_work.branches[0].ahead_of_base, 1);
   const italian = mustRun(["story", "availability", "--root", first, "--id", "ST-REPLAN-002", "--locale", "it"], first).stdout;
-  assert.match(italian, /ST-REPLAN-002 non è prenotata ma sul remote c'è il branch feature\/ST-REPLAN-002 aggiornato (poco fa|\d+ minut[oi] fa): forse qualcuno ci sta già lavorando/u);
+  assert.match(italian, /ST-REPLAN-002(?: \([^)]*\))? non è prenotata ma sul remote c'è il branch feature\/ST-REPLAN-002 aggiornato (poco fa|\d+ minut[oi] fa): forse qualcuno ci sta già lavorando/u);
   assert.equal(mustRunJson(["story", "availability", "--root", first, "--id", "ST-REPLAN-0021"], first).verdict, "free", "ST-REPLAN-002 does not name ST-REPLAN-0021");
 
   const status = mustRunJson(["status", "--root", first], first);
@@ -734,7 +737,7 @@ test("a ready story nobody claimed, with a branch naming it on the remote, is re
   const statusText = mustRun(["status", "--root", first, "--locale", "it"], first).stdout;
   const [primary, details] = statusText.split("Dettagli tecnici (facoltativi):");
   assert.match(primary, /story non prenotate hanno già lavoro sul remote/u);
-  assert.match(details || statusText, /ST-REPLAN-002 non è prenotata/u);
+  assert.match(details || statusText, /ST-REPLAN-002(?: \([^)]*\))? non è prenotata/u);
   const orchestration = mustRunJson(["orchestrate", "status", "--root", first], first);
   assert.equal(orchestration.unclaimed_remote_work[0].story_id, "ST-REPLAN-002");
 
