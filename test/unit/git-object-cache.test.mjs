@@ -24,7 +24,9 @@ test("only questions about commits named by full IDs are kept", () => {
   assert.equal(gitArgsAreContentAddressed(["merge-base", "--is-ancestor", A, "HEAD"]), false);
   assert.equal(gitArgsAreContentAddressed(["diff", "--name-only", A, "--"]), false, "a commit against the working tree changes");
   assert.equal(gitArgsAreContentAddressed(["diff", "--cached", A, B]), false);
-  assert.equal(gitArgsAreContentAddressed(["rev-parse", "--verify", A]), false);
+  assert.equal(gitArgsAreContentAddressed(["rev-parse", "--verify", A]), true);
+  assert.equal(gitArgsAreContentAddressed(["rev-parse", "--verify", "HEAD"]), false);
+  assert.equal(gitArgsAreContentAddressed(["rev-parse", "--show-toplevel"]), false);
   assert.equal(gitArgsAreContentAddressed(["rev-list", "--all"]), false);
   assert.equal(gitArgsAreContentAddressed(["log", "abc1234"]), false, "an abbreviated ID can become ambiguous");
   assert.equal(gitArgsAreContentAddressed(["update-ref", "refs/x", A]), false);
