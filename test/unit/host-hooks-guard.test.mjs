@@ -586,6 +586,9 @@ test("the orchestrator instruction appears only in orchestrator mode", () => {
   assert.match(context, /controlled background processes/u);
   assert.match(context, /explicit deadline/u);
   assert.match(context, /no process is left running/u);
+  assert.match(context, /must never block/u);
+  assert.match(context, /more than about 10 seconds/u);
+  assert.match(context, /run_in_background/u);
 });
 
 test("the orchestrator guard warns on a main-thread edit and leaves subagents and other tools alone", () => {
@@ -617,5 +620,44 @@ test("the hook adds the orchestrator context and warning without blocking", () =
     assert.equal(run("pre-tool-use", shell("ls")).stdout, "");
   } finally {
     fs.rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("a repository listed in AGENTIC_SDLC_UNGOVERNED_REPOS is left out of the merge and push guard", async () => {
+  const { isUngovernedRepo, ungovernedRepos } = await import("../../lib/host-hooks/merge-authorization.mjs");
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), "hook-optout-"));
+  try {
+    const free = path.join(base, "free");
+    const other = path.join(base, "other");
+    for (const dir of [free, other]) {
+      fs.mkdirSync(path.join(dir, "sub"), { recursive: true });
+      assert.equal(spawnSync("git", ["init", "-q"], { cwd: dir }).status, 0);
+    }
+    const env = { AGENTIC_SDLC_UNGOVERNED_REPOS: [free, "relative/ignored"].join(path.delimiter) };
+    assert.equal(ungovernedRepos(env).length, 1);
+    assert.equal(isUngovernedRepo(free, [], env), true);
+    assert.equal(isUngovernedRepo(path.join(free, "sub"), [], env), true);
+    assert.equal(isUngovernedRepo(other, [], env), false);
+    assert.equal(isUngovernedRepo(free, [], {}), false);
+    // git -C decides the repository, absolute or relative to the working directory.
+    assert.equal(isUngovernedRepo(other, [free], env), true);
+    assert.equal(isUngovernedRepo(free, [other], env), false);
+    assert.equal(isUngovernedRepo(free, ["../other"], env), false);
+    assert.equal(isUngovernedRepo(other, ["../free"], env), true);
+
+    const options = (cwd) => ({
+      env: {},
+      isMergeAuthorized: () => false,
+      isStoryPushAuthorized: () => false,
+      isUngovernedRepo: (attempt) => isUngovernedRepo(cwd, attempt.dirs, env),
+    });
+    for (const command of ["git push origin main", "git push", "git push origin feature/x", "gh pr merge 12"]) {
+      assert.equal(evaluatePreToolUse(shell(command), options(free)), null, command);
+      assert.equal(evaluatePreToolUse(shell(command), options(other))?.decision, "deny", command);
+    }
+    assert.equal(evaluatePreToolUse(shell(`git -C ${free} push origin main`), options(other)), null);
+    assert.equal(evaluatePreToolUse(shell(`git -C ${other} push origin main`), options(free))?.decision, "deny");
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
   }
 });

@@ -4,6 +4,9 @@
 // 2 and a reason on stderr, the one blocking signal both hosts honour. Any
 // internal failure exits 0 so the host's normal permission flow applies; the
 // CLI enforces every rule on its own.
+// First import: with AGENTIC_SDLC_AUTO_UPDATE=1 a newer installed version takes over this call.
+import "../lib/runtime/self-forward.mjs";
+
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -16,7 +19,7 @@ import {
   orchestratorSessionContext,
   sessionStartContext,
 } from "../lib/host-hooks/guard.mjs";
-import { mergeAuthorized, storyPushAuthorized } from "../lib/host-hooks/merge-authorization.mjs";
+import { isUngovernedRepo, mergeAuthorized, storyPushAuthorized } from "../lib/host-hooks/merge-authorization.mjs";
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = path.join(PLUGIN_ROOT, "bin", "agentic-sdlc.mjs");
@@ -88,6 +91,7 @@ function preToolUse(payload) {
   const root = governedRoot(payload.cwd);
   const verdict = evaluatePreToolUse(payload, {
     env: process.env,
+    isUngovernedRepo: (attempt) => isUngovernedRepo(payload.cwd, attempt.dirs, process.env),
     isMergeAuthorized: (attempt) => mergeAuthorized(root, payload.cwd, attempt),
     isStoryPushAuthorized: (attempt) => storyPushAuthorized(root, payload.cwd, attempt),
   });
@@ -124,7 +128,18 @@ async function pluginUpdateNotice(root) {
     + "Tell the user before any other agentic-sdlc work: commands that change the project are refused until the plugin is updated.\n");
 }
 
+/** Opt-in plugin update (AGENTIC_SDLC_AUTO_UPDATE=1): detached and throttled; never blocks or fails the hook. */
+async function autoUpdate(reason) {
+  try {
+    const { maybeAutoUpdate } = await import("../lib/runtime/auto-update.mjs");
+    maybeAutoUpdate({ reason, pluginRoot: PLUGIN_ROOT });
+  } catch {
+    // an update problem never disables the guard
+  }
+}
+
 async function sessionStart(payload) {
+  await autoUpdate("session-start");
   const root = path.resolve(String(payload.cwd || process.cwd()));
   try {
     await pluginUpdateNotice(root);
@@ -182,6 +197,7 @@ try {
   else if (event === "session-start") await sessionStart(payload);
   else if (event === "post-tool-use") await coordinationMessages(payload, "PostToolUse");
   else if (event === "stop") {
+    await autoUpdate("stop");
     try {
       await reapRuns(payload);
     } finally {

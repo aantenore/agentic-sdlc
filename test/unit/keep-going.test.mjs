@@ -268,7 +268,7 @@ test("story working marker: local to the git common dir, expires by itself, clea
   assert.throws(() => storyWorking({ root: dir, id: "ST-1" }));
 });
 
-test("stories created by another computer are not proposed while fresh; own stories are; old ones return", () => {
+test("stories created by another computer are never proposed, however old, unless marked free; own stories are", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-foreign-"));
   const now = Date.parse("2026-01-01T12:00:00Z");
   const hoursAgo = (h) => new Date(now - h * 3600 * 1000).toISOString();
@@ -280,10 +280,12 @@ test("stories created by another computer are not proposed while fresh; own stor
   write("ST-OLD", "alice-pc", hoursAgo(5));
   write("ST-MINE", "my-pc", hoursAgo(1));
   write("ST-NOHOST", null, hoursAgo(1));
+  write("ST-FREE", "alice-pc", hoursAgo(1), { unassigned: true });
+  write("ST-FREE2", "alice-pc", hoursAgo(50), { free: true });
+  write("ST-ANCIENT", "alice-pc", hoursAgo(500));
   const work = collectWork(dir, { now, selfHost: "my-pc" });
-  assert.deepEqual(work.available, ["ST-MINE", "ST-NOHOST", "ST-OLD"]);
-  assert.deepEqual(collectWork(dir, { now, selfHost: "my-pc", env: { AGENTIC_SDLC_KEEP_GOING_FOREIGN_HOURS: "0" } }).available, ["ST-MINE", "ST-NOHOST", "ST-OLD", "ST-OTHER"]);
-  assert.deepEqual(collectWork(dir, { now, selfHost: "my-pc", env: { AGENTIC_SDLC_KEEP_GOING_FOREIGN_HOURS: "6" } }).available, ["ST-MINE", "ST-NOHOST"]);
+  assert.deepEqual(work.available, ["ST-FREE", "ST-FREE2", "ST-MINE", "ST-NOHOST"]);
+  assert.deepEqual(collectWork(dir, { now, selfHost: "my-pc", env: { AGENTIC_SDLC_KEEP_GOING_FOREIGN_HOURS: "0" } }).available, ["ST-ANCIENT", "ST-FREE", "ST-FREE2", "ST-MINE", "ST-NOHOST", "ST-OLD", "ST-OTHER"]);
   assert.equal(collectWork(dir, { now }).available.includes("ST-OTHER"), true, "no own identity: current behavior");
 });
 
@@ -294,7 +296,9 @@ test("foreign check falls back to the git author e-mail, else current behavior",
   assert.equal(isFreshForeignStory(story("a@x.it"), { selfEmail: "b@x.it", now, windowMs: window }), true);
   assert.equal(isFreshForeignStory(story("A@x.it"), { selfEmail: "a@x.it", now, windowMs: window }), false);
   assert.equal(isFreshForeignStory(story("a@x.it"), { now, windowMs: window }), false);
-  assert.equal(isFreshForeignStory({ audit: { run: { host: "h" } } }, { selfHost: "me", now, windowMs: window }), false);
+  assert.equal(isFreshForeignStory({ audit: { run: { host: "h" } } }, { selfHost: "me", now, windowMs: window }), true, "no creation time needed");
+  assert.equal(isFreshForeignStory({ unassigned: true, audit: { run: { host: "h" } } }, { selfHost: "me", now, windowMs: window }), false);
+  assert.equal(isFreshForeignStory({ audit: { run: { host: "h" } } }, { selfHost: "me", now, windowMs: 0 }), false);
 });
 
 test("anti-loop: the same bare suggestion is not blocked twice, real work still is", () => {

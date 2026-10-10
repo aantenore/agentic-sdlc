@@ -1,6 +1,6 @@
 # Claude Code installation
 
-Agentic SDLC 0.126.0 ships two host packagings from one source tree:
+Agentic SDLC 0.127.0 ships two host packagings from one source tree:
 
 | Host | Manifest | Command surface | Installer |
 |---|---|---|---|
@@ -80,7 +80,7 @@ The plugin ships one `hooks/hooks.json`, read by both Claude Code and Codex. It 
 - **Only you approve a standing approval.** If the agent tries to run `autonomy standing approve` itself, the call is blocked and the agent hands you the exact command to run in your own terminal.
 - **Standing approval records stay untouched.** Direct edits, deletions, or overwrites of `.sdlc/autonomy/standing/`, rewrites of the `refs/agentic-sdlc/` refs (which also hold the story claims shared across computers), `git clean` or `git stash -u` that would delete uncommitted `.sdlc` records, and clearing the variables that mark the agent's session are blocked; reading, staging, and committing the records stay allowed.
 - **Each session starts informed.** When a project has standing approvals, the session starts with a short list: which are active, how many deliveries are left, and whether the shared state on the git remote can be reached.
-- **Orchestrator mode (opt-in).** Set `host_policy.main_thread` to `"orchestrator"` in `.sdlc/config.json` (default `"free"`) and the session starts with an instruction: the main thread only coordinates (messages, decisions, checking results, single quick read-only commands). Work that needs reasoning (code, fixes, story delivery, review) goes to background subagents; mechanical work (builds, test suites, dev servers, long commands) goes to controlled background processes, meaning an explicit deadline, no orphaned `nohup` or `&`, output in a file read at the end, and a final check that no process is left running. An `Edit`, `Write`, or `NotebookEdit` made from the main thread, recognised by the missing `agent_id` in the hook payload, gets a warning; nothing is blocked, and subagents and shell commands are never touched.
+- **Orchestrator mode (opt-in).** Set `host_policy.main_thread` to `"orchestrator"` in `.sdlc/config.json` (default `"free"`) and the session starts with an instruction: the main thread only coordinates (messages, decisions, checking results, single quick read-only commands). The main thread must never block: any command that might take more than about 10 seconds (tests, builds, plugin updates, publish, fetch) is launched in the background (Claude Code: Bash `run_in_background`, Codex: the equivalent) or delegated to a subagent, and only quick read-only commands run in the foreground. Work that needs reasoning (code, fixes, story delivery, review) goes to background subagents; mechanical work (builds, test suites, dev servers, long commands) goes to controlled background processes, meaning an explicit deadline, no orphaned `nohup` or `&`, output in a file read at the end, and a final check that no process is left running. An `Edit`, `Write`, or `NotebookEdit` made from the main thread, recognised by the missing `agent_id` in the hook payload, gets a warning; nothing is blocked, and subagents and shell commands are never touched.
 
 Claude Code enables plugin hooks with the plugin. Codex asks you to review and trust new plugin hooks at startup ("Review hooks"); until you trust them they do not run, and a non-interactive Codex run needs them trusted beforehand. The hooks act only inside a project that uses agentic-sdlc (a `.sdlc` folder in the working directory or above it); in any other project they do nothing. A hook that fails or times out never blocks your work, and each check adds a short Node start-up to shell and edit calls.
 
@@ -96,6 +96,19 @@ Slash commands reference the CLI through `${CLAUDE_PLUGIN_ROOT}`, which Claude C
 ```
 
 Project behavior does not change silently on update: each initialized project pins its configuration, and a plugin upgrade requires an explicit reviewed migration plan. See [Configuration safety](configuration-safety.md).
+
+## Autonomous update (opt-in)
+
+Set `AGENTIC_SDLC_AUTO_UPDATE=1` in the environment of the computer to enable all of the following; without it nothing below runs.
+
+- **Update.** At SessionStart and Stop (at most every 15 minutes), and as soon as a channel message announces a newer agentic-sdlc release, the hook starts, detached and non-blocking, `claude plugin marketplace update <marketplace>` then `claude plugin update agentic-sdlc@<marketplace>`, within 120 seconds in total. The marketplace is read from the install path (`plugins/cache/<marketplace>/agentic-sdlc/<version>`), else from the plugin's `marketplace.json`. The throttle timestamp, the remembered session folders and the log (`agentic-sdlc-auto-update.log`) live in `$CLAUDE_PLUGIN_DATA`, or in `~/.claude`. Tunables: `AGENTIC_SDLC_AUTO_UPDATE_INTERVAL_MINUTES` (15), `AGENTIC_SDLC_AUTO_UPDATE_TIMEOUT_SECONDS` (120), `AGENTIC_SDLC_AUTO_UPDATE_CLAUDE_BIN` (`claude`).
+- **No reload for hooks and CLI.** The hook entry and `bin/agentic-sdlc.mjs` look for a newer semver folder next to the plugin root in the cache and run the same file of that version, passing stdin, arguments and exit code through; `AGENTIC_SDLC_FORWARDED` prevents forwarding loops.
+- **Files synced in place.** After an update (and at each SessionStart/Stop), the files of the newer version in `skills/`, `commands/`, `hooks/`, `lib/`, `bin/`, `templates/`, `schemas/` and `docs/` are copied over the folder the session uses (each file is written to a temp file, then renamed; a `.agentic-sdlc-synced-version` marker avoids repeating the copy). This happens only when that folder is inside the plugin cache and the source is a sibling with a higher version. Override the list with `AGENTIC_SDLC_AUTO_UPDATE_SYNC_DIRS` (comma-separated). Skill bodies and slash command texts are meant to be read from disk when invoked, so they should refresh without a reload; new skills or commands and changed descriptions in the listing still need `/reload-plugins` or a new session.
+- **Codex.** Not covered: there is no CLI equivalent of `claude plugin update`, so keep using the transactional installer.
+
+## Repositories outside the guard (opt-in)
+
+`AGENTIC_SDLC_UNGOVERNED_REPOS` holds absolute repository paths separated by the OS path separator (`:` on macOS/Linux, `;` on Windows). The guard does not block a push or `gh pr merge` when the git toplevel of the working directory (or of the `git -C` target) is one of them. Every other repository keeps the current behavior.
 
 ## Uninstall
 

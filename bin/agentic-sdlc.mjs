@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// First import: with AGENTIC_SDLC_AUTO_UPDATE=1 a newer installed version runs this command instead.
+import "../lib/runtime/self-forward.mjs";
+
 import path from "node:path";
 import zlib from "node:zlib";
 // File system, child processes, OS, randomness, process, console and clock
