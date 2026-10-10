@@ -592,6 +592,9 @@ function storyNextText(story, storiesById) {
       return successor ? storyTitle(successor) : id;
     }).join(", ")}`;
   }
+  if (story.state === "stopped" && story.iteration?.closure?.reason) {
+    return `${t("Closed")}: ${story.iteration.closure.reason}`;
+  }
   if (story.state === "waiting" && story.waitingOn?.length) {
     return `${t("Waiting for")} ${waitingNames(story, storiesById)}`;
   }
@@ -656,6 +659,7 @@ export function dashboardView(model, state) {
   const inProgress = stateCounts.live;
   const held = stateCounts.waiting + stateCounts.blocked;
   const delivered = stateCounts.delivered;
+  const closed = stateCounts.replaced + stateCounts.stopped;
   const hasPlan = edgesOf(state).length > 0;
 
   const headline = node("section", { className: "dash-hero" }, [
@@ -663,8 +667,12 @@ export function dashboardView(model, state) {
       node("h2", {
         className: "dash-hero-title",
         text: stories.length
-          ? t(stories.length === 1 ? "{done} of {total} story delivered" : "{done} of {total} stories delivered")
-            .replace("{done}", delivered).replace("{total}", stories.length)
+          ? (closed
+            ? t("{done} delivered · {closed} closed · {rest} in progress or to do")
+              .replace("{done}", delivered).replace("{closed}", closed)
+              .replace("{rest}", stories.length - delivered - closed)
+            : t(stories.length === 1 ? "{done} of {total} story delivered" : "{done} of {total} stories delivered")
+              .replace("{done}", delivered).replace("{total}", stories.length))
           : t("No story has been recorded yet."),
       }),
       node("p", { className: "dash-hero-status" }, [
@@ -679,6 +687,7 @@ export function dashboardView(model, state) {
             stateCounts.abandoned ? countText(stateCounts.abandoned, "needs a decision", "need a decision") : null,
             stateCounts.parked ? countText(stateCounts.parked, "parked story", "parked stories") : null,
             stateCounts.replaced ? countText(stateCounts.replaced, "replaced", "replaced") : null,
+            stateCounts.stopped ? countText(stateCounts.stopped, "closed", "closed") : null,
             lastEvent ? `${t("Last activity")} ${relativeTime(lastEvent.time)}` : null,
           ].filter(Boolean).join(" · "),
         }),

@@ -114,7 +114,6 @@
         },
         "deliveries": {
           "type": "array",
-          "minItems": 1,
           "items": {
             "type": "object",
             "required": ["id", "profile_hash", "terminal_status", "close_receipt"],

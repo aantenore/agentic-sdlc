@@ -56,7 +56,7 @@ export const STORY_STATES = Object.freeze([
   Object.freeze({ key: "delivered", label: "Delivered" }),
   Object.freeze({ key: "idle", label: "Not started" }),
   Object.freeze({ key: "replaced", label: "Replaced" }),
-  Object.freeze({ key: "stopped", label: "Stopped" }),
+  Object.freeze({ key: "stopped", label: "Closed" }),
 ]);
 
 export function eventTime(item) {
