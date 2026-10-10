@@ -667,6 +667,62 @@ test("native provider shims do not mutate the host Node executable", () => {
   }
 });
 
+test("a fix story created with --fixes can start its task and be claimed after the short cycle", () => {
+  const project = tmpProject("fix-story-task-start");
+  initializeAutonomyProject(project);
+  mustRunJson([
+    "story", "create", "--no-derived-verification", "--root", project,
+    "--id", "ST-FIXED", "--title", "Fixed story", "--requirement", "REQ-AUTONOMY",
+  ]);
+  const fixId = "ST-FIXED-FIX1";
+  const contractId = "CONTRACT-FIX1";
+  const profileId = "AUT-FIX1";
+  const created = mustRunJson([
+    "story", "create", "--no-derived-verification", "--root", project,
+    "--id", fixId, "--title", "Fix", "--fixes", "ST-FIXED",
+    "--acceptance", "The fix is observable.",
+  ]);
+  assert.equal(created.fix_short_cycle.status, "in_design");
+  mustRunJson([
+    "contract", "create", "--root", project, "--phase", "implementation",
+    "--story", fixId, "--id", contractId, "--delivery-profile", profileId,
+    "--level", "bounded-autonomous",
+    "--context-summary", "Implement the fix inside the reviewed boundary.",
+    "--qa", "Who confirms the delivery boundary?|The human reviewer",
+    "--output-ref", "implementation-summary:implementation-summary-v1:new",
+    "--tool", "node",
+  ]);
+  mustRunJson(["contract", "approve", "--root", project, "--id", contractId, ...humanApproval("Approve fix contract")]);
+  mustRunJson([
+    "autonomy", "delivery", "propose", "--root", project, "--id", profileId,
+    "--delivery", "PR-FIX1", "--kind", "pull_request",
+    "--code-review", "not-required", "--code-review-actor-type", "human",
+    "--code-review-approval-source", "explicit-user", "--code-review-summary", "No review needed",
+    "--story", fixId, "--contract", contractId, "--requirement", "REQ-AUTONOMY",
+    "--level", "checkpointed", "--repository", "aantenore/agentic-sdlc",
+    "--base", "main", "--head", "codex/pr-1", "--write-path", "src",
+    "--allow-action", "git.commit",
+  ]);
+  mustRunJson(["autonomy", "delivery", "approve", "--root", project, "--id", profileId, "--phase", "implementation", ...humanApproval("Approve fix delivery")]);
+  const started = mustRunJson([
+    "task", "start", "--root", project,
+    "--intent-json", taskIntent(fixId), "--delivery-profile", profileId,
+  ]);
+  assert.equal(started.execution_allowed, true, JSON.stringify([started.blocking_reasons, started.autonomy_decision?.reasons, started.questions, started.assistant_message]));
+  const claim = mustRunJson([
+    "story", "claim", "--root", project, "--id", fixId, "--agent", "codex", "--branch", "codex/ST-FIXED-FIX1",
+  ]);
+  assert.equal(claim.status, "claimed");
+  fs.mkdirSync(path.join(project, "src"), { recursive: true });
+  fs.writeFileSync(path.join(project, "src", "fix.txt"), "fix\n", "utf8");
+  mustGit(project, ["add", "--", "src/fix.txt"]);
+  const commit = mustRunJson([
+    "autonomy", "delivery", "action", "--root", project, "--id", profileId,
+    "--action", "git.commit", "--scope-path", "src/fix.txt",
+  ]);
+  assert.equal(commit.status, "authorized");
+});
+
 test("task start blocks product work before preflight when approved requirement write scope is empty", () => {
   const project = tmpProject("empty-requirement-write-scope");
   initializeAutonomyProject(project, { requirementWritePaths: [] });
