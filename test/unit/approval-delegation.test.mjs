@@ -189,6 +189,18 @@ test("a person grants once; the agent applies it and the record says so; revocat
   mustFail(agentApprove("BRK-2"), /revoked .*stop/u, { agent: true });
 });
 
+test("delivery.approve, baseline.approve and story.supersede are delegable and pass the hook when delegated", () => {
+  assert.deepEqual(normalizeDelegationActions("story.supersede,delivery.approve,baseline.approve,story.abandon"),
+    ["baseline.approve", "delivery.approve", "story.abandon", "story.supersede"]);
+  for (const command of [
+    "agentic-sdlc autonomy delivery approve --id AUT-1 --phase implementation",
+    "agentic-sdlc baseline approve --id BASELINE-1",
+    "agentic-sdlc story supersede --id ST-1 --by ST-2 --reason r",
+  ]) {
+    assert.equal(evaluatePreToolUse({ tool_name: "Bash", tool_input: { command: `${command} --actor-type agent --approval-source delegated --delegation DLG-X --summary s` } }), null, command);
+  }
+});
+
 test("delivery.policy is delegable and its answers are parsed strictly", () => {
   assert.deepEqual(normalizeDelegationActions("delivery.policy"), ["delivery.policy"]);
   assert.deepEqual(parseDeliveryPolicy("code-review=not-required,merge=automatic"), { code_review: "not-required", merge: "automatic" });

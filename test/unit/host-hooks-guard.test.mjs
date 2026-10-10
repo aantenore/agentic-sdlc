@@ -675,6 +675,153 @@ test("a repository listed in AGENTIC_SDLC_UNGOVERNED_REPOS is left out of the me
   }
 });
 
+test("the base-branch guard applies only to Agentic SDLC projects, unless the project turns it off", async () => {
+  const { isGuardExempt } = await import("../../lib/host-hooks/merge-authorization.mjs");
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), "hook-scope-"));
+  try {
+    const plain = path.join(base, "plain");
+    const governed = path.join(base, "governed");
+    const releasing = path.join(base, "releasing");
+    for (const dir of [plain, governed, releasing]) {
+      fs.mkdirSync(path.join(dir, "sub"), { recursive: true });
+      assert.equal(spawnSync("git", ["init", "-q"], { cwd: dir }).status, 0);
+    }
+    for (const dir of [governed, releasing]) {
+      fs.mkdirSync(path.join(dir, ".sdlc"));
+      fs.writeFileSync(path.join(dir, ".sdlc", "project.json"), "{}");
+    }
+    const off = JSON.stringify({ host_policy: { guard: { protect_base_branch: false } } });
+    const gitIn = (dir, ...args) => assert.equal(spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", ...args], { cwd: dir }).status, 0, args.join(" "));
+    // Only the committed base branch can turn the rule off.
+    fs.writeFileSync(path.join(releasing, ".sdlc", "config.json"), off);
+    gitIn(releasing, "checkout", "-q", "-b", "main");
+    gitIn(releasing, "add", "-A");
+    gitIn(releasing, "commit", "-q", "-m", "base");
+    const options = (cwd) => ({
+      env: {},
+      isMergeAuthorized: () => false,
+      // Only story branches need a git.push authorization.
+      isStoryPushAuthorized: (attempt) => !attempt.branches.some((branch) => branch.startsWith("feature/")),
+      isUngovernedRepo: (attempt) => isGuardExempt(cwd, attempt),
+    });
+    const toMain = "git push origin main";
+    // A repository that is not an Agentic SDLC project: no guard.
+    assert.equal(evaluatePreToolUse(shell(toMain), options(plain)), null);
+    assert.equal(evaluatePreToolUse(shell(`git -C ${plain} push origin main`), options(governed)), null);
+    assert.equal(evaluatePreToolUse(shell(toMain), options(path.join(plain, "sub"))), null);
+    // A governed project keeps the rule (default true), also when reached through git -C.
+    assert.equal(evaluatePreToolUse(shell(toMain), options(governed))?.decision, "deny");
+    assert.equal(evaluatePreToolUse(shell(`git -C ${governed} push origin main`), options(plain))?.decision, "deny");
+    assert.equal(evaluatePreToolUse(shell("gh pr merge 12"), options(governed))?.decision, "deny");
+    // host_policy.guard.protect_base_branch = false lifts only the base-branch rule, never the story-push rule.
+    assert.equal(evaluatePreToolUse(shell(toMain), options(releasing)), null);
+    assert.equal(evaluatePreToolUse(shell("git push origin feature/ST-1"), options(releasing))?.decision, "deny");
+    assert.equal(isGuardExempt(releasing, { kind: "git push", storyPush: true, branches: ["feature/ST-1"], dirs: [] }), false);
+    assert.equal(isGuardExempt(governed, { kind: "git push to main", direct: true, dirs: [] }), false);
+    assert.equal(isGuardExempt(path.join(base, "missing"), { kind: "git push to main", direct: true, dirs: [] }), false);
+    // A working-tree or staged config never turns the rule off.
+    fs.writeFileSync(path.join(governed, ".sdlc", "config.json"), off);
+    assert.equal(evaluatePreToolUse(shell(toMain), options(governed))?.decision, "deny");
+    gitIn(governed, "add", "-A");
+    assert.equal(evaluatePreToolUse(shell(toMain), options(governed))?.decision, "deny");
+    // A local edit cannot turn the committed "off" back into a hidden "off" for another base, nor undo governance:
+    // removing project.json from the working tree and the index keeps the repository governed by the base branch.
+    const guarded = path.join(base, "guarded");
+    fs.mkdirSync(path.join(guarded, ".sdlc"), { recursive: true });
+    assert.equal(spawnSync("git", ["init", "-q", "-b", "main"], { cwd: guarded }).status, 0);
+    fs.writeFileSync(path.join(guarded, ".sdlc", "project.json"), "{}");
+    gitIn(guarded, "add", "-A");
+    gitIn(guarded, "commit", "-q", "-m", "base");
+    gitIn(guarded, "checkout", "-q", "-b", "feature/x");
+    gitIn(guarded, "rm", "-q", "-r", ".sdlc");
+    fs.mkdirSync(path.join(guarded, ".sdlc"));
+    fs.writeFileSync(path.join(guarded, ".sdlc", "config.json"), off);
+    assert.equal(evaluatePreToolUse(shell(toMain), options(guarded))?.decision, "deny");
+    // An uncommitted local "on" does not undo the committed "off" either: the base decides.
+    fs.writeFileSync(path.join(releasing, ".sdlc", "config.json"), "{}");
+    assert.equal(evaluatePreToolUse(shell(toMain), options(releasing)), null);
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test("a message or here-document that mentions a push to main is not a push", () => {
+  const options = { env: {}, isMergeAuthorized: () => false, isStoryPushAuthorized: () => true };
+  const push = "git push origin main";
+  for (const command of [
+    `cat > note.md <<'EOF'\nRelease: run \`${push}\` by hand.\n${push}\nEOF`,
+    `cat > note.md <<EOF\n${push}\nEOF`,
+    `cat <<-"EOF" > note.md\n\t${push}\n\tEOF`,
+    `printf 'run ${push}\\n' > note.md`,
+    `echo "${push}"`,
+    `agentic-sdlc message send --text "pull after ${push}; thanks"`,
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command), options), null, command);
+  }
+  for (const command of [
+    push,
+    `cat > note.md <<'EOF'\ntext\nEOF\n${push}`,
+    `cat > note.md <<EOF\nx $(${push})\nEOF`,
+    `echo "x $(${push})"`,
+    `bash -c "${push}"`,
+    `x=$((1<<2)); ${push}`,
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command), options)?.decision, "deny", command);
+  }
+});
+
+test("a here-document delimiter is read as the shell reads it; an unreadable one skips nothing", () => {
+  const options = { env: {}, isMergeAuthorized: () => false, isStoryPushAuthorized: () => true };
+  const push = "git push origin main";
+  for (const [operator, terminator] of [["<<X'Y'", "XY"], ['<<E"OF"', "EOF"], ["<<EOF!", "EOF!"], ["<<\\EOF", "EOF"], ["<<-'E O'", "\tE O"]]) {
+    // The body that mentions the push is data when the delimiter is read exactly...
+    assert.equal(evaluatePreToolUse(shell(`cat > note.md ${operator}\n${push}\n${terminator}`), options), null, operator);
+    // ...and a real push after the terminator is still a command.
+    assert.equal(evaluatePreToolUse(shell(`cat > note.md ${operator}\ntext\n${terminator}\n${push}`), options)?.decision, "deny", operator);
+  }
+  for (const command of [
+    // An expansion or an empty word: the following lines are read as commands.
+    `cat <<$(echo EOF)\n${push}\nEOF`,
+    `cat <<"$X"\n${push}\n$X`,
+    `cat << \n${push}`,
+    // Shift inside arithmetic, not a here-document.
+    `echo $((x<<y))\n${push}\ny`,
+    `((a<<b))\n${push}\nb`,
+  ]) {
+    assert.equal(evaluatePreToolUse(shell(command), options)?.decision, "deny", command);
+  }
+});
+
+test("an agent never changes host_policy.guard in .sdlc/config.json", () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), "hook-guard-policy-"));
+  try {
+    const config = path.join(base, ".sdlc", "config.json");
+    fs.mkdirSync(path.dirname(config));
+    fs.writeFileSync(config, JSON.stringify({ host_policy: { main_thread: "free", guard: { protect_base_branch: true } } }));
+    const at = (payload) => evaluatePreToolUse({ cwd: base, ...payload });
+    const write = (content) => at({ tool_name: "Write", tool_input: { file_path: config, content } });
+    assert.equal(at({ tool_name: "Edit", tool_input: { file_path: config, old_string: '"protect_base_branch": true', new_string: '"protect_base_branch": false' } })?.decision, "deny");
+    assert.equal(at({ tool_name: "MultiEdit", tool_input: { file_path: ".sdlc/config.json", edits: [{ old_string: "a", new_string: '"guard": {}' }] } })?.decision, "deny");
+    assert.equal(write(JSON.stringify({ host_policy: { main_thread: "free", guard: { protect_base_branch: false } } }))?.decision, "deny");
+    assert.equal(write(JSON.stringify({ host_policy: { main_thread: "free" } }))?.decision, "deny");
+    assert.equal(at({ tool_name: "apply_patch", tool_input: { command: "*** Update File: .sdlc/config.json\n-  \"protect_base_branch\": true\n+  \"protect_base_branch\": false" } })?.decision, "deny");
+    // Other keys stay editable.
+    assert.equal(write(JSON.stringify({ host_policy: { main_thread: "strict", guard: { protect_base_branch: true } } })), null);
+    assert.equal(at({ tool_name: "Edit", tool_input: { file_path: config, old_string: '"free"', new_string: '"strict"' } }), null);
+    assert.equal(at({ tool_name: "Edit", tool_input: { file_path: "src/guard.js", old_string: "guard", new_string: "protect_base_branch" } }), null);
+    for (const command of [
+      `echo '{"host_policy":{"guard":{"protect_base_branch":false}}}' > .sdlc/config.json`,
+      `jq '.host_policy.guard.protect_base_branch=false' .sdlc/config.json | tee .sdlc/config.json`,
+      `sed -i '' 's/"protect_base_branch": true/"protect_base_branch": false/' .sdlc/config.json`,
+    ]) {
+      assert.equal(evaluatePreToolUse(shell(command))?.decision, "deny", command);
+    }
+    assert.equal(evaluatePreToolUse(shell("cat .sdlc/config.json | jq .host_policy.guard")), null);
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
 test("strict main-thread mode: env wins over the project and the session context says it is enforced", () => {
   assert.equal(mainThreadMode({ host_policy: { main_thread: "free" } }, { AGENTIC_SDLC_MAIN_THREAD: "strict" }), "strict");
   assert.equal(mainThreadMode({ host_policy: { main_thread: "strict" } }, { AGENTIC_SDLC_MAIN_THREAD: "bogus" }), "strict");

@@ -200,3 +200,28 @@ test("a delivery.policy delegation answers code review and merge for a new pull 
   ]);
   assert.equal(approved.delivery_profile.pull_request_target.code_review.source, "delegation");
 });
+
+test("a delivery.approve delegation lets the agent approve a pull-request delivery; none or an expired one is refused", async () => {
+  const { sealDelegationRecord } = await import("../lib/approval-delegation.mjs");
+  const project = prepareCheckpointedCeilingProject();
+  mustRun(grant(project, "DLG-POLICY", "delivery.policy", ["--delivery-policy", "code-review=not-required,merge=automatic"]));
+  mustRunJson(proposeArgs(project, delegated("DLG-POLICY")));
+  const approve = (extra) => [
+    "autonomy", "delivery", "approve", "--root", project, "--id", PROFILE_ID, "--phase", "implementation", ...extra, "--summary", "Approve the delivery",
+  ];
+
+  mustFail(approve(["--actor-type", "agent", "--approval-source", "explicit-user"]), /human/u);
+  mustFail(approve(["--actor-type", "agent", "--approval-source", "automation"]), /code review choice, so automation cannot approve it/u);
+  mustFail(approve(delegated("DLG-POLICY")), /does not cover the action delivery\.approve/u);
+
+  mustRun(grant(project, "DLG-OLD", "delivery.approve"));
+  const oldPath = path.join(project, ".sdlc/autonomy/delegations/DLG-OLD/delegation.json");
+  const old = JSON.parse(fs.readFileSync(oldPath, "utf8"));
+  fs.writeFileSync(oldPath, `${JSON.stringify(sealDelegationRecord({ ...old, expires_at: "2020-01-01T00:00:00.000Z" }), null, 2)}\n`);
+  mustFail(approve(delegated("DLG-OLD")), /expired/u);
+
+  mustRun(grant(project, "DLG-APPROVE", "delivery.approve"));
+  const approved = mustRunJson(approve(delegated("DLG-APPROVE")));
+  assert.equal(approved.delivery_profile.status, "active");
+  assert.equal(fs.readdirSync(path.join(project, ".sdlc/autonomy/delegations/DLG-APPROVE/uses")).length, 1);
+});

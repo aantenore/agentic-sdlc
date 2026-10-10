@@ -240,3 +240,41 @@ test("publishing named record files refuses a path outside the records folder an
   assert.match(result.stdout, /RECORDS_PUBLISH_SCOPE_VIOLATION/u, result.stderr);
   assert.equal(git(remote, ["rev-parse", "refs/heads/main"]), before);
 });
+
+function rejectPushes(remote, times) {
+  const counter = path.join(remote, "rejections");
+  const hook = path.join(remote, "hooks", "pre-receive");
+  fs.writeFileSync(hook, `#!/bin/sh
+n=$(cat "${counter}" 2>/dev/null || echo 0)
+if [ "$n" -lt ${times} ]; then echo $((n + 1)) > "${counter}"; echo "busy: another publication is running" >&2; exit 1; fi
+exit 0
+`);
+  fs.chmodSync(hook, 0o755);
+  // The isolated global config points hooks elsewhere; the remote uses its own.
+  git(remote, ["config", "core.hooksPath", path.join(remote, "hooks")]);
+  return () => Number(fs.readFileSync(counter, "utf8").trim() || 0);
+}
+
+test("a refused push is retried on the fresh tip up to four times, and the reason shown is the remote's", async () => {
+  const { publishBackoffMs } = await import("../lib/engine/story-sync.mjs");
+  assert.deepEqual([1, 2, 3, 4].map((attempt) => publishBackoffMs(attempt, {})), [0, 1000, 2000, 4000]);
+  assert.deepEqual([1, 2, 3].map((attempt) => publishBackoffMs(attempt, { AGENTIC_SDLC_PUBLISH_BACKOFF_MS: "5" })), [0, 5, 10]);
+
+  const { remote, second } = twoComputers("retry");
+  write(second, `.sdlc/stories/${STORY}/final.json`, "{}\n");
+  const rejections = rejectPushes(remote, 3);
+  const published = autoPublish(second, { AGENTIC_SDLC_PUBLISH_BACKOFF_MS: "0" });
+  assert.equal(published.status, "published", published.stderr);
+  assert.equal(published.attempt, 4);
+  assert.equal(rejections(), 3);
+  assert.equal(git(remote, ["rev-parse", "refs/heads/main"]), published.commit);
+
+  const again = twoComputers("refused");
+  write(again.second, `.sdlc/stories/${STORY}/final.json`, "{}\n");
+  const refused = rejectPushes(again.remote, 99);
+  const failed = autoPublish(again.second, { AGENTIC_SDLC_PUBLISH_BACKOFF_MS: "0" });
+  assert.equal(failed.status, "failed");
+  assert.equal(refused(), 4);
+  assert.match(failed.problem, /refused the push to main \((?:remote: busy|.*rejected|error:)/u);
+  assert.doesNotMatch(failed.problem, /\(To /u);
+});

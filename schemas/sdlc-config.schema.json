@@ -275,6 +275,14 @@
             "max_consecutive_blocks": { "type": "integer", "minimum": 1, "maximum": 20 }
           },
           "additionalProperties": false
+        },
+        "guard": {
+          "type": "object",
+          "properties": {
+            "principle": { "type": "string" },
+            "protect_base_branch": { "type": "boolean", "default": true }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

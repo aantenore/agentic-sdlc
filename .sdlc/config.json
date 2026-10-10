@@ -1127,5 +1127,11 @@
     "implementation_requires_acceptance_criteria": true,
     "validation_requires_test_trace": true,
     "release_requires_release_trace": true
+  },
+  "host_policy": {
+    "guard": {
+      "principle": "This repository releases by pushing directly to main; the base-branch merge and push rule does not apply here.",
+      "protect_base_branch": false
+    }
   }
 }

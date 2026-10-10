@@ -23,7 +23,7 @@ import {
   sessionStartContext,
   strictMainThreadVerdict,
 } from "../lib/host-hooks/guard.mjs";
-import { isUngovernedRepo, mergeAuthorized, storyPushAuthorized } from "../lib/host-hooks/merge-authorization.mjs";
+import { isGuardExempt, isUngovernedRepo, mergeAuthorized, storyPushAuthorized } from "../lib/host-hooks/merge-authorization.mjs";
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = path.join(PLUGIN_ROOT, "bin", "agentic-sdlc.mjs");
@@ -116,7 +116,7 @@ function preToolUse(payload) {
   const root = governedRoot(payload.cwd);
   const verdict = evaluatePreToolUse(payload, {
     env: process.env,
-    isUngovernedRepo: (attempt) => isUngovernedRepo(payload.cwd, attempt.dirs, process.env),
+    isUngovernedRepo: (attempt) => isUngovernedRepo(payload.cwd, attempt.dirs, process.env) || isGuardExempt(payload.cwd, attempt),
     isMergeAuthorized: (attempt) => mergeAuthorized(root, payload.cwd, attempt),
     isStoryPushAuthorized: (attempt) => storyPushAuthorized(root, payload.cwd, attempt),
   });
