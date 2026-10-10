@@ -1391,6 +1391,17 @@ function buildCliRuntimeHandlerRegistry() {
     "story.park": call(parkStory),
     "story.resume": call(resumeStory),
     "story.wait": call(storyWait),
+    "story.prepare": project(async ({ context, options }) => {
+      const { storyPrepareCommand } = await import("../lib/engine/story-prepare.mjs");
+      const { messageSend } = await import("../lib/messaging/commands.mjs");
+      return storyPrepareCommand(context, options, {
+        createContract,
+        proposeDelivery: proposeDeliveryAutonomy,
+        startTask,
+        claimStory,
+        announce: ({ story, kind, text }) => messageSend({ root: context.root, story, kind, text }),
+      });
+    }),
     "story.working": bootstrap(({ options }) => storyWorking(options)),
     "story.publish-records": project(verified(({ context, options }) => noteForMessages(publishStoryRecords)(context, options))),
     "story.close": project(verified(({ context, options }) => closeStory(context, options))),

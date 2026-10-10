@@ -2006,6 +2006,18 @@ A claim's lease is renewed by activity, without any heartbeat: its effective exp
 
 Every claimed story in `orchestrate status` and `status` carries `claim_health` (`shared_claims.claims[].health` in `status`): `active`; `waiting` (with `wait`: kind, target, since, until, source); `idle` (no push for `orchestration_policy.claim_activity.idle_after_seconds`, 4 hours when the key is absent, off when it is `null`); or `abandoned` (lease ended and no valid wait). Only an abandoned claim is `stale`. Abandoned claims are listed under `claims_needing_decision` ("Needs a person's decision") with the exact commands: `story claim --id <story> --agent "<agent>" --force --reason "<why>" --actor-type human` or `story park --id <story> --reason "<why>" --actor-type human`. Nothing is ever released or taken over by itself. Summaries add `waiting`, `idle`, and `abandoned` (`waiting_claims`, `idle_claims`, `abandoned_claims` in `status`) only when non-zero. The Change Observatory shows the same health from what the clone last fetched.
 
+## Preparing a story while its dependency is open
+
+```bash
+node bin/agentic-sdlc.mjs story prepare --root <project> --id ST-002 --depends-on ST-001 [--level checkpointed] [--agent <name>] [--branch <branch>] [--worktree-path <path>]
+node bin/agentic-sdlc.mjs story prepare --root <project> --id ST-002 --depends-on https://github.com/acme/app/pull/42
+node bin/agentic-sdlc.mjs story prepare --root <project> --resolve [--id ST-002]
+```
+
+`story prepare` does, while `--depends-on` (a story id or a pull request URL) is still open, everything that does not need the dependency: the implementation contract (`contract-<story>-implementation`), the delivery profile (only with `--level`, otherwise it stays to do with `autonomy delivery propose`) and a worktree plus branch cut from the current remote base branch (`--worktree-path`, default a sibling folder named `<project>-<story>`). Nothing is started or claimed. The preparation and the dependency are recorded in `.sdlc/prepared-starts/<story>.json` (`state: waiting`); a step that cannot run (missing input, refusal) stays `pending` in the record with its error instead of failing the preparation. For a story dependency the record notes whether the approved dependency graph already has the edge.
+
+`story prepare --resolve` looks at every waiting preparation (the watch and the keep-going hook run it by themselves; `AGENTIC_SDLC_PREPARED_STARTS=off` switches that off). A story dependency counts as merged when it has a closure record, a pull request when `gh pr view` reports it merged. When the dependency is merged the worktree is rebased onto the freshly fetched base branch, `task start` and `story claim` run, the record becomes `started` and the channel gets an `info` message. When the dependency is closed without a merge (a pull request closed, a story superseded or cancelled) the record becomes `dependency_closed`, a `question` is sent and nothing starts. If the realignment or the start is refused the record becomes `start_blocked` with the reason and the same message is sent. A handled record is final, so resolving again does nothing. If the state of the dependency cannot be read (no `gh`, no network) the preparation keeps waiting.
+
 ## Messages between computers
 
 ```bash
