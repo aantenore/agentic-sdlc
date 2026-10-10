@@ -402,3 +402,28 @@ test("only a person archives a project, and archived records are never changed b
   assert.equal(evaluatePreToolUse(shell("mv .sdlc .sdlc-archive/x"))?.decision, "deny");
   assert.equal(evaluatePreToolUse(shell("rm -rf .sdlc"))?.decision, "deny");
 });
+
+test("a message that only mentions a person-only command is allowed", () => {
+  const text = "ho preparato: agentic-sdlc autonomy delivery evidence supersede --id X; poi agentic-sdlc autonomy standing approve";
+  assert.equal(evaluatePreToolUse(shell(`node /p/bin/agentic-sdlc.mjs message send --to a --text "${text}"`)), null);
+  assert.equal(evaluatePreToolUse(shell(`agentic-sdlc message send --text '${text}'`)), null);
+});
+
+test("person-only commands stay blocked when really invoked", () => {
+  const supersede = "autonomy delivery evidence supersede --id AUT-1 --receipt R --path a.txt";
+  for (const command of [
+    `node /p/bin/agentic-sdlc.mjs ${supersede}`,
+    `FOO=1 npx agentic-sdlc ${supersede}`,
+    `echo ok && agentic-sdlc ${supersede}`,
+    `agentic-sdlc autonomy "standing" approve --id S1`,
+    `agentic-sdlc project archive --apply`,
+  ]) assert.equal(evaluatePreToolUse(shell(command))?.decision, "deny", command);
+  assert.equal(evaluatePreToolUse(shell("agentic-sdlc project archive")), null);
+});
+
+test("person-only commands stay blocked inside sh -c", () => {
+  const inner = "node bin/agentic-sdlc.mjs autonomy delivery reconcile --id AUT-1";
+  assert.equal(evaluatePreToolUse(shell(`sh -c "${inner}"`))?.decision, "deny");
+  assert.equal(evaluatePreToolUse(shell(`bash -lc '${inner}'`))?.decision, "deny");
+  assert.equal(evaluatePreToolUse(shell(`agentic-sdlc message send --text "$(${inner})"`))?.decision, "deny");
+});
