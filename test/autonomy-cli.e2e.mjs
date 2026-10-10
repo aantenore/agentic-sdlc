@@ -721,6 +721,17 @@ test("a fix story created with --fixes can start its task and be claimed after t
     "--action", "git.commit", "--scope-path", "src/fix.txt",
   ]);
   assert.equal(commit.status, "authorized");
+  // The inherited short cycle does not count as progress before task start in the lifecycle gate.
+  const gate = run([
+    "gate", "check", "--root", project, "--strict", "--story", fixId, "--lifecycle-complete", "--json",
+  ]);
+  assert.equal(gate.error, undefined, gate.error?.message);
+  const report = JSON.parse(gate.stdout);
+  assert.equal(
+    report.errors.some((error) => /task start occurred after the first/u.test(error)),
+    false,
+    gate.stdout,
+  );
 });
 
 test("task start blocks product work before preflight when approved requirement write scope is empty", () => {

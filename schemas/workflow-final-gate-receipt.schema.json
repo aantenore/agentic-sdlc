@@ -126,6 +126,7 @@
             }
           }
         },
+        "inherited_phases": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "release_trace_at": { "type": "string", "format": "date-time" },
         "delivery_closed_at": { "type": "string", "format": "date-time" }
       }
