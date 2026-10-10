@@ -1096,6 +1096,7 @@ import {
   confirmStoryOverlap,
   showStoryOverlap,
 } from "../lib/engine/story-overlap.mjs";
+import { showStoryScopeCheck } from "../lib/engine/story-scope.mjs";
 import {
   acknowledgeStoryBaseCommit,
 } from "../lib/engine/base-acknowledgements.mjs";
@@ -1330,6 +1331,7 @@ function buildCliRuntimeHandlerRegistry() {
     "story.working": bootstrap(({ options }) => storyWorking(options)),
     "story.publish-records": call(noteForMessages(publishStoryRecords)),
     "story.sync": call(syncStory),
+    "story.scope.check": report(showStoryScopeCheck),
     "story.overlap": report(showStoryOverlap),
     "story.overlap.confirm": call(confirmStoryOverlap),
     "story.base.acknowledge": call(acknowledgeStoryBaseCommit),

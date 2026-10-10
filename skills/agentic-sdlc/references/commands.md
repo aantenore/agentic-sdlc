@@ -811,6 +811,14 @@ node bin/agentic-sdlc.mjs story overlap --root <project> --id ST-002 --json
 node bin/agentic-sdlc.mjs story overlap confirm --root <project> --id ST-002 --summary "Rebased on ST-001 and re-ran the tests"
 ```
 
+Check the write scope early, read-only, instead of at the governed `git.commit`:
+
+```bash
+node bin/agentic-sdlc.mjs story scope check --root <project> --id ST-002 [--paths src/a.ts,docs/b.md]
+```
+
+It compares the modified and new files of the worktree (or `--paths`) with the allowed write paths of the delivery profile and of each requirement, and lists those outside with the way out (move them into an approved path, or revise the requirement or profile). It also warns when the delivery profile lacks `git.push`, `pull_request.create` or `pull_request.merge` (`merge_allowed=false`): propose a new profile with `--merge-allowed` before the pull request is opened. `next` runs it for stories in implementation with uncommitted changes; `task start --confirm-start` and `story claim` print the allowed write paths.
+
 A commit that reached the base branch outside any delivery (pushed straight
 to main) makes `git.commit` and `git.push` refuse the story branches that
 picked it up. Commits that only touch `.sdlc/` records, and a commit followed
@@ -1254,7 +1262,7 @@ node bin/agentic-sdlc.mjs test record \
   --summary "Full suite on the reviewed implementation branch"
 ```
 
-The command is recorded, never run. A story in validation with only a `trace append --type test` entry and no `test-run:v1` record is the legacy weaker form; prefer `test record` for validation evidence and use `trace append --type test` only where a durable test record does not apply.
+The command is recorded, never run. An `--evidence` file outside the project root is refused with the exact destination (`.sdlc/tests/<story>-<name>`); add `--copy-evidence` to copy it there and register the copy. A story in validation with only a `trace append --type test` entry and no `test-run:v1` record is the legacy weaker form; prefer `test record` for validation evidence and use `trace append --type test` only where a durable test record does not apply.
 
 ## Derived Verification Criteria
 
