@@ -19,6 +19,8 @@ import {
   syncStory,
 } from "../lib/engine/story-sync.mjs";
 import { autoPublishEvent } from "../lib/story-sync-plan.mjs";
+import { activateVerifyCache } from "../lib/engine/verify-cache.mjs";
+import { autoCloseEnabled, closeStory, startBackgroundClose } from "../lib/engine/story-close.mjs";
 import {
   childProcess,
   console,
@@ -1204,6 +1206,13 @@ function publishRecordsAfter(handler) {
         ? normalizeId(String(options.story))
         : event ? AUTO_MESSAGING.extra?.story ?? deliveryProfileStoryIds(context, options)[0] ?? null : null;
       if (storyId) await autoPublishStoryRecords(context, { storyId, event, options });
+      // Opt-in: close the story in the background after its merge.
+      if (storyId && event === "pull_request.merge" && autoCloseEnabled(context.config)) {
+        const started = startBackgroundClose(context, storyId);
+        process.stderr.write(started.started
+          ? `agentic-sdlc: story close --id ${storyId} started in the background (log: ${started.log}).\n`
+          : `agentic-sdlc: automatic story close of ${storyId} did not start (${started.reason}); run story close --id ${storyId}.\n`);
+      }
     } catch {
       // Publication is best effort; its own failure path already reported the problem.
     }
@@ -1238,6 +1247,15 @@ function buildCliRuntimeHandlerRegistry() {
   const preConfig = (handle) => cliHandler("pre-config", handle);
   const project = (handle) => cliHandler("project", handle);
   const call = (handler) => project(({ context, options }) => handler(context, options));
+  // Commands that re-verify records and traces reuse the verified hashes of unchanged files.
+  const verified = (handler) => (invocation) => {
+    try {
+      activateVerifyCache(invocation.context.root);
+    } catch {
+      // Without the cache everything is verified, as before.
+    }
+    return handler(invocation);
+  };
   // Commands that write a story's records read Git live but trust the other
   // stories' sealed final receipts; `storyIds` names the stories they verify.
   const storyWrite = (handler, storyIds) => project(({ context, options }) =>
@@ -1364,15 +1382,16 @@ function buildCliRuntimeHandlerRegistry() {
     "story.fast-track": call(fastTrackStoryCommand),
     "story.derive-verification": call(deriveStoriesVerification),
     "story.claim": call(claimStory),
-    "story.release": call(noteForMessages(releaseStoryClaim)),
+    "story.release": project(verified(({ context, options }) => noteForMessages(releaseStoryClaim)(context, options))),
     "story.reserve": call(reserveStory),
     "story.availability": call(showStoryAvailability),
     "story.park": call(parkStory),
     "story.resume": call(resumeStory),
     "story.wait": call(storyWait),
     "story.working": bootstrap(({ options }) => storyWorking(options)),
-    "story.publish-records": call(noteForMessages(publishStoryRecords)),
-    "story.sync": call(syncStory),
+    "story.publish-records": project(verified(({ context, options }) => noteForMessages(publishStoryRecords)(context, options))),
+    "story.close": project(verified(({ context, options }) => closeStory(context, options))),
+    "story.sync": project(verified(({ context, options }) => syncStory(context, options))),
     "story.scope.check": report(showStoryScopeCheck),
     "story.overlap": report(showStoryOverlap),
     "story.overlap.confirm": call(confirmStoryOverlap),
@@ -1422,7 +1441,7 @@ function buildCliRuntimeHandlerRegistry() {
     "test.triage": call(triageTestCases),
     "incident.record": call(recordIncident),
     "feedback.record": call(recordFeedback),
-    "secret.scan": call(runSecretScan),
+    "secret.scan": project(verified(({ context, options }) => runSecretScan(context, options))),
     "review.record": call(recordCodeReview),
     "review.require": call(requireCodeReview),
     "review.waive": call(waiveCodeReview),
@@ -1449,7 +1468,7 @@ function buildCliRuntimeHandlerRegistry() {
     // in full (AGENTIC_SDLC_STATUS_CHECKS=full verifies them all). The
     // lifecycle-complete gate writes and re-checks the final receipt, so it
     // keeps reading live and only trusts the other stories' sealed receipts.
-    "gate.check": project(factsAfter(publishRecordsAfter(({ context, options }) => rememberResult(options["lifecycle-complete"] === true
+    "gate.check": project(verified(factsAfter(publishRecordsAfter(({ context, options }) => rememberResult(options["lifecycle-complete"] === true
       ? withSealedReceiptTrust(
         options.story
           && !options["release-manifest"]
@@ -1464,7 +1483,7 @@ function buildCliRuntimeHandlerRegistry() {
           && String(options.scope || "story") === "story"
           && sealedReceiptTrustEnabled(),
         verifyStoryId: options.story ? normalizeId(String(options.story)) : null,
-      }))))),
+      })))))),
     "orchestrate.status": report(showOrchestrationStatus),
     "orchestrate.plan": report(showOrchestrationPlan),
     "route.decide": call(decideRoute),

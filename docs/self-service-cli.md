@@ -648,3 +648,42 @@ instructions for every project; it is intentionally outside V2's
 retained-backup boundary.
 See [Portable install](portable-install.md) for supported environments, trust
 boundaries, removal, and recovery.
+
+## Closing a merged story in one step
+
+`agentic-sdlc story close --id <story>` runs, after the merge, everything the
+story still needs: story sync, an incremental secret scan, the release trace
+when it is missing (evidence: the `pull_request.merge` receipt, or
+`--evidence <path>`), the `release` and `operations` steps when the governed
+chain allows them (`--authorization <id>` when it needs one), release of the
+claim, `gate check --strict --lifecycle-complete` and
+`story publish-records --to-base`.
+
+- One git check and one `git fetch` are shared by every phase
+  (`AGENTIC_SDLC_FETCHED_REMOTES` tells each phase to skip its own fetch;
+  `--no-fetch` skips it entirely).
+- It stops at the first block with that command's message and remembers the
+  finished phases in `.git/agentic-sdlc/close/<story>.json`: running it again
+  resumes from there. Sync, gate and publication run again when the base
+  branch moved; `--restart` forgets everything.
+- `--json` reports `preflight_ms`, `total_ms` and the `duration_ms` of each
+  phase.
+- Automatic close (opt-in): with `AGENTIC_SDLC_AUTO_CLOSE=1` or
+  `orchestration_policy.auto_close: true`, a passed `pull_request.merge`
+  starts `story close` in the background, logging to
+  `.git/agentic-sdlc/close/<story>.log` and announcing the outcome on the
+  coordination channel.
+
+`secret scan --incremental` reads only the story's net diff (for a merged
+story, what its merge commit brought in; otherwise the diff against the
+merge-base with the remote base branch) plus the story's `.sdlc` records.
+Without it the scan covers the whole delivery since task start (full mode,
+used by the project gate). Committed files are read with one batched
+`git cat-file` instead of three git calls per file.
+
+Gates, sync, publication and close keep the hashes they verified in
+`.git/agentic-sdlc/verify-cache.json`: record files by path, size, mtime,
+ctime and inode (files modified in the last two seconds are always hashed
+again), trace hash chains by the sha256 of the trace and checkpoint bytes.
+Only successful verifications are kept; a plugin version change empties the
+cache, and `AGENTIC_SDLC_VERIFY_CACHE=off` turns it off.
