@@ -105,7 +105,7 @@ test("baseline drift is accepted only when the committed file matches the base b
   assert.equal(baselineDriftFromBase(f.context, profile, "app/x.js"), null);
 });
 
-test("merge recorded after the base advanced past the proven merge: records/outside accepted, inside refused", () => {
+test("merge recorded after the base advanced past the proven merge: accepted by ancestry, unrelated base refused", () => {
   const f = fixture();
   git(f.root, "checkout", "-q", "-b", "feature/ST-1", f.base0);
   const source = commit(f.root, { "app/x.js": "feature\n" }, "feature");
@@ -130,9 +130,17 @@ test("merge recorded after the base advanced past the proven merge: records/outs
   assert.deepEqual(check(merged), { valid: true, mode: "squash", errors: [] });
   const recordsOnly = check(records);
   assert.equal(recordsOnly.valid, true);
-  assert.equal(recordsOnly.base_advance.reason, "base_advanced_after_merge_records_only");
-  assert.equal(check(outside).base_advance.reason, "base_advanced_after_merge_outside_write_paths");
-  assert.equal(check(inside).valid, false);
+  assert.equal(recordsOnly.base_advance.reason, "base_advanced_after_merge_ancestry");
+  assert.equal(check(outside).base_advance.reason, "base_advanced_after_merge_ancestry");
+  // Later commits inside the write paths cannot alter the completed merge.
+  const insideAdvance = check(inside);
+  assert.equal(insideAdvance.valid, true);
+  assert.equal(insideAdvance.base_advance.reason, "base_advanced_after_merge_ancestry");
+  assert.equal(insideAdvance.base_advance.local_base_sha, inside);
+  // A local base that does not contain the proven merge is refused.
+  git(f.root, "checkout", "-q", "-b", "unrelated", f.base0);
+  const unrelated = commit(f.root, { "docs/z.md": "1\n" }, "unrelated");
+  assert.equal(check(unrelated).valid, false);
   assert.equal(check(records, {}).valid, false);
   assert.equal(check(f.base0).mode, "base-tracking-stale");
 });
