@@ -1,0 +1,93 @@
+{
+  "autonomous": false,
+  "blocked": false,
+  "decision_hash": "a6da4f5afef90a113f45516e4f9d3bfd758310bc73661172996c0b6f400af04b",
+  "delivery": {
+    "id": "PR-136508",
+    "kind": "pull_request",
+    "profile_hash": "a17363738971f91d71c8e8399688502f53f21ccfca3c4dd1adeac441dd6861f9",
+    "profile_id": "AUT-MERGE-A"
+  },
+  "effective_level": "supervised",
+  "evaluated_at": "2026-10-10T04:29:44.870Z",
+  "execution_status": "approval_required",
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "AUT-DEC-20261010042944864-79bc26",
+  "kind": "autonomy_decision",
+  "material_drift": [],
+  "phase": "implementation",
+  "reason_codes": [
+    "authority.audit_only_caps_autonomy",
+    "delivery.authority.audit_only_caps_autonomy",
+    "requirement.authority.audit_only_caps_autonomy"
+  ],
+  "requested_level": "supervised",
+  "requires_checkpoint": false,
+  "requires_human_approval": true,
+  "schema_version": "autonomy-decision:v1",
+  "source_constraints": [
+    {
+      "blocked": false,
+      "level": "checkpointed",
+      "reason_codes": [
+        "authority.audit_only_caps_autonomy"
+      ],
+      "source": "host",
+      "valid": true
+    },
+    {
+      "blocked": false,
+      "level": "bounded-autonomous",
+      "reason_codes": [],
+      "source": "project",
+      "valid": true
+    },
+    {
+      "blocked": false,
+      "level": "supervised",
+      "reason_codes": [
+        "requirement.authority.audit_only_caps_autonomy"
+      ],
+      "source": "requirement:AUT-REQ-MERGE-A-R1",
+      "valid": true
+    },
+    {
+      "blocked": false,
+      "level": "supervised",
+      "reason_codes": [
+        "delivery.authority.audit_only_caps_autonomy"
+      ],
+      "source": "delivery",
+      "valid": true
+    },
+    {
+      "blocked": false,
+      "level": "supervised",
+      "reason_codes": [],
+      "source": "contract",
+      "valid": true
+    },
+    {
+      "blocked": false,
+      "level": "checkpointed",
+      "reason_codes": [],
+      "source": "capability",
+      "valid": true
+    },
+    {
+      "blocked": false,
+      "level": "supervised",
+      "reason_codes": [],
+      "source": "environment",
+      "valid": true
+    },
+    {
+      "blocked": false,
+      "level": "checkpointed",
+      "reason_codes": [],
+      "source": "budget",
+      "valid": true
+    }
+  ],
+  "version": 1
+}

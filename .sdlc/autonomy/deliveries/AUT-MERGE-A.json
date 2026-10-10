@@ -1,0 +1,226 @@
+{
+  "approval_ref": {
+    "hash": "cce1e56d166289cb5a65c347f2ffab470dd814912eec5fceb004c9a88ea185a6",
+    "id": "AUT-APR-20261010042944849-ec418b",
+    "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042944849-ec418b.json"
+  },
+  "authority_assurance": {
+    "mode": "audit_only",
+    "receipt_ref": null,
+    "source": "declared_cli_attribution",
+    "verified": false
+  },
+  "checkpoints": [
+    "contract.approve",
+    "data.migrate",
+    "data.rollback",
+    "deploy.remote",
+    "output.link",
+    "pull_request.merge",
+    "release.local",
+    "rollback.verify",
+    "story.claim",
+    "story.complete-step",
+    "sync.commit",
+    "sync.pr",
+    "sync.push",
+    "task.start.confirm"
+  ],
+  "constraints": {
+    "allowed_capabilities": [
+      "code-review",
+      "knowledge-base",
+      "node",
+      "repo-read",
+      "repo-write",
+      "test-runner"
+    ],
+    "allowed_environments": [
+      "pull_request"
+    ],
+    "allowed_tools": [
+      "code-review",
+      "knowledge-base",
+      "node",
+      "repo-read",
+      "repo-write",
+      "test-runner"
+    ],
+    "allowed_write_paths": [
+      "docs",
+      "src"
+    ],
+    "budget_ref": null,
+    "forbidden_actions": [
+      "budget-extension",
+      "destructive-action",
+      "environment-change",
+      "external-access",
+      "external-publication",
+      "gate-bypass",
+      "global-install",
+      "irreversible-migration",
+      "new-tool-or-capability",
+      "new-write-path",
+      "production-access",
+      "protected-branch-merge",
+      "remote-deploy",
+      "requirement-change",
+      "scope-expansion",
+      "secret-access",
+      "security-privacy-compliance-decision"
+    ]
+  },
+  "contract_refs": [
+    {
+      "hash": "03c46e74ecb2dae5c702482b374a7409e5a64ab3017f6d2479fb6f9195095053",
+      "id": "CONTRACT-MERGE-A",
+      "path": ".sdlc/contracts/CONTRACT-MERGE-A.json"
+    }
+  ],
+  "created_at": "2026-10-10T04:29:43.648Z",
+  "delivery_id": "PR-136508",
+  "delivery_kind": "pull_request",
+  "effective_level": "supervised",
+  "expires_at": null,
+  "extensions": {
+    "approved_profile_hash": "3c179b40361656d57081c9c770f22f68dfcd098f017bbc9185623b299b4e0aef",
+    "exact_delivery_selection": true,
+    "requirement_ids": [
+      "REQ-MERGE-A"
+    ]
+  },
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "AUT-MERGE-A",
+  "kind": "delivery_execution_profile",
+  "local_release_target": null,
+  "material_scope": {
+    "acceptance_criteria": [
+      "Observable evidence exists for MERGE-A."
+    ],
+    "budget": null,
+    "capabilities": [
+      "code-review",
+      "knowledge-base",
+      "node",
+      "repo-read",
+      "repo-write",
+      "test-runner"
+    ],
+    "environment": [
+      "pull_request"
+    ],
+    "external_or_production_access": {
+      "destructive": false,
+      "external": false,
+      "production": false
+    },
+    "objective": "Implement story-scoped changes on dedicated branches using the approved contract, tests, and knowledge base context.",
+    "release_target": {
+      "allowed_actions": [
+        "pull_request.update",
+        "repository.read",
+        "repository.write",
+        "test.run"
+      ],
+      "base_branch": "main",
+      "code_review": {
+        "actor_id": "user",
+        "decided_at": "2026-10-10T04:29:43.648Z",
+        "decision": "not-required",
+        "source": "explicit-user",
+        "standing_approval_id": null,
+        "user_words": "No review needed for this story"
+      },
+      "head_branch": "codex/ST-MERGE-A",
+      "merge_allowed": false,
+      "mode": "existing",
+      "pr_number": 136508,
+      "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/136508",
+      "repository": "github.com/aantenore/agentic-sdlc",
+      "reviewed_head_sha": "ffbe170d17bc74f81bc44212152ac13909aec989"
+    },
+    "scope": {
+      "contract_id": "CONTRACT-MERGE-A",
+      "delivery_id": "PR-136508",
+      "delivery_profile_id": "AUT-MERGE-A",
+      "requirement_profile_ids": [
+        "AUT-REQ-MERGE-A-R1"
+      ],
+      "story_id": "ST-MERGE-A"
+    },
+    "write_paths": [
+      "docs",
+      "src"
+    ]
+  },
+  "material_scope_hash": "9afc93de7db1a6b730feeb93948ca634aa4e0e8b2f13160c4512043259e27c35",
+  "phase_levels": {},
+  "profile_hash": "a17363738971f91d71c8e8399688502f53f21ccfca3c4dd1adeac441dd6861f9",
+  "provider_bindings": [
+    {
+      "action": "git.push",
+      "provider_id": "git-remote"
+    },
+    {
+      "action": "pull_request.merge",
+      "provider_id": "github-cli"
+    },
+    {
+      "action": "pull_request.update",
+      "provider_id": "github-cli"
+    }
+  ],
+  "provider_bindings_hash": "7d56af3b8e2ac52c8d507b35a8f5281f3505f8d25a6ec245293ff52c25e40c4d",
+  "pull_request_target": {
+    "allowed_actions": [
+      "pull_request.update",
+      "repository.read",
+      "repository.write",
+      "test.run"
+    ],
+    "base_branch": "main",
+    "code_review": {
+      "actor_id": "user",
+      "decided_at": "2026-10-10T04:29:43.648Z",
+      "decision": "not-required",
+      "source": "explicit-user",
+      "standing_approval_id": null,
+      "user_words": "No review needed for this story"
+    },
+    "head_branch": "codex/ST-MERGE-A",
+    "merge_allowed": false,
+    "mode": "existing",
+    "pr_number": 136508,
+    "pr_url": "https://github.com/aantenore/agentic-sdlc/pull/136508",
+    "repository": "github.com/aantenore/agentic-sdlc",
+    "reviewed_head_sha": "ffbe170d17bc74f81bc44212152ac13909aec989"
+  },
+  "requested_level": "supervised",
+  "requirement_profile_refs": [
+    {
+      "hash": "e8f69c576923bf7c74122ad4a7f0c16ea865bb9df0f4cd1008cc80f5b86db4bc",
+      "id": "AUT-REQ-MERGE-A-R1",
+      "path": ".sdlc/autonomy/requirements/AUT-REQ-MERGE-A-R1.json"
+    }
+  ],
+  "schema_version": "delivery-execution-profile:v2",
+  "status": "active",
+  "story_refs": [
+    {
+      "hash": "b7413e5849de436fb0fcb9e1d73107203c1c28e932e531deb8a4271b0fcff27e",
+      "id": "ST-MERGE-A",
+      "path": ".sdlc/stories/ST-MERGE-A/story.json"
+    }
+  ],
+  "updated_at": "2026-10-10T04:29:44.863Z",
+  "use_policy": {
+    "close_on_terminal": true,
+    "max_concurrent_runs": 1,
+    "mode": "exact-delivery",
+    "require_usage_receipt": true,
+    "reusable_across_deliveries": false
+  },
+  "valid_from": "2026-10-10T04:29:43.648Z",
+  "version": 2
+}

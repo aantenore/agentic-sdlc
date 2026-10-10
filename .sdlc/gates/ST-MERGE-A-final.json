@@ -1,0 +1,818 @@
+{
+  "actor": {
+    "email": null,
+    "id": "codex",
+    "name": "Codex",
+    "source": "default",
+    "type": "agent"
+  },
+  "approval_requests": [],
+  "assistant_message": "There are no pending SDLC approvals or clarifications.\nI can continue with the next operational step when needed.",
+  "assistant_message_presentation": {
+    "contextualize_for_user": true,
+    "instruction": "Before showing assistant_message to a human, translate and contextualize it in the active chat language. Use plain product language and begin with outcome, practical impact, the decision needed or an explicit statement that none is needed, what remains protected, and one next action. Do not place record IDs, internal autonomy terms, status or reason codes, hashes, schema keys, file paths, or CLI commands in that primary explanation. Preserve those literals exactly only after an optional Technical details or Dettagli tecnici divider. If an internal freshness check needs a refresh but the user-approved scope has not changed, explain that the internal reference will be updated and work will continue inside the same scope; do not present it as a new product decision. Summarize relevant contents directly instead of sending the user to inspect files. State what approval covers and what it does not cover. A yes or ok applies only to the displayed decision unless the user explicitly grants a broader approval level; later delegated approvals must be recorded as automation, not misattributed as direct user actions.",
+    "presenter": "codex",
+    "preserve_literals": [
+      "record IDs",
+      "file paths",
+      "CLI commands",
+      "status and reason codes",
+      "schema keys"
+    ],
+    "preserve_literals_in_technical_details_only": [
+      "record IDs",
+      "file paths",
+      "CLI commands",
+      "status and reason codes",
+      "schema keys"
+    ],
+    "translate_to_chat_language": true
+  },
+  "assistant_message_source_language": "en",
+  "certification_level": "lifecycle_complete",
+  "checked": [
+    "project",
+    "authorization AUTH-MERGE-A-STORY-ACTIONS",
+    "requirement autonomy profile AUT-REQ-MERGE-A-R1",
+    "delivery autonomy profile AUT-MERGE-A action receipt AUT-ACT-20261010043007156-8e2a29",
+    "delivery autonomy profile AUT-MERGE-A action receipt AUT-ACT-20261010043009895-18e9a4",
+    "delivery autonomy profile AUT-MERGE-A terminal receipt AUT-CLOSE-AUT-MERGE-A",
+    "delivery autonomy profile AUT-MERGE-A",
+    "autonomy decision AUT-DEC-20261010042944864-79bc26",
+    "autonomy decision AUT-DEC-20261010042947594-0fe8b5",
+    "requirement lineage REQ-MERGE-A",
+    "contract CONTRACT-MERGE-A.json action receipt AUT-ACT-20261010043007156-8e2a29",
+    "contract CONTRACT-MERGE-A.json action receipt AUT-ACT-20261010043009895-18e9a4",
+    "contract CONTRACT-MERGE-A.json terminal receipt AUT-CLOSE-AUT-MERGE-A",
+    "delivery autonomy profile AUT-MERGE-A",
+    "contract CONTRACT-MERGE-A.json",
+    "trace traces/ST-MERGE-A.jsonl local integrity checkpoint",
+    "trace traces/ST-MERGE-A.jsonl",
+    "requirement autonomy profile AUT-REQ-MERGE-A-R1",
+    "story ST-MERGE-A changed-path scope",
+    "validation secret scan for story ST-MERGE-A",
+    "secret scan ST-MERGE-A-secret-scan-20261010043016903-7ab6b4",
+    "story step ST-MERGE-A/analysis",
+    "story step ST-MERGE-A/design",
+    "story step ST-MERGE-A/discovery",
+    "story step ST-MERGE-A/implementation",
+    "story step ST-MERGE-A/operations",
+    "story step ST-MERGE-A/release",
+    "story step ST-MERGE-A/validation",
+    "story ST-MERGE-A",
+    "output template implementation-summary-v1",
+    "output decision DEC-output-template-implementation-summary-v1-20261010042939647-62ed20",
+    "output link OUT-ST-MERGE-A-implementation-summary-730158c5",
+    "story ST-MERGE-A terminal delivery PR-136508",
+    "story ST-MERGE-A current workflow instance delivery-merge-a",
+    "story ST-MERGE-A complete lifecycle"
+  ],
+  "checked_at": "2026-10-10T04:30:19.863Z",
+  "errors": [],
+  "final_receipt_path": ".sdlc/gates/ST-MERGE-A-final.json",
+  "freshness_proof": {
+    "git_scope": {
+      "available": true,
+      "baseline_head_sha": "ffbe170d17bc74f81bc44212152ac13909aec989",
+      "certification_head_sha": "dc1e0fcf04530e7b67a4659c53fc760dcfafa5ba",
+      "schema_version": "workflow-final-git-scope:v2",
+      "scoped_changes": [
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "0c217e6594758997e29ad585c344c28085a09aa7",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "0c217e6594758997e29ad585c344c28085a09aa7",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": true,
+          "path": "docs/baseline.md",
+          "working_tree": {
+            "content_sha256": "fd0042a36dc3bd9e9db244243bd9ed5adc9902de47a6b5ee1a6ee4168fab19a0",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "26cc04d6c695c62c996379c72ce11397e8b9717a",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "26cc04d6c695c62c996379c72ce11397e8b9717a",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": true,
+          "path": "docs/implementation-summary-merge-a.md",
+          "working_tree": {
+            "content_sha256": "30d0de3501e5f97242922bb5cb6f3e835ee8cd9b2771efc7e810bbe97cc2b5dd",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "c11dc205d2ef948603329cdc6e838257b3719ba7",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "c11dc205d2ef948603329cdc6e838257b3719ba7",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": true,
+          "path": "docs/pr-update-proof-merge-a.txt",
+          "working_tree": {
+            "content_sha256": "6d8d4f40c66398d8c715eca5fec663fcb9cafa6e483582836d9f764039f90e28",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "d4e1bb0cb412200c86b02f548c6208fa348e271e",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "d4e1bb0cb412200c86b02f548c6208fa348e271e",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": true,
+          "path": "src/feature.mjs",
+          "working_tree": {
+            "content_sha256": "c0431dd16955d25055965bc6909d6a4cd87843e0b3c9e9b8cbd03be2dba5125b",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        },
+        {
+          "head": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "fa3dfc9b26baa424eb090039dea1d8e6c7136c95",
+            "present": true
+          },
+          "index": {
+            "content_sha256": null,
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": "fa3dfc9b26baa424eb090039dea1d8e6c7136c95",
+            "present": true
+          },
+          "index_flags": {
+            "assume_unchanged": false,
+            "skip_worktree": false
+          },
+          "index_matches_head": true,
+          "index_matches_worktree": true,
+          "path": "src/index.mjs",
+          "working_tree": {
+            "content_sha256": "4c9a2a851c102d1e1fe2ebb20defb6a0332b9b5c431a0fd644fe21712c412c6a",
+            "file_type": "regular",
+            "mode": 420,
+            "object_id": null,
+            "present": true
+          }
+        }
+      ],
+      "scoped_head_tree_hash": "fc844bf68b3e5605cff0644bc2bd1ec80d79e7583910dda7bbfb8e350c0a19be",
+      "scoped_state_hash": "35c5ed20c86fbac60bfc9327d1a18db3ee8835aea411aab2942d4a7240a75c6f"
+    },
+    "governed_files": [
+      {
+        "category": "config",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/config.json",
+        "present": true,
+        "sha256": "2748d1aab56225402e2a64590162c51c340402f3c6675e678e66836088353db4"
+      },
+      {
+        "category": "config_lock",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/config.lock.json",
+        "present": true,
+        "sha256": "4064bba57564e3e531913f986232ba61d74d14e53828974b8b391cc7fc290896"
+      },
+      {
+        "category": "contract",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/contracts/CONTRACT-MERGE-A.json",
+        "present": true,
+        "sha256": "7be161bb13a43f3973e4c73de3928f5cb2ede14e5f0244e173108db53ff41a1e"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-MERGE-A/close.json",
+        "present": true,
+        "sha256": "d5110b8cd6eb22ed2b30de78bec42cedad75cf0907bdc1a13347bdbeb6657576"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-MERGE-A/context-preflight.json",
+        "present": true,
+        "sha256": "6ca3f5a6657a26d02f4895f91c9fa40575dbeef05c58cc72f040f4423312d739"
+      },
+      {
+        "category": "delivery_execution",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/executions/AUT-MERGE-A/start.json",
+        "present": true,
+        "sha256": "f7c4cb6bcc2279d54f063943f94f430aeea9b7b48469d13ab1f950e58f9c40b6"
+      },
+      {
+        "category": "delivery_profile",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/deliveries/AUT-MERGE-A.json",
+        "present": true,
+        "sha256": "152a1d5fed8e29a5992c24a679c45d73fccf3bf9213f3c8302ca675e647f1fea"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/authorization-uses/AUTH-MERGE-A-STORY-ACTIONS/AUSE-AUTH-MERGE-A-STORY-ACTIONS-20261010042951839-70f46d.json",
+        "present": true,
+        "sha256": "61c6cf7aae89bdc3bc1eacb727bc8be12c3e240a6bb820e89d0b17dcb72c02aa"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/deliveries/AUT-MERGE-A.json",
+        "present": true,
+        "sha256": "152a1d5fed8e29a5992c24a679c45d73fccf3bf9213f3c8302ca675e647f1fea"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/output-contracts/templates/implementation-summary-v1.md",
+        "present": true,
+        "sha256": "c633e631b8103cc74fce72da9360f4601329d820d63f234a934e17fa81b01238"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/receipts/verification/VERIFY-OUT-ST-MERGE-A-implementation-summary-730158c5-30d0de35.json",
+        "present": true,
+        "sha256": "fc525a150f5d8618c8e82cf5259cafb7092b796ee56fd8b2628ebf3760d13a0b"
+      },
+      {
+        "category": "output_source",
+        "file_type": "regular",
+        "mode": 420,
+        "path": "docs/implementation-summary-merge-a.md",
+        "present": true,
+        "sha256": "30d0de3501e5f97242922bb5cb6f3e835ee8cd9b2771efc7e810bbe97cc2b5dd"
+      },
+      {
+        "category": "project",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/project.json",
+        "present": true,
+        "sha256": "5c258e958128145d88af3b42e0cda52b5ef12b944e747b2141afb0c612bd23c2"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/authorization-uses/AUTH-MERGE-A-STORY-ACTIONS/AUSE-AUTH-MERGE-A-STORY-ACTIONS-20261010042951839-70f46d.json",
+        "present": true,
+        "sha256": "61c6cf7aae89bdc3bc1eacb727bc8be12c3e240a6bb820e89d0b17dcb72c02aa"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042937514-b15943.json",
+        "present": true,
+        "sha256": "16839d0feb6212b45a8b214493706da1514c7d81b969068813e0a76b6ac86ced"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042944849-ec418b.json",
+        "present": true,
+        "sha256": "cce1e56d166289cb5a65c347f2ffab470dd814912eec5fceb004c9a88ea185a6"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/deliveries/AUT-MERGE-A.json",
+        "present": true,
+        "sha256": "152a1d5fed8e29a5992c24a679c45d73fccf3bf9213f3c8302ca675e647f1fea"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/requirements/AUT-REQ-MERGE-A-R1.json",
+        "present": true,
+        "sha256": "f4eb8be811bf2a1e624181b27b644bd55e135857792f146ed725d5a6cbb70a9d"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/contracts/CONTRACT-MERGE-A.json",
+        "present": true,
+        "sha256": "7be161bb13a43f3973e4c73de3928f5cb2ede14e5f0244e173108db53ff41a1e"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/output-contracts/templates/implementation-summary-v1.md",
+        "present": true,
+        "sha256": "c633e631b8103cc74fce72da9360f4601329d820d63f234a934e17fa81b01238"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/receipts/verification/VERIFY-OUT-ST-MERGE-A-implementation-summary-730158c5-30d0de35.json",
+        "present": true,
+        "sha256": "fc525a150f5d8618c8e82cf5259cafb7092b796ee56fd8b2628ebf3760d13a0b"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/requirements/REQ-MERGE-A.json",
+        "present": true,
+        "sha256": "1cfb231b0081469aa216e68522af8945ff3c00ec08787e8222848bdd563749fd"
+      },
+      {
+        "category": "referenced_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/story.json",
+        "present": true,
+        "sha256": "edd3d3ce46acfd2ad311330810b22f3db2703b10e52864a5034c87574f343b75"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043007156-8e2a29.json",
+        "present": true,
+        "sha256": "5a862802df2d257d4902d3d3b6bdc5c7f29c51a74dd9c9f1823ca40399c7074c"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043009895-18e9a4.json",
+        "present": true,
+        "sha256": "2f16c13bef137e70e21c61ac2a9b189a6c885df4fb0ad8117e37c5ce13d2c4fc"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042937514-b15943.json",
+        "present": true,
+        "sha256": "16839d0feb6212b45a8b214493706da1514c7d81b969068813e0a76b6ac86ced"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042944849-ec418b.json",
+        "present": true,
+        "sha256": "cce1e56d166289cb5a65c347f2ffab470dd814912eec5fceb004c9a88ea185a6"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010042944864-79bc26.json",
+        "present": true,
+        "sha256": "ac61eac1f43a9a8080c7861f91e33c510c67bda265566e1131fce4be7a6d759d"
+      },
+      {
+        "category": "related_governance",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010042947594-0fe8b5.json",
+        "present": true,
+        "sha256": "30b565011bfdcc6a6fd3c13cfd2fe4316937e0a05d9b5605da851d316a4649b7"
+      },
+      {
+        "category": "requirement",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/requirements/REQ-MERGE-A.json",
+        "present": true,
+        "sha256": "1cfb231b0081469aa216e68522af8945ff3c00ec08787e8222848bdd563749fd"
+      },
+      {
+        "category": "requirement_profile",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/autonomy/requirements/AUT-REQ-MERGE-A-R1.json",
+        "present": true,
+        "sha256": "f4eb8be811bf2a1e624181b27b644bd55e135857792f146ed725d5a6cbb70a9d"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/claim.json",
+        "present": true,
+        "sha256": "6162494687a764ebbe5cfe6bed1b9e2c890d6f66baac674caddede143c46669e"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/implementation-log.md",
+        "present": true,
+        "sha256": "39e57ac9b49fc12aea69d35a130296692debfb07a937c6e1c527d0d8876fbea9"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/plan.md",
+        "present": true,
+        "sha256": "1437d716bd248231bd850d369f86d7c8f0f2a3cbf428d033d43bec2e03474727"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/steps/analysis.json",
+        "present": true,
+        "sha256": "ee63d79b033e9946bae2d26b8aa60e0635566ac6abe99ef454607c6fb17f172f"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/steps/design.json",
+        "present": true,
+        "sha256": "d92b501037a6d139fbeb71569cd8b94461ef0a8d4f57b00ed84cb2abafae0c34"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/steps/discovery.json",
+        "present": true,
+        "sha256": "44e5ad5930ddad51c58d4141ba3eda56e3e6eda7aa6810e539fc4313a66e6d1c"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/stories/ST-MERGE-A/steps/history.jsonl",
+        "present": true,
+        "sha256": "9e27ced1276e2f23c07648aacddab12d271bd828b68d7a49e8789d68190139ef"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/steps/implementation.json",
+        "present": true,
+        "sha256": "6db8bac63a00c7a4ccac89373d8e8a2ac34fa3f028ed6e974bb973bfee7f47d8"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/steps/operations.json",
+        "present": true,
+        "sha256": "ccda89e5dde14d7ceb81ed72206f689e424dec9d1ab378a0200483b5b00b5f44"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/steps/release.json",
+        "present": true,
+        "sha256": "68eedb248cef6d3a73829c473484e45d22116e12242f5ec66f54f672508ff8a9"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/steps/validation.json",
+        "present": true,
+        "sha256": "d99ec7566c43296f2f1da42033d95ed72689d7c4d7915f9465f7bd9755bb8267"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/story.json",
+        "present": true,
+        "sha256": "edd3d3ce46acfd2ad311330810b22f3db2703b10e52864a5034c87574f343b75"
+      },
+      {
+        "category": "story_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/stories/ST-MERGE-A/task-start.json",
+        "present": true,
+        "sha256": "41508f1ec94542ab7e0b35b29eacf6f70e31c152cee962d88f62f11dc36d9f1b"
+      },
+      {
+        "category": "story_test_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/tests/ST-MERGE-A-release.json",
+        "present": true,
+        "sha256": "5e14e40959fca7910afc84bc78fef3e3d399d79cf1d430b7dba7edd558f1d3c5"
+      },
+      {
+        "category": "story_test_record",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/tests/ST-MERGE-A-test.json",
+        "present": true,
+        "sha256": "1ea63e7fda68e7ce49b013af8410102e9228f7591e79ef602dd23d95556d03bc"
+      },
+      {
+        "category": "story_trace",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/traces/ST-MERGE-A.jsonl",
+        "present": true,
+        "sha256": "0cbc4451aadc2eb8b30246d0691c6a9a61fda3ebc0769290a9a20161f28a1a89"
+      },
+      {
+        "category": "story_trace_checkpoint",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/traces/.integrity/ST-MERGE-A.jsonl.checkpoint.json",
+        "present": true,
+        "sha256": "1fa9365812f6aa313b2064ea5bd557c0ea8abe67fd641b14c5934155073aaccd"
+      },
+      {
+        "category": "workflow_checkpoint",
+        "file_type": "regular",
+        "mode": 420,
+        "path": ".sdlc/workflows/instances/delivery-merge-a/checkpoint.json",
+        "present": true,
+        "sha256": "51c7d2b60dc2a930d05c30f6d1ce3746b9d54ac1e494f703f509083bd6165537"
+      },
+      {
+        "category": "workflow_definition",
+        "file_type": "missing",
+        "mode": null,
+        "path": ".sdlc/workflows/definitions/software-project/v3.json",
+        "present": false,
+        "sha256": null
+      },
+      {
+        "category": "workflow_events",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/workflows/instances/delivery-merge-a/events.jsonl",
+        "present": true,
+        "sha256": "6cb5dc4ba7374728aab061421fbecb827b45f3a645d7aa908f41bc73c2677cc1"
+      },
+      {
+        "category": "workflow_instance",
+        "file_type": "regular",
+        "mode": 384,
+        "path": ".sdlc/workflows/instances/delivery-merge-a/instance.json",
+        "present": true,
+        "sha256": "61dff1a7ac41ed4ccc20c1d81ba37562f811ca22c84a865cf5710cf7c537b5f5"
+      }
+    ],
+    "hash_algorithm": "sha256:stable-json:v1",
+    "local_release_root": null,
+    "local_release_scope": [],
+    "output_registry_projection": {
+      "path": ".sdlc/output-contracts/registry.json#story=ST-MERGE-A",
+      "sha256": "be64758f118b07829c05b132233135bf2924d8d4fddba4092f39eb0522a5c012"
+    },
+    "proof_hash": "4fe6a00fbff91efa2114b665bf2e3b61e9e30a6ff23941cd1b42825e8d0ce614",
+    "schema_version": "workflow-final-freshness-proof:v2",
+    "story_id": "ST-MERGE-A",
+    "workflow_instance_id": "delivery-merge-a"
+  },
+  "git": {
+    "branch": "codex/ST-MERGE-A",
+    "head_sha": "dc1e0fcf04530e7b67a4659c53fc760dcfafa5ba",
+    "is_dirty": true,
+    "is_git_repo": true,
+    "remotes": [
+      "origin"
+    ],
+    "user": {
+      "email": "merged-certification-e2e@example.invalid",
+      "name": "Merged Certification E2E"
+    }
+  },
+  "hash_algorithm": "sha256:stable-json:v1",
+  "human_guidance": {
+    "details": {
+      "blocking_count": 0,
+      "certification_level": "lifecycle_complete",
+      "delivery_id": null,
+      "errors": [],
+      "gate_status": "passed",
+      "guidance_kind": "gate",
+      "human_blockers": [],
+      "lifecycle_complete": true,
+      "merge_executed": false,
+      "next_command": null,
+      "profile_id": null,
+      "pull_request_url": null,
+      "reason_codes": [],
+      "requirement_id": null,
+      "status": "passed",
+      "warnings": [
+        "story step ST-MERGE-A/analysis uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.analysis.",
+        "story step ST-MERGE-A/design uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.design.",
+        "story step ST-MERGE-A/discovery uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.discovery.",
+        "story step ST-MERGE-A/implementation uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.implementation.",
+        "story step ST-MERGE-A/operations uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.operations.",
+        "story step ST-MERGE-A/release uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.release.",
+        "story step ST-MERGE-A/validation uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.validation."
+      ]
+    },
+    "impact": "Every configured phase, the latest tests, and the exact delivery are complete and consistent.",
+    "next_action": "Keep the final proof with the delivery evidence; use a new governed delivery for later work.",
+    "protection_boundary": "These checks did not approve or perform a change, merge, release, deployment, production access, secret access, or work outside the approved files.",
+    "required_decision": "No lifecycle decision is pending for this exact delivery.",
+    "result": "The complete lifecycle check passed and its final proof is ready."
+  },
+  "kind": "workflow_final_gate_receipt",
+  "lifecycle_complete": true,
+  "lifecycle_workflow": {
+    "checkpoint_ref": {
+      "checkpoint_hash": "32a7474d75805a4d65e21ac0d6a33f120844f966a15111256256fcd406d4f4da",
+      "last_event_hash": "f21ded5e3e7b0fddac43874aaad91f1447cb91e0bd1695bbf05524b711deb5eb",
+      "path": ".sdlc/workflows/instances/delivery-merge-a/checkpoint.json",
+      "sequence": 6,
+      "trace_chain_hash": "25f0cc4bb79fceb86d4b1b8ad9b7ac82ad56ddacafddc54f854ed09ecdf3e94a"
+    },
+    "delivery_closed_at": "2026-10-10T04:30:11.551Z",
+    "effective_hash": "75b70cf18384e7734847d4c2bcd1dab31e7f73615602377566ddc11cb564148e",
+    "event_count": 6,
+    "instance_hash": "0592868d5e92b478ac24b2727b3402a2de8dce48d60caa18ccd97e17d3dce3a6",
+    "instance_id": "delivery-merge-a",
+    "phase_timeline": [
+      {
+        "completed_at": "2026-10-10T04:29:52.912Z",
+        "completion_record_id": "STEP-ST-MERGE-A-discovery-20261010042952911-b510e5",
+        "entered_at": "2026-10-10T04:29:45.837Z",
+        "entry_event_hash": null,
+        "phase": "discovery"
+      },
+      {
+        "completed_at": "2026-10-10T04:29:55.021Z",
+        "completion_record_id": "STEP-ST-MERGE-A-analysis-20261010042955021-41b8a4",
+        "entered_at": "2026-10-10T04:29:53.862Z",
+        "entry_event_hash": "d48a43a1c0a7295a0fb1fac51143ecc9eee796b68e05d7c051d2af2b460f2ef8",
+        "phase": "analysis"
+      },
+      {
+        "completed_at": "2026-10-10T04:29:56.977Z",
+        "completion_record_id": "STEP-ST-MERGE-A-design-20261010042956977-b273a1",
+        "entered_at": "2026-10-10T04:29:56.093Z",
+        "entry_event_hash": "308a59786a521dbd04ee578763e8890a42a7569fb58fadeb92e604819e4941f1",
+        "phase": "design"
+      },
+      {
+        "completed_at": "2026-10-10T04:29:59.190Z",
+        "completion_record_id": "STEP-ST-MERGE-A-implementation-20261010042959190-ef3ff5",
+        "entered_at": "2026-10-10T04:29:57.926Z",
+        "entry_event_hash": "a7e0e8433cc789a8e97efbf5fe9edaed844bbf3e23624dd5983c194bb8a2ffae",
+        "phase": "implementation"
+      },
+      {
+        "completed_at": "2026-10-10T04:30:02.176Z",
+        "completion_record_id": "STEP-ST-MERGE-A-validation-20261010043002176-b478aa",
+        "entered_at": "2026-10-10T04:30:00.056Z",
+        "entry_event_hash": "21a8be58e10682855702468aca68a7532d7e67285735efa2bb26e6b8726601ff",
+        "phase": "validation"
+      },
+      {
+        "completed_at": "2026-10-10T04:30:13.636Z",
+        "completion_record_id": "STEP-ST-MERGE-A-release-20261010043013636-61655a",
+        "entered_at": "2026-10-10T04:30:05.725Z",
+        "entry_event_hash": "d16f5a702bbf60cdec9a3edfd7e6e5a3a903f19a3af2b9f415c00afde651875e",
+        "phase": "release"
+      },
+      {
+        "completed_at": "2026-10-10T04:30:15.677Z",
+        "completion_record_id": "STEP-ST-MERGE-A-operations-20261010043015677-91f4dd",
+        "entered_at": "2026-10-10T04:30:14.617Z",
+        "entry_event_hash": "f21ded5e3e7b0fddac43874aaad91f1447cb91e0bd1695bbf05524b711deb5eb",
+        "phase": "operations"
+      }
+    ],
+    "release_trace_at": "2026-10-10T04:30:12.584Z",
+    "selection_policy": "latest-created-at-then-instance-id:v1",
+    "story_id": "ST-MERGE-A",
+    "task_start_ref": {
+      "confirmed_at": "2026-10-10T04:29:48.857Z",
+      "hash": "41508f1ec94542ab7e0b35b29eacf6f70e31c152cee962d88f62f11dc36d9f1b",
+      "id": "START-ST-MERGE-A-20261010042948857-4b6822",
+      "path": ".sdlc/stories/ST-MERGE-A/task-start.json"
+    },
+    "terminal_event_ref": {
+      "event_hash": "f21ded5e3e7b0fddac43874aaad91f1447cb91e0bd1695bbf05524b711deb5eb",
+      "sequence": 6,
+      "timestamp": "2026-10-10T04:30:14.617Z"
+    },
+    "terminal_state": "operations"
+  },
+  "receipt_hash": "a18a73ae9d3b39260e132086d55b6c24a408ef4958e883575944ef6e2810aaad",
+  "release_manifest_id": null,
+  "root": ".",
+  "root_name": "agentic-sdlc-merged-fixture-merged-m0Df4m",
+  "run": {
+    "run_id": null,
+    "session_id": null,
+    "thread_id": null,
+    "tool": "agentic-sdlc-cli",
+    "version": "0.94.0"
+  },
+  "schema_version": "workflow-final-gate-receipt:v3",
+  "scope": "story",
+  "status": "passed",
+  "story_id": "ST-MERGE-A",
+  "strict": true,
+  "warnings": [
+    "story step ST-MERGE-A/analysis uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.analysis.",
+    "story step ST-MERGE-A/design uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.design.",
+    "story step ST-MERGE-A/discovery uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.discovery.",
+    "story step ST-MERGE-A/implementation uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.implementation.",
+    "story step ST-MERGE-A/operations uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.operations.",
+    "story step ST-MERGE-A/release uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.release.",
+    "story step ST-MERGE-A/validation uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.validation."
+  ]
+}

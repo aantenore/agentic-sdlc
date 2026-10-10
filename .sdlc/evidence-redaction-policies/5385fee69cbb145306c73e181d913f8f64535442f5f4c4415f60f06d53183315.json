@@ -1,0 +1,136 @@
+{
+  "schema_version": "agentic-sdlc-redaction-policy-source:v1",
+  "algorithm": "operational_v2",
+  "replacement": "[REDACTED]",
+  "limits": {
+    "maxDepth": 24,
+    "maxNodes": 10000,
+    "maxStringLength": 262144,
+    "maxOutputChars": 1048576,
+    "maxMatches": 2000,
+    "maxPatterns": 64,
+    "maxPatternLength": 512
+  },
+  "sensitive_keys": [
+    "accesstoken",
+    "accountkey",
+    "apikey",
+    "authorization",
+    "clientsecret",
+    "cookie",
+    "credential",
+    "credentials",
+    "passphrase",
+    "passwd",
+    "password",
+    "privatekey",
+    "pwd",
+    "refreshtoken",
+    "secret",
+    "setcookie",
+    "token"
+  ],
+  "detectors": [
+    {
+      "name": "common_access_token",
+      "source": "\\b(?:AKIA[A-Z0-9]{16}|gh[opsur]_[A-Za-z0-9_]{20,262144}|github_pat_[A-Za-z0-9_]{20,262144}|glpat-[A-Za-z0-9_-]{20,262144}|sk-(?:proj-)?[A-Za-z0-9_-]{20,262144}|sk_(?:live|test)_[A-Za-z0-9_-]{16,262144}|xox[baprs]-[A-Za-z0-9-]{16,262144})\\b",
+      "flags": "gu"
+    },
+    {
+      "name": "bearer_credential",
+      "source": "\\bBearer\\s+[A-Za-z0-9._~+/=-]{16,262144}",
+      "flags": "giu"
+    },
+    {
+      "name": "basic_credential",
+      "source": "\\bBasic\\s+[A-Za-z0-9+/]{8,262144}={0,2}",
+      "flags": "giu"
+    },
+    {
+      "name": "json_web_token",
+      "source": "\\beyJ[A-Za-z0-9_-]{5,4096}\\.[A-Za-z0-9_-]{5,131072}\\.[A-Za-z0-9_-]{10,8192}\\b",
+      "flags": "gu"
+    },
+    {
+      "name": "cookie_header",
+      "source": "\\b(?:Set-Cookie|Cookie)\\s*:\\s*[^\\r\\n]{1,262144}",
+      "flags": "giu"
+    },
+    {
+      "name": "url_userinfo",
+      "source": "\\b[a-z][a-z0-9+.-]{0,20}:\\/\\/[^/\\s:?#]{0,262144}:[^/\\s?#]{0,262144}@",
+      "flags": "giu"
+    },
+    {
+      "name": "private_key_block",
+      "source": "-----BEGIN [A-Z ]{0,32}PRIVATE KEY-----[\\s\\S]{0,262144}?(?:-----END [A-Z ]{0,32}PRIVATE KEY-----|$)",
+      "flags": "gu"
+    },
+    {
+      "name": "vendor_access_token",
+      "source": "\\b(?:ASIA[A-Z2-7]{16}|AIza[A-Za-z0-9_-]{35}|npm_[A-Za-z0-9]{36}|hf_[A-Za-z0-9]{30,64}|rk_(?:live|test)_[A-Za-z0-9]{16,262144}|SG\\.[A-Za-z0-9_-]{16,64}\\.[A-Za-z0-9_-]{16,128}|gldt-[A-Za-z0-9_-]{20,262144})(?![A-Za-z0-9_-])",
+      "flags": "gu"
+    },
+    {
+      "name": "slack_webhook_url",
+      "source": "\\bhttps:\\/\\/hooks\\.slack\\.com\\/(?:services|workflows|triggers)\\/[A-Za-z0-9_/-]{8,4096}",
+      "flags": "gu"
+    },
+    {
+      "name": "cli_password_option_value",
+      "source": "(?<=(?:^|\\s)--(?:password|passwd|pass|secret|client-secret)\\s{1,16})(?:\"(?![$<])[^\"\\r\\n]{1,4096}\"|'(?![$<])[^'\\r\\n]{1,4096}'|(?!--)[^\\s\"'$<][^\\s\"']{0,4095})",
+      "flags": "gu"
+    },
+    {
+      "name": "cli_token_option_value",
+      "source": "(?<=(?:^|\\s)--(?:token|access-token|api-key|apikey)\\s{1,16})(?!(?:argument|arguments|parameter|parameters|variable|variables|settings)(?![^\\s\"']))(?:\"(?![$<])[^\"\\r\\n]{8,4096}\"|'(?![$<])[^'\\r\\n]{8,4096}'|(?!--)[^\\s\"'$<][^\\s\"']{7,4095})",
+      "flags": "gu"
+    },
+    {
+      "name": "cli_user_credential",
+      "source": "(?<=\\b(?:curl|wget|http|ftp|sftp|lftp)\\b[^\\r\\n]{0,256}?\\s(?:-u|--user)\\s{1,16})(?:\"[^\"\\r\\n:]{0,256}:[^\"\\r\\n]{1,4096}\"|'[^'\\r\\n:]{0,256}:[^'\\r\\n]{1,4096}'|[^\\s\"':]{0,256}:[^\\s\"']{1,4096})",
+      "flags": "giu"
+    },
+    {
+      "name": "container_registry_auth",
+      "source": "(?<=\"auth\"\\s{0,16}:\\s{0,16}\")(?:(?<=\"(?:auths|credHelpers)\"\\s{0,16}:\\s{0,16}\\{[\\s\\S]{0,2048}?\"auth\"\\s{0,16}:\\s{0,16}\")|(?=[A-Za-z0-9+/]{8,4096}={0,2}\"[\\s\\S]{0,2048}?\"credHelpers\"\\s{0,16}:\\s{0,16}\\{))[A-Za-z0-9+/]{8,262144}={0,2}(?=\")",
+      "flags": "gu"
+    },
+    {
+      "name": "email",
+      "source": "\\b[^\\s@]{1,64}@[^\\s@]{1,189}\\.[^\\s@]{1,63}\\b",
+      "flags": "giu"
+    }
+  ],
+  "identifier_allow_patterns": [
+    {
+      "name": "sha_digest",
+      "source": "^(?:(?:sha(?:1|224|256|384|512))[:=-])?(?:[a-f0-9]{40}|[a-f0-9]{56}|[a-f0-9]{64}|[a-f0-9]{96}|[a-f0-9]{128})$",
+      "flags": "giu"
+    },
+    {
+      "name": "uuid",
+      "source": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "flags": "giu"
+    },
+    {
+      "name": "correlation_id",
+      "source": "^corr-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "flags": "giu"
+    },
+    {
+      "name": "authorization_action_id",
+      "source": "^AUT-ACT-\\d{17}-[a-f0-9]{6}$",
+      "flags": "gu"
+    }
+  ],
+  "credential_assignment_detector": {
+    "name": "credential_assignment_prefix",
+    "source": "(?:[\"'](?=[A-Za-z0-9_])|\\b)[A-Za-z0-9_]{0,128}(?:access[_-]?token|account[_-]?key|api[_-]?key|authorization|client[_-]?secret|credentials?|passphrase|passwd|password|private[_-]?key|pwd|refresh[_-]?token|secret[_-]?access[_-]?key|secret[_-]?key|secret|storage[_-]?account[_-]?key|token)[\"']?\\s*[:=]\\s*",
+    "flags": "giu"
+  },
+  "semantics": {
+    "credential_assignments": true,
+    "legacy_evidence_v1": false
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "id": "STEP-ST-MERGE-A-discovery-20261010042952911-b510e5",
+  "story_id": "ST-MERGE-A",
+  "step": "discovery",
+  "status": "completed",
+  "phase": "discovery",
+  "summary": "discovery completed against the approved boundary",
+  "output_types": [],
+  "output_links": [
+    {
+      "id": "OUT-ST-MERGE-A-implementation-summary-730158c5",
+      "artifact_type": "implementation-summary",
+      "artifact_path": "docs/implementation-summary-merge-a.md",
+      "template_id": "implementation-summary-v1",
+      "mode": "new",
+      "base_artifact": null,
+      "requirements": [
+        "REQ-MERGE-A"
+      ]
+    }
+  ],
+  "artifacts": [],
+  "evidence": [],
+  "next_step": "analysis",
+  "completed_at": "2026-10-10T04:29:52.912Z",
+  "authorization_ref": "AUTH-MERGE-A-STORY-ACTIONS",
+  "authorization_use_ref": ".sdlc/authorization-uses/AUTH-MERGE-A-STORY-ACTIONS/AUSE-AUTH-MERGE-A-STORY-ACTIONS-20261010042952697-7f428c.json",
+  "authorization_action": "story.complete-step",
+  "checkpoint_profile_ref": {
+    "id": "AUT-MERGE-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-MERGE-A.json",
+    "hash": "a17363738971f91d71c8e8399688502f53f21ccfca3c4dd1adeac441dd6861f9"
+  },
+  "audit": {
+    "completed_by": {
+      "id": "codex",
+      "type": "agent",
+      "name": "Codex",
+      "email": null,
+      "source": "default"
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-MERGE-A",
+      "head_sha": "ffbe170d17bc74f81bc44212152ac13909aec989",
+      "is_dirty": true,
+      "user": {
+        "name": "Merged Certification E2E",
+        "email": "merged-certification-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  }
+}

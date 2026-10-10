@@ -1,0 +1,159 @@
+{
+  "actor": {
+    "email": null,
+    "id": "codex",
+    "name": "Codex",
+    "source": "default",
+    "type": "agent"
+  },
+  "approval_requests": [],
+  "assistant_message": "There are no pending SDLC approvals or clarifications.\nI can continue with the next operational step when needed.",
+  "assistant_message_presentation": {
+    "contextualize_for_user": true,
+    "instruction": "Before showing assistant_message to a human, translate and contextualize it in the active chat language. Use plain product language and begin with outcome, practical impact, the decision needed or an explicit statement that none is needed, what remains protected, and one next action. Do not place record IDs, internal autonomy terms, status or reason codes, hashes, schema keys, file paths, or CLI commands in that primary explanation. Preserve those literals exactly only after an optional Technical details or Dettagli tecnici divider. If an internal freshness check needs a refresh but the user-approved scope has not changed, explain that the internal reference will be updated and work will continue inside the same scope; do not present it as a new product decision. Summarize relevant contents directly instead of sending the user to inspect files. State what approval covers and what it does not cover. A yes or ok applies only to the displayed decision unless the user explicitly grants a broader approval level; later delegated approvals must be recorded as automation, not misattributed as direct user actions.",
+    "presenter": "codex",
+    "preserve_literals": [
+      "record IDs",
+      "file paths",
+      "CLI commands",
+      "status and reason codes",
+      "schema keys"
+    ],
+    "preserve_literals_in_technical_details_only": [
+      "record IDs",
+      "file paths",
+      "CLI commands",
+      "status and reason codes",
+      "schema keys"
+    ],
+    "translate_to_chat_language": true
+  },
+  "assistant_message_source_language": "en",
+  "certification_level": "strict_intermediate",
+  "checked": [
+    "project",
+    "authorization AUTH-MERGE-A-STORY-ACTIONS",
+    "requirement autonomy profile AUT-REQ-MERGE-A-R1",
+    "delivery autonomy profile AUT-MERGE-A",
+    "autonomy decision AUT-DEC-20261010042944864-79bc26",
+    "autonomy decision AUT-DEC-20261010042947594-0fe8b5",
+    "requirement lineage REQ-MERGE-A",
+    "delivery autonomy profile AUT-MERGE-A",
+    "contract CONTRACT-MERGE-A.json",
+    "trace traces/ST-MERGE-A.jsonl local integrity checkpoint",
+    "trace traces/ST-MERGE-A.jsonl",
+    "requirement autonomy profile AUT-REQ-MERGE-A-R1",
+    "story ST-MERGE-A changed-path scope",
+    "validation test evidence for story ST-MERGE-A",
+    "validation secret scan for story ST-MERGE-A",
+    "secret scan ST-MERGE-A-secret-scan-20261010043003240-ac1cc6",
+    "story step ST-MERGE-A/analysis",
+    "story step ST-MERGE-A/design",
+    "story step ST-MERGE-A/discovery",
+    "story step ST-MERGE-A/implementation",
+    "story step ST-MERGE-A/validation",
+    "story ST-MERGE-A",
+    "output template implementation-summary-v1",
+    "output decision DEC-output-template-implementation-summary-v1-20261010042939647-62ed20",
+    "output link OUT-ST-MERGE-A-implementation-summary-730158c5",
+    "workflow scope delivery-merge-a@validation"
+  ],
+  "checked_at": "2026-10-10T04:30:04.046Z",
+  "errors": [],
+  "git": {
+    "branch": "codex/ST-MERGE-A",
+    "head_sha": "ffbe170d17bc74f81bc44212152ac13909aec989",
+    "is_dirty": true,
+    "is_git_repo": true,
+    "remotes": [
+      "origin"
+    ],
+    "user": {
+      "email": "merged-certification-e2e@example.invalid",
+      "name": "Merged Certification E2E"
+    }
+  },
+  "hash_algorithm": "sha256:stable-json:v1",
+  "human_guidance": {
+    "details": {
+      "blocking_count": 0,
+      "certification_level": "strict_intermediate",
+      "delivery_id": null,
+      "errors": [],
+      "gate_status": "passed",
+      "guidance_kind": "gate",
+      "human_blockers": [],
+      "lifecycle_complete": false,
+      "merge_executed": false,
+      "next_command": null,
+      "profile_id": null,
+      "pull_request_url": null,
+      "reason_codes": [],
+      "requirement_id": null,
+      "status": "passed",
+      "warnings": [
+        "Story ST-MERGE-A satisfies validation_requires_test_trace with a trace event only; record the executed command, its exit status, and its output with 'test record --story ST-MERGE-A' to bind reviewable test evidence",
+        "story step ST-MERGE-A/analysis uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.analysis.",
+        "story step ST-MERGE-A/design uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.design.",
+        "story step ST-MERGE-A/discovery uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.discovery.",
+        "story step ST-MERGE-A/implementation uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.implementation.",
+        "story step ST-MERGE-A/validation uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.validation."
+      ]
+    },
+    "impact": "The evidence recorded so far is consistent, but later phases, tests, or delivery may still be incomplete.",
+    "next_action": "Complete the remaining phases and delivery, then run the final lifecycle check explicitly.",
+    "protection_boundary": "These checks did not approve or perform a change, merge, release, deployment, production access, secret access, or work outside the approved files.",
+    "required_decision": "Do not treat this result as final completion; decide only whether to continue with the next approved phase.",
+    "result": "The current story check passed, but this is not a final lifecycle certification."
+  },
+  "kind": "workflow_strict_gate_receipt",
+  "lifecycle_complete": false,
+  "receipt_hash": "c5c03656da072729082b6f5676aaf4d19f72e25552ab54c2ad023f328e97e740",
+  "release_manifest_id": null,
+  "root": ".",
+  "root_name": "agentic-sdlc-merged-fixture-merged-m0Df4m",
+  "run": {
+    "run_id": null,
+    "session_id": null,
+    "thread_id": null,
+    "tool": "agentic-sdlc-cli",
+    "version": "0.94.0"
+  },
+  "schema_version": "workflow-strict-gate-receipt:v2",
+  "scope": "story",
+  "status": "passed",
+  "story_id": "ST-MERGE-A",
+  "strict": true,
+  "strict_receipt_path": ".sdlc/gates/ST-MERGE-A-strict.json",
+  "warnings": [
+    "Story ST-MERGE-A satisfies validation_requires_test_trace with a trace event only; record the executed command, its exit status, and its output with 'test record --story ST-MERGE-A' to bind reviewable test evidence",
+    "story step ST-MERGE-A/analysis uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.analysis.",
+    "story step ST-MERGE-A/design uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.design.",
+    "story step ST-MERGE-A/discovery uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.discovery.",
+    "story step ST-MERGE-A/implementation uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.implementation.",
+    "story step ST-MERGE-A/validation uses legacy story-wide story.complete-step subject ST-MERGE-A; new grants should bind exact subject ST-MERGE-A.step.validation."
+  ],
+  "workflow_scope": {
+    "checkpoint_ref": {
+      "checkpoint_hash": "e2c0b50f04ddc6d46bab9370372bf672b9d921dd39c8246b726ba99fdc918657",
+      "last_event_hash": "21a8be58e10682855702468aca68a7532d7e67285735efa2bb26e6b8726601ff",
+      "sequence": 4,
+      "trace_chain_hash": "f35ac9b2d8b9593a1f9016e80816997e9bdf82a1fdf47def06d8fd8720202d01",
+      "updated_at": "2026-10-10T04:30:00.056Z"
+    },
+    "current_phase": "validation",
+    "effective_hash": "75b70cf18384e7734847d4c2bcd1dab31e7f73615602377566ddc11cb564148e",
+    "instance_hash": "0592868d5e92b478ac24b2727b3402a2de8dce48d60caa18ccd97e17d3dce3a6",
+    "instance_id": "delivery-merge-a",
+    "phase_order": [
+      "discovery",
+      "analysis",
+      "design",
+      "implementation",
+      "validation",
+      "release",
+      "operations"
+    ],
+    "story_id": "ST-MERGE-A"
+  }
+}

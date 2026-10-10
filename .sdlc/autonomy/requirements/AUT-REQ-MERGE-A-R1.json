@@ -1,0 +1,123 @@
+{
+  "approval_ref": {
+    "hash": "16839d0feb6212b45a8b214493706da1514c7d81b969068813e0a76b6ac86ced",
+    "id": "AUT-APR-20261010042937514-b15943",
+    "path": ".sdlc/autonomy/approvals/AUT-APR-20261010042937514-b15943.json"
+  },
+  "authority_assurance": {
+    "mode": "audit_only",
+    "receipt_ref": null,
+    "source": "declared_cli_attribution",
+    "verified": false
+  },
+  "autonomy_ceiling": "supervised",
+  "checkpoints": [
+    "contract.approve",
+    "data.migrate",
+    "data.rollback",
+    "deploy.remote",
+    "output.link",
+    "pull_request.merge",
+    "release.local",
+    "rollback.verify",
+    "story.claim",
+    "story.complete-step",
+    "sync.commit",
+    "sync.pr",
+    "sync.push",
+    "task.start.confirm"
+  ],
+  "constraints": {
+    "allowed_capabilities": [],
+    "allowed_environments": [
+      "local"
+    ],
+    "allowed_tools": [],
+    "allowed_write_paths": [
+      "docs",
+      "src"
+    ],
+    "budget_ref": null,
+    "forbidden_actions": [
+      "budget-extension",
+      "destructive-action",
+      "environment-change",
+      "external-access",
+      "external-publication",
+      "gate-bypass",
+      "global-install",
+      "irreversible-migration",
+      "new-tool-or-capability",
+      "new-write-path",
+      "production-access",
+      "protected-branch-merge",
+      "remote-deploy",
+      "requirement-change",
+      "scope-expansion",
+      "secret-access",
+      "security-privacy-compliance-decision"
+    ]
+  },
+  "created_at": "2026-10-10T04:29:36.416Z",
+  "exception_actions": [
+    "budget-extension",
+    "destructive-action",
+    "environment-change",
+    "external-access",
+    "external-publication",
+    "gate-bypass",
+    "global-install",
+    "irreversible-migration",
+    "new-tool-or-capability",
+    "new-write-path",
+    "production-access",
+    "protected-branch-merge",
+    "remote-deploy",
+    "requirement-change",
+    "scope-expansion",
+    "secret-access",
+    "security-privacy-compliance-decision"
+  ],
+  "expires_at": null,
+  "extensions": {
+    "approved_profile_hash": "9c36e445843b2b11d5c12d81f71811e60860a039b9e61de0b1233c46979e12c6"
+  },
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "AUT-REQ-MERGE-A-R1",
+  "kind": "requirement_execution_profile",
+  "material_scope": {
+    "acceptance_criteria": [
+      "The MERGE-A story has verified implementation and delivery evidence."
+    ],
+    "budget": null,
+    "capabilities": [],
+    "environment": [
+      "local"
+    ],
+    "integrations": [],
+    "nfrs": [],
+    "non_goals": [],
+    "objective": "Implement MERGE-A only inside its exact approved write scope.",
+    "release_target": null,
+    "requirement_constraints": [],
+    "scope": "Implement MERGE-A only inside its exact approved write scope.",
+    "write_paths": [
+      "docs",
+      "src"
+    ]
+  },
+  "material_scope_hash": "fb3d5a4316dc2662deec49d31b03554ee3f6f529909d30b09b24f9e46b8cbdee",
+  "phase_levels": {},
+  "profile_hash": "e8f69c576923bf7c74122ad4a7f0c16ea865bb9df0f4cd1008cc80f5b86db4bc",
+  "requirement_ref": {
+    "hash": "7e2d534c992bb10c41290e13aa30503405a7adb53b23d927bef2ac626144878b",
+    "id": "REQ-MERGE-A",
+    "path": ".sdlc/requirements/REQ-MERGE-A.json",
+    "version": 1
+  },
+  "schema_version": "requirement-execution-profile:v1",
+  "status": "active",
+  "updated_at": "2026-10-10T04:29:37.521Z",
+  "valid_from": "2026-10-10T04:29:36.416Z",
+  "version": 1
+}
