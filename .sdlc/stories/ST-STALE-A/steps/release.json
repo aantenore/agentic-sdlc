@@ -1,0 +1,69 @@
+{
+  "id": "STEP-ST-STALE-A-release-20261010043428380-15661b",
+  "story_id": "ST-STALE-A",
+  "step": "release",
+  "status": "completed",
+  "phase": "release",
+  "summary": "release completed against the approved boundary",
+  "output_types": [],
+  "output_links": [
+    {
+      "id": "OUT-ST-STALE-A-implementation-summary-4578169c",
+      "artifact_type": "implementation-summary",
+      "artifact_path": "docs/implementation-summary-stale-a.md",
+      "template_id": "implementation-summary-v1",
+      "mode": "new",
+      "base_artifact": null,
+      "requirements": [
+        "REQ-STALE-A"
+      ]
+    }
+  ],
+  "artifacts": [],
+  "evidence": [
+    {
+      "path": ".sdlc/tests/ST-STALE-A-release.json",
+      "sha256": "5e14e40959fca7910afc84bc78fef3e3d399d79cf1d430b7dba7edd558f1d3c5",
+      "hash_algorithm": "sha256:file:v1"
+    }
+  ],
+  "next_step": "operations",
+  "completed_at": "2026-10-10T04:34:28.380Z",
+  "authorization_ref": "AUTH-STALE-A-STORY-ACTIONS",
+  "authorization_use_ref": ".sdlc/authorization-uses/AUTH-STALE-A-STORY-ACTIONS/AUSE-AUTH-STALE-A-STORY-ACTIONS-20261010043408026-8dd966.json",
+  "authorization_action": "story.complete-step",
+  "checkpoint_profile_ref": {
+    "id": "AUT-STALE-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-STALE-A.json",
+    "hash": "5fca571cb32259cc3489099165b4408b3e0cd25b00ae4511c40925dc1eb5bb0f"
+  },
+  "audit": {
+    "completed_by": {
+      "id": "codex",
+      "type": "agent",
+      "name": "Codex",
+      "email": null,
+      "source": "default"
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-STALE-A",
+      "head_sha": "0c7e6e0ea94ce25d8c1fe0d78e4274954adefd90",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  }
+}

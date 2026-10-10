@@ -1,0 +1,383 @@
+{
+  "id": "AUT-ACT-20261010043423840-fba8f3",
+  "kind": "delivery_action_receipt",
+  "schema_version": "delivery-action-receipt:v2",
+  "profile_ref": {
+    "id": "AUT-STALE-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-STALE-A.json",
+    "hash": "5fca571cb32259cc3489099165b4408b3e0cd25b00ae4511c40925dc1eb5bb0f"
+  },
+  "delivery": {
+    "id": "LOCAL-STALE-A",
+    "kind": "local_release"
+  },
+  "action": "rollback.verify",
+  "effective_level": "supervised",
+  "checkpoint_required": true,
+  "approval": null,
+  "runtime_target": null,
+  "action_details": {
+    "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release",
+    "allowed_write_paths": [
+      "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release/app"
+    ],
+    "smoke_cwd": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release/app",
+    "rollback_verification": {
+      "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release",
+      "allowed_write_paths": [
+        "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release/app"
+      ],
+      "rollback_procedure": "Restore the previous governed local release snapshot.",
+      "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU",
+      "evidence": [
+        {
+          "path": "docs/rollback-rehearsal-stale-a.json",
+          "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+        }
+      ]
+    },
+    "local_target_materialization_ref": {
+      "source": "build.local",
+      "outcome": "passed",
+      "receipt_ref": {
+        "id": "AUT-ACT-20261010043421843-e37d59",
+        "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043421843-e37d59.json",
+        "hash": "54f5b0836767b4da02ffdf78d7d238fd0750949b5e0a74b4059a1e3351a9a124"
+      },
+      "snapshot_hash": "4698e76ced08edadf5996b19388631d7356b68ec28d155d132f9b1744be99d94"
+    },
+    "provider_operation": {
+      "binding": {
+        "action": "rollback.verify",
+        "provider_id": "local-filesystem",
+        "source": "explicit-v2",
+        "provider_bindings_hash": "ecfd23f81c4fcf02b316534f89295aa9a44d72cd29d44005cba79307970b0c9f"
+      },
+      "precondition_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010043422882-04f942:precondition",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T04:34:22.882Z",
+        "operation": {
+          "action": "rollback.verify",
+          "id": "AUT-ACT-20261010043422882-04f942",
+          "phase": "precondition"
+        },
+        "precondition_receipt_ref": null,
+        "proof": {
+          "allowed_write_paths": [
+            {
+              "identity": {
+                "device": "16777232",
+                "inode": "131248550",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release/app",
+                "type": "directory"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release/app",
+              "status": "present"
+            }
+          ],
+          "evidence": [
+            {
+              "byte_size": "18",
+              "identity": {
+                "device": "16777232",
+                "inode": "131248815",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/rollback-rehearsal-stale-a.json",
+                "type": "file"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/rollback-rehearsal-stale-a.json",
+              "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009",
+              "status": "present"
+            }
+          ],
+          "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU",
+          "evidence_root_identity": {
+            "device": "16777232",
+            "inode": "131229610",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU",
+            "type": "directory"
+          },
+          "rollback_procedure": "Restore the previous governed local release snapshot.",
+          "root_identity": {
+            "device": "16777232",
+            "inode": "131248548",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release",
+            "type": "directory"
+          },
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release"
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "local-filesystem",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "267538105a26c07da5fb2130b3c0591cec602ae64bc98703aafff0530d0a05cb",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "allowed_write_paths": [
+            "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release/app"
+          ],
+          "evidence": [
+            {
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/rollback-rehearsal-stale-a.json",
+              "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+            }
+          ],
+          "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU",
+          "rollback_procedure": "Restore the previous governed local release snapshot.",
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release"
+        },
+        "subject_hash": "fa9a3befa617ddda626760f869672723f05aa0ac5e29cfdf1293250d4042364e",
+        "version": 1
+      },
+      "completion_receipt": {
+        "hash_algorithm": "sha256:stable-json:v1",
+        "id": "AUT-ACT-20261010043422882-04f942:completion",
+        "kind": "provider_operation_receipt",
+        "observed_at": "2026-10-10T04:34:23.840Z",
+        "operation": {
+          "action": "rollback.verify",
+          "id": "AUT-ACT-20261010043422882-04f942",
+          "phase": "completion"
+        },
+        "precondition_receipt_ref": {
+          "hash": "267538105a26c07da5fb2130b3c0591cec602ae64bc98703aafff0530d0a05cb",
+          "id": "AUT-ACT-20261010043422882-04f942:precondition"
+        },
+        "proof": {
+          "allowed_write_paths": [
+            {
+              "identity": {
+                "device": "16777232",
+                "inode": "131248550",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release/app",
+                "type": "directory"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release/app",
+              "status": "present"
+            }
+          ],
+          "evidence": [
+            {
+              "byte_size": "18",
+              "identity": {
+                "device": "16777232",
+                "inode": "131248815",
+                "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/rollback-rehearsal-stale-a.json",
+                "type": "file"
+              },
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/rollback-rehearsal-stale-a.json",
+              "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009",
+              "status": "present"
+            }
+          ],
+          "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU",
+          "evidence_root_identity": {
+            "device": "16777232",
+            "inode": "131229610",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU",
+            "type": "directory"
+          },
+          "precondition_receipt_hash": "267538105a26c07da5fb2130b3c0591cec602ae64bc98703aafff0530d0a05cb",
+          "rollback_procedure": "Restore the previous governed local release snapshot.",
+          "rollback_procedure_sha256": "8b759ca018247eabcdd67700d30335b97311cfd4540fd4d6d867cd5e2ff8457e",
+          "root_identity": {
+            "device": "16777232",
+            "inode": "131248548",
+            "real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release",
+            "type": "directory"
+          },
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release",
+          "transition": "rollback_evidence_verified",
+          "verified": true
+        },
+        "provider": {
+          "adapter_version": "1.0.0",
+          "id": "local-filesystem",
+          "spi_version": "delivery-provider:v1"
+        },
+        "receipt_hash": "df1dafaa49c3452c1f20d79789fc810e9dd4fb446bf70ca4ae25b6acee69faa1",
+        "schema_version": "provider-operation-receipt:v1",
+        "status": "verified",
+        "subject": {
+          "allowed_write_paths": [
+            "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release/app"
+          ],
+          "evidence": [
+            {
+              "path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/rollback-rehearsal-stale-a.json",
+              "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+            }
+          ],
+          "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU",
+          "rollback_procedure": "Restore the previous governed local release snapshot.",
+          "root_path": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release"
+        },
+        "subject_hash": "fa9a3befa617ddda626760f869672723f05aa0ac5e29cfdf1293250d4042364e",
+        "version": 1
+      }
+    },
+    "checkpoint_policy": {
+      "schema_version": "delivery-action-checkpoint-policy:v1",
+      "action": "rollback.verify",
+      "delivery_kind": "local_release",
+      "effective_level": "supervised",
+      "profile_ref": {
+        "id": "AUT-STALE-A",
+        "hash": "5fca571cb32259cc3489099165b4408b3e0cd25b00ae4511c40925dc1eb5bb0f"
+      },
+      "preset_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "policy_source_ref": {
+        "path": ".sdlc/autonomy/policy-sources/5582347d22a9d60eac3731a3bf93e21a7067856043a5c7ad10067e01f8aa5723.json",
+        "hash": "5582347d22a9d60eac3731a3bf93e21a7067856043a5c7ad10067e01f8aa5723",
+        "effective_config_hash": "c1361b73d4df4aa8c9b62b7c193ddd78e4e925aae8c35935c4010af43f3eab6c"
+      },
+      "profile_checkpoints": [
+        "contract.approve",
+        "data.migrate",
+        "data.rollback",
+        "deploy.remote",
+        "output.link",
+        "pull_request.merge",
+        "release.local",
+        "rollback.verify",
+        "story.claim",
+        "story.complete-step",
+        "sync.commit",
+        "sync.pr",
+        "sync.push",
+        "task.start.confirm"
+      ],
+      "boundary_actions": [
+        "deploy.remote",
+        "pull_request.merge",
+        "rollback.verify"
+      ],
+      "local_boundary_checkpoint": false,
+      "local_boundary_source": {
+        "schema_version": "delivery-local-boundary-source:v1",
+        "target_hash": "1f39376ccd4773c105df61ba93fdf27819f719b1fa11c83906fde15edcf845ef",
+        "platform": "darwin",
+        "workspace_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU",
+        "target_real_path": "/private/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release",
+        "global_roots": [
+          "/Applications",
+          "/Library",
+          "/opt",
+          "/usr"
+        ],
+        "target_outside_workspace": false,
+        "target_machine_global": false,
+        "writes_outside_workspace_require_checkpoint": true,
+        "machine_global_changes_require_checkpoint": true
+      },
+      "local_boundary_source_hash": "b31c6bb83b7b8318999dc0eccc83a99a50ce87f5603df14fbf4209f469dcbc46",
+      "required": true,
+      "policy_hash": "0a4717936a33566baaff32084ce1d6401a7ad5f61fa5d26d7856c714e9affd70"
+    }
+  },
+  "authorization_receipt_ref": {
+    "id": "AUT-ACT-20261010043422882-04f942",
+    "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043422882-04f942.json",
+    "hash": "a2c6691525f0e63b14f58268c6045e1d82ced35f5e66da6848053c98b6906a79"
+  },
+  "completion_request": {
+    "schema_version": "delivery-action-completion-request:v1",
+    "profile_ref": {
+      "id": "AUT-STALE-A",
+      "path": ".sdlc/autonomy/deliveries/AUT-STALE-A.json",
+      "hash": "5fca571cb32259cc3489099165b4408b3e0cd25b00ae4511c40925dc1eb5bb0f"
+    },
+    "action": "rollback.verify",
+    "outcome": "passed",
+    "authorization_receipt_ref": {
+      "id": "AUT-ACT-20261010043422882-04f942",
+      "path": ".sdlc/autonomy/actions/AUT-ACT-20261010043422882-04f942.json",
+      "hash": "a2c6691525f0e63b14f58268c6045e1d82ced35f5e66da6848053c98b6906a79"
+    },
+    "evidence": [
+      {
+        "path": "docs/rollback-rehearsal-stale-a.json",
+        "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+      }
+    ],
+    "operation_args": {},
+    "request_hash": "3b640baf3e45cf0771316245aa10beca322a27788a4803bf014f8061acefbb33",
+    "hash_algorithm": "sha256:stable-json:v1"
+  },
+  "local_release_verification": null,
+  "rollback_verification": {
+    "action": "rollback.verify",
+    "target_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release",
+    "allowed_write_paths": [
+      "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU/docs/local-release/app"
+    ],
+    "rollback_procedure": "Restore the previous governed local release snapshot.",
+    "evidence_root": "/var/folders/3g/9t_h7zgn7mq6sbqdcdknc7ph0000gp/T/agentic-sdlc-finalization-certification-stale-03IxRU",
+    "evidence": [
+      {
+        "path": "docs/rollback-rehearsal-stale-a.json",
+        "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+      }
+    ],
+    "verification": "evidence_verified",
+    "verified": true
+  },
+  "evidence": [
+    {
+      "path": "docs/rollback-rehearsal-stale-a.json",
+      "sha256": "77dea6fe24709c0ea92d560690843b459620733f75f9f1dc3e08d3fe0a5f3009"
+    }
+  ],
+  "outcome": "passed",
+  "status": "completed",
+  "authorized_by": {
+    "id": "codex",
+    "type": "agent",
+    "name": "Codex",
+    "email": null,
+    "source": "default"
+  },
+  "authorized_at": "2026-10-10T04:34:23.840Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-STALE-A",
+      "head_sha": "0c7e6e0ea94ce25d8c1fe0d78e4274954adefd90",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  },
+  "receipt_hash": "b6d462dd93ea7d85d703cc4365e22d5b51aa1ee07449ab958229ac552225e0f3",
+  "hash_algorithm": "sha256:stable-json:v1"
+}

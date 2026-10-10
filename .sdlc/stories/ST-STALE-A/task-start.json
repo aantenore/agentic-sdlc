@@ -1,0 +1,76 @@
+{
+  "id": "START-ST-STALE-A-20261010043404233-5a4b64",
+  "kind": "profile_task_start_receipt",
+  "schema_version": "profile-task-start-receipt:v2",
+  "story_id": "ST-STALE-A",
+  "phase": "implementation",
+  "route": "claim_and_implement",
+  "contract_id": "CONTRACT-STALE-A",
+  "contract_approval_hash": "58f81018a405c605f9374159edf7f114f8d2ec5cda32fa4b8059e8f711970b82",
+  "delivery_profile_ref": {
+    "id": "AUT-STALE-A",
+    "path": ".sdlc/autonomy/deliveries/AUT-STALE-A.json",
+    "hash": "5fca571cb32259cc3489099165b4408b3e0cd25b00ae4511c40925dc1eb5bb0f"
+  },
+  "autonomy_decision_ref": {
+    "id": "AUT-DEC-20261010043403839-d65ada",
+    "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010043403839-d65ada.json",
+    "hash": "2ac06448739277ca2fb49dc5d5ecff607e11aea5377770097b5350bbf63da154"
+  },
+  "workflow_instance_ref": {
+    "id": "delivery-stale-a",
+    "path": ".sdlc/workflows/instances/delivery-stale-a/instance.json",
+    "hash": "a03dd0b762cf861c0f9a7a281c6d38a4e6e126bc8f1637990ba6db5422f73374"
+  },
+  "delivery_start_receipt_ref": {
+    "id": "AUT-START-AUT-STALE-A",
+    "path": ".sdlc/autonomy/executions/AUT-STALE-A/start.json",
+    "hash": "a83a22379d20bd2b557dced67f886168d77fa7a08c7e0e1d6456569ede2a0443"
+  },
+  "execution_context_preflight_ref": {
+    "id": "PREFLIGHT-AUT-STALE-A",
+    "path": ".sdlc/autonomy/executions/AUT-STALE-A/context-preflight.json",
+    "hash": "5dbf0636e416dd96a2e7b946a3430d19dbfa5ca7c9b74248fc7db15fe5ed9eda"
+  },
+  "autonomy_level": "supervised",
+  "start_basis": "explicit-confirmation",
+  "status": "confirmed",
+  "authorization_ref": null,
+  "authorization_use_ref": null,
+  "authority_assurance": {
+    "mode": "audit_only",
+    "receipt_ref": null,
+    "source": "declared_cli_attribution",
+    "verified": false
+  },
+  "confirmed_by": {
+    "id": "antonioantenore",
+    "type": "human",
+    "name": "Finalization E2E",
+    "email": "finalization-e2e@example.invalid",
+    "source": "cli"
+  },
+  "confirmed_at": "2026-10-10T04:34:04.233Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/ST-STALE-A",
+      "head_sha": "0c7e6e0ea94ce25d8c1fe0d78e4274954adefd90",
+      "is_dirty": true,
+      "user": {
+        "name": "Finalization E2E",
+        "email": "finalization-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.94.0"
+    }
+  }
+}

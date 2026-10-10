@@ -1,0 +1,123 @@
+{
+  "approval_ref": {
+    "hash": "e4de375e3d40ea989ebb11e20d5eb907da7ca2e0a650f07b48dc4f44357f21d4",
+    "id": "AUT-APR-20261010043353102-32b96c",
+    "path": ".sdlc/autonomy/approvals/AUT-APR-20261010043353102-32b96c.json"
+  },
+  "authority_assurance": {
+    "mode": "audit_only",
+    "receipt_ref": null,
+    "source": "declared_cli_attribution",
+    "verified": false
+  },
+  "autonomy_ceiling": "supervised",
+  "checkpoints": [
+    "contract.approve",
+    "data.migrate",
+    "data.rollback",
+    "deploy.remote",
+    "output.link",
+    "pull_request.merge",
+    "release.local",
+    "rollback.verify",
+    "story.claim",
+    "story.complete-step",
+    "sync.commit",
+    "sync.pr",
+    "sync.push",
+    "task.start.confirm"
+  ],
+  "constraints": {
+    "allowed_capabilities": [],
+    "allowed_environments": [
+      "local"
+    ],
+    "allowed_tools": [],
+    "allowed_write_paths": [
+      "docs",
+      "src"
+    ],
+    "budget_ref": null,
+    "forbidden_actions": [
+      "budget-extension",
+      "destructive-action",
+      "environment-change",
+      "external-access",
+      "external-publication",
+      "gate-bypass",
+      "global-install",
+      "irreversible-migration",
+      "new-tool-or-capability",
+      "new-write-path",
+      "production-access",
+      "protected-branch-merge",
+      "remote-deploy",
+      "requirement-change",
+      "scope-expansion",
+      "secret-access",
+      "security-privacy-compliance-decision"
+    ]
+  },
+  "created_at": "2026-10-10T04:33:52.130Z",
+  "exception_actions": [
+    "budget-extension",
+    "destructive-action",
+    "environment-change",
+    "external-access",
+    "external-publication",
+    "gate-bypass",
+    "global-install",
+    "irreversible-migration",
+    "new-tool-or-capability",
+    "new-write-path",
+    "production-access",
+    "protected-branch-merge",
+    "remote-deploy",
+    "requirement-change",
+    "scope-expansion",
+    "secret-access",
+    "security-privacy-compliance-decision"
+  ],
+  "expires_at": null,
+  "extensions": {
+    "approved_profile_hash": "cb0f68f584a5965de38be1b4e5da60c4a1d69b01d4a861ed57745a701d519f52"
+  },
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "AUT-REQ-STALE-A-R1",
+  "kind": "requirement_execution_profile",
+  "material_scope": {
+    "acceptance_criteria": [
+      "The STALE-A story has verified implementation and delivery evidence."
+    ],
+    "budget": null,
+    "capabilities": [],
+    "environment": [
+      "local"
+    ],
+    "integrations": [],
+    "nfrs": [],
+    "non_goals": [],
+    "objective": "Implement STALE-A only inside its exact approved write scope.",
+    "release_target": null,
+    "requirement_constraints": [],
+    "scope": "Implement STALE-A only inside its exact approved write scope.",
+    "write_paths": [
+      "docs",
+      "src"
+    ]
+  },
+  "material_scope_hash": "66e1c89867a2adb5b39d6ffa042c601c7f99716a8c59dac6f01cc44660a72a31",
+  "phase_levels": {},
+  "profile_hash": "0e7ca2b2fdfa0c2ab75b2c36da3f2addd752e3af5ced2d7ab3767068dba2e823",
+  "requirement_ref": {
+    "hash": "8c535ffa04db7b3116d6fdbbf97eb1a1fb610e1c9f568bad3475b6ccb166940c",
+    "id": "REQ-STALE-A",
+    "path": ".sdlc/requirements/REQ-STALE-A.json",
+    "version": 1
+  },
+  "schema_version": "requirement-execution-profile:v1",
+  "status": "active",
+  "updated_at": "2026-10-10T04:33:53.107Z",
+  "valid_from": "2026-10-10T04:33:52.130Z",
+  "version": 1
+}
