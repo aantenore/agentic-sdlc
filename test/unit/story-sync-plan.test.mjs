@@ -134,6 +134,11 @@ test("a story's own records stay local when they extend or supersede the base co
   assert.equal(localRecordExtendsBase('{"new_writes":{"count":2}}', '{"new_writes":{"count":3}}'), false);
   assert.equal(localRecordExtendsBase('{"s":"b","updated_at":"2026-02-01"}', '{"s":"a","updated_at":"2026-01-01"}'), true);
   assert.equal(localRecordExtendsBase('{"s":"b","updated_at":"2026-01-01"}', '{"s":"a","updated_at":"2026-02-01"}'), false);
+  const activeClaim = '{"story_id":"ST-X","status":"active","claimed_at":"2026-01-01T10:00:00Z","expires_at":"2026-01-02T10:00:00Z"}';
+  const releasedClaim = '{"story_id":"ST-X","status":"released","claimed_at":"2026-01-01T10:00:00Z","released_at":"2026-01-01T12:00:00Z"}';
+  assert.equal(localRecordExtendsBase(releasedClaim, activeClaim), true);
+  assert.equal(localRecordExtendsBase(activeClaim, releasedClaim), false);
+  assert.equal(localRecordExtendsBase('{"claimed_at":"2026-01-01T10:00:00Z"}', '{"claimed_at":"2026-01-01T09:00:00Z"}'), true);
   assert.equal(localRecordExtendsBase(null, "x"), false);
   const decide = (extra) => reapplyDecision(".sdlc/stories/ST-X/claim.json", { localBlob: "l", oldHeadBlob: null, newHeadBlob: "n", ...extra });
   assert.equal(decide({}), "conflict");
