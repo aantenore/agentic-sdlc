@@ -30,7 +30,14 @@ const ITALIAN = Object.freeze({
   "min ago": "min fa",
   "h ago": "h fa",
   "d ago": "g fa",
+  from: "da",
+  "local base checkout": "checkout base locale",
+  updated: "aggiornato",
+  inconsistent: "incoerente",
+  "branch not on the remote": "branch assente sul remoto",
 });
+
+const SOURCE_KIND = Object.freeze({ base: "base", branch: "branch", claim: "claim" });
 
 function label(text) {
   return getLocale() === "it" ? ITALIAN[text] ?? text : text;
@@ -56,15 +63,23 @@ function section(title, items) {
 
 function workItem(item) {
   const parts = [];
-  if (item.phase) parts.push(`${label("phase")} ${item.phase}${item.phaseSince ? ` (${relativeTime(item.phaseSince)})` : ""}`);
+  if (item.phase) {
+    const source = item.phaseSource ? `${label("from")} ${SOURCE_KIND[item.phaseSource.kind] ?? item.phaseSource.kind} ${label(item.phaseSource.ref)}` : "";
+    const when = item.phaseSince ? `${label("updated")} ${relativeTime(item.phaseSince)}` : "";
+    const detail = [source, when].filter(Boolean).join(", ");
+    parts.push(`${label("phase")} ${item.phase}${detail ? ` (${detail})` : ""}`);
+  }
   if (item.since) parts.push(`${label("since")} ${relativeTime(item.since)}`);
   if (item.branch) parts.push(`${label("branch")} ${item.branch}`);
   const flag = item.state !== "claimed" ? item.state : item.health && item.health !== "active" ? item.health : null;
+  const issues = Array.isArray(item.issues) ? item.issues : [];
   return node("li", { className: "now-item" }, [
     node("strong", { text: item.storyId }),
     node("span", { className: "now-who", text: item.who || item.agent || "" }),
     flag ? node("span", { className: "now-flag", text: label(flag) }) : null,
     node("span", { className: "now-meta", text: parts.join(" · ") }),
+    issues.length ? node("span", { className: "now-flag", text: label("inconsistent") }) : null,
+    ...issues.map((issue) => node("span", { className: "now-meta", text: `${issue.code}: ${issue.detail}` })),
   ]);
 }
 
