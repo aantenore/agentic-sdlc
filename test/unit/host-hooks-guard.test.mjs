@@ -235,8 +235,15 @@ test("session context names each standing approval and whether it is shared", ()
   assert.match(context, /Only the user approves a standing approval/u);
 });
 
+// The hook reads the host policy from the environment too: run it with a clean one.
+const cleanHookEnv = () => {
+  const env = { ...process.env };
+  delete env.AGENTIC_SDLC_MAIN_THREAD;
+  return env;
+};
+
 test("the hook blocks only with exit status 2 and a reason, the signal both hosts honour", () => {
-  const run = (event, payload) => spawnSync(process.execPath, [HOOK, event], { input: JSON.stringify({ cwd: GOVERNED, ...payload }), encoding: "utf8" });
+  const run = (event, payload) => spawnSync(process.execPath, [HOOK, event], { input: JSON.stringify({ cwd: GOVERNED, ...payload }), encoding: "utf8", env: cleanHookEnv() });
   const blocked = run("pre-tool-use", shell("node bin/agentic-sdlc.mjs autonomy standing approve --id SA-X"));
   assert.equal(blocked.status, 2);
   assert.match(blocked.stderr, /Only the user can approve/u);
@@ -610,7 +617,7 @@ test("the hook adds the orchestrator context and warning without blocking", () =
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "hook-orchestrator-"));
   try {
     fs.mkdirSync(path.join(project, ".sdlc"));
-    const run = (event, payload) => spawnSync(process.execPath, [HOOK, event], { input: JSON.stringify({ cwd: project, ...payload }), encoding: "utf8" });
+    const run = (event, payload) => spawnSync(process.execPath, [HOOK, event], { input: JSON.stringify({ cwd: project, ...payload }), encoding: "utf8", env: cleanHookEnv() });
     const edit = { tool_name: "Edit", tool_input: { file_path: path.join(project, "a.js") } };
     assert.equal(run("session-start", {}).stdout.trim(), `${STORY_LABEL_INSTRUCTION}\n${PROCESS_HYGIENE_INSTRUCTION}`);
     assert.match(PROCESS_HYGIENE_INSTRUCTION, /agentic-sdlc run --timeout .*nohup.*processes reap/u);
