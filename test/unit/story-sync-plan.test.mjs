@@ -7,6 +7,8 @@ import {
   autoPublishEvent,
   classifySyncConflicts,
   identicalUntrackedFiles,
+  isOwnStoryRecordPath,
+  localRecordExtendsBase,
   pathInWritePaths,
   reapplyDecision,
   selectHandoffFiles,
@@ -115,4 +117,25 @@ test("records are published after a passed merge completion or final gate, unles
   assert.equal(autoPublishEnabled({}), true);
   assert.equal(autoPublishEnabled({ AGENTIC_SDLC_AUTO_PUBLISH: "off" }), false);
   assert.equal(autoPublishEnabled({ AGENTIC_SDLC_AUTO_PUBLISH: "0" }), false);
+});
+
+test("a story's own records stay local when they extend or supersede the base copy", () => {
+  const options = { storyId: "ST-X", storyIds: ["ST-X", "ST-Y"] };
+  for (const own of [".sdlc/stories/ST-X/claim.json", ".sdlc/traces/ST-X.jsonl", ".sdlc/workflows/instances/DELIVERY-ST-X/state.json",
+    ".sdlc/autonomy/executions/AUT-PR-X/run.json", ".sdlc/gates/ST-X-final.json", ".sdlc/tests/ST-X-unit.json"]) {
+    assert.equal(isOwnStoryRecordPath(own, options), true, own);
+  }
+  assert.equal(isOwnStoryRecordPath(".sdlc/stories/ST-Y/claim.json", options), false);
+  assert.equal(isOwnStoryRecordPath(".sdlc/contracts/shared.json", options), false);
+  assert.equal(localRecordExtendsBase('{"a":1}\n{"b":2}\n', '{"a":1}\n'), true);
+  assert.equal(localRecordExtendsBase('{"a":1}\n', '{"a":1}\n{"b":2}\n'), false);
+  assert.equal(localRecordExtendsBase('{"a":9}\n{"c":3}\n', '{"a":1}\n'), false);
+  assert.equal(localRecordExtendsBase('{"new_writes":{"count":5}}', '{"new_writes":{"count":3}}'), true);
+  assert.equal(localRecordExtendsBase('{"new_writes":{"count":2}}', '{"new_writes":{"count":3}}'), false);
+  assert.equal(localRecordExtendsBase('{"s":"b","updated_at":"2026-02-01"}', '{"s":"a","updated_at":"2026-01-01"}'), true);
+  assert.equal(localRecordExtendsBase('{"s":"b","updated_at":"2026-01-01"}', '{"s":"a","updated_at":"2026-02-01"}'), false);
+  assert.equal(localRecordExtendsBase(null, "x"), false);
+  const decide = (extra) => reapplyDecision(".sdlc/stories/ST-X/claim.json", { localBlob: "l", oldHeadBlob: null, newHeadBlob: "n", ...extra });
+  assert.equal(decide({}), "conflict");
+  assert.equal(decide({ ownExtends: true }), "reapply");
 });
