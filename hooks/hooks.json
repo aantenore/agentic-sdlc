@@ -1,5 +1,5 @@
 {
-  "description": "Agentic SDLC guard: only the user approves a standing approval, standing-approval records and their shared refs stay out of direct edits, and each session starts with the project's standing approvals, and questions from other computers reach the agent while it works, and plugin commands left running past their time limit are stopped when a turn or session ends.",
+  "description": "Agentic SDLC guard: only the user approves a standing approval, standing-approval records and their shared refs stay out of direct edits, and each session starts with the project's standing approvals, and questions from other computers reach the agent while it works, and plugin commands left running past their time limit are stopped when a turn or session ends, and the agent keeps going while this computer has work.",
   "hooks": {
     "SessionStart": [
       {

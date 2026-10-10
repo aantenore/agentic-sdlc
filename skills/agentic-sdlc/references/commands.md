@@ -1750,6 +1750,11 @@ stops the stale ones, or those chosen with `--older-than <minutes>` or
 `--pid <pid>`. On Windows command lines cannot be checked, so only an explicit
 `runs stop` stops a process.
 
+`next` prints the next step while this computer has work in the project (an
+active claim not yet certified, unanswered questions to this computer, or
+available stories), from local files only; `--json` returns the same data.
+It uses the same decision as the end-of-turn hook that keeps the agent going.
+
 The default native fallback handles an unavailable or unsupported RTK provider
 without claiming savings. Unknown commands, mutations, unsafe Git output flags,
 external `rg` preprocessors, and executable paths are rejected rather than

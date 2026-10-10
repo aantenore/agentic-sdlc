@@ -27,6 +27,7 @@ import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
 import { registerCurrentRun } from "../lib/runtime/run-registry.mjs";
 import { acquireSingleFlight, LOCK_BUSY_EXIT_CODE } from "../lib/runtime/single-flight.mjs";
 import { runsList, runsStop } from "../lib/cli/runs-commands.mjs";
+import { nextCommand } from "../lib/cli/next-command.mjs";
 import { syncProjectForStatus } from "../lib/engine/status-sync.mjs";
 import { assertPluginSatisfiesProject } from "../lib/engine/plugin-compatibility.mjs";
 import {
@@ -1245,6 +1246,7 @@ function buildCliRuntimeHandlerRegistry() {
     "message.read": bootstrap(({ options }) => messageRead(options)),
     "message.listen": bootstrap(({ options }) => messageListen(options)),
     "runs.list": bootstrap(({ options }) => runsList(options)),
+    next: bootstrap(({ options }) => nextCommand(options)),
     "runs.stop": bootstrap(({ options }) => runsStop(options)),
     "portfolio.status": bootstrap(runPortfolioStatusFromCli),
     "config.status": preConfig(({ context, options }) => showConfigStatus(context, options)),

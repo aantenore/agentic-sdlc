@@ -984,6 +984,13 @@ The dedicated assessment journey remains the exception described above: it packa
    `AGENTIC_SDLC_LISTEN_MAX_HOURS` (default 8); `agentic-sdlc runs list` and
    `runs stop` show and stop the ones still running.
 
+   **Keep going.** The agent continues with the next step until no work
+   remains; it stops only for human decisions. Before ending a turn run
+   `agentic-sdlc next`: if it prints a next step (active claim not yet
+   certified, unanswered questions to this computer, available stories),
+   continue with it. In Claude Code the end-of-turn hook does this check and
+   keeps the turn going; `AGENTIC_SDLC_KEEP_GOING=off` disables it.
+
    **One heavy command at a time per story.** Never start the same plugin
    command twice in parallel, and run one heavy command at a time per story
    (gate check, story complete-step, workflow transitions, delivery actions,
