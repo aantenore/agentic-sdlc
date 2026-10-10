@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "test-triage.schema.json",
+  "title": "Agentic SDLC Test Triage Decision v1",
+  "description": "The decision taken on one failed or failed-minor test case of a story: fixable (a fix story is opened), not-fixable, or by-design. The reason is mandatory so the decision can be reviewed later.",
+  "type": "object",
+  "required": [
+    "kind",
+    "schema_version",
+    "id",
+    "story_id",
+    "case_id",
+    "run_id",
+    "run_outcome",
+    "decision",
+    "reason",
+    "fix_story_id",
+    "priority",
+    "actor",
+    "git",
+    "run",
+    "created_at",
+    "audit",
+    "record_hash",
+    "hash_algorithm"
+  ],
+  "properties": {
+    "kind": {
+      "const": "test_triage"
+    },
+    "schema_version": {
+      "const": "test-triage:v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "story_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "description": "The test run record whose failure this decision covers. A later failing run of the same case needs its own decision.",
+      "type": "string",
+      "minLength": 1
+    },
+    "run_outcome": {
+      "enum": [
+        "failed",
+        "failed-minor"
+      ]
+    },
+    "decision": {
+      "enum": [
+        "fixable",
+        "not-fixable",
+        "by-design"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fix_story_id": {
+      "description": "The fix story opened for a fixable case; null when none was opened (yet).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "priority": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "actor": {
+      "$ref": "common.schema.json#/$defs/actor"
+    },
+    "git": {
+      "$ref": "common.schema.json#/$defs/git"
+    },
+    "run": {
+      "$ref": "common.schema.json#/$defs/run"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "audit": {
+      "$ref": "common.schema.json#/$defs/audit"
+    },
+    "record_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "hash_algorithm": {
+      "const": "sha256:stable-json:v1"
+    }
+  },
+  "additionalProperties": false
+}

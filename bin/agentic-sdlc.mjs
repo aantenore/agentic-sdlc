@@ -1041,6 +1041,9 @@ import {
   publishStoryRecords,
 } from "../lib/engine/story-records-publish.mjs";
 import {
+  triageTestCases,
+} from "../lib/engine/test-triage.mjs";
+import {
   showBaselineStatus,
   showBreakdownStatus,
   showCacheStatus,
@@ -1408,6 +1411,7 @@ function buildCliRuntimeHandlerRegistry() {
     "trace.rebase": call(rebaseTraceHistory),
     "sync.record": call(recordSyncEvent),
     "test.record": call(recordTestRun),
+    "test.triage": call(triageTestCases),
     "incident.record": call(recordIncident),
     "feedback.record": call(recordFeedback),
     "secret.scan": call(runSecretScan),

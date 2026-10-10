@@ -45,6 +45,7 @@
       "enum": [
         "passed",
         "failed",
+        "failed-minor",
         "blocked",
         "skipped",
         "ready",

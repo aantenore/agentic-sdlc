@@ -89,8 +89,16 @@
       "enum": [
         "passed",
         "failed",
+        "failed-minor",
         "blocked",
         "skipped"
+      ]
+    },
+    "case_id": {
+      "description": "Identifier of the single test case this run covers (for example TB-PREF-012), when the run is about one case.",
+      "type": [
+        "string",
+        "null"
       ]
     },
     "totals": {
@@ -213,7 +221,10 @@
         ],
         "properties": {
           "outcome": {
-            "const": "failed"
+            "enum": [
+              "failed",
+              "failed-minor"
+            ]
           }
         }
       },

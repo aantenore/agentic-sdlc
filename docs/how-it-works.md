@@ -49,6 +49,17 @@ The technical chain for `ST-TRIP-POLICY-001` is:
    A bug found later is fixed by a new story created with `story create --fixes <story>`
    or `--incident <incident-id>`: the link is recorded, discovery and analysis are
    completed as inherited, and the fix starts in design.
+   A test case that fails becomes a bugfix round the same way. Record each case with
+   `test record --story <test-story> --case TB-PREF-012 ...` (add `--outcome failed-minor`
+   for a real but small failure). `test triage --story <test-story>` lists the failed and
+   failed-minor cases that have no decision; `--case <id> --decision fixable|not-fixable|by-design
+   --reason "..."` records one. With `--create-fix --fixes <delivered-story> [--priority P1|P2|P3]`
+   a fixable case opens a free fix story on the story that delivered the feature (so it inherits
+   its requirements and write paths), with "Il caso <id> passa di nuovo" as acceptance criterion,
+   an `origin` link to the test story, case and run, and no owner. Its records are published to
+   the base branch and an `offer` goes to the channel, so `watch` and `keep-going` show it to every
+   computer. The strict gate refuses a story with failed cases that lack a decision, and a fix story
+   closes only when its case has passed in a run recorded after the decision.
 9. **Final certification** releases the completed story claim, then evaluates
    the complete story after that release:
 
