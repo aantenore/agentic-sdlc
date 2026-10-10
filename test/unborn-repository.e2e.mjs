@@ -174,7 +174,7 @@ function certifyLocalStoryWithoutCommit(project, suffix = "UNBORN") {
     ...humanApproval("Approve implementation-summary output format"),
   ], project);
   mustRun([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", storyId,
     "--title", `Implement ${suffix}`,

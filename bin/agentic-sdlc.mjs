@@ -9,6 +9,7 @@ import {
   waiveCodeReview,
 } from "../lib/engine/code-review-requirement.mjs";
 import { rebaseTraceHistory } from "../lib/engine/trace-rebase.mjs";
+import { deriveStoriesVerification } from "../lib/engine/derived-verification.mjs";
 import {
   autoPublishStoryRecords,
   syncStory,
@@ -1318,6 +1319,7 @@ function buildCliRuntimeHandlerRegistry() {
     "contract.approve": call(approveContract),
     "story.create": call(createStory),
     "story.acceptance.add": call(addStoryAcceptance),
+    "story.derive-verification": call(deriveStoriesVerification),
     "story.claim": call(claimStory),
     "story.release": call(noteForMessages(releaseStoryClaim)),
     "story.reserve": call(reserveStory),

@@ -617,7 +617,7 @@ test("strict story gate detects trace deletion, checkpoint deletion, and deletio
     const project = initializedProject(`trace-deletion-${deletion}`);
     const storyId = `ST-TRACE-${deletion.toUpperCase()}`;
     mustRun([
-      "story", "create",
+      "story", "create", "--no-derived-verification",
       "--root", project,
       "--id", storyId,
       "--title", "Trace deletion fixture",

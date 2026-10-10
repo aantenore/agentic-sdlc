@@ -483,7 +483,7 @@ function createApprovedRequirement(project, id) {
 
 function createStory(project, suffix, requirement = null) {
   cliJson([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", `ST-${suffix}`,
     "--title", `Implement ${suffix}`,

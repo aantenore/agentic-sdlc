@@ -107,7 +107,7 @@ function prepareStories(project, storyIds) {
   mustRun(["output", "template", "approve", "--root", project, "--id", "functional-analysis-v1", ...humanApproval("Approve the template")], project);
   for (const storyId of storyIds) {
     mustRun([
-      "story", "create", "--root", project, "--id", storyId, "--title", `Story ${storyId}`,
+      "story", "create", "--no-derived-verification", "--root", project, "--id", storyId, "--title", `Story ${storyId}`,
       "--acceptance", "The result is observable", "--phase", "design", "--status", "ready",
     ], project);
     mustRun([

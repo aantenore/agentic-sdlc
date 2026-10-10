@@ -613,7 +613,7 @@ function initializeAutonomyProject(project, options = {}) {
 
 function createApprovedImplementationContract(project, { storyId, contractId, profileId }) {
   const story = mustRunJson([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", storyId,
     "--title", `Implement ${storyId}`,
@@ -1203,7 +1203,7 @@ test("requirement ceiling and an exact PR profile govern task start without leak
   assert.doesNotMatch(destinationUnknownHuman.primary, /Per questo rilascio locale, quanto vuoi che lavori in autonomia/u);
   assert.doesNotMatch(destinationUnknownHuman.primary, /(?:1\. Guidato|2\. Autonomia con controlli|3\. Autonomia completa)/u);
   mustRun([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", "ST-PR-CONFLICT",
     "--title", "Reject a shared delivery profile reservation",

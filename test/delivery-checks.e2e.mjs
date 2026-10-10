@@ -162,7 +162,7 @@ function approveRequirementAndFormat(project, requirementId, ceiling) {
 
 function createStoryAndContract(project, { storyId, contractId, profileId, requirementId, approval }) {
   mustRunJson([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", storyId,
     "--title", "Implement the change",
     "--phase", "implementation",

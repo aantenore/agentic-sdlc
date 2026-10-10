@@ -287,7 +287,7 @@ function sealPullRequestStory(project, {
   }
 
   mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", storyId,
     "--title", `Implement ${suffix}`,
     "--phase", "implementation",

@@ -236,7 +236,7 @@ function standingArgs(project, extra = []) {
 
 function createBrief(project, suffix, requirementId) {
   mustRun([
-    "story", "create", "--root", project, "--id", `ST-${suffix}`, "--title", `Clean up flag ${suffix}`,
+    "story", "create", "--no-derived-verification", "--root", project, "--id", `ST-${suffix}`, "--title", `Clean up flag ${suffix}`,
     "--phase", "implementation", "--status", "ready", "--requirement", requirementId,
     "--acceptance", `Flag ${suffix} is removed and verified.`,
   ], project);

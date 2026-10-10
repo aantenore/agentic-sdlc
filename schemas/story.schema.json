@@ -119,6 +119,40 @@
       },
       "description": "Human-readable alias for acceptance_criteria. acceptance_criteria remains the canonical gate field."
     },
+    "derived_acceptance": {
+      "type": "array",
+      "description": "Secondary verification criteria derived from the verification policy; explicit acceptance criteria keep priority.",
+      "items": {
+        "type": "object",
+        "required": ["id", "rule_id", "verification_type", "text", "source", "priority"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "rule_id": { "type": "string", "minLength": 1 },
+          "verification_type": { "type": "string", "minLength": 1 },
+          "text": { "type": "string", "minLength": 1 },
+          "source": { "const": "derived" },
+          "priority": { "const": "secondary" },
+          "evidence_patterns": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    },
+    "derived_verification": {
+      "type": "object",
+      "description": "How the derived criteria were computed: policy hash, scope, enforcement (warn or block), opt-out, and rules already covered by an explicit criterion.",
+      "required": ["schema_version", "disabled", "enforce"],
+      "properties": {
+        "schema_version": { "const": "derived-verification:v1" },
+        "policy_hash": { "type": "string" },
+        "mode": { "enum": ["new", "backfill"] },
+        "disabled": { "type": "boolean" },
+        "reason": { "type": ["string", "null"] },
+        "enforce": { "enum": ["warn", "block", null] },
+        "scope": { "type": "object" },
+        "covered_by_explicit": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": true
+    },
     "audit": {
       "type": "object",
       "properties": {

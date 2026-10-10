@@ -440,7 +440,7 @@ function createGovernedDeliveryStory(project, {
   }
 
   mustRun([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", storyId,
     "--title", `Implement ${suffix}`,
@@ -627,7 +627,7 @@ function createLegacyStrictStory(project, suffix) {
     }, null, 2)}\n`,
   );
   mustRun([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", storyId,
     "--title", `Trace precedence ${suffix}`,
@@ -1348,7 +1348,7 @@ test("workflow story ownership ignores a story id colliding with the software-pr
     beforeTaskStart: ({ requirementId, storyId }) => {
       assert.equal(storyId, targetStoryId);
       mustRun([
-        "story", "create",
+        "story", "create", "--no-derived-verification",
         "--root", project,
         "--id", collisionStoryId,
         "--title", "Story whose id matches the built-in workflow definition",
@@ -3922,7 +3922,7 @@ test("lifecycle-complete strict gate requires the pre-task workflow and an alter
   );
 
   mustRun([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", "ST-FINAL-DOWNSTREAM",
     "--title", "Consume the certified upstream lifecycle",

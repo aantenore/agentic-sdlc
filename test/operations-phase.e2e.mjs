@@ -167,14 +167,14 @@ test("a story in the operations phase records incidents and feedback against a r
 
   const storyId = "ST-OPS-E2E";
   mustRun([
-    "story", "create", "--root", project, "--id", storyId,
+    "story", "create", "--no-derived-verification", "--root", project, "--id", storyId,
     "--title", "Operate the released change", "--phase", "operations",
     "--acceptance", "Incidents and feedback are recorded against the release",
   ]);
 
   const emptyStoryId = "ST-OPS-EMPTY-E2E";
   mustRun([
-    "story", "create", "--root", project, "--id", emptyStoryId,
+    "story", "create", "--no-derived-verification", "--root", project, "--id", emptyStoryId,
     "--title", "Operate a second released change", "--phase", "operations",
     "--acceptance", "Nothing has been recorded yet",
   ]);

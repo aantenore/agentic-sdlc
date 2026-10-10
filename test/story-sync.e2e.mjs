@@ -70,7 +70,7 @@ function twoComputers(name) {
   mustRun(["init", "--root", first, "--project-name", "Story sync"]);
   git(first, ["init", "--quiet", "-b", "main"]);
   configureClone(first, "first");
-  mustRun(["story", "create", "--root", first, "--id", STORY, "--title", "Sync the story", "--phase", "implementation", "--status", "ready", "--acceptance", "The story stays aligned."]);
+  mustRun(["story", "create", "--no-derived-verification", "--root", first, "--id", STORY, "--title", "Sync the story", "--phase", "implementation", "--status", "ready", "--acceptance", "The story stays aligned."]);
   write(first, "src/shared.txt", "one\n");
   record(first, "Common decision");
   git(first, ["add", "-A"]);

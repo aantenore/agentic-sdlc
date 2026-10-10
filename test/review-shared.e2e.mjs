@@ -141,7 +141,7 @@ function sharedDelivery() {
   mustRun(["output", "template", "propose", "--root", first, "--type", "implementation-summary", "--summary", "Implementation evidence"]);
   mustRun(["output", "template", "approve", "--root", first, "--id", "implementation-summary-v1", ...humanApproval("Approve the format")]);
   mustRunJson([
-    "story", "create", "--root", first,
+    "story", "create", "--no-derived-verification", "--root", first,
     "--id", STORY_ID,
     "--title", "Implement the reviewed change",
     "--phase", "implementation",

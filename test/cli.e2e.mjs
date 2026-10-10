@@ -345,7 +345,7 @@ function story(project, id, extra = []) {
   }
   mustRun([
     "story",
-    "create",
+    "create", "--no-derived-verification",
     "--root",
     project,
     "--id",
@@ -996,7 +996,7 @@ test("effective configuration is human-readable, reviewable, hash-bound, and fai
   assert.match(driftedGuidance.firstLine, /^Outcome: The rules changed after their last confirmation, so governed changes are paused/u);
   assert.match(driftedGuidance.technical, /Status: drifted/u);
   mustFail([
-    "story", "create", "--root", project, "--id", "ST-BLOCKED",
+    "story", "create", "--no-derived-verification", "--root", project, "--id", "ST-BLOCKED",
     "--title", "Blocked by config drift", "--acceptance", "No write occurs",
   ], /no governed project files were changed/i);
   assert.equal(fs.existsSync(path.join(project, ".sdlc", "stories", "ST-BLOCKED")), false);
@@ -1499,7 +1499,7 @@ test("story create persists acceptance criteria with human-readable alias", () =
   initProject(project);
   const created = JSON.parse(mustRun([
     "story",
-    "create",
+    "create", "--no-derived-verification",
     "--root",
     project,
     "--id",
@@ -1550,7 +1550,7 @@ test("story acceptance add preserves governed story state and workspace files", 
   ]);
   mustRun([
     "story",
-    "create",
+    "create", "--no-derived-verification",
     "--root",
     project,
     "--id",
@@ -1654,7 +1654,7 @@ test("story creation and acceptance recovery reject lifecycle and binding bypass
   const project = tmpProject("story-command-options");
   initProject(project);
   mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-OPTIONS", "--title", "Safe story options",
     "--acceptance", "One observable result",
   ]);
@@ -1662,7 +1662,7 @@ test("story creation and acceptance recovery reject lifecycle and binding bypass
   const before = fs.readFileSync(storyPath);
 
   mustFail([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-OPTIONS", "--title", "Unsafe rewrite",
     "--acceptance", "Another result", "--force",
   ], /story create does not accept --force/i);
@@ -1675,17 +1675,17 @@ test("story creation and acceptance recovery reject lifecycle and binding bypass
     "--id", "ST-OPTIONS", "--acceptance", "Another result", "--contract", "CONTRACT-UNAPPROVED",
   ], /story acceptance add does not accept --contract/i);
   mustFail([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-DONE", "--title", "Skip the lifecycle",
     "--acceptance", "Pretend complete", "--status", "done",
   ], /may start only as draft or ready/i);
   mustFail([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-READY-INCOMPLETE", "--title", "Ready without success criteria",
     "--status", "ready",
   ], /ready story requires at least one observable --acceptance/i);
   const draftCreated = mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-DRAFT-INCOMPLETE", "--title", "Draft awaiting success criteria",
   ]);
   const draftGuidance = splitHumanGuidance(draftCreated.stdout);
@@ -1696,7 +1696,7 @@ test("story creation and acceptance recovery reject lifecycle and binding bypass
     /story acceptance add --id ST-DRAFT-INCOMPLETE --acceptance <criterion>/u,
   );
   const draftItalian = mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-DRAFT-INCOMPLETE-IT",
     "--title", "Bozza in attesa del risultato",
     "--locale", "it",
@@ -1709,7 +1709,7 @@ test("story creation and acceptance recovery reject lifecycle and binding bypass
     /story acceptance add --id ST-DRAFT-INCOMPLETE-IT --acceptance <criterion>/u,
   );
   const definedEnglish = mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-DEFINED-EN",
     "--title", "Story with a visible result",
     "--acceptance", "The saved result can be reopened",
@@ -1719,7 +1719,7 @@ test("story creation and acceptance recovery reject lifecycle and binding bypass
   assert.match(definedEnglishGuidance.primary, /expected result is recorded/is);
   assert.doesNotMatch(definedEnglish.stdout, /story acceptance add --id ST-DEFINED-EN/u);
   const definedItalian = mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-DEFINED-IT",
     "--title", "Story con risultato visibile",
     "--acceptance", "Il risultato salvato può essere riaperto",
@@ -1744,7 +1744,7 @@ test("story claim requires observable acceptance and gives the additive recovery
   const project = tmpProject("claim-missing-acceptance");
   initProject(project);
   mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-CLAIM-NO-ACCEPTANCE",
     "--title", "Do not claim an undefined story",
   ]);
@@ -1954,7 +1954,7 @@ test("story acceptance add preserves stale requirement refs, is idempotent, and 
     ...humanApproval("Approve exact requirement binding"),
   ]);
   mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-BOUNDARY", "--title", "Acceptance recovery boundaries",
     "--requirement", "REQ-BOUNDARY",
   ]);
@@ -2018,7 +2018,7 @@ test("story creation refuses an orphaned workspace without overwriting its files
   fs.writeFileSync(planPath, "# Existing plan\n");
   fs.writeFileSync(logPath, "# Existing log\n");
   mustFail([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-ORPHAN", "--title", "Do not overwrite orphan",
     "--acceptance", "Existing work remains intact",
   ], /exists without story\.json.*refusing to overwrite/i);
@@ -2032,7 +2032,7 @@ test("story acceptance add rejects symlinked workspace files before rewriting st
   const project = tmpProject("story-acceptance-symlink");
   initProject(project);
   mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-SYMLINK", "--title", "Reject unsafe workspace",
     "--acceptance", "The workspace remains canonical",
   ]);
@@ -2057,7 +2057,7 @@ test("story acceptance add leaves story bytes unchanged when its audit trace is 
   const project = tmpProject("story-acceptance-trace-rollback");
   initProject(project);
   mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-TRACE", "--title", "Trace-bound acceptance recovery",
   ]);
   const storyPath = path.join(project, ".sdlc", "stories", "ST-TRACE", "story.json");
@@ -2078,7 +2078,7 @@ test("story acceptance add refuses legacy stories with completed work but no tas
   const project = tmpProject("story-acceptance-legacy-in-flight");
   initProject(project);
   mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-LEGACY", "--title", "Legacy in-flight story",
   ]);
   const storyDir = path.join(project, ".sdlc", "stories", "ST-LEGACY");
@@ -2104,7 +2104,7 @@ test("concurrent story acceptance additions are serialized without lost updates"
   const project = tmpProject("story-acceptance-concurrency");
   initProject(project);
   mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-CONCURRENT", "--title", "Serialize acceptance recovery",
     "--acceptance", "Base criterion",
   ]);
@@ -2920,7 +2920,7 @@ test("story id mismatch and invalid branch pattern fail strict gate", () => {
 test("invalid statuses and invalid expiry values are rejected or gated", () => {
   const project = tmpProject("status-expiry");
   initProject(project);
-  mustFail(["story", "create", "--root", project, "--id", "ST-001", "--title", "Bad", "--status", "banana"], /Unknown story status/);
+  mustFail(["story", "create", "--no-derived-verification", "--root", project, "--id", "ST-001", "--title", "Bad", "--status", "banana"], /Unknown story status/);
 
   createStrictReadyStory(project, "ST-001");
   const storyPath = path.join(project, ".sdlc", "stories", "ST-001", "story.json");
@@ -7216,7 +7216,7 @@ test("config-only template overlays fall back to bundled assets and onboard clea
   );
   mustRun([
     "story",
-    "create",
+    "create", "--no-derived-verification",
     "--root",
     project,
     "--id",
@@ -7338,7 +7338,7 @@ test("portable IDs reject Windows device names while valid dotted paths stay ins
   initProject(project);
   for (const id of ["CON", "lpt1.audit", "story."]) {
     mustFail(
-      ["story", "create", "--root", project, "--id", id, "--title", "Portable story", "--acceptance", "Portable"],
+      ["story", "create", "--no-derived-verification", "--root", project, "--id", id, "--title", "Portable story", "--acceptance", "Portable"],
       /Invalid id/,
     );
   }
@@ -10239,7 +10239,7 @@ test("route decide gives the additive recovery command for a legacy story withou
   const project = tmpProject("route-missing-story-acceptance");
   initProject(project);
   mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-LEGACY-ACCEPTANCE",
     "--title", "Legacy story missing success criteria",
   ]);
@@ -10258,7 +10258,7 @@ test("route decide does not propose an impossible contract before story acceptan
   const project = tmpProject("route-contract-missing-story-acceptance");
   initProject(project);
   mustRun([
-    "story", "create", "--root", project,
+    "story", "create", "--no-derived-verification", "--root", project,
     "--id", "ST-CONTRACT-NO-ACCEPTANCE",
     "--title", "Contract must wait for observable success",
   ]);
@@ -11656,7 +11656,7 @@ test("report query finds new functional stories from canonical story records", (
   initProject(project);
   mustRun([
     "story",
-    "create",
+    "create", "--no-derived-verification",
     "--root",
     project,
     "--id",
@@ -11670,7 +11670,7 @@ test("report query finds new functional stories from canonical story records", (
   ]);
   mustRun([
     "story",
-    "create",
+    "create", "--no-derived-verification",
     "--root",
     project,
     "--id",
@@ -11702,7 +11702,7 @@ test("CLI rejects unknown, duplicate, and missing option values and honors expli
   mustFail(["status", "--root", project, "--definitely-unknown", "value"], /Unknown option --definitely-unknown/);
   mustFail([
     "story",
-    "create",
+    "create", "--no-derived-verification",
     "--root",
     project,
     "--id",
@@ -11712,7 +11712,7 @@ test("CLI rejects unknown, duplicate, and missing option values and honors expli
     "--title",
     "Duplicate id",
   ], /Option --id may only be provided once/);
-  mustFail(["story", "create", "--root", project, "--id", "ST-001", "--title", "--json"], /Missing value for option --title/);
+  mustFail(["story", "create", "--no-derived-verification", "--root", project, "--id", "ST-001", "--title", "--json"], /Missing value for option --title/);
   const archive = JSON.parse(mustRun([
     "archive",
     "closed",

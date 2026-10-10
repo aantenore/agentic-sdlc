@@ -46,7 +46,7 @@ function createProject({ commit = true } = {}) {
   const initialized = run(["init", "--root", directory, "--project-name", "Secret scan fixture"]);
   assert.equal(initialized.status, 0, initialized.stderr || initialized.stdout);
   const created = run([
-    "story", "create", "--root", directory,
+    "story", "create", "--no-derived-verification", "--root", directory,
     "--id", STORY_ID, "--title", "Deliver the booking endpoint",
     "--acceptance", "The endpoint answers with the stored booking",
   ]);

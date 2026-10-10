@@ -57,6 +57,7 @@ function validationProject(label, { storyId = "ST-001" } = {}) {
     "--title", "Booking confirmation",
     "--phase", "validation",
     "--acceptance", "The booking suite passes",
+    "--no-derived-verification",
   ]);
   mustRun([
     "trace", "append",

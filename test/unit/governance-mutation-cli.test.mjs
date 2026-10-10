@@ -185,7 +185,7 @@ function unpinWithGovernance(project, governancePolicy) {
 
 function createStory(project, id) {
   return run(project, [
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--id", id,
     "--title", "Governed story",
     "--acceptance", "The exact mutation behavior is observable",

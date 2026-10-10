@@ -1256,6 +1256,10 @@ node bin/agentic-sdlc.mjs test record \
 
 The command is recorded, never run. A story in validation with only a `trace append --type test` entry and no `test-run:v1` record is the legacy weaker form; prefer `test record` for validation evidence and use `trace append --type test` only where a durable test record does not apply.
 
+## Derived Verification Criteria
+
+`requirement propose|revise` and `story create` add `derived_acceptance` (tests of touched units; end-to-end flow and accessibility for UI scopes; integration for API scopes; executable steps for docs) beside the explicit `acceptance`, using `templates/verification-policy.json` overridden by `verification_policy` in `.sdlc/config.json`. Produce those checks too, and record each with `test record --story <id> --acceptance DV-<rule-id> ...` (or a command/framework matching the rule). The strict gate in validation and at `--lifecycle-complete` errors (`enforce: block`, new records) or warns (`warn`, backfilled) when one has no passing run. Opt out per record with `--no-derived-verification`. Fill in open stories with `story derive-verification --all-open` (or `--id`); stories already bound by a contract, task start, claim or delivery profile are only reported.
+
 ## Scan Changed Files For Credentials
 
 Use `secret scan` to search the files one delivery changed for credentials and store the result as a `secret-scan:v1` record under `.sdlc/security/`:

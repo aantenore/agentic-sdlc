@@ -68,7 +68,7 @@ function storyPath(project, storyId, file = "story.json") {
 
 function createStory(project, storyId) {
   mustRun([
-    "story", "create",
+    "story", "create", "--no-derived-verification",
     "--root", project,
     "--id", storyId,
     "--title", `Story ${storyId}`,

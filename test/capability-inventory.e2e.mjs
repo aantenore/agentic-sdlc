@@ -256,7 +256,7 @@ function ensureRequirement(project, requirementId) {
 function createStory(project, home, id) {
   ensureRequirement(project, "REQ-001");
   mustRun([
-    "story", "create", "--root", project, "--id", id, "--title", `Story ${id}`,
+    "story", "create", "--no-derived-verification", "--root", project, "--id", id, "--title", `Story ${id}`,
     "--acceptance", "Observable acceptance",
   ], { cwd: project, home });
 }
@@ -479,7 +479,7 @@ function statusJson(project, home) {
 function createPhaseStory(project, home, id, phase, title = `Story ${id}`) {
   ensureRequirement(project, "REQ-001");
   mustRun([
-    "story", "create", "--root", project, "--id", id, "--title", title,
+    "story", "create", "--no-derived-verification", "--root", project, "--id", id, "--title", title,
     "--acceptance", "Observable acceptance", "--phase", phase, "--status", "ready",
   ], { cwd: project, home });
 }
