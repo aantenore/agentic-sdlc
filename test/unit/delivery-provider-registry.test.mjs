@@ -467,6 +467,60 @@ test("github-cli proves create and update without exposing mutation commands", (
   assert.equal(calls.flat().some((arg) => ["create", "edit", "ready", "merge"].includes(arg)), false);
 });
 
+test("github-cli adopts an existing exact PR only when --pr-url names it", () => {
+  const existing = {
+    url: "https://github.com/acme/travelops/pull/44",
+    state: "OPEN",
+    isDraft: false,
+    headRefOid: SHA.head,
+    headRefName: "provider-spi",
+    baseRefName: "main",
+    createdAt: "2026-07-18T09:00:00.000Z",
+  };
+  const registry = createProviderRegistry([createGitHubCliProvider({
+    commandRunner: (_executable, args) => JSON.stringify(args[1] === "list" ? [existing] : existing),
+  })]);
+  const subject = {
+    repository: "acme/travelops",
+    head_branch: "provider-spi",
+    base_branch: "main",
+    source_sha: SHA.head,
+    authorized_at: TIME.authorized,
+  };
+  assertProviderError(() => registry.observePrecondition(
+    "github-cli",
+    operation("PR-CREATE-44", "pull_request.create", subject),
+  ), "provider_transition_not_needed");
+  assertProviderError(() => registry.observePrecondition(
+    "github-cli",
+    operation("PR-CREATE-44", "pull_request.create", { ...subject, pr_url: "https://github.com/acme/travelops/pull/45" }),
+  ), "provider_transition_not_needed");
+
+  const withUrl = { ...subject, pr_url: existing.url };
+  const precondition = registry.observePrecondition(
+    "github-cli",
+    operation("PR-CREATE-44", "pull_request.create", withUrl),
+  );
+  assert.equal(precondition.proof.existing, true);
+  assert.equal(precondition.proof.state, "OPEN");
+  assert.equal(precondition.proof.matching_open_count, 1);
+  const completion = registry.verifyCompletion(
+    "github-cli",
+    operation("PR-CREATE-44", "pull_request.create", withUrl, TIME.completed),
+    precondition,
+  );
+  assert.equal(completion.proof.pr_url, existing.url);
+  assert.equal(completion.proof.state, "OPEN");
+  assertAgainstSchema(completion, "provider-operation-receipt");
+
+  // The adopted proof does not carry over to a different PR URL.
+  assertProviderError(() => registry.verifyCompletion(
+    "github-cli",
+    operation("PR-CREATE-44", "pull_request.create", { ...subject, pr_url: "https://github.com/acme/travelops/pull/45" }, TIME.completed),
+    precondition,
+  ), "provider_precondition_mismatch");
+});
+
 test("github-cli rejects URL and branch argument injection before running gh", () => {
   let calls = 0;
   const registry = createProviderRegistry([createGitHubCliProvider({ commandRunner: () => { calls += 1; return "{}"; } })]);

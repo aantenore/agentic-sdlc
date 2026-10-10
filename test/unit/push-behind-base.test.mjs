@@ -9,12 +9,14 @@ import test from "node:test";
 
 import {
   buildGitCommitCoverageProof,
+  baseAdvanceChangedPaths,
   coverageBaseDrift,
   gitCommitReceiptCoverageErrors,
   isBaseRecordsOnlyAdvance,
   isBaseRecordsSyncMerge,
   validateGitCommitCoverageProof,
 } from "../../lib/engine/git.mjs";
+import { namesOtherStory } from "../../lib/story-records.mjs";
 
 const GIT_ENV = {
   ...process.env,
@@ -190,4 +192,30 @@ test("pull_request.create completion tolerates a base that only gained project r
   assert.equal(isBaseRecordsOnlyAdvance(root, target(records), target(code)), false);
   // A base that moved backwards or sideways is not an advance.
   assert.equal(isBaseRecordsOnlyAdvance(root, target(records), target(start)), false);
+});
+
+test("baseAdvanceChangedPaths lists the sorted delta of a fast-forward base advance", (t) => {
+  const { root, start } = fixture(t);
+  const target = (baseSha, extra = {}) => ({ head_sha: "h".repeat(40), base_ref: "origin/main", base_sha: baseSha, ...extra });
+  const records = commitFile(root, ".sdlc/stories/ST-X/record.json", "{}\n", "records");
+  assert.deepEqual(baseAdvanceChangedPaths(root, target(start), target(records)), [".sdlc/stories/ST-X/record.json"]);
+  commitFile(root, "evidence/ST-OTHER/report.md", "r\n", "other story evidence");
+  const mixed = commitFile(root, "docs/a.md", "a\n", "docs");
+  assert.deepEqual(
+    baseAdvanceChangedPaths(root, target(start), target(mixed)),
+    [".sdlc/stories/ST-X/record.json", "docs/a.md", "evidence/ST-OTHER/report.md"],
+  );
+  assert.equal(baseAdvanceChangedPaths(root, target(start), target(start)), null);
+  assert.equal(baseAdvanceChangedPaths(root, target(mixed), target(start)), null);
+  assert.equal(baseAdvanceChangedPaths(root, target(start), target(mixed, { head_sha: "i".repeat(40) })), null);
+});
+
+test("namesOtherStory separates another story's path from this story's", () => {
+  const known = ["ST-1", "ST-1-A", "ST-QA-001D"];
+  assert.equal(namesOtherStory("evidence/ST-QA-001D/report.md", ["ST-1"], known), true);
+  assert.equal(namesOtherStory("evidence/ST-1/report.md", ["ST-1"], known), false);
+  assert.equal(namesOtherStory("evidence/ST-1-A/report.md", ["ST-1"], known), false);
+  assert.equal(namesOtherStory("evidence/ST-1-A/report.md", ["ST-1-A"], known), false);
+  assert.equal(namesOtherStory("evidence/ST-1-A/report.md", ["ST-QA-001D"], known), true);
+  assert.equal(namesOtherStory("evidence/shared.md", ["ST-1"], known), false);
 });
