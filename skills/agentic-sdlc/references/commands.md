@@ -952,6 +952,14 @@ record (reason prefixed "Abbandonata: ", a cancellation or, with
 refused when a delivery, linked output, certification, or implementation, test
 or release history exists.
 
+`story retire --id <story> --reason <text> --replaced-by <child,...>` (person
+only, same approval options as `story abandon`) closes a never-started
+container story whose work was delivered by its child stories, as superseded
+by them (reason prefixed "Ritirata, sostituita dalle story figlie: "). It is
+refused when the story was ever started or claimed, or while a listed child is
+neither merged (a passed `pull_request.merge` receipt of its delivery) nor
+closed.
+
 Each closed story gets an immutable `.sdlc/stories/<story-id>/closure.json`
 bound to the approved subject (story contents, replacement, breakdown, reason)
 and a `story.supersede` or `story.cancel` project trace; `story.json` is never

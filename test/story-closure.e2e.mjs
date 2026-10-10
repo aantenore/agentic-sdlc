@@ -489,3 +489,27 @@ test("story abandon refuses a story with delivered work", () => {
   ], /ST-005 delivered work and cannot be abandoned: it has linked outputs/u);
   assert.equal(fs.existsSync(storyPath(project, "ST-005", "closure.json")), false);
 });
+
+test("story retire closes a never-started container story as superseded by its closed children", () => {
+  const project = createTrialProject("closure-retire");
+  const base = ["story", "retire", "--root", project, "--id", "ST-001", "--reason", "Delivered by its child stories", "--replaced-by", "ST-MVP"];
+  mustFail([...base, "--actor-type", "agent", "--approval-source", "automation", "--summary", "Retire"], /Only a person can retire/u);
+  // A child that is neither merged nor closed refuses the retirement.
+  mustFail([...base, ...humanApproval("Retire the container")], /child story ST-MVP is neither merged nor closed/u);
+  assert.equal(fs.existsSync(storyPath(project, "ST-001", "closure.json")), false);
+
+  const storyFile = storyPath(project, "ST-MVP");
+  writeJson(storyFile, { ...readJson(storyFile), status: "done" });
+  // A story that was ever claimed is not retired.
+  writeJson(storyPath(project, "ST-002", "claim.json"), { story_id: "ST-002", status: "released" });
+  mustFail([
+    "story", "retire", "--root", project, "--id", "ST-002", "--reason", "x", "--replaced-by", "ST-MVP",
+    ...humanApproval("Retire"),
+  ], /ST-002 was started or claimed and cannot be retired: it has a work assignment/u);
+
+  const done = mustRunJson([...base, ...humanApproval("Retire the container")]);
+  assert.equal(done.status, "superseded");
+  const closure = readJson(storyPath(project, "ST-001", "closure.json"));
+  assert.equal(closure.replacement_id, "ST-MVP");
+  assert.match(closure.subject.reason, /Delivered by its child stories$/u);
+});

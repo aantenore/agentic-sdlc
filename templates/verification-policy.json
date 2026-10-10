@@ -4,6 +4,7 @@
   "enabled": true,
   "enforce": "block",
   "backfill_enforce": "warn",
+  "evidence_command_template": "test record --story {story} --acceptance {criterion} --command '<json-argv>' --exit-code 0 --evidence <log> --copy-evidence",
   "rules": [
     {
       "id": "unit-tests",
@@ -11,7 +12,8 @@
       "when": { "always": true },
       "criterion": "Automated tests cover the units and modules touched by this work and pass.",
       "explicit_coverage_patterns": ["unit test", "automated test", "test automatic", "test unitari", "\\btests? (pass|cover)"],
-      "evidence_patterns": []
+      "evidence_patterns": [],
+      "evidence_hint": "run the project's unit test suite (e.g. npm test) and save its output as the log."
     },
     {
       "id": "ui-e2e",
@@ -19,7 +21,8 @@
       "when": { "write_paths": ["apps/web", "src/app", "pages", "components", "*.tsx", "*.jsx", "*.vue", "*.svelte"] },
       "criterion": "An end-to-end test drives the running app as a user would through the flow described by this work and checks usability: the flow completes without dead ends and gives clear feedback.",
       "explicit_coverage_patterns": ["end-to-end", "\\be2e\\b", "playwright", "cypress", "usabilit", "user flow", "flusso utente"],
-      "evidence_patterns": ["e2e", "end-to-end", "playwright", "cypress", "puppeteer", "webdriver", "selenium"]
+      "evidence_patterns": ["e2e", "end-to-end", "playwright", "cypress", "puppeteer", "webdriver", "selenium"],
+      "evidence_hint": "run the end-to-end suite (Playwright/Cypress) against the running app over the touched flow and save the report."
     },
     {
       "id": "ui-accessibility",
@@ -27,7 +30,8 @@
       "when": { "write_paths": ["apps/web", "src/app", "pages", "components", "*.tsx", "*.jsx", "*.vue", "*.svelte"] },
       "criterion": "A basic accessibility check (automated scan plus keyboard navigation and labels) passes on the screens touched by this work.",
       "explicit_coverage_patterns": ["accessib", "\\ba11y\\b", "wcag", "screen reader"],
-      "evidence_patterns": ["a11y", "accessib", "axe", "pa11y", "lighthouse", "wcag"]
+      "evidence_patterns": ["a11y", "accessib", "axe", "pa11y", "lighthouse", "wcag"],
+      "evidence_hint": "run an automated accessibility scan (axe/pa11y/Lighthouse) on the touched screens plus a keyboard pass and save the report."
     },
     {
       "id": "api-integration",
@@ -35,7 +39,8 @@
       "when": { "write_paths": ["api", "routes", "services", "integrations", "*.openapi.*", "openapi.*", "*.proto", "*.graphql"], "has_integrations": true },
       "criterion": "Integration or contract tests exercise the API or integration boundaries touched by this work and pass.",
       "explicit_coverage_patterns": ["integration test", "contract test", "test di integrazione", "\\bpact\\b", "api test"],
-      "evidence_patterns": ["integration", "contract", "pact", "supertest", "newman", "e2e"]
+      "evidence_patterns": ["integration", "contract", "pact", "supertest", "newman", "e2e"],
+      "evidence_hint": "run the integration or contract tests (supertest/pact/newman) for the touched API boundaries and save the output."
     },
     {
       "id": "docs-executable",
@@ -43,7 +48,8 @@
       "when": { "write_paths": ["docs", "README*", "*.md", "*.mdx", "demo", "examples"] },
       "criterion": "Every step documented or demonstrated by this work is executed as written and works.",
       "explicit_coverage_patterns": ["documented steps", "passi document", "follow the (docs|readme)", "demo.*(run|work|esegu)"],
-      "evidence_patterns": ["docs", "readme", "doc-test", "mdx", "markdown", "smoke", "demo"]
+      "evidence_patterns": ["docs", "readme", "doc-test", "mdx", "markdown", "smoke", "demo"],
+      "evidence_hint": "execute every documented or demo step as written (smoke script or transcript) and save the output."
     }
   ]
 }

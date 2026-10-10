@@ -437,3 +437,14 @@ test("story sync takes the base copy of a shared history the story committed, so
   assert.ok(summaries.includes("Base decision"));
   assert.ok(summaries.includes("Second computer decision"));
 });
+
+test("story sync treats a missing shared history as empty instead of failing", () => {
+  const { first, second } = twoComputers("missing-trace");
+  git(first, ["rm", "-r", "--quiet", ".sdlc/traces"]);
+  git(first, ["commit", "--quiet", "-m", "Drop the history"]);
+  git(first, ["push", "--quiet"]);
+  fs.rmSync(path.join(second, ".sdlc", "traces"), { recursive: true });
+  const synced = run(["story", "sync", "--root", second, "--id", STORY, "--json"]);
+  assert.equal(synced.status, 0, `${synced.stdout}\n${synced.stderr}`);
+  assert.equal(JSON.parse(synced.stdout).status, "synced");
+});

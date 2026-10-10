@@ -160,7 +160,7 @@ test("story close on a merged story runs sync, scan and release trace with one s
   assert.equal(releases.length, 1);
 });
 
-function mergedWithTraces(types) {
+function mergedWithTraces(types, { completeSteps = true } = {}) {
   const { project } = mergedProject();
   git(project, ["checkout", "--quiet", "main"]);
   git(project, ["merge", "--quiet", "--no-ff", "-m", `Merge ${STORY}`, `feature/${STORY}`]);
@@ -172,7 +172,7 @@ function mergedWithTraces(types) {
   // Release recorded while the earlier phases were never completed (the real case).
   const merge = `.sdlc/tests/${STORY}-merge.json`;
   mustRun(["trace", "append", "--root", project, "--story", STORY, "--type", "release", "--outcome", "passed", "--summary", "merged", "--evidence", merge]);
-  for (const step of ["release", "operations"]) {
+  for (const step of completeSteps ? ["release", "operations"] : []) {
     mustRun(["story", "complete-step", "--root", project, "--id", STORY, "--step", step, "--summary", `${step} after merge`, "--evidence", merge, "--allow-unapproved-contract-output"]);
   }
   return project;
@@ -222,6 +222,37 @@ test("story complete-step --backfill needs a reason and evidence of the phase", 
   assert.equal(record.completion_mode, "backfill");
   assert.equal(record.backfill.label, "completata a posteriori");
   assert.ok(Date.parse(record.effective_at) < Date.parse(record.completed_at));
+});
+
+test("story close completes release and operations itself with the merge evidence", () => {
+  const project = mergedWithTraces(["decision", "implementation", "test"], { completeSteps: false });
+  const closed = closeJson(project, ["--no-fetch", "--allow-unapproved-contract-output", "--evidence", `.sdlc/tests/${STORY}-merge.json`]);
+  const byName = Object.fromEntries(closed.json.phases.map((phase) => [phase.name, phase]));
+  assert.equal(byName.release_steps.status, "done", closed.result.stdout);
+  const steps = path.join(project, ".sdlc", "stories", STORY, "steps");
+  for (const step of ["release", "operations"]) {
+    const record = JSON.parse(fs.readFileSync(path.join(steps, `${step}.json`), "utf8"));
+    assert.equal(record.status, "completed", step);
+  }
+});
+
+test("story close reuses the passed merge receipt of the story's delivery as release evidence", () => {
+  const project = mergedWithTraces(["decision", "implementation", "test"], { completeSteps: false });
+  const deliveries = path.join(project, ".sdlc", "autonomy", "deliveries");
+  const actions = path.join(project, ".sdlc", "autonomy", "actions");
+  write(project, `.sdlc/autonomy/deliveries/AUT-PR-CLOSE-001.json`, `${JSON.stringify({ id: "AUT-PR-CLOSE-001", status: "completed", story_refs: [{ id: STORY, hash: "x" }] })}\n`);
+  write(project, `.sdlc/stories/${STORY}/evidence/merge.json`, "{\"merged\":true}\n");
+  write(project, ".sdlc/autonomy/actions/AUT-ACT-20990101000000000-aaaaaa.json", `${JSON.stringify({
+    id: "AUT-ACT-20990101000000000-aaaaaa", action: "pull_request.merge", status: "completed", outcome: "passed",
+    profile_ref: { id: "AUT-PR-CLOSE-001" }, delivery: { id: "PR-CLOSE-001", kind: "pull_request" },
+    evidence: [{ path: `.sdlc/stories/${STORY}/evidence/merge.json` }],
+  })}\n`);
+  assert.ok(fs.existsSync(deliveries) && fs.existsSync(actions));
+  const closed = closeJson(project, ["--no-fetch", "--allow-unapproved-contract-output"]);
+  const byName = Object.fromEntries(closed.json.phases.map((phase) => [phase.name, phase]));
+  assert.equal(byName.release_steps.status, "done", closed.result.stdout);
+  const release = JSON.parse(fs.readFileSync(path.join(project, ".sdlc", "stories", STORY, "steps", "release.json"), "utf8"));
+  assert.match(JSON.stringify(release.evidence), /AUT-ACT-20990101000000000-aaaaaa|evidence\/merge\.json/u);
 });
 
 test("automatic close is opt-in", async () => {

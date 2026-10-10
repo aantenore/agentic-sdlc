@@ -141,6 +141,9 @@ test("the gate blocks new stories lacking derived test evidence and only warns f
   validationStory(root, "ST-DV-020");
   const blocked = gate(root, "ST-DV-020");
   assert.equal(blocked.errors.some((e) => /derived verification criteria without passing test evidence.*DV-unit-tests/u.test(e)), true);
+  const blockedMessage = blocked.errors.find((e) => /derived verification criteria/u.test(e));
+  assert.match(blockedMessage, /- DV-unit-tests: test record --story ST-DV-020 --acceptance DV-unit-tests --command '<json-argv>' --exit-code 0 --evidence <log> --copy-evidence/u);
+  assert.match(blockedMessage, /what to run: run the project's unit test suite/u);
 
   const evidence = path.join(root, ".sdlc", "tests", "run.log");
   fs.mkdirSync(path.dirname(evidence), { recursive: true });
