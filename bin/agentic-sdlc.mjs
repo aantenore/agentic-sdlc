@@ -1492,7 +1492,15 @@ async function main() {
       rawArgs,
     };
     const handler = resolution ? registry.get(resolution.canonical_action) : null;
-    if (resolution?.command.arguments === "none" && resolution.args.length > 0) {
+    const positionalMessageText = resolution?.canonical_action === "message.send" && resolution.args.length > 0;
+    if (positionalMessageText) {
+      if (resolution.args.length > 1 || parsed.options.text !== undefined) {
+        failUsage("message send takes the text either as --text <text> or as one argument, not both. "
+          + "See 'agentic-sdlc help message send'.");
+      }
+      parsed.options.text = resolution.args[0];
+    }
+    if (resolution?.command.arguments === "none" && resolution.args.length > 0 && !positionalMessageText) {
       const commandPath = resolution.canonical_path.join(" ");
       failUsage(
         `Unexpected argument '${resolution.args[0]}' for '${commandPath}'; it accepts only --options. `
@@ -1585,6 +1593,12 @@ async function main() {
       ? cliErrorRedactionResolution(OPERATIONAL_REDACTION_POLICY, false)
       : resolveCliErrorRedactionPolicy(parsed.options);
     const errorRedactionPolicy = errorRedaction.policy;
+    if (AUTO_MESSAGING.action === "message.send") {
+      const reason = errorRedaction.withholdDetails
+        ? withheldDetailsMessage(errorRedaction)
+        : redactText(String(error?.message ?? error), errorRedactionPolicy);
+      process.stderr.write(`MESSAGE NOT SENT: ${reason.split("\n")[0]}\n`);
+    }
     const failureExitCode = errorRedaction.withholdDetails
       ? EXIT_CODES.userError
       : exitCodeForError(error);
