@@ -36,6 +36,20 @@ export function computeNextVersion(mainVersion, tags = []) {
   return `${major}.${minor + 1}.0`;
 }
 
+// True when the branch already carries the version bump commit for `version`.
+export function hasVersionCommit(subjects, version) {
+  return String(subjects).split("\n").some((s) => s.trim() === `Versione ${version}`);
+}
+
+// True when `gh pr view --json state` output reports the PR as merged.
+export function isMergedState(viewJson) {
+  try {
+    return JSON.parse(viewJson)?.state === "MERGED";
+  } catch {
+    return false;
+  }
+}
+
 function parseArgs(argv) {
   const opts = { update: true };
   for (let i = 0; i < argv.length; i += 1) {
@@ -86,23 +100,27 @@ function main() {
     throw new Error(`Rebase onto origin/main failed (conflicts). Rebase aborted; resolve manually.\n${rb.err}`);
   }
 
-  step("update version strings");
-  const files = git("ls-files", "--", ...VERSION_PATHSPECS).split("\n").filter(Boolean);
-  const re = new RegExp(`(?<![\\d.])${oldVersion.replace(/\./g, "\\.")}(?![\\d]|\\.\\d)`, "g");
-  const changed = [];
-  for (const f of files) {
-    const text = fs.readFileSync(f, "utf8");
-    if (!re.test(text)) continue;
-    re.lastIndex = 0;
-    fs.writeFileSync(f, text.replace(re, newVersion));
-    changed.push(f);
-  }
-  if (!changed.length) throw new Error(`No file contains version ${oldVersion}.`);
-  console.log(`  ${changed.length} files: ${changed.join(", ")}`);
+  if (hasVersionCommit(git("log", "--format=%s", "origin/main..HEAD"), newVersion)) {
+    step(`version commit ${newVersion} already present, skip bump`);
+  } else {
+    step("update version strings");
+    const files = git("ls-files", "--", ...VERSION_PATHSPECS).split("\n").filter(Boolean);
+    const re = new RegExp(`(?<![\\d.])${oldVersion.replace(/\./g, "\\.")}(?![\\d]|\\.\\d)`, "g");
+    const changed = [];
+    for (const f of files) {
+      const text = fs.readFileSync(f, "utf8");
+      if (!re.test(text)) continue;
+      re.lastIndex = 0;
+      fs.writeFileSync(f, text.replace(re, newVersion));
+      changed.push(f);
+    }
+    if (!changed.length) throw new Error(`No file contains version ${oldVersion}.`);
+    console.log(`  ${changed.length} files: ${changed.join(", ")}`);
 
-  step("commit");
-  git("add", "--", ...changed);
-  git("commit", "-m", `Versione ${newVersion}`);
+    step("commit");
+    git("add", "--", ...changed);
+    git("commit", "-m", `Versione ${newVersion}`);
+  }
 
   step("push");
   git("push", "-u", "origin", branch);
@@ -113,9 +131,15 @@ function main() {
   const prUrl = run("gh", ["pr", "create", "--base", "main", "--head", branch, "--title", title, "--body", body]).out.split("\n").pop();
 
   step("merge PR");
-  const merge = run("gh", ["pr", "merge", prUrl, "--merge", "--delete-branch"], { allowFail: true });
-  if (!merge.ok) throw new Error(`Merge failed. PR: ${prUrl}\n${merge.err}`);
-  const mergeCommit = JSON.parse(run("gh", ["pr", "view", prUrl, "--json", "mergeCommit"]).out).mergeCommit?.oid ?? "unknown";
+  // No --delete-branch: gh would try to check out local main, which fails when main lives in another worktree.
+  const merge = run("gh", ["pr", "merge", prUrl, "--merge"], { allowFail: true });
+  const view = run("gh", ["pr", "view", prUrl, "--json", "state,mergeCommit"], { allowFail: true });
+  if (!merge.ok && !isMergedState(view.out)) throw new Error(`Merge failed. PR: ${prUrl}\n${merge.err}`);
+  run("git", ["push", "origin", "--delete", branch], { allowFail: true });
+  let mergeCommit = "unknown";
+  try {
+    mergeCommit = JSON.parse(view.out).mergeCommit?.oid ?? "unknown";
+  } catch {}
 
   if (opts.update) {
     const marketplace = JSON.parse(fs.readFileSync(path.join(".claude-plugin", "marketplace.json"), "utf8")).name;
