@@ -200,6 +200,21 @@
     "observability": {
       "$ref": "#/$defs/observability_policy"
     },
+    "host_policy": {
+      "type": "object",
+      "properties": {
+        "principle": {
+          "type": "string"
+        },
+        "main_thread": {
+          "enum": [
+            "free",
+            "orchestrator"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "standing_approval_policy": {
       "type": "object",
       "properties": {

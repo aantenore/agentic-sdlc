@@ -1,6 +1,6 @@
 # Claude Code installation
 
-Agentic SDLC 0.125.0 ships two host packagings from one source tree:
+Agentic SDLC 0.126.0 ships two host packagings from one source tree:
 
 | Host | Manifest | Command surface | Installer |
 |---|---|---|---|
@@ -80,6 +80,7 @@ The plugin ships one `hooks/hooks.json`, read by both Claude Code and Codex. It 
 - **Only you approve a standing approval.** If the agent tries to run `autonomy standing approve` itself, the call is blocked and the agent hands you the exact command to run in your own terminal.
 - **Standing approval records stay untouched.** Direct edits, deletions, or overwrites of `.sdlc/autonomy/standing/`, rewrites of the `refs/agentic-sdlc/` refs (which also hold the story claims shared across computers), `git clean` or `git stash -u` that would delete uncommitted `.sdlc` records, and clearing the variables that mark the agent's session are blocked; reading, staging, and committing the records stay allowed.
 - **Each session starts informed.** When a project has standing approvals, the session starts with a short list: which are active, how many deliveries are left, and whether the shared state on the git remote can be reached.
+- **Orchestrator mode (opt-in).** Set `host_policy.main_thread` to `"orchestrator"` in `.sdlc/config.json` (default `"free"`) and the session starts with an instruction: the main thread only coordinates (messages, decisions, checking results, single quick read-only commands). Work that needs reasoning (code, fixes, story delivery, review) goes to background subagents; mechanical work (builds, test suites, dev servers, long commands) goes to controlled background processes, meaning an explicit deadline, no orphaned `nohup` or `&`, output in a file read at the end, and a final check that no process is left running. An `Edit`, `Write`, or `NotebookEdit` made from the main thread, recognised by the missing `agent_id` in the hook payload, gets a warning; nothing is blocked, and subagents and shell commands are never touched.
 
 Claude Code enables plugin hooks with the plugin. Codex asks you to review and trust new plugin hooks at startup ("Review hooks"); until you trust them they do not run, and a non-interactive Codex run needs them trusted beforehand. The hooks act only inside a project that uses agentic-sdlc (a `.sdlc` folder in the working directory or above it); in any other project they do nothing. A hook that fails or times out never blocks your work, and each check adds a short Node start-up to shell and edit calls.
 

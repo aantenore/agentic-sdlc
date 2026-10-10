@@ -9,7 +9,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { evaluatePreToolUse, sessionStartContext } from "../lib/host-hooks/guard.mjs";
+import {
+  evaluatePreToolUse,
+  mainThreadMode,
+  orchestratorEditWarning,
+  orchestratorSessionContext,
+  sessionStartContext,
+} from "../lib/host-hooks/guard.mjs";
 import { mergeAuthorized, storyPushAuthorized } from "../lib/host-hooks/merge-authorization.mjs";
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -38,6 +44,19 @@ function governedRoot(start) {
     if (parent === current) return null;
     current = parent;
   }
+}
+
+function readJson(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+/** The project's main-thread mode from `.sdlc/config.json` ("free" when unset). */
+function projectMainThreadMode(root) {
+  return mainThreadMode(readJson(path.join(root, ".sdlc", "config.json")));
 }
 
 function insideGovernedProject(start) {
@@ -75,7 +94,10 @@ function preToolUse(payload) {
   if (verdict?.decision === "deny") {
     process.stderr.write(`${verdict.reason}\n`);
     process.exitCode = 2;
+    return;
   }
+  const warning = orchestratorEditWarning(payload, projectMainThreadMode(root));
+  if (warning) process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: warning } })}\n`);
 }
 
 /** Tells the session to ask for a plugin update when the project's records need a newer version. */
@@ -109,6 +131,8 @@ async function sessionStart(payload) {
   } catch {
     // The notice is advice; the CLI enforces the check on its own.
   }
+  const orchestrator = orchestratorSessionContext(projectMainThreadMode(governedRoot(root) ?? root));
+  if (orchestrator) process.stdout.write(`${orchestrator}\n`);
   const standingRoot = path.join(root, ".sdlc", "autonomy", "standing");
   let entries = [];
   try {

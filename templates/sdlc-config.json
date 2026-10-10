@@ -1748,6 +1748,10 @@
     },
     "merge_requires_code_review": false
   },
+  "host_policy": {
+    "principle": "main_thread is free (the default: the main conversation thread may do any work) or orchestrator (the main thread only coordinates: it reads messages, decides, and reviews results, while reasoning work goes to background subagents and mechanical work to controlled background processes). The session start shows the instruction and an edit made from the main thread gets a warning; nothing is blocked.",
+    "main_thread": "free"
+  },
   "standing_approval_policy": {
     "principle": "A standing approval is a user-approved, bounded, revocable delegation that lets repeated low-risk deliveries proceed without a confirmation for each one. enabled, max_validity_days, max_deliveries, max_changed_files, max_changed_lines, and expiry_warning_hours are read from this file and a project may change them; they cap what any standing approval may request. What a standing approval may never cover (merge, production, deploy, data migrations, force-push, deletions of tracked files outside its paths) and that it covers only the middle working level are fixed by the CLI and recorded on every standing approval.",
     "enabled": true,

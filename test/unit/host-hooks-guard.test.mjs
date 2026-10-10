@@ -8,7 +8,14 @@ import os from "node:os";
 import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { editedPaths, evaluatePreToolUse, sessionStartContext } from "../../lib/host-hooks/guard.mjs";
+import {
+  editedPaths,
+  evaluatePreToolUse,
+  mainThreadMode,
+  orchestratorEditWarning,
+  orchestratorSessionContext,
+  sessionStartContext,
+} from "../../lib/host-hooks/guard.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const HOOK = path.join(ROOT, "hooks", "agentic-sdlc-guard.mjs");
@@ -559,4 +566,56 @@ test("the hook blocks hand-written git internal files", () => {
     assert.equal(evaluatePreToolUse(shell(command), { env: {} }), null, command);
   }
   assert.equal(evaluatePreToolUse(shell("echo m > .git/MERGE_MSG"), { env: { AGENTIC_SDLC_ALLOW_UNGOVERNED_GIT: "1" } }), null);
+});
+
+test("host_policy.main_thread is free unless the project sets orchestrator", () => {
+  assert.equal(mainThreadMode(undefined), "free");
+  assert.equal(mainThreadMode({}), "free");
+  assert.equal(mainThreadMode({ host_policy: {} }), "free");
+  assert.equal(mainThreadMode({ host_policy: { main_thread: "other" } }), "free");
+  assert.equal(mainThreadMode({ host_policy: { main_thread: "free" } }), "free");
+  assert.equal(mainThreadMode({ host_policy: { main_thread: "orchestrator" } }), "orchestrator");
+});
+
+test("the orchestrator instruction appears only in orchestrator mode", () => {
+  assert.equal(orchestratorSessionContext("free"), "");
+  const context = orchestratorSessionContext("orchestrator");
+  assert.match(context, /only coordinates/u);
+  assert.match(context, /background subagents/u);
+  assert.match(context, /read-only command is fine inline/u);
+  assert.match(context, /controlled background processes/u);
+  assert.match(context, /explicit deadline/u);
+  assert.match(context, /no process is left running/u);
+});
+
+test("the orchestrator guard warns on a main-thread edit and leaves subagents and other tools alone", () => {
+  const edit = (extra = {}) => ({ tool_name: "Edit", tool_input: { file_path: "src/a.js" }, ...extra });
+  assert.match(orchestratorEditWarning(edit(), "orchestrator"), /main thread/u);
+  for (const tool_name of ["Write", "NotebookEdit"]) {
+    assert.notEqual(orchestratorEditWarning({ tool_name, tool_input: {} }, "orchestrator"), "");
+  }
+  assert.equal(orchestratorEditWarning(edit({ agent_id: "agent-1", agent_type: "worker" }), "orchestrator"), "");
+  assert.equal(orchestratorEditWarning(edit(), "free"), "");
+  assert.equal(orchestratorEditWarning(shell("ls"), "orchestrator"), "");
+  assert.equal(evaluatePreToolUse(edit()), null);
+});
+
+test("the hook adds the orchestrator context and warning without blocking", () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "hook-orchestrator-"));
+  try {
+    fs.mkdirSync(path.join(project, ".sdlc"));
+    const run = (event, payload) => spawnSync(process.execPath, [HOOK, event], { input: JSON.stringify({ cwd: project, ...payload }), encoding: "utf8" });
+    const edit = { tool_name: "Edit", tool_input: { file_path: path.join(project, "a.js") } };
+    assert.equal(run("session-start", {}).stdout, "");
+    assert.equal(run("pre-tool-use", edit).stdout, "");
+    fs.writeFileSync(path.join(project, ".sdlc", "config.json"), JSON.stringify({ host_policy: { main_thread: "orchestrator" } }));
+    assert.match(run("session-start", {}).stdout, /only coordinates/u);
+    const main = run("pre-tool-use", edit);
+    assert.equal(main.status, 0);
+    assert.match(JSON.parse(main.stdout).hookSpecificOutput.additionalContext, /main thread/u);
+    assert.equal(run("pre-tool-use", { ...edit, agent_id: "agent-1" }).stdout, "");
+    assert.equal(run("pre-tool-use", shell("ls")).stdout, "");
+  } finally {
+    fs.rmSync(project, { recursive: true, force: true });
+  }
 });
