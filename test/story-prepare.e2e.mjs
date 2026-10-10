@@ -134,3 +134,12 @@ test("a refused task start leaves the preparation blocked and announced", () => 
   assert.equal(results[0].outcome, "start_blocked");
   assert.equal(calls.some((call) => call[0] === "claim"), false);
 });
+
+test("story prepare --resolve is a flag on the command line, with or without --id", () => {
+  const { project } = fixture();
+  for (const args of [["story", "prepare", "--resolve", "--json"], ["story", "prepare", "--resolve", "--id", "ST-NEXT", "--json"]]) {
+    const result = JSON.parse(mustRun(project, args));
+    assert.equal(result.status, "resolved");
+    assert.deepEqual(result.results, []);
+  }
+});
