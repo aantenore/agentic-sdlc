@@ -88,6 +88,16 @@ Use `--locale it` for Italian. Without `--locale`, the observatory follows the
 choice is carried to the browser in the local URL; it does not weaken the
 per-run token or the loopback-only boundary.
 
+By default the observatory shows the records published on the shared base
+branch (`origin/<base>` from the project configuration, `origin/main`
+otherwise), read from Git objects, so a checkout that sits on a story branch or
+has not been pulled still shows what other computers published. It fetches that
+one ref every 60 seconds (`AGENTIC_SDLC_OBSERVE_FETCH_SECONDS`, `0` turns the
+fetch off) and refreshes the view when the ref moves; the header shows the ref
+and the time of the last update. `--ref <ref>` shows another ref and
+`--worktree` shows the local files instead. Without Git or a remote, the local
+files are shown.
+
 ## Open An Explicit Project Portfolio
 
 To compare several local projects, create one JSON manifest inside their common

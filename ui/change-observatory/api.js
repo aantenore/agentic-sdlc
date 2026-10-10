@@ -184,6 +184,13 @@ export class ObservatoryApi {
     return Array.isArray(payload?.claims) ? payload.claims : [];
   }
 
+  // Which branch the records come from and when they were last updated.
+  // Optional: an older server answers 404 and nothing is shown.
+  async loadSourceRef({ signal } = {}) {
+    const response = await this.#request("/api/v1/source-ref", { signal, headers: { Accept: "application/json" } });
+    return parseJsonResponse(response, "record source");
+  }
+
   // Stories on the remote base branch that this computer has not pulled.
   // Optional: an older server answers 404 and nothing is added.
   async loadRemoteStories(portfolioProjectId = null, { signal } = {}) {
