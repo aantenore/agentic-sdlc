@@ -8,9 +8,10 @@ import path from "node:path";
 import test from "node:test";
 
 import { checkAttention } from "../../lib/messaging/attention.mjs";
-import { messageIdentity, messageSend, messageWho } from "../../lib/messaging/commands.mjs";
+import { messageIdentity, messageRead, messageSend, messageWho } from "../../lib/messaging/commands.mjs";
 import { defaultName, resolveIdentity } from "../../lib/messaging/identity.mjs";
-import { joinsToWelcome } from "../../lib/messaging/join.mjs";
+import { ensureJoined, joinsToWelcome } from "../../lib/messaging/join.mjs";
+import { recapLines, recapStatus } from "../../lib/messaging/recap.mjs";
 import { buildRoster, nameTakenBy } from "../../lib/messaging/roster.mjs";
 import { VERSION } from "../../lib/engine/definitions.mjs";
 import { createGithubProvider, fromGithubComment, toGithubBody } from "../../lib/messaging/providers/github.mjs";
@@ -171,4 +172,45 @@ test("keep-going notes a recent join of another computer, once it is in the wind
     { id: "2", kind: "join", from: "Old", version: "0.1.0", time: new Date(now - 3_600_000).toISOString() },
   ] } };
   assert.deepEqual(recentJoins(state, "Me", now), ["Ann si è unito al canale (versione 0.114.0)"]);
+});
+
+test("read --unread shows only what this clone has not read, then marks it read", async () => {
+  const { providers } = channel();
+  const a = clone();
+  const b = clone();
+  const quiet = envOf("PC2", { AGENTIC_SDLC_MESSAGING_JOIN: "off" });
+  await messageSend({ root: a, text: "one", json: true }, envOf("PC1", { AGENTIC_SDLC_MESSAGING_JOIN: "off" }), providers);
+  const first = await messageRead({ root: b, unread: true, json: true }, quiet, providers);
+  assert.deepEqual(first.messages.map((message) => message.text), ["one"]);
+  assert.equal((await messageRead({ root: b, unread: true, json: true }, quiet, providers)).count, 0);
+  await messageSend({ root: a, text: "two", json: true }, envOf("PC1", { AGENTIC_SDLC_MESSAGING_JOIN: "off" }), providers);
+  await messageSend({ root: b, text: "mine", json: true }, quiet, providers);
+  const second = await messageRead({ root: b, unread: true, json: true }, quiet, providers);
+  assert.deepEqual(second.messages.map((message) => message.text), ["two"]);
+  // Plain read is unchanged.
+  assert.equal((await messageRead({ root: b, json: true }, quiet, providers)).count, 3);
+  await assert.rejects(messageRead({ root: b, unread: true, since: "2h" }, quiet, providers), /without --since/u);
+});
+
+test("joining shows the last messages of the others and the shared stories", async () => {
+  const { providers } = channel();
+  const a = clone();
+  const off = envOf("PC1", { AGENTIC_SDLC_MESSAGING_JOIN: "off" });
+  for (const text of ["m1", "m2", "m3", "m4", "m5", "m6"]) await messageSend({ root: a, text, json: true }, off, providers);
+  const b = clone();
+  let printed = "";
+  const result = await ensureJoined(b, { provider: "github", repo: REPO, issue: 1, enabled: true }, { env: envOf("PC2"), providers, stderr: (text) => { printed += text; } });
+  assert.equal(result.joined, true);
+  assert.deepEqual(result.recap.messages.map((message) => message.text), ["m2", "m3", "m4", "m5", "m6"]);
+  assert.match(printed, /last 5 messages from the other computers/u);
+  assert.match(printed, /no shared claims read on this computer yet/u);
+  const status = recapStatus(b, { readClaims: () => ({ checked: true, claims: [
+    { storyId: "ST-A", state: "claimed", holder: "PC1", health: "active" },
+    { storyId: "ST-B", state: "parked", holder: "PC3" },
+    { storyId: "ST-C", state: "claimed", health: "waiting", wait: { target: "dep:ST-A" } },
+    { storyId: "ST-D", state: "completed" },
+    { storyId: "ST-E", state: "claimed", expired: true },
+  ] }) });
+  assert.deepEqual(status, { checked: true, in_progress: ["ST-A (PC1)"], parked: ["ST-B (PC3)"], waiting: ["ST-C on dep:ST-A"] });
+  assert.match(recapLines({ messages: [], status, format: String }).join("\n"), /in progress ST-A \(PC1\); parked ST-B \(PC3\); waiting ST-C on dep:ST-A/u);
 });

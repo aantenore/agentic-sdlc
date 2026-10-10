@@ -28,6 +28,7 @@ setx AGENTIC_SDLC_HOST_LABEL PC1            # Windows (new terminals)
 ```bash
 agentic-sdlc message send --story ST-UX-001 --text "Tests on this story still take 30 minutes here"
 agentic-sdlc message read --since 2h --skip-own
+agentic-sdlc message read --unread                  # only what this clone has not read yet, then marked read
 agentic-sdlc message listen --skip-own --json      # stays open; run it in the background
 agentic-sdlc message outbox [--flush | --drop <id>] # messages waiting to be sent
 agentic-sdlc message identity [--name "Antonio · PC3"] # who this computer is in the channel
@@ -39,6 +40,10 @@ agentic-sdlc message who [--since 7d]               # who is in the channel
 Every message has one recognisable author: the **name** of the computer, shown in bold with the GitHub login (`**Antonio · PC3** (antonio) · question · ...`); the hidden trailer also carries the host id and the login. The name is unique in the channel. `message identity` shows it (name, host id, git user, GitHub login); `message identity --name "..."` sets it (stored in `.git/agentic-sdlc/messaging.json` under `identity`). Without a name it is `<git user.name> · <host id>`, or the host id when git has no user name. A name another computer already uses is refused. `--sender` is deprecated: it is accepted only when it equals the name or the host id, any other value is an error (rename with `message identity`). Automatic `[auto]` messages use the same name. `--to` takes a name, a host id or a GitHub login. Older messages without a name show the host id they carry.
 
 The first messaging command on a clone (and again after a change of name or plugin version) publishes one `join` message with name, host, GitHub login, plugin version and the stories in progress. The host hook of the other computers answers each join once with a `welcome` (reply to the join) carrying the same facts, so the newcomer learns who is there; the hook shows "<name> si è unito al canale (versione X)". `join` and `welcome` are written by the plugin, never with `message send`. `AGENTIC_SDLC_MESSAGING_JOIN=off` turns the handshake off on one computer.
+
+Right after joining, the command shows on stderr a short recap, built locally without asking the other agents (they may be off): the last 5 messages of the other computers and the stories in progress, parked or waiting as this clone last saw the shared claims (run `status` for the current state).
+
+`message read --unread` shows only the messages of the other computers that this clone has not read yet and then marks them read. It shares the read position with the automatic read before `story claim` and `task start`, so a message shown by one is not shown again by the other; the first time it covers the last 12 hours. With `--story` only that story is shown and nothing is marked read. It cannot be combined with `--since`.
 
 `message who` lists the participants seen in the period (default 7 days) from join, welcome, status and other messages: name, host, GitHub login, plugin version, last activity, stories in progress; it flags duplicate names and old plugin versions.
 
