@@ -501,3 +501,62 @@ test("the hook reads open pull_request.merge receipts of the project and its wor
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("a push to a claimed story branch needs an open git.push authorization", async () => {
+  const { storyPushAuthorized } = await import("../../lib/host-hooks/merge-authorization.mjs");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "hook-push-"));
+  try {
+    const sdlc = path.join(root, ".sdlc");
+    fs.mkdirSync(path.join(sdlc, "stories", "ST-1"), { recursive: true });
+    fs.mkdirSync(path.join(sdlc, "autonomy", "actions"), { recursive: true });
+    fs.writeFileSync(path.join(sdlc, "stories", "ST-1", "claim.json"), JSON.stringify({ story_id: "ST-1", status: "active", branch: "feature/ST-1" }));
+    const receipt = (id, extra) => fs.writeFileSync(path.join(sdlc, "autonomy", "actions", `${id}.json`), JSON.stringify({ kind: "delivery_action_receipt", id, ...extra }));
+    const check = (branches) => storyPushAuthorized(root, root, { branches });
+    assert.equal(check(["feature/ST-1"]), false);
+    assert.equal(check(["codex/ST-1"]), false);
+    assert.equal(check(["feature/other"]), true);
+    assert.equal(check(["main"]), true);
+    receipt("P1", { action: "git.push", status: "authorized", action_details: { head_branch: "feature/ST-1" } });
+    assert.equal(check(["feature/ST-1"]), true);
+    assert.equal(check(["codex/ST-1"]), false);
+    receipt("P2", { action: "git.push", status: "completed", authorization_receipt_ref: { id: "P1" } });
+    assert.equal(check(["feature/ST-1"]), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("the hook blocks story pushes without authorization and leaves other pushes alone", () => {
+  const options = (storyBranches, env = {}) => ({ env, isStoryPushAuthorized: (attempt) => !attempt.branches.some((branch) => storyBranches.includes(branch)) });
+  for (const command of ["git push origin feature/ST-1", "git push -u origin HEAD:feature/ST-1", "cd x && git push origin feature/ST-1", "bash -c 'git push origin feature/ST-1'", "git push -f origin +feature/ST-1"]) {
+    const verdict = evaluatePreToolUse(shell(command), options(["feature/ST-1"]));
+    assert.equal(verdict?.decision, "deny", command);
+    assert.match(verdict.reason, /autonomy delivery action --action git\.push/u);
+    assert.match(verdict.reason, /AGENTIC_SDLC_ALLOW_UNGOVERNED_GIT=1/u);
+  }
+  assert.equal(evaluatePreToolUse(shell("git push origin feature/ST-1"), options([])), null);
+  assert.equal(evaluatePreToolUse(shell("git push origin feature/other"), options(["feature/ST-1"])), null);
+  assert.equal(evaluatePreToolUse(shell("echo git push origin feature/ST-1"), options(["feature/ST-1"])), null);
+  assert.equal(evaluatePreToolUse(shell("git push origin feature/ST-1"), options(["feature/ST-1"], { AGENTIC_SDLC_ALLOW_UNGOVERNED_GIT: "1" })), null);
+});
+
+test("the hook blocks hand-written git internal files", () => {
+  for (const command of [
+    "git rev-parse HEAD > .git/MERGE_HEAD",
+    "echo msg > .git/MERGE_MSG",
+    "printf 'x' >> \".git/MERGE_MSG\"",
+    "echo abc | tee .git/MERGE_HEAD",
+    "cp /tmp/x .git/HEAD",
+    "bash -c 'echo ref: refs/heads/x > .git/HEAD'",
+    "echo abc > .git/refs/heads/feature/x",
+    "echo abc > .git/worktrees/w/MERGE_HEAD",
+  ]) {
+    const verdict = evaluatePreToolUse(shell(command), { env: {} });
+    assert.equal(verdict?.decision, "deny", command);
+    assert.match(verdict.reason, /AGENTIC_SDLC_ALLOW_UNGOVERNED_GIT=1/u);
+  }
+  for (const command of ["cat .git/MERGE_HEAD", "echo .git/MERGE_HEAD", "git commit -m 'do not write > .git/MERGE_MSG'", "git merge --abort", "echo x > notes.txt"]) {
+    assert.equal(evaluatePreToolUse(shell(command), { env: {} }), null, command);
+  }
+  assert.equal(evaluatePreToolUse(shell("echo m > .git/MERGE_MSG"), { env: { AGENTIC_SDLC_ALLOW_UNGOVERNED_GIT: "1" } }), null);
+});
