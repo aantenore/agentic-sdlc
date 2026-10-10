@@ -18,6 +18,7 @@ import {
   orchestratorEditWarning,
   orchestratorSessionContext,
   sessionStartContext,
+  strictMainThreadVerdict,
 } from "../lib/host-hooks/guard.mjs";
 import { isUngovernedRepo, mergeAuthorized, storyPushAuthorized } from "../lib/host-hooks/merge-authorization.mjs";
 
@@ -59,7 +60,7 @@ function readJson(file) {
 
 /** The project's main-thread mode from `.sdlc/config.json` ("free" when unset). */
 function projectMainThreadMode(root) {
-  return mainThreadMode(readJson(path.join(root, ".sdlc", "config.json")));
+  return mainThreadMode(readJson(path.join(root, ".sdlc", "config.json")), process.env);
 }
 
 function insideGovernedProject(start) {
@@ -100,7 +101,14 @@ function preToolUse(payload) {
     process.exitCode = 2;
     return;
   }
-  const warning = orchestratorEditWarning(payload, projectMainThreadMode(root));
+  const mode = projectMainThreadMode(root);
+  const strict = strictMainThreadVerdict(payload, mode, process.env);
+  if (strict) {
+    process.stderr.write(`${strict.reason}\n`);
+    process.exitCode = 2;
+    return;
+  }
+  const warning = orchestratorEditWarning(payload, mode);
   if (warning) process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: warning } })}\n`);
 }
 

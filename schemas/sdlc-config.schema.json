@@ -209,7 +209,8 @@
         "main_thread": {
           "enum": [
             "free",
-            "orchestrator"
+            "orchestrator",
+            "strict"
           ]
         }
       },

@@ -14,6 +14,7 @@ import {
   mainThreadMode,
   orchestratorEditWarning,
   orchestratorSessionContext,
+  strictMainThreadVerdict,
   sessionStartContext,
 } from "../../lib/host-hooks/guard.mjs";
 
@@ -660,4 +661,42 @@ test("a repository listed in AGENTIC_SDLC_UNGOVERNED_REPOS is left out of the me
   } finally {
     fs.rmSync(base, { recursive: true, force: true });
   }
+});
+
+test("strict main-thread mode: env wins over the project and the session context says it is enforced", () => {
+  assert.equal(mainThreadMode({ host_policy: { main_thread: "free" } }, { AGENTIC_SDLC_MAIN_THREAD: "strict" }), "strict");
+  assert.equal(mainThreadMode({ host_policy: { main_thread: "strict" } }, { AGENTIC_SDLC_MAIN_THREAD: "bogus" }), "strict");
+  assert.equal(mainThreadMode({}, {}), "free");
+  assert.match(orchestratorSessionContext("strict"), /enforced/u);
+});
+
+test("strict main-thread mode denies main edits and unlisted foreground shell, never subagents", () => {
+  const edit = (extra = {}) => ({ tool_name: "Edit", tool_input: { file_path: "src/a.js" }, ...extra });
+  const verdict = (payload, env = {}) => strictMainThreadVerdict(payload, "strict", env);
+  const denied = verdict(edit());
+  assert.equal(denied?.decision, "deny");
+  assert.match(denied.reason, /delega a un subagent \(Agent tool\) o lancia il comando in background/u);
+  assert.equal(verdict({ tool_name: "Write", tool_input: {} })?.decision, "deny");
+  assert.equal(verdict({ tool_name: "NotebookEdit", tool_input: {} })?.decision, "deny");
+  assert.equal(verdict(edit({ agent_id: "a1" })), null);
+  assert.equal(verdict({ ...shell("npm test"), agent_id: "a1" }), null);
+  for (const tool_name of ["Agent", "Task", "Read", "Grep", "Glob", "SendMessage"]) assert.equal(verdict({ tool_name, tool_input: {} }), null);
+  assert.equal(strictMainThreadVerdict(edit(), "orchestrator"), null);
+  assert.equal(verdict(shell("npm test"))?.decision, "deny");
+  assert.equal(verdict({ tool_name: "Bash", tool_input: { command: "npm test", run_in_background: true } }), null);
+  for (const command of ["git status | head", "git status && git log --oneline | head -5", "grep 'a|b' f 2>/dev/null", "ls > /dev/null", "gh pr view 3", "claude plugin list", "agentic-sdlc message read --text"]) {
+    assert.equal(verdict(shell(command)), null, command);
+  }
+  for (const command of ["git status && npm test", "echo x > out.txt", "cat a >> b", "ls & npm test", "echo $(npm test)", "find . -delete", "git branch -D x"]) {
+    assert.equal(verdict(shell(command))?.decision, "deny", command);
+  }
+});
+
+test("strict main-thread mode honours the custom allowlist", () => {
+  const env = { AGENTIC_SDLC_MAIN_THREAD_ALLOW: "npm test\n^make lint;;^tsc --noEmit" };
+  for (const command of ["npm test", "make lint", "tsc --noEmit", "git status && npm test"]) {
+    assert.equal(strictMainThreadVerdict(shell(command), "strict", env), null, command);
+  }
+  assert.equal(strictMainThreadVerdict(shell("npm run build"), "strict", env)?.decision, "deny");
+  assert.equal(strictMainThreadVerdict(shell("npm test > out.txt"), "strict", env)?.decision, "deny");
 });

@@ -1749,7 +1749,7 @@
     "merge_requires_code_review": false
   },
   "host_policy": {
-    "principle": "main_thread is free (the default: the main conversation thread may do any work) or orchestrator (the main thread only coordinates: it reads messages, decides, and reviews results, while reasoning work goes to background subagents and mechanical work to controlled background processes). The session start shows the instruction and an edit made from the main thread gets a warning; nothing is blocked.",
+    "principle": "main_thread is free (the default: the main conversation thread may do any work), orchestrator (the main thread only coordinates: it reads messages, decides, and reviews results, while reasoning work goes to background subagents and mechanical work to controlled background processes). The session start shows the instruction and an edit made from the main thread gets a warning; nothing is blocked) or strict (as orchestrator, but enforced: Edit, Write, NotebookEdit and foreground Bash outside a read-only allowlist are denied on the main thread). The environment variable AGENTIC_SDLC_MAIN_THREAD (free|orchestrator|strict) overrides this value; AGENTIC_SDLC_MAIN_THREAD_ALLOW adds allowlist regexes (newline or ;; separated).",
     "main_thread": "free"
   },
   "standing_approval_policy": {
