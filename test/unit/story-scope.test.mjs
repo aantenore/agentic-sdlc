@@ -106,8 +106,9 @@ test("delivery actions the chain needs are checked against the profile, merge_al
     pull_request_target: { mode: "new", allowed_actions: ["git.push", "pull_request.create", "pull_request.merge"], merge_allowed: true, ...target },
   });
   assert.ok(deliveryActionAccess(profile({})).every((item) => item.allowed));
-  const noMerge = deliveryActionAccess(profile({ merge_allowed: false })).find((item) => !item.allowed);
-  assert.deepEqual([noMerge.action, noMerge.reason], ["pull_request.merge", "merge_allowed is false"]);
+  // allowed_actions is the single source of truth for the merge.
+  const noMerge = deliveryActionAccess(profile({ allowed_actions: ["git.push", "pull_request.create"] })).find((item) => !item.allowed);
+  assert.deepEqual([noMerge.action, noMerge.reason], ["pull_request.merge", "not in the profile's allowed actions"]);
   const noPush = deliveryActionAccess(profile({ allowed_actions: ["pull_request.create"] })).filter((item) => !item.allowed).map((item) => item.action);
   assert.deepEqual(noPush, ["git.push", "pull_request.merge"]);
   assert.equal(deliveryActionAccess(profile({ mode: "existing", allowed_actions: ["git.push", "pull_request.merge"] })).every((item) => item.allowed), true);

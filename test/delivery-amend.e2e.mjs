@@ -8,6 +8,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { buildDeliveryExecutionProfileV2 } from "../lib/autonomy-policy.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const bin = path.join(repoRoot, "bin", "agentic-sdlc.mjs");
 const providerCommandShim = path.join(repoRoot, "test", "helpers", "provider-command-shim.cjs");
@@ -154,7 +156,7 @@ function proposeArgs(project, { level = "checkpointed", mergeAllowed = true, ext
   ];
 }
 
-function preparePullRequestDelivery({ codeReview = "not-required", merge = null, mergeAllowed = false, extraWritePath = null } = {}) {
+function preparePullRequestDelivery({ codeReview = "not-required", merge = null, mergeAllowed = false, extraWritePath = null, proposeExtra = [], beforeApprove = null } = {}) {
   const project = tmpDirectory("project");
   mustRun(["init", "--root", project, "--project-name", "Delivery Amend E2E", "--force"]);
   keepClaimsOnThisComputer(project);
@@ -204,8 +206,9 @@ function preparePullRequestDelivery({ codeReview = "not-required", merge = null,
   mustRunJson(["contract", "approve", "--root", project, "--id", "CONTRACT-MERGE", ...humanApproval("Approve the contract")]);
   const proposed = mustRunJson(proposeArgs(project, {
     mergeAllowed,
-    extra: [...codeReviewAnswer(codeReview), ...(merge ? mergeAnswer(merge) : [])],
+    extra: [...codeReviewAnswer(codeReview), ...(merge ? mergeAnswer(merge) : []), ...proposeExtra],
   }));
+  beforeApprove?.(project);
   mustRunJson(["autonomy", "delivery", "approve", "--root", project, "--id", PROFILE_ID, ...humanApproval("Approve the merge delivery")]);
 
   fs.mkdirSync(path.join(project, "src"), { recursive: true });
@@ -346,4 +349,55 @@ test("a delivery with a code review choice is amended by the user, not by automa
   const amended = mustRunJson(amendArgs(project, ["--merge-allowed"]));
   assert.equal(amended.revision, 2);
   assert.equal(readProfile(project).pull_request_target.code_review.decision, "required");
+});
+
+/** The proposed profile as an older version wrote it: merge_allowed true, pull_request.merge not in allowed_actions. */
+function makeMergeInconsistent(project) {
+  const profile = readProfile(project);
+  const target = { ...profile.pull_request_target, merge_allowed: true };
+  const rebuilt = buildDeliveryExecutionProfileV2({
+    ...profile,
+    pull_request_target: target,
+    material_scope: { ...profile.material_scope, release_target: target },
+    extensions: { ...profile.extensions },
+  });
+  fs.writeFileSync(path.join(project, ".sdlc", "autonomy", "deliveries", `${PROFILE_ID}.json`), `${JSON.stringify(rebuilt, null, 2)}\n`, "utf8");
+}
+
+test("a new profile proposed with --merge-allowed lists pull_request.merge, with or without --allow-action", () => {
+  const { project } = preparePullRequestDelivery({ proposeExtra: ["--merge-allowed"] });
+  const profile = readProfile(project);
+  assert.equal(profile.pull_request_target.merge_allowed, true);
+  assert.ok(profile.pull_request_target.allowed_actions.includes("pull_request.merge"));
+  assert.ok(profile.material_scope.release_target.allowed_actions.includes("pull_request.merge"));
+  const status = mustRunJson(["autonomy", "delivery", "status", "--root", project, "--id", PROFILE_ID]);
+  assert.equal(status.delivery_profiles[0].merge_authorization.consistent, true);
+  mustRefuse(amendArgs(project, ["--merge-allowed"]), /already allows pull_request\.merge/u);
+});
+
+test("status reports merge_allowed without the merge action and amend --merge-allowed repairs it", () => {
+  const { project } = preparePullRequestDelivery({ beforeApprove: makeMergeInconsistent });
+  assert.equal(readProfile(project).pull_request_target.allowed_actions.includes("pull_request.merge"), false);
+  const before = readProfile(project);
+
+  const status = run(["autonomy", "delivery", "status", "--root", project, "--id", PROFILE_ID]);
+  assert.match(status.stdout, /Merge authority INCONSISTENT: merge_allowed is true but pull_request\.merge is missing from allowed_actions/u);
+  assert.match(status.stdout, /autonomy delivery amend --id AUT-MERGE --merge-allowed/u);
+  const json = JSON.parse(run(["autonomy", "delivery", "status", "--root", project, "--id", PROFILE_ID, "--json"]).stdout);
+  assert.equal(json.delivery_profiles[0].merge_authorization.consistent, false);
+  assert.equal(json.delivery_profiles[0].merge_authorization.authorized, false);
+
+  // The single source of truth refuses the merge while the action is missing.
+  mustRefuse(mergeArgs(project), /outside the approved action set/u);
+
+  const repaired = mustRunJson(amendArgs(project, ["--merge-allowed"], "Repair the merge authority"));
+  assert.equal(repaired.status, "amended");
+  assert.equal(repaired.changes.merge_repaired, true);
+  const after = readProfile(project);
+  assert.equal(after.pull_request_target.merge_allowed, true);
+  assert.ok(after.pull_request_target.allowed_actions.includes("pull_request.merge"));
+  assert.equal(after.extensions.revision.history.at(-1).profile_hash, before.profile_hash);
+  const fixed = mustRunJson(["autonomy", "delivery", "status", "--root", project, "--id", PROFILE_ID]);
+  assert.equal(fixed.delivery_profiles[0].merge_authorization.consistent, true);
+  mustRefuse(amendArgs(project, ["--merge-allowed"]), /already allows pull_request\.merge/u);
 });

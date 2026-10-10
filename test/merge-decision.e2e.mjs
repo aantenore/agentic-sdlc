@@ -313,7 +313,6 @@ test("the merge choice is the user's explicit answer and automatic needs merge a
   mustRefuse(proposeArgs(project, { extra: [...base, "--merge-summary", "merge it"] }), /needs --merge/u);
   mustRefuse(proposeArgs(project, { level: "supervised", extra: [...base, ...mergeAnswer("automatic")] }), /not available at --level supervised/u);
   mustRefuse(proposeArgs(project, { mergeAllowed: false, extra: [...base, ...mergeAnswer("automatic")] }), /--merge automatic needs --merge-allowed/u);
-  mustRefuse(proposeArgs(project, { mergeAllowed: false, extra: [...base, "--merge-allowed", ...mergeAnswer("automatic")] }), /--merge automatic needs --merge-allowed and pull_request\.merge/u);
   const profilePath = path.join(project, ".sdlc", "autonomy", "deliveries", `${PROFILE_ID}.json`);
   assert.equal(fs.existsSync(profilePath), false, "a refused proposal writes no profile");
   // A supervised delivery may still record a manual or confirmed merge.
