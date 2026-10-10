@@ -44,6 +44,8 @@ test("only the user can approve a standing approval", () => {
     "node bin/agentic-sdlc.mjs autonomy standing revoke --id SA-X --reason stop",
     "node bin/agentic-sdlc.mjs autonomy standing status --json",
     "node bin/agentic-sdlc.mjs autonomy delivery approve --id AUT-1 --standing-approval SA-X",
+    // Amending an approved delivery is guarded like approving it: by the CLI's approval rules, not by the hook.
+    "node bin/agentic-sdlc.mjs autonomy delivery amend --id AUT-1 --merge-allowed --actor-type human --approval-source explicit-user --summary ok",
   ]) {
     assert.equal(evaluatePreToolUse(shell(command)), null, command);
   }

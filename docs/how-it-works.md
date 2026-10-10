@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.102.0 Works
+# How Agentic SDLC 0.103.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -198,7 +198,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.102.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.103.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -1032,6 +1032,8 @@ At the same step, before the task starts, the agent asks a third question for ev
 > This choice applies only to this story.
 
 The answer is the user's own, recorded as a formal human decision (`autonomy delivery propose --merge manual|after-confirmation|automatic` with `--merge-actor-type human`, `--merge-approval-source explicit-user`, and the user's words in `--merge-summary`) and stored in the approved delivery profile as `pull_request_target.merge_decision` (`mode`, `source`, `actor_id`, `user_words`, `decided_at`), so it is covered by the profile hash. With `manual` the plugin never merges and the person acknowledges their merge afterwards (below). With `after-confirmation` the plugin merges after the `pull_request.merge` checkpoint the person confirms. With `automatic`, which needs `--merge-allowed` and is not allowed at level `supervised`, the plugin merges once every gate passes, without that checkpoint. The answer is never inherited from an earlier story and the task does not start without it.
+
+If the profile was approved without merge (or with write paths that turn out too narrow), `autonomy delivery amend --id <profile> --merge-allowed` (also `--merge <mode>` and `--add-write-path <path>`) widens it as a new revision of the same profile, with the same approval rules as `autonomy delivery approve`. The contract keeps naming the profile, so task start and finished steps stay valid; receipts recorded under an earlier revision stay valid because a revision only adds to what the earlier one approved, and new actions use the current revision. It is refused once the affected action ran, once the delivery is closed or revoked, and for anything beyond the approved requirement write scope.
 
 ### A merge made outside the plugin
 
