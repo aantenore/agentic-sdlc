@@ -1276,6 +1276,7 @@ function buildCliRuntimeHandlerRegistry() {
     "message.who": bootstrap(({ options }) => messageWho(options)),
     "message.read": bootstrap(({ options }) => messageRead(options)),
     "message.listen": bootstrap(({ options }) => messageListen(options)),
+    watch: bootstrap(async ({ options }) => (await import("../lib/host-hooks/watch.mjs")).watchCommand(options)),
     run: bootstrap(({ options, parsed }) => runCommand(options, parsed.passthrough)),
     "processes.reap": bootstrap(({ options }) => processesReap(options)),
     "runs.list": bootstrap(({ options }) => runsList(options)),

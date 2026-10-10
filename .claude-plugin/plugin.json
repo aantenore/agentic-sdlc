@@ -1,6 +1,6 @@
 {
   "name": "agentic-sdlc",
-  "version": "0.135.0",
+  "version": "0.136.0",
   "description": "Contract-driven delivery, verified assessments, and visual project lineage for Claude Code.",
   "author": {
     "name": "Antonio Antenore",

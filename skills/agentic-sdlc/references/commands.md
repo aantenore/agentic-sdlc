@@ -2017,6 +2017,7 @@ node bin/agentic-sdlc.mjs message send --root <project> --kind answer --reply-to
 node bin/agentic-sdlc.mjs message read --root <project> --since 2h --skip-own
 node bin/agentic-sdlc.mjs message read --root <project> --unread   # only messages not read yet on this clone, then marked read
 node bin/agentic-sdlc.mjs message listen --root <project> --skip-own --json   # background; one JSON object per line
+node bin/agentic-sdlc.mjs watch --root <project> [--timeout 30m] [--json]   # background alarm: exits at the first relevant message/story/release, or 0 with 'nessun evento' on timeout; re-arm it
 node bin/agentic-sdlc.mjs message outbox --root <project> [--flush | --drop <outbox-id>]   # messages kept because GitHub refused
 node bin/agentic-sdlc.mjs message identity --root <project> [--name "<name>"]   # unique name of this computer; every message is signed with it (--sender is deprecated)
 node bin/agentic-sdlc.mjs message who --root <project> [--since 7d]   # participants: name, host, login, plugin version, stories; duplicates and old versions flagged

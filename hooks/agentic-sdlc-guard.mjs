@@ -19,6 +19,7 @@ import {
   orchestratorSessionContext,
   PROCESS_HYGIENE_INSTRUCTION,
   STORY_LABEL_INSTRUCTION,
+  WATCH_INSTRUCTION,
   sessionStartContext,
   strictMainThreadVerdict,
 } from "../lib/host-hooks/guard.mjs";
@@ -180,7 +181,7 @@ async function sessionStart(payload) {
   const orchestrator = orchestratorSessionContext(projectMainThreadMode(governedRoot(root) ?? root));
   if (orchestrator) process.stdout.write(`${orchestrator}\n`);
   else if (governedRoot(root)) process.stdout.write(`${STORY_LABEL_INSTRUCTION}\n`);
-  if (orchestrator || governedRoot(root)) process.stdout.write(`${PROCESS_HYGIENE_INSTRUCTION}\n`);
+  if (orchestrator || governedRoot(root)) process.stdout.write(`${PROCESS_HYGIENE_INSTRUCTION}\n${WATCH_INSTRUCTION}\n`);
   const standingRoot = path.join(root, ".sdlc", "autonomy", "standing");
   let entries = [];
   try {

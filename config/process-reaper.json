@@ -16,6 +16,7 @@
   "exclude_patterns": [
     "(^|\\s)observe(\\s|$)",
     "message\\s+listen",
+    "agentic-sdlc(\\.mjs)?\"?\\s+(--\\S+\\s+\\S+\\s+)*watch(\\s|$)",
     "agentic-sdlc(\\.mjs)?\"?\\s+(--\\S+\\s+\\S+\\s+)*run(\\s|$)"
   ]
 }

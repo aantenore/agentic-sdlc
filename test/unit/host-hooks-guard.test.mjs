@@ -17,6 +17,7 @@ import {
   strictMainThreadVerdict,
   PROCESS_HYGIENE_INSTRUCTION,
   STORY_LABEL_INSTRUCTION,
+  WATCH_INSTRUCTION,
   sessionStartContext,
 } from "../../lib/host-hooks/guard.mjs";
 
@@ -619,7 +620,7 @@ test("the hook adds the orchestrator context and warning without blocking", () =
     fs.mkdirSync(path.join(project, ".sdlc"));
     const run = (event, payload) => spawnSync(process.execPath, [HOOK, event], { input: JSON.stringify({ cwd: project, ...payload }), encoding: "utf8", env: cleanHookEnv() });
     const edit = { tool_name: "Edit", tool_input: { file_path: path.join(project, "a.js") } };
-    assert.equal(run("session-start", {}).stdout.trim(), `${STORY_LABEL_INSTRUCTION}\n${PROCESS_HYGIENE_INSTRUCTION}`);
+    assert.equal(run("session-start", {}).stdout.trim(), `${STORY_LABEL_INSTRUCTION}\n${PROCESS_HYGIENE_INSTRUCTION}\n${WATCH_INSTRUCTION}`);
     assert.match(PROCESS_HYGIENE_INSTRUCTION, /agentic-sdlc run --timeout .*nohup.*processes reap/u);
     assert.equal(run("pre-tool-use", edit).stdout, "");
     fs.writeFileSync(path.join(project, ".sdlc", "config.json"), JSON.stringify({ host_policy: { main_thread: "orchestrator" } }));

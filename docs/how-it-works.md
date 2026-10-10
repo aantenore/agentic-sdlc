@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.135.0 Works
+# How Agentic SDLC 0.136.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -201,7 +201,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.135.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.136.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -1242,6 +1242,38 @@ skill tells the agent to run it before ending a turn and to continue while it
 prints a next step. The hook script also accepts a Codex `Stop` payload
 (`cwd`, `stop_hook_active`) and answers in the same format, so it can be
 registered as a Codex `Stop` hook where hooks are enabled.
+
+### Never stay asleep: `watch`
+
+A session with nothing to do stops, and a stopped session never wakes up on
+its own. `agentic-sdlc watch [--timeout 30m] [--json]` is the alarm: it waits
+for the first relevant event and exits printing a short summary (for example
+`domanda di Alice · PC1 su ST-X (titolo): ...` or `nuova story libera ST-Y
+(titolo)`). Relevant events: a message on the channel for this computer or for
+everyone (question, request, answer to one of mine, offer, direct message), a
+story free to take here (same rule as keep-going, remote base included), a new
+plugin release announced. My own messages and the `[auto]` status messages of
+other computers are skipped, except "released and free to take". With no event
+by the deadline it exits 0 with `nessun evento` and the agent re-arms it.
+
+In Claude Code a command started with Bash `run_in_background` re-invokes the
+agent when it exits, so the background watch is the wake-up. The Stop hook
+enforces it: with no work and no active watch it blocks once, asking to start
+`agentic-sdlc watch --timeout 30m` in the background; with a watch active (pid
+and heartbeat in `<git-common-dir>/agentic-sdlc/watch.json`) it lets the stop
+through; at most one request per 10 minutes. The SessionStart context carries
+the same rule.
+
+Other hosts (Codex, ...): there is no blocking Stop hook, so run the same
+command as any background process that has a deadline (never an unbounded
+loop or `nohup`), for example `agentic-sdlc run --timeout 35m -- agentic-sdlc
+watch --timeout 30m`, read its output when it exits and start it again.
+
+Settings: `AGENTIC_SDLC_WATCH_TIMEOUT` (30m), `AGENTIC_SDLC_WATCH_POLL_SECONDS`
+(30), `AGENTIC_SDLC_WATCH_STORY_SECONDS` (120), `AGENTIC_SDLC_WATCH_FETCH=off`
+(do not `git fetch` for new stories), `AGENTIC_SDLC_WATCH_STALE_SECONDS` (180),
+`AGENTIC_SDLC_WATCH_PROMPT=off` and `AGENTIC_SDLC_WATCH_PROMPT_MINUTES` (10)
+for the Stop hook.
 
 ### No process left running
 

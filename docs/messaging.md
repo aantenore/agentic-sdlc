@@ -30,6 +30,7 @@ agentic-sdlc message send --story ST-UX-001 --text "Tests on this story still ta
 agentic-sdlc message read --since 2h --skip-own
 agentic-sdlc message read --unread                  # only what this clone has not read yet, then marked read
 agentic-sdlc message listen --skip-own --json      # stays open; run it in the background
+agentic-sdlc watch --timeout 30m                    # background alarm: exits at the first relevant message, story or release (see how-it-works)
 agentic-sdlc message outbox [--flush | --drop <id>] # messages waiting to be sent
 agentic-sdlc message identity [--name "Antonio · PC3"] # who this computer is in the channel
 agentic-sdlc message who [--since 7d]               # who is in the channel
