@@ -53,6 +53,12 @@ async function coordinationMessages(payload, hookEventName) {
   // Loaded here so a problem with it never disables the edit guard.
   const { checkAttention } = await import("../lib/messaging/attention.mjs");
   const context = await checkAttention(root);
+  try {
+    const { checkPresence } = await import("../lib/messaging/presence.mjs");
+    await checkPresence(root);
+  } catch {
+    // best effort
+  }
   if (context) process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName, additionalContext: context } })}\n`);
 }
 

@@ -20,6 +20,7 @@ import {
 } from "../lib/runtime/host.mjs";
 import { PLUGIN_ROOT } from "../lib/runtime/paths.mjs";
 import { registerCurrentRun } from "../lib/runtime/run-registry.mjs";
+import { acquireSingleFlight, LOCK_BUSY_EXIT_CODE } from "../lib/runtime/single-flight.mjs";
 import { runsList, runsStop } from "../lib/cli/runs-commands.mjs";
 import { syncProjectForStatus } from "../lib/engine/status-sync.mjs";
 import { assertPluginSatisfiesProject } from "../lib/engine/plugin-compatibility.mjs";
@@ -1247,7 +1248,7 @@ function buildCliRuntimeHandlerRegistry() {
     "workflow.overlay.approve": call(approveWorkflowOverlayCommand),
     "workflow.overlay.explain": call(explainWorkflowOverlay),
     "workflow.instance.start": call(startWorkflowInstance),
-    "workflow.instance.transition": call(transitionWorkflowInstance),
+    "workflow.instance.transition": call(noteForMessages(transitionWorkflowInstance)),
     "workflow.instance.status": report((context, options) => showWorkflowInstance(context, options, { explain: false })),
     "workflow.instance.explain": report((context, options) => showWorkflowInstance(context, options, { explain: true })),
     "budget.usage.record": call(budgetUsageRecordCommand),
@@ -1467,9 +1468,19 @@ async function main() {
       AUTO_MESSAGING.action = resolution.canonical_action;
       AUTO_MESSAGING.options = parsed.options;
       AUTO_MESSAGING.root = path.resolve(String(parsed.options.root || process.cwd()));
+      let singleFlight = { release: () => {} };
+      try {
+        singleFlight = acquireSingleFlight({ action: resolution.canonical_action, options: parsed.options, root: AUTO_MESSAGING.root });
+      } catch {
+        // best effort
+      }
+      if (singleFlight.busy) {
+        process.stderr.write(`agentic-sdlc: ${singleFlight.busy}\n`);
+        process.exit(LOCK_BUSY_EXIT_CODE);
+      }
       try {
         // Registers the run and stops it after its time limit; never fails the command.
-        registerCurrentRun({ action: resolution.canonical_action, argv: rawArgs, root: AUTO_MESSAGING.root });
+        registerCurrentRun({ action: resolution.canonical_action, argv: rawArgs, root: AUTO_MESSAGING.root, release: singleFlight.release });
       } catch {
         // best effort
       }
