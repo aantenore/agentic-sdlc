@@ -71,6 +71,18 @@ test("alerts name the story and the reason, and ignore ordinary runs", () => {
   assert.match(alertFor("story.park", { id: "ST-A-001", reason: "waiting for the API" }).text, /parked: waiting for the API/u);
   assert.match(alertFor("story.wait", { id: "ST-A-001", on: "dep:ST-B-002" }).text, /waiting on dep:ST-B-002/u);
   assert.equal(alertFor("story.wait", { id: "ST-A-001", clear: true }), null);
+  assert.match(alertFor("story.wait", { id: "ST-A-001", on: "dep:ST-B-002" }).text, /blocked by ST-B-002/u);
+  assert.match(alertFor("story.claim", { id: "ST-A-001" }).text, /ST-A-001 claimed/u);
+  const released = alertFor("story.release", { id: "ST-A-001" });
+  assert.equal(released.kind, "offer");
+  assert.match(released.next, /story availability/u);
+  const merged = alertFor("autonomy.delivery.action", { id: "AUT-1", action: "pull_request.merge", outcome: "passed" }, { extra: { story: "ST-A-001", unblocked: ["ST-C-003"] } });
+  assert.match(merged.text, /merged for ST-A-001\. Now unblocked: ST-C-003/u);
+  assert.match(merged.next, /task start --story ST-C-003/u);
+  assert.equal(alertFor("autonomy.delivery.action", { id: "AUT-1", action: "git.push", outcome: "passed" }), null);
+  assert.match(alertFor("story.publish-records", { id: "ST-A-001" }, { extra: { unblocked: [] } }).text, /records of ST-A-001 published/u);
+  assert.match(alertFor("gate.check", { story: "ST-A-001", "lifecycle-complete": true }, { exitCode: 0 }).text, /certified/u);
+  assert.match(alertFor("baseline.refresh", {}, { exitCode: 0 }).text, /baseline refreshed/u);
   const timeout = Object.assign(new Error("git fetch origin did not finish within 20s: the remote may be slow"), { code: "ETIMEDOUT" });
   assert.match(alertFor("status", {}, { error: timeout }).text, /status stopped on a time limit \(git fetch origin did not finish within 20s\)/u);
   assert.equal(alertFor("status", {}, { error: new Error("other") }), null);

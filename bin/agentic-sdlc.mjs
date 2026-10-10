@@ -1132,7 +1132,27 @@ import {
 } from "../lib/engine/workflow.mjs";
 
 // What the automatic messages need to know about this run (lib/messaging/auto.mjs).
-const AUTO_MESSAGING = { action: null, options: null, root: null, error: null, result: null };
+const AUTO_MESSAGING = { action: null, options: null, root: null, error: null, result: null, extra: null };
+
+/** Wrap a handler so the facts the automatic messages need are read while its context is open. */
+function noteForMessages(handler) {
+  return factsAfter((context, options) => handler(context, options), true);
+}
+
+function factsAfter(handler, positional = false) {
+  return async (...args) => {
+    const value = await handler(...args);
+    const context = positional ? args[0] : args[0].context;
+    try {
+      const { eventFacts } = await import("../lib/messaging/events.mjs");
+      const facts = AUTO_MESSAGING.options && eventFacts(context, AUTO_MESSAGING.action, AUTO_MESSAGING.options);
+      if (facts) AUTO_MESSAGING.extra = facts;
+    } catch {
+      // Automatic messages are best effort.
+    }
+    return value;
+  };
+}
 
 function rememberResult(value) {
   AUTO_MESSAGING.result = value;
@@ -1142,10 +1162,10 @@ function rememberResult(value) {
 /** Tell the other computers what went wrong in this run, if anything; never fails the command. */
 async function sendRunAlert() {
   try {
-    const { action, options, root, error, result } = AUTO_MESSAGING;
+    const { action, options, root, error, result, extra } = AUTO_MESSAGING;
     if (!action || !root) return;
     const blockers = Array.isArray(result?.human_blockers) ? result.human_blockers : result?.errors;
-    const alert = alertFor(action, options, { error, exitCode: process.exitCode, blockers, result });
+    const alert = alertFor(action, options, { error, exitCode: process.exitCode, blockers, result, extra });
     if (alert) await sendAutoAlert(root, alert, { stderr: (text) => process.stderr.write(text) });
   } catch {
     // Automatic messages are best effort.
@@ -1240,9 +1260,10 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.delivery.propose": call(proposeDeliveryAutonomy),
     "autonomy.delivery.approve": call(approveDeliveryAutonomy),
     "autonomy.delivery.revoke": call(revokeDeliveryAutonomy),
-    "autonomy.delivery.action": storyWrite(evaluateDeliveryAction, deliveryProfileStoryIds),
+    "autonomy.delivery.action": project(factsAfter(({ context, options }) =>
+      withSealedReceiptTrust(deliveryProfileStoryIds(context, options), () => evaluateDeliveryAction(context, options)))),
     "autonomy.delivery.close": call(closeDeliveryAutonomy),
-    "autonomy.delivery.reconcile": call(reconcileExternalMerge),
+    "autonomy.delivery.reconcile": call(noteForMessages(reconcileExternalMerge)),
     "autonomy.delivery.evidence.supersede": call((context, options) => rememberResult(supersedeDeliveryEvidence(context, options))),
     "autonomy.delivery.status": call(showDeliveryAutonomy),
     "autonomy.delivery.explain": call(explainDeliveryAutonomy),
@@ -1258,13 +1279,13 @@ function buildCliRuntimeHandlerRegistry() {
     "story.create": call(createStory),
     "story.acceptance.add": call(addStoryAcceptance),
     "story.claim": call(claimStory),
-    "story.release": call(releaseStoryClaim),
+    "story.release": call(noteForMessages(releaseStoryClaim)),
     "story.reserve": call(reserveStory),
     "story.availability": call(showStoryAvailability),
     "story.park": call(parkStory),
     "story.resume": call(resumeStory),
     "story.wait": call(storyWait),
-    "story.publish-records": call(publishStoryRecords),
+    "story.publish-records": call(noteForMessages(publishStoryRecords)),
     "story.overlap": report(showStoryOverlap),
     "story.overlap.confirm": call(confirmStoryOverlap),
     "story.base.acknowledge": call(acknowledgeStoryBaseCommit),
@@ -1338,7 +1359,7 @@ function buildCliRuntimeHandlerRegistry() {
     // in full (AGENTIC_SDLC_STATUS_CHECKS=full verifies them all). The
     // lifecycle-complete gate writes and re-checks the final receipt, so it
     // keeps reading live and only trusts the other stories' sealed receipts.
-    "gate.check": project(({ context, options }) => rememberResult(options["lifecycle-complete"] === true
+    "gate.check": project(factsAfter(({ context, options }) => rememberResult(options["lifecycle-complete"] === true
       ? withSealedReceiptTrust(
         options.story
           && !options["release-manifest"]
@@ -1353,7 +1374,7 @@ function buildCliRuntimeHandlerRegistry() {
           && String(options.scope || "story") === "story"
           && sealedReceiptTrustEnabled(),
         verifyStoryId: options.story ? normalizeId(String(options.story)) : null,
-      }))),
+      })))),
     "orchestrate.status": report(showOrchestrationStatus),
     "orchestrate.plan": report(showOrchestrationPlan),
     "route.decide": call(decideRoute),
