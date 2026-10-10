@@ -1,0 +1,52 @@
+{
+  "applied_at": "2026-10-10T05:40:21.714Z",
+  "audit": {
+    "action": "config.migrate",
+    "actor": {
+      "email": null,
+      "id": "codex",
+      "name": null,
+      "source": "cli",
+      "type": "system"
+    },
+    "git": {
+      "branch": null,
+      "head_sha": null,
+      "is_dirty": null,
+      "is_git_repo": false,
+      "remotes": [],
+      "user": {
+        "email": null,
+        "name": null
+      }
+    },
+    "recorded_at": "2026-10-10T05:40:21.733Z",
+    "run": {
+      "run_id": null,
+      "session_id": null,
+      "thread_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.101.0"
+    }
+  },
+  "changes": [],
+  "config_path": ".sdlc/config.json",
+  "defaults_profile": {
+    "id": "sdlc-config:v1@plugin-0.101.0",
+    "sha256": "fc412fb3669b335dfbafd4576478d5d2d4a310db88558964d802556c2cf824b4"
+  },
+  "effective_config_hash": "c1361b73d4df4aa8c9b62b7c193ddd78e4e925aae8c35935c4010af43f3eab6c",
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "MIG-CONFIG-80cf10d4ad30b942",
+  "inherited_paths": [],
+  "kind": "config_migration_receipt",
+  "lock_hash": "6197ba036483cd000fded250aea12644ba16acef24cab38b425e8c0d35202962",
+  "lock_path": ".sdlc/config.lock.json",
+  "mode": "reconcile_drift",
+  "plan_hash": "80cf10d4ad30b9422ca6a60eb89fedd937bd83ea43a86c012c202f4bb10925ee",
+  "receipt_hash": "675dee09bd0cf29bd29dd5d8ba4f1b8dee78c9e5904ecec06f17eaeed1e2f03a",
+  "schema_version": "config-migration-receipt:v1",
+  "source_config_hash": "c1361b73d4df4aa8c9b62b7c193ddd78e4e925aae8c35935c4010af43f3eab6c",
+  "status": "applied",
+  "target_config_hash": "c1361b73d4df4aa8c9b62b7c193ddd78e4e925aae8c35935c4010af43f3eab6c"
+}
