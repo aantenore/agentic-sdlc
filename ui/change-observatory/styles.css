@@ -183,6 +183,15 @@ svg {
   min-width: 0;
 }
 
+.source-ref.is-stale {
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--warning);
+  background: var(--warning-soft);
+  font-weight: 600;
+  white-space: normal;
+}
+
 .brand-divider {
   width: 1px;
   height: 24px;

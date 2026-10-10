@@ -50,6 +50,7 @@ import {
 } from "./i18n.js";
 import { defaultExploreState } from "./visuals.js";
 import { INSIGHT_SETTINGS, normalizeDependencyEdges } from "./insights.js";
+import { staleCheckoutMessage } from "./source-freshness.js";
 
 const locale = setLocale(localeFromLocation(window.location));
 applyDocumentLocale(document, locale);
@@ -438,6 +439,8 @@ async function loadSourceRef() {
     return;
   }
   if (source?.mode === "ref" && typeof source.ref === "string") {
+    target.classList.remove("is-stale");
+    target.setAttribute("role", "status");
     const when = source.updatedAt ? new Date(source.updatedAt) : null;
     const time = when && !Number.isNaN(when.getTime())
       ? when.toLocaleTimeString(getLocale(), { hour: "2-digit", minute: "2-digit" })
@@ -451,8 +454,11 @@ async function loadSourceRef() {
     if (moved) quietReload();
     return;
   }
-  target.textContent = `${t("Records from")} ${t("Local files")}`;
-  target.title = "";
+  const stale = staleCheckoutMessage(source);
+  target.classList.toggle("is-stale", Boolean(stale));
+  target.setAttribute("role", stale ? "alert" : "status");
+  target.textContent = stale ?? `${t("Records from")} ${t("Local files")}`;
+  target.title = stale ? `${t("Records from")} ${t("Local files")}` : "";
   target.hidden = false;
 }
 

@@ -131,10 +131,13 @@ export function storyState(iteration) {
   if (relevance === "superseded") return "stopped";
   if (iteration?.parked) return "parked";
   if (phases.some((phase) => phase.status === "blocked")) return "blocked";
-  if (relevance === "delivered") return "delivered";
+  const lifecycle = iteration?.lifecycle?.key;
+  if (relevance === "delivered" || lifecycle === "closed" || lifecycle === "merged") return "delivered";
   if (iteration?.claimExpired) return "abandoned";
   if (iteration?.claimed || phases.some((phase) => phase.status === "inProgress")) return "live";
   if (relevance === "active") return "open";
+  // A task start, an open pull request, or any receipt means the work began.
+  if (lifecycle === "prOpen" || lifecycle === "inProgress") return "open";
   return "idle";
 }
 
@@ -295,6 +298,13 @@ export function storyStatus(story) {
         reason: `${t("A record newer than the final report")}${what ? ` (${what})` : ""}: ${t("run the final certification again")}`,
       };
     }
+    const lifecycle = story?.iteration?.lifecycle?.key;
+    if (lifecycle === "closed") {
+      return { key: "closed", label: t("Closed"), reason: deliveryReason(story?.iteration?.brief?.delivery) ?? t("Merged and closed") };
+    }
+    if (lifecycle === "merged") {
+      return { key: "merged", label: t("Merged, closing in progress"), reason: deliveryReason(story?.iteration?.brief?.delivery) ?? t("Merged") };
+    }
     return { key: "merged", label: t("Merged"), reason: deliveryReason(story?.iteration?.brief?.delivery) ?? t("Merged") };
   }
   if (story?.state === "live") {
@@ -308,6 +318,10 @@ export function storyStatus(story) {
   if (story?.holder?.state === "reserved" && !story.holder.expired) {
     const who = story.holder.holder ?? story.holder.agent;
     return { key: "reserved", label: t("Reserved"), reason: `${t("Reserved, not started yet")}${who ? `: ${who}` : ""}` };
+  }
+  if (story?.state === "open") {
+    const pr = story.iteration?.lifecycle?.key === "prOpen";
+    return { key: "open", label: t("Being worked on"), reason: pr ? deliveryReason(story.iteration?.brief?.delivery) : null };
   }
   return { key: story?.state ?? "idle", label: stateLabel(story?.state ?? "idle"), reason: null };
 }
