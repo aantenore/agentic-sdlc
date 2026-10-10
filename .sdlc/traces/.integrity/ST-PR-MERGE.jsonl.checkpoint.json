@@ -1,0 +1,23 @@
+{
+  "kind": "trace_integrity_checkpoint",
+  "schema_version": "trace-integrity-checkpoint:v1",
+  "mode": "local_tamper_evidence",
+  "authenticity_claimed": false,
+  "hash_algorithm": "sha256",
+  "trace_file": "ST-PR-MERGE.jsonl",
+  "legacy_prefix": {
+    "line_count": 0,
+    "byte_length": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "new_writes": {
+    "count": 11,
+    "first_sequence": 1,
+    "last_sequence": 11,
+    "last_event_hash": "03c766fe7d651f8b06ac7394f038bae643ae4bf5653b9c34954c63dd9d3ec0d5",
+    "rolling_hash": "262985c559647a8c39fffddd6ab3222d6e1bb8061b27e80d73081730c532ced8"
+  },
+  "committed_offset": 23073,
+  "updated_at": "2026-10-10T05:21:15.911Z",
+  "checkpoint_hash": "015e46b3bf6efeb50b7b5e745895dee56d251a423c818abe363a4fa327a2d7c2"
+}

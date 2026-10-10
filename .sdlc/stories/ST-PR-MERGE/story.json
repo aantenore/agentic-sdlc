@@ -1,0 +1,85 @@
+{
+  "id": "ST-PR-MERGE",
+  "title": "Implement ST-PR-MERGE",
+  "schema_version": "0.1.0",
+  "status": "ready",
+  "phase": "implementation",
+  "contract_id": "CONTRACT-PR-MERGE",
+  "work_breakdown_id": null,
+  "acceptance": [
+    "Observable implementation evidence exists for ST-PR-MERGE."
+  ],
+  "acceptance_criteria": [
+    "Observable implementation evidence exists for ST-PR-MERGE."
+  ],
+  "requirement_refs": [
+    {
+      "content_hash": "376ebf4575680eea8bc8fe9f16f7cf513dcea9d7cb48c4caa9c0a52fcb99c561",
+      "id": "REQ-AUTONOMY",
+      "path": ".sdlc/requirements/REQ-AUTONOMY.json",
+      "revision": 1
+    }
+  ],
+  "autonomy_ceiling": "bounded-autonomous",
+  "links": {
+    "requirements": [
+      "REQ-AUTONOMY"
+    ],
+    "decisions": [],
+    "tests": []
+  },
+  "created_at": "2026-10-10T05:21:02.412Z",
+  "updated_at": "2026-10-10T05:21:03.403Z",
+  "audit": {
+    "created_by": {
+      "id": "codex",
+      "type": "agent",
+      "name": "Codex",
+      "email": null,
+      "source": "default"
+    },
+    "updated_by": {
+      "id": "codex",
+      "type": "agent",
+      "name": "Codex",
+      "email": null,
+      "source": "default"
+    },
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/pr-1",
+      "head_sha": "4b71ecf2a38a7910e64a8bbc68e646b7456141d1",
+      "is_dirty": true,
+      "user": {
+        "name": "Autonomy E2E",
+        "email": "autonomy-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.101.0"
+    }
+  },
+  "derived_acceptance": [],
+  "derived_verification": {
+    "schema_version": "derived-verification:v1",
+    "policy_hash": "4c16c24fb4578039002b91b938e65459db9de327302471baa6e058973b0921e3",
+    "mode": "new",
+    "scope": {
+      "write_paths": [
+        "src"
+      ],
+      "has_integrations": false
+    },
+    "disabled": true,
+    "reason": "--no-derived-verification",
+    "enforce": null,
+    "covered_by_explicit": []
+  }
+}

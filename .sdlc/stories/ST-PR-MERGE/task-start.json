@@ -1,0 +1,71 @@
+{
+  "id": "START-ST-PR-MERGE-20261010052108167-07ab3c",
+  "kind": "profile_task_start_receipt",
+  "schema_version": "profile-task-start-receipt:v1",
+  "story_id": "ST-PR-MERGE",
+  "phase": "implementation",
+  "route": "claim_and_implement",
+  "contract_id": "CONTRACT-PR-MERGE",
+  "contract_approval_hash": "6eeed7bc7aff7579c0d57b16b1baa88a238b374f2133e5bfbb8aeb53c5a0845a",
+  "delivery_profile_ref": {
+    "id": "AUT-PR-MERGE",
+    "path": ".sdlc/autonomy/deliveries/AUT-PR-MERGE.json",
+    "hash": "ba7f6606f849e28d4a6fafd460718186cdc0ef275a5ee1051ac8bbf7de157ac0"
+  },
+  "autonomy_decision_ref": {
+    "id": "AUT-DEC-20261010052107644-56cd60",
+    "path": ".sdlc/autonomy/decisions/AUT-DEC-20261010052107644-56cd60.json",
+    "hash": "ddcbd9a54a52586aa093999baa672dcb9ad103f6e29e7c4d1aa6f036004d7294"
+  },
+  "delivery_start_receipt_ref": {
+    "id": "AUT-START-AUT-PR-MERGE",
+    "path": ".sdlc/autonomy/executions/AUT-PR-MERGE/start.json",
+    "hash": "d2d875da654a2918e0481438a54ce7a18ec0b955709134ed7f1a5325eb3d03e1"
+  },
+  "execution_context_preflight_ref": {
+    "id": "PREFLIGHT-AUT-PR-MERGE",
+    "path": ".sdlc/autonomy/executions/AUT-PR-MERGE/context-preflight.json",
+    "hash": "06831f24fcbe659264a48203c04713f7f567dea332d2ff6561afe87e3eb5bda5"
+  },
+  "autonomy_level": "checkpointed",
+  "start_basis": "checkpointed-profile",
+  "status": "confirmed",
+  "authorization_ref": null,
+  "authorization_use_ref": null,
+  "authority_assurance": {
+    "mode": "audit_only",
+    "receipt_ref": null,
+    "source": "declared_cli_attribution",
+    "verified": false
+  },
+  "confirmed_by": {
+    "id": "codex",
+    "type": "agent",
+    "name": "Codex",
+    "email": null,
+    "source": "default"
+  },
+  "confirmed_at": "2026-10-10T05:21:08.167Z",
+  "audit": {
+    "git": {
+      "is_git_repo": true,
+      "branch": "codex/pr-1",
+      "head_sha": "d5193488d17b5b0068040a4e703c9a5f931b8782",
+      "is_dirty": true,
+      "user": {
+        "name": "Autonomy E2E",
+        "email": "autonomy-e2e@example.invalid"
+      },
+      "remotes": [
+        "origin"
+      ]
+    },
+    "run": {
+      "run_id": null,
+      "thread_id": null,
+      "session_id": null,
+      "tool": "agentic-sdlc-cli",
+      "version": "0.101.0"
+    }
+  }
+}

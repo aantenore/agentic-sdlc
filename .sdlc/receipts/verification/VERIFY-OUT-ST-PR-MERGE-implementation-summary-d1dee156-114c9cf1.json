@@ -1,0 +1,93 @@
+{
+  "achieved_level": "semantic",
+  "artifact": {
+    "format": "markdown",
+    "media_type": "text/markdown",
+    "path": "src/implementation-summary.md",
+    "sha256": "114c9cf144738b3f21a80139f61f97eae9029908607675ce28c910c0fb82d2b6"
+  },
+  "artifact_present": true,
+  "container_verified": {
+    "checks": [
+      "non-empty file (66 bytes)",
+      "extension .md",
+      "non-binary text content"
+    ],
+    "evidence": [],
+    "reason": null,
+    "status": "verified",
+    "verified_at": "2026-10-10T05:21:09.488Z",
+    "verifier": "file-structure-v1"
+  },
+  "content_verified": {
+    "checks": [
+      "non-empty meaningful text content"
+    ],
+    "evidence": [],
+    "reason": null,
+    "status": "verified",
+    "verified_at": "2026-10-10T05:21:09.488Z",
+    "verifier": "file-structure-v1"
+  },
+  "evidence": [],
+  "existence_verified": {
+    "checks": [
+      "non-empty file (66 bytes)"
+    ],
+    "evidence": [],
+    "reason": null,
+    "status": "verified",
+    "verified_at": "2026-10-10T05:21:09.488Z",
+    "verifier": "file-existence-v1"
+  },
+  "extensions": {
+    "delivery_label": "Markdown document",
+    "delivery_mode": "artifact-plus-chat-summary",
+    "size_bytes": 66
+  },
+  "failed_checks": [],
+  "generator_receipt": null,
+  "hash_algorithm": "sha256:stable-json:v1",
+  "id": "VERIFY-OUT-ST-PR-MERGE-implementation-summary-d1dee156-114c9cf1",
+  "independent_verified": {
+    "checks": [],
+    "evidence": [],
+    "reason": "Independent verification is outside the approved verification level.",
+    "status": "not-required",
+    "verified_at": null,
+    "verifier": null
+  },
+  "kind": "verification_receipt",
+  "limitations": [
+    "Rendered and independent verification were not required by this output contract."
+  ],
+  "missing_checks": [],
+  "passed": true,
+  "receipt_hash": "ed67ced7372777f9a741796a162fa3c2eb8574d920aa3a192ed4c7ab0dca8834",
+  "render_verified": {
+    "checks": [],
+    "evidence": [],
+    "reason": "Approved format does not require rendered verification.",
+    "status": "not-required",
+    "verified_at": null,
+    "verifier": "render-evidence-v1"
+  },
+  "required_dimensions": {
+    "container": true,
+    "content": true,
+    "existence": true,
+    "independent": false,
+    "render": false
+  },
+  "required_level": "semantic",
+  "schema_version": "verification-receipt:v1",
+  "status": "passed",
+  "subject_ref": {
+    "hash": "1581e6713b9f1816f102510985406cb39eb45090c0c0e8999a6e41c33a5d83cf",
+    "id": "OUT-ST-PR-MERGE-implementation-summary-d1dee156",
+    "kind": "output_link"
+  },
+  "verified_at": "2026-10-10T05:21:09.488Z",
+  "verifier": "file-structure-v1",
+  "version": 1
+}
