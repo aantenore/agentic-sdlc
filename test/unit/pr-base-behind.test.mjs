@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { createProviderRegistry } from "../../lib/delivery/provider-registry.mjs";
 import { createGitHubCliProvider } from "../../lib/delivery/providers/github-cli.mjs";
 import { mergeResultBaseAdvanceAcceptor, pullRequestBaseBehindReason, recordedRuntimeTargetAccepted } from "../../lib/engine/delivery.mjs";
-import { baselineDriftFromBase, validatePullRequestMergeRuntimeTransition } from "../../lib/engine/common.mjs";
+import { baselineDriftFromBase, splitUndescribedFromBase, validatePullRequestMergeRuntimeTransition } from "../../lib/engine/common.mjs";
 import { deliveryProviderOperationSubject } from "../../lib/lifecycle/delivery.mjs";
 
 function git(root, ...args) {
@@ -103,6 +103,29 @@ test("baseline drift is accepted only when the committed file matches the base b
   assert.deepEqual(baselineDriftFromBase(f.context, profile, "app/x.js")?.base_ref, "main");
   fs.writeFileSync(path.join(f.root, "app/x.js"), "local\n");
   assert.equal(baselineDriftFromBase(f.context, profile, "app/x.js"), null);
+});
+
+test("undescribed files that arrived on the base branch do not block task start; local new files do", () => {
+  const f = fixture();
+  const profile = { pull_request_target: { base_branch: "main" } };
+  git(f.root, "checkout", "-q", "-b", "feature/ST-1");
+  // Another story's merged file, now on the base and on this branch.
+  git(f.root, "checkout", "-q", "main");
+  commit(f.root, { "app/merged.test.js": "merged\n" }, "other story merged");
+  git(f.root, "checkout", "-q", "feature/ST-1");
+  git(f.root, "merge", "-q", "--ff-only", "main");
+  commit(f.root, { "app/local-committed.js": "local\n" }, "local work");
+  fs.writeFileSync(path.join(f.root, "app/untracked.js"), "untracked\n");
+  const split = splitUndescribedFromBase(f.context, profile, "BASELINE-R1",
+    ["app/merged.test.js", "app/local-committed.js", "app/untracked.js"]);
+  assert.deepEqual(split.local, ["app/local-committed.js", "app/untracked.js"]);
+  assert.deepEqual(split.fromBase.map((item) => [item.path, item.baseline_id, item.base_ref, item.undescribed]),
+    [["app/merged.test.js", "BASELINE-R1", "main", true]]);
+  // A local edit of the merged file makes it local work again.
+  fs.writeFileSync(path.join(f.root, "app/merged.test.js"), "edited\n");
+  assert.deepEqual(splitUndescribedFromBase(f.context, profile, "BASELINE-R1", ["app/merged.test.js"]).local, ["app/merged.test.js"]);
+  // Without a base branch nothing is accepted.
+  assert.deepEqual(splitUndescribedFromBase(f.context, {}, "BASELINE-R1", ["app/x.js"]).local, ["app/x.js"]);
 });
 
 test("merge recorded after the base advanced past the proven merge: accepted by ancestry, unrelated base refused", () => {

@@ -198,6 +198,24 @@ test("three computers refreshing the same baseline at the same moment: exactly o
   ]);
 });
 
+test("a successor claim removed from the remote is pruned locally and no longer blocks a refresh", () => {
+  const { first, second, remote } = sharedBaselineProject("pruned");
+  commitFile(first, "src/first.mjs", "export const first = 1;\n");
+  mustRun(["baseline", "refresh", "--root", first, "--from", "BASELINE-INITIAL"], first);
+  commitFile(second, "src/second.mjs", "export const second = 2;\n");
+  const refused = run(["baseline", "refresh", "--root", second, "--from", "BASELINE-INITIAL", "--json"], second);
+  assert.notEqual(refused.status, 0);
+  const mirror = () => git(second, ["for-each-ref", "--format=%(refname)", "refs/agentic-sdlc-shared/baseline-refresh"]);
+  assert.match(mirror(), /\/BASELINE-INITIAL\/successor$/mu);
+
+  // A cleanup on the remote removes the claim; the stale local copy must go too.
+  git(remote, ["update-ref", "-d", "refs/agentic-sdlc/baseline-refresh/BASELINE-INITIAL/successor"]);
+  const refreshed = JSON.parse(mustRun(["baseline", "refresh", "--root", second, "--from", "BASELINE-INITIAL", "--json"], second).stdout);
+  assert.equal(refreshed.baseline_id, "BASELINE-INITIAL-R2");
+  assert.deepEqual(remoteRefreshRefs(remote), ["refs/agentic-sdlc/baseline-refresh/BASELINE-INITIAL/successor"]);
+  assert.match(mirror(), /\/BASELINE-INITIAL\/successor$/mu);
+});
+
 test("a refresh on a computer without a reachable remote writes nothing in a shared project", () => {
   const { first } = sharedBaselineProject("unreachable");
   git(first, ["remote", "set-url", "origin", path.join(first, "missing-remote.git")]);
