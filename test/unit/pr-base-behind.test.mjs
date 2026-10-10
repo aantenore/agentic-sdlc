@@ -7,8 +7,8 @@ import assert from "node:assert/strict";
 
 import { createProviderRegistry } from "../../lib/delivery/provider-registry.mjs";
 import { createGitHubCliProvider } from "../../lib/delivery/providers/github-cli.mjs";
-import { pullRequestBaseBehindReason } from "../../lib/engine/delivery.mjs";
-import { baselineDriftFromBase } from "../../lib/engine/common.mjs";
+import { mergeResultBaseAdvanceAcceptor, pullRequestBaseBehindReason } from "../../lib/engine/delivery.mjs";
+import { baselineDriftFromBase, validatePullRequestMergeRuntimeTransition } from "../../lib/engine/common.mjs";
 import { deliveryProviderOperationSubject } from "../../lib/lifecycle/delivery.mjs";
 
 function git(root, ...args) {
@@ -103,4 +103,36 @@ test("baseline drift is accepted only when the committed file matches the base b
   assert.deepEqual(baselineDriftFromBase(f.context, profile, "app/x.js")?.base_ref, "main");
   fs.writeFileSync(path.join(f.root, "app/x.js"), "local\n");
   assert.equal(baselineDriftFromBase(f.context, profile, "app/x.js"), null);
+});
+
+test("merge recorded after the base advanced past the proven merge: records/outside accepted, inside refused", () => {
+  const f = fixture();
+  git(f.root, "checkout", "-q", "-b", "feature/ST-1", f.base0);
+  const source = commit(f.root, { "app/x.js": "feature\n" }, "feature");
+  git(f.root, "checkout", "-q", "main");
+  git(f.root, "reset", "-q", "--hard", f.base0);
+  const merged = commit(f.root, { "app/x.js": "feature\n" }, "squash");
+  const records = commit(f.root, { ".sdlc/traces/project.jsonl": "{\"n\":2}\n" }, "records");
+  const outside = commit(f.root, { "docs/y.md": "3\n" }, "outside");
+  const inside = commit(f.root, { "app/x.js": "other\n" }, "inside");
+  const runtime = (baseSha) => ({ branch: "feature/ST-1", head_sha: source, base_ref: "main", base_sha: baseSha, remotes: [] });
+  const authorization = {
+    runtime_target: runtime(f.base0),
+    action_details: {
+      merge: { source_sha: source, base_sha: f.base0 },
+      provider_operation: { precondition_receipt: { subject: { base_sha: f.base0 }, proof: { base_sha: f.base0 } } },
+    },
+  };
+  const proof = { merge_commit_sha: merged, base_sha: f.base0 };
+  const options = { acceptBaseAdvance: mergeResultBaseAdvanceAcceptor(f.context, f.profile) };
+  const check = (baseSha, opts = options) => validatePullRequestMergeRuntimeTransition(f.context, authorization, runtime(baseSha), proof, opts);
+
+  assert.deepEqual(check(merged), { valid: true, mode: "squash", errors: [] });
+  const recordsOnly = check(records);
+  assert.equal(recordsOnly.valid, true);
+  assert.equal(recordsOnly.base_advance.reason, "base_advanced_after_merge_records_only");
+  assert.equal(check(outside).base_advance.reason, "base_advanced_after_merge_outside_write_paths");
+  assert.equal(check(inside).valid, false);
+  assert.equal(check(records, {}).valid, false);
+  assert.equal(check(f.base0).mode, "base-tracking-stale");
 });
