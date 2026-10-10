@@ -212,12 +212,23 @@ test("a person's trace-bound evidence supersede is honored by the trace drift ch
   assert.equal(honored.warnings.some((w) => w.includes(`evidence ${refPath} superseded by a person`)), true);
 });
 
-test("evidence files are declared not text-converted, once", async () => {
+test("evidence eol rule goes to untracked .git/info/attributes, once, never .gitattributes", async () => {
   const { ensureEvidenceGitattributes, EVIDENCE_GITATTRIBUTES_RULE } = await import("../../lib/engine/evidence-eol.mjs");
+  const { execFileSync } = await import("node:child_process");
   const dir = project("eol");
-  const target = path.join(dir, ".gitattributes");
-  fs.writeFileSync(target, "* text=auto");
+  execFileSync("git", ["init", "-q"], { cwd: dir });
+  const tracked = path.join(dir, ".gitattributes");
+  fs.writeFileSync(tracked, "* text=auto");
+  const local = path.join(dir, ".git", "info", "attributes");
   assert.equal(ensureEvidenceGitattributes({ root: dir }), true);
   assert.equal(ensureEvidenceGitattributes({ root: dir }), false);
-  assert.equal(fs.readFileSync(target, "utf8"), `* text=auto\n${EVIDENCE_GITATTRIBUTES_RULE}\n`);
+  assert.equal(fs.readFileSync(local, "utf8"), `${EVIDENCE_GITATTRIBUTES_RULE}\n`);
+  assert.equal(fs.readFileSync(tracked, "utf8"), "* text=auto");
+});
+
+test("evidence eol rule is skipped outside a git repository", async () => {
+  const { ensureEvidenceGitattributes } = await import("../../lib/engine/evidence-eol.mjs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "eol-nogit-"));
+  assert.equal(ensureEvidenceGitattributes({ root: dir }), false);
+  assert.equal(fs.existsSync(path.join(dir, ".gitattributes")), false);
 });
