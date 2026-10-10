@@ -67,6 +67,17 @@ test("Git ignore rules from nested files, info/exclude, and core.excludesFile al
   assert.equal(gitIgnoredUntrackedPaths(include, ["apps/web/next-env.d.ts"]).size, 0);
 });
 
+test("only the requested paths are listed", (t) => {
+  const project = repository(t);
+  project.write("src/app.js");
+  project.write("other/notes.txt");
+  git(project.root, ["add", "src/app.js"]);
+
+  const visible = gitVisibleProjectFiles(project.context, ["src", path.join(project.root, "src")]);
+  assert.deepEqual([...visible.files], ["src/app.js"]);
+  assert.deepEqual([...gitVisibleProjectFiles(project.context, ["../elsewhere"]).files].sort(), ["other/notes.txt", "src/app.js"]);
+});
+
 test("outside a Git worktree nothing is ignored", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "agentic-sdlc-no-git-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
