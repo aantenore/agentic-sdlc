@@ -1,4 +1,4 @@
-# How Agentic SDLC 0.75.0 Works
+# How Agentic SDLC 0.76.0 Works
 
 Agentic SDLC turns a natural-language request into a bounded, reproducible execution tranche. Codex handles conversation and reasoning; the CLI handles deterministic validation and state changes; the target repository keeps the evidence under `.sdlc/`.
 
@@ -198,7 +198,7 @@ node "$CODEX_STATE_HOME/plugins/cache/personal/agentic-sdlc-codex-plugin/$VERSIO
 
 An npm installation may additionally create an npm bin shim. From a source
 checkout, use `node /path/to/agentic-sdlc/bin/agentic-sdlc.mjs`.
-All examples below use commands exposed by the `Agentic SDLC 0.75.0` help output and assume the shell is in the target project:
+All examples below use commands exposed by the `Agentic SDLC 0.76.0` help output and assume the shell is in the target project:
 
 ```bash
 cd /path/to/target-project
@@ -1218,6 +1218,17 @@ plugin versions, after checking the process is still an agentic-sdlc command.
 The Change Observatory is never stopped. `agentic-sdlc runs list` and
 `agentic-sdlc runs stop [--older-than <minutes>] [--pid <pid>]` do the same by
 hand.
+
+A command whose main thread is stuck in long synchronous work cannot run its
+own timer or signal handlers, so each registered command (not the Change
+Observatory) also starts a small detached watchdog process. It checks every
+5 seconds, exits as soon as the command ends, and once the limit is exceeded
+writes a line to `runs/watchdog.log`, sends SIGTERM and, 10 seconds later,
+SIGKILL (on Windows the process is terminated directly). It never stays alive
+more than one minute past the limit; a limit of `0` disables it.
+The first command or hook after a plugin update also stops this user's
+already-running plugin commands of any version that are past the limit
+(SIGTERM, then SIGKILL after 10 seconds if the command line still matches).
 
 Heavy commands also run one at a time. Gate check, story complete-step,
 workflow instance start/transition, autonomy delivery
