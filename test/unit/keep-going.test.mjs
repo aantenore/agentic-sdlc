@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { collectWork, decideKeepGoing, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
+import { collectWork, decideKeepGoing, isFreshForeignStory, heldClaimRefs, IDENTICAL_BLOCKS_WINDOW_MS, MAX_IDENTICAL_BLOCKS, nextStoryStep, pendingQuestions, unpublishedRecords } from "../../lib/host-hooks/keep-going.mjs";
 
 const claim = { storyId: "ST-1", next: nextStoryStep({ storyId: "ST-1", completedSteps: ["discovery", "analysis", "design", "implementation"] }) };
 
@@ -237,4 +237,45 @@ test("story working marker: local to the git common dir, expires by itself, clea
   quiet(() => storyWorking({ root: dir, id: "ST-1", clear: true }, { now: 2000 }));
   assert.deepEqual(activeWorking(dir, 2000), {});
   assert.throws(() => storyWorking({ root: dir, id: "ST-1" }));
+});
+
+test("stories created by another computer are not proposed while fresh; own stories are; old ones return", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "keep-going-foreign-"));
+  const now = Date.parse("2026-01-01T12:00:00Z");
+  const hoursAgo = (h) => new Date(now - h * 3600 * 1000).toISOString();
+  const write = (id, host, createdAt, extra = {}) => {
+    fs.mkdirSync(path.join(dir, ".sdlc", "stories", id), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".sdlc", "stories", id, "story.json"), JSON.stringify({ id, created_at: createdAt, audit: { run: host ? { host } : {} }, ...extra }));
+  };
+  write("ST-OTHER", "alice-pc", hoursAgo(1));
+  write("ST-OLD", "alice-pc", hoursAgo(5));
+  write("ST-MINE", "my-pc", hoursAgo(1));
+  write("ST-NOHOST", null, hoursAgo(1));
+  const work = collectWork(dir, { now, selfHost: "my-pc" });
+  assert.deepEqual(work.available, ["ST-MINE", "ST-NOHOST", "ST-OLD"]);
+  assert.deepEqual(collectWork(dir, { now, selfHost: "my-pc", env: { AGENTIC_SDLC_KEEP_GOING_FOREIGN_HOURS: "0" } }).available, ["ST-MINE", "ST-NOHOST", "ST-OLD", "ST-OTHER"]);
+  assert.deepEqual(collectWork(dir, { now, selfHost: "my-pc", env: { AGENTIC_SDLC_KEEP_GOING_FOREIGN_HOURS: "6" } }).available, ["ST-MINE", "ST-NOHOST"]);
+  assert.equal(collectWork(dir, { now }).available.includes("ST-OTHER"), true, "no own identity: current behavior");
+});
+
+test("foreign check falls back to the git author e-mail, else current behavior", () => {
+  const now = Date.now();
+  const story = (email) => ({ created_at: new Date(now - 60_000).toISOString(), audit: { git: { user: { email } } } });
+  const window = 3 * 3600 * 1000;
+  assert.equal(isFreshForeignStory(story("a@x.it"), { selfEmail: "b@x.it", now, windowMs: window }), true);
+  assert.equal(isFreshForeignStory(story("A@x.it"), { selfEmail: "a@x.it", now, windowMs: window }), false);
+  assert.equal(isFreshForeignStory(story("a@x.it"), { now, windowMs: window }), false);
+  assert.equal(isFreshForeignStory({ audit: { run: { host: "h" } } }, { selfHost: "me", now, windowMs: window }), false);
+});
+
+test("anti-loop: the same bare suggestion is not blocked twice, real work still is", () => {
+  const first = decideKeepGoing({ available: ["ST-3"], now: 1000 });
+  assert.equal(first.block, true);
+  const second = decideKeepGoing({ available: ["ST-3"], previous: first.state, now: 2000 });
+  assert.equal(second.block, false);
+  assert.match(second.note, /ST-3/u);
+  assert.equal(decideKeepGoing({ available: ["ST-4"], previous: first.state, now: 2000 }).block, true);
+  assert.equal(decideKeepGoing({ available: ["ST-3"], previous: first.state, now: 1000 + IDENTICAL_BLOCKS_WINDOW_MS + 1 }).block, true);
+  const withClaim = decideKeepGoing({ claims: [claim], now: 1000 });
+  assert.equal(decideKeepGoing({ claims: [claim], previous: withClaim.state, now: 2000 }).block, true);
 });
