@@ -509,6 +509,7 @@ const ITALIAN = Object.freeze({
   "Last update from the remote failed": "Ultimo aggiornamento dal remote non riuscito",
   "Read-only · live": "Sola lettura · live",
   "Live updates paused": "Aggiornamento live in pausa",
+  "Updated at": "aggiornato alle",
   "Permission granted": "Autorizzazione concessa",
   "Way of working approved": "Modo di lavorare approvato",
   "Way of working closed": "Modo di lavorare chiuso",

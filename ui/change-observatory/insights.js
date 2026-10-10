@@ -25,7 +25,7 @@ export const INSIGHT_SETTINGS = Object.freeze({
   planStoryLimit: 120,
   storyEventPreviewCount: 12,
   mapColumnLimit: 8,
-  liveRefreshSeconds: 30,
+  liveRefreshSeconds: 8,
   dashboardActiveStoryLimit: 6,
 });
 

@@ -121,6 +121,7 @@ const state = {
   filters: { iteration: "", phase: "" },
   explore: defaultExploreState(),
   live: false,
+  liveSeconds: INSIGHT_SETTINGS.liveRefreshSeconds,
   expertOpen: readExpertPreference(),
   inspectorOpen: false,
   liveTimer: null,
@@ -151,8 +152,8 @@ function viewFromHash() {
   return VALID_VIEWS.has(requested) ? requested : "overview";
 }
 
-function setApiStatus(label, status) {
-  elements.apiStatus.textContent = t(label);
+function setApiStatus(label, status, { translate = true } = {}) {
+  elements.apiStatus.textContent = translate ? t(label) : label;
   elements.apiStatus.dataset.status = status;
 }
 
@@ -364,6 +365,10 @@ async function loadSourceRef() {
   let source;
   try {
     source = await api.loadSourceRef();
+    if (Number.isFinite(source?.liveSeconds) && source.liveSeconds >= 2 && source.liveSeconds !== state.liveSeconds) {
+      state.liveSeconds = source.liveSeconds;
+      if (state.live) setLive(true);
+    }
   } catch {
     target.hidden = true;
     return;
@@ -822,8 +827,7 @@ function handleClick(event) {
   if (!actionElement) return;
   switch (actionElement.dataset.action) {
     case "refresh":
-      if (portfolioMode) loadPortfolioSummary({ preserveProject: true });
-      else loadModel({ preserveSelection: true });
+      refreshNow();
       break;
     case "select-project":
       if (portfolioMode) loadPortfolioProject(actionElement.dataset.projectId, {
@@ -1074,7 +1078,7 @@ function setLive(enabled) {
   state.live = enabled;
   clearInterval(state.liveTimer);
   state.liveTimer = enabled
-    ? setInterval(quietReload, INSIGHT_SETTINGS.liveRefreshSeconds * 1000)
+    ? setInterval(quietReload, state.liveSeconds * 1000)
     : null;
   const toggle = document.querySelector('[data-action="toggle-live"]');
   if (toggle) {
@@ -1082,6 +1086,25 @@ function setLive(enabled) {
     toggle.classList.toggle("is-on", enabled);
   }
   if (enabled) quietReload();
+}
+
+// The refresh button asks the server to catch up with the shared branch
+// first, then reloads the data keeping the current view and selection.
+async function refreshNow() {
+  if (portfolioMode) {
+    loadPortfolioSummary({ preserveProject: true });
+    return;
+  }
+  await api.refreshSource();
+  await loadModel({ preserveSelection: true });
+  markUpdated();
+}
+
+function markUpdated() {
+  const time = new Date().toLocaleTimeString(getLocale(), {
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  setApiStatus(`${t("Updated at")} ${time}`, "ready", { translate: false });
 }
 
 // Live updates re-read the evidence without loading screens or resets, so
@@ -1092,6 +1115,7 @@ async function quietReload() {
   if (portfolioMode && !projectId) return;
   state.quietLoading = true;
   try {
+    if (!portfolioMode) await api.refreshSource({ fetchRemote: false });
     const loaded = portfolioMode ? await api.loadProject(projectId) : await api.load();
     if (!state.model || state.modelProjectId !== projectId) return;
     const project = state.portfolioSummary?.projects.find((item) => item.id === projectId);
@@ -1103,7 +1127,7 @@ async function quietReload() {
     if (!portfolioMode) renderSummary(elements.summary, model);
     renderDiagnostics(elements.diagnostics, model.diagnostics);
     render();
-    setApiStatus("Read-only · live", "ready");
+    markUpdated();
   } catch {
     setApiStatus("Live updates paused", "warning");
   } finally {

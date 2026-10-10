@@ -191,6 +191,18 @@ export class ObservatoryApi {
     return parseJsonResponse(response, "record source");
   }
 
+  // Asks the server to catch up with the shared branch now (remote fetch
+  // included). Optional: an older server answers 404 and the reload still works.
+  async refreshSource({ signal, fetchRemote = true } = {}) {
+    try {
+      const response = await this.#request(fetchRemote ? "/api/v1/refresh" : "/api/v1/refresh?fetch=0", { signal, headers: { Accept: "application/json" } });
+      return await parseJsonResponse(response, "refresh");
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      return null;
+    }
+  }
+
   // Who is doing what across computers right now. Optional: an older
   // server answers 404 and the panel stays hidden.
   async loadNow({ signal } = {}) {
