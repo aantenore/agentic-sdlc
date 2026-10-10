@@ -1002,6 +1002,9 @@ import {
   VERSION,
 } from "../lib/engine/definitions.mjs";
 import {
+  amendDeliveryAutonomy,
+} from "../lib/engine/delivery-amend.mjs";
+import {
   approveDeliveryAutonomy,
   closeDeliveryAutonomy,
   evaluateDeliveryAction,
@@ -1301,6 +1304,7 @@ function buildCliRuntimeHandlerRegistry() {
     "autonomy.requirement.status": call(showRequirementAutonomy),
     "autonomy.delivery.propose": call(proposeDeliveryAutonomy),
     "autonomy.delivery.approve": call(approveDeliveryAutonomy),
+    "autonomy.delivery.amend": call(amendDeliveryAutonomy),
     "autonomy.delivery.revoke": call(revokeDeliveryAutonomy),
     "autonomy.delivery.action": project(factsAfter(publishRecordsAfter(({ context, options }) =>
       withSealedReceiptTrust(deliveryProfileStoryIds(context, options), () => evaluateDeliveryAction(context, options))))),

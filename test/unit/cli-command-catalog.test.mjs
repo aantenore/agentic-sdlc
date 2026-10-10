@@ -85,7 +85,7 @@ test("catalog covers the dispatch families and the self-service commands", () =>
 
 test("child and option discovery is deterministic and does not expose mutable arrays", () => {
   const children = getChildCommands("autonomy delivery");
-  assert.deepEqual(children.map((entry) => entry.name), ["action", "approve", "checks", "close", "evidence", "explain", "propose", "reconcile", "revoke", "status"]);
+  assert.deepEqual(children.map((entry) => entry.name), ["action", "amend", "approve", "checks", "close", "evidence", "explain", "propose", "reconcile", "revoke", "status"]);
   assert.equal(Object.isFrozen(children), true);
 
   const options = listOptions("autonomy delivery approve");
