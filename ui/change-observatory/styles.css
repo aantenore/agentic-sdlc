@@ -4043,3 +4043,49 @@ mark {
   border-radius: 999px;
   font-size: 12px;
 }
+
+.workspace-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.workspace-nav[hidden],
+.back-button[hidden],
+.breadcrumb[hidden] {
+  display: none;
+}
+
+.breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.breadcrumb li[data-separator]::after {
+  content: attr(data-separator);
+  margin-left: 4px;
+  color: var(--muted, currentColor);
+}
+
+.breadcrumb-link {
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.breadcrumb-link:focus-visible,
+.back-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}

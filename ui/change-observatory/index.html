@@ -154,6 +154,12 @@
 
       <main id="workspace" class="workspace" tabindex="-1" aria-labelledby="workspace-heading">
         <header class="workspace-context">
+          <div class="workspace-nav">
+            <button id="back-button" class="quiet-button back-button" type="button" data-action="go-back" hidden>
+              <span aria-hidden="true">←</span> <span data-i18n="Back">Back</span>
+            </button>
+            <nav id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb" data-i18n-aria-label="Breadcrumb" hidden></nav>
+          </div>
           <h1 id="workspace-heading" data-i18n="Project evidence">Project evidence</h1>
         </header>
         <section id="summary-region" class="summary-strip" aria-label="Change summary" data-i18n-aria-label="Change summary">

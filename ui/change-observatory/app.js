@@ -19,6 +19,14 @@ import {
   recordSelectionKey,
 } from "./model.js";
 import {
+  MAIN_VIEW,
+  backTarget,
+  buildBreadcrumb,
+  canGoBack,
+  entrySelection,
+  navEntry,
+} from "./navigation.js";
+import {
   LatestRequestCoordinator,
   portfolioModeFromLocation,
   portfolioProjectRouteFromLocation,
@@ -147,6 +155,61 @@ const state = {
 };
 const loadCoordinator = new LatestRequestCoordinator();
 
+// Back button and Escape: one level up, through the browser history when the
+// app created the current entry so Back/Forward stay consistent.
+function goBack() {
+  const target = backTarget({
+    view: state.view,
+    detailOpen: state.inspectorOpen,
+    historyState: window.history.state,
+  });
+  if (target === "history") window.history.back();
+  else if (target === "close-detail") {
+    state.inspectorOpen = false;
+    render();
+  } else if (target === "main-view") setView(MAIN_VIEW);
+  if (target !== "none") elements.primary.focus({ preventScroll: true });
+}
+
+function renderNavigation() {
+  const back = document.querySelector("#back-button");
+  const crumbs = document.querySelector("#breadcrumb");
+  if (!back || !crumbs) return;
+  const detailOpen = state.inspectorOpen && VISUAL_VIEWS.has(state.view);
+  const levels = state.model ? buildBreadcrumb({
+    projectName: state.model.project?.name,
+    view: state.view,
+    viewLabel: t(VIEW_LABELS[state.view] ?? state.view),
+    detailLabel: state.selectedItem?.title ?? state.selectedItem?.id ?? null,
+    detailOpen,
+  }) : [];
+  back.hidden = !state.model || !canGoBack({ view: state.view, detailOpen });
+  back.setAttribute("aria-label", t("Back to the previous view"));
+  crumbs.hidden = levels.length < 2;
+  const list = document.createElement("ol");
+  levels.forEach((level, index) => {
+    const item = document.createElement("li");
+    if (level.action) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "breadcrumb-link";
+      button.dataset.action = "breadcrumb";
+      button.dataset.level = level.action;
+      button.textContent = level.label;
+      button.setAttribute("aria-label", `${t("Back")}: ${level.label}`);
+      item.append(button);
+    } else {
+      const current = document.createElement("span");
+      current.setAttribute("aria-current", "page");
+      current.textContent = level.label;
+      item.append(current);
+    }
+    if (index < levels.length - 1) item.dataset.separator = "›";
+    list.append(item);
+  });
+  crumbs.replaceChildren(list);
+}
+
 function viewFromHash() {
   const requested = window.location.hash.replace(/^#/, "");
   return VALID_VIEWS.has(requested) ? requested : "overview";
@@ -258,6 +321,7 @@ function render() {
   ) return;
   setProjectWorkspaceContext(state.model.project.name);
   updateNavigation();
+  renderNavigation();
   elements.app.dataset.activeView = state.view;
   const focusedExplore = captureExploreFocus();
   if (hasMissingKnowledgeBase(state.model)) {
@@ -698,7 +762,7 @@ function setView(view) {
   if (state.view !== view) state.explore.pages = 1;
   state.view = view;
   state.inspectorOpen = false;
-  if (window.location.hash !== `#${view}`) window.history.pushState(null, "", `#${view}`);
+  if (window.location.hash !== `#${view}`) window.history.pushState(navEntry(), "", `#${view}`);
   if (window.matchMedia("(max-width: 720px)").matches) setNavigationOpen(false);
   render();
   elements.primary.focus({ preventScroll: true });
@@ -710,6 +774,9 @@ function selectRecord(id) {
   state.selectedId = id;
   state.selectedItem = item;
   state.inspectorOpen = true;
+  if (entrySelection(window.history.state) !== id) {
+    window.history.pushState(navEntry({ selectedId: id }), "", currentLocationHref());
+  }
   render();
 }
 
@@ -862,8 +929,18 @@ function handleClick(event) {
       closeRaw();
       break;
     case "close-inspector":
-      state.inspectorOpen = false;
-      render();
+      goBack();
+      break;
+    case "go-back":
+      goBack();
+      break;
+    case "breadcrumb":
+      if (actionElement.dataset.level === "project") setView(MAIN_VIEW);
+      else if (state.inspectorOpen) {
+        state.inspectorOpen = false;
+        window.history.pushState(navEntry(), "", currentLocationHref());
+        render();
+      }
       break;
     case "toggle-live":
       setLive(!state.live);
@@ -1137,9 +1214,17 @@ async function quietReload() {
 
 function handleDocumentKeydown(event) {
   if (activateRoleButton(event)) return;
-  if (event.key !== "Escape" || !state.rawExpanded) return;
-  event.preventDefault?.();
-  closeRaw();
+  if (event.key !== "Escape") return;
+  if (state.rawExpanded) {
+    event.preventDefault?.();
+    closeRaw();
+    return;
+  }
+  if (event.target?.closest?.("input, select, textarea")) return;
+  if (canGoBack({ view: state.view, detailOpen: state.inspectorOpen && VISUAL_VIEWS.has(state.view) })) {
+    event.preventDefault?.();
+    goBack();
+  }
 }
 
 document.addEventListener("click", handleClick);
@@ -1149,8 +1234,16 @@ document.addEventListener("input", handleInput);
 elements.navigation.addEventListener("keydown", handleNavigationKeydown);
 function synchronizeLocation() {
   const view = viewFromHash();
-  if (view !== state.view) state.inspectorOpen = false;
   state.view = view;
+  // Back/Forward restore the detail that belonged to the history entry.
+  const selected = entrySelection(window.history.state);
+  if (selected && state.records.has(selected)) {
+    state.selectedId = selected;
+    state.selectedItem = state.records.get(selected);
+    state.inspectorOpen = true;
+  } else {
+    state.inspectorOpen = false;
+  }
   if (!portfolioMode) {
     render();
     return;
