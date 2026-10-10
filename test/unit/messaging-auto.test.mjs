@@ -66,7 +66,9 @@ async function project(server) {
 }
 
 test("alerts name the story and the reason, and ignore ordinary runs", () => {
-  assert.match(alertFor("gate.check", { story: "st-a-001" }, { exitCode: 1, blockers: ["x needs y"] }).text, /gate check failed for ST-A-001: x needs y/u);
+  const gate = alertFor("gate.check", { story: "st-a-001" }, { exitCode: 1, blockers: ["x needs y"] });
+  assert.equal(gate.kind, "question");
+  assert.match(gate.text, /^need help: gate check failed for ST-A-001: x needs y; reply with --kind answer --reply-to <id>$/u);
   assert.equal(alertFor("gate.check", { story: "ST-A-001" }, { exitCode: 0 }), null);
   assert.match(alertFor("story.park", { id: "ST-A-001", reason: "waiting for the API" }).text, /parked: waiting for the API/u);
   assert.match(alertFor("story.wait", { id: "ST-A-001", on: "dep:ST-B-002" }).text, /waiting on dep:ST-B-002/u);
@@ -84,6 +86,7 @@ test("alerts name the story and the reason, and ignore ordinary runs", () => {
   assert.match(alertFor("gate.check", { story: "ST-A-001", "lifecycle-complete": true }, { exitCode: 0 }).text, /certified/u);
   assert.match(alertFor("baseline.refresh", {}, { exitCode: 0 }).text, /baseline refreshed/u);
   const timeout = Object.assign(new Error("git fetch origin did not finish within 20s: the remote may be slow"), { code: "ETIMEDOUT" });
+  assert.equal(alertFor("status", {}, { error: timeout }).kind, "question");
   assert.match(alertFor("status", {}, { error: timeout }).text, /status stopped on a time limit \(git fetch origin did not finish within 20s\)/u);
   assert.equal(alertFor("status", {}, { error: new Error("other") }), null);
 });
@@ -95,7 +98,8 @@ test("a failing gate tells the other computers once, and claims show new message
     const gate = await runCli(["gate", "check", "--scope", "all", "--strict"], root);
     assert.equal(gate.code, 1);
     assert.equal(ntfy.messages.length, 1);
-    assert.match(ntfy.messages[0].message, /^\[auto\] gate check failed: /u);
+    assert.match(ntfy.messages[0].message, /^\[auto\] need help: gate check failed: .*; reply with --kind answer --reply-to <id>$/u);
+    assert.ok(ntfy.messages[0].tags.includes("kind:question"));
     assert.ok(ntfy.messages[0].tags.includes("from:PC1"));
     assert.equal((await runCli(["gate", "check", "--scope", "all", "--strict"], root)).code, 1);
     assert.equal(ntfy.messages.length, 1, "the same alert is not repeated");

@@ -1207,6 +1207,18 @@ Common fail-closed cases include:
 - a visual artifact lacks separate render evidence;
 - release lineage is incomplete or a rollback target does not match the source revision.
 
+### No process left running
+
+Each plugin command records itself under `<git-common-dir>/agentic-sdlc/runs/`
+and stops itself after `AGENTIC_SDLC_MAX_RUN_MINUTES` (default 30, `0` for
+none); `message listen` after `AGENTIC_SDLC_LISTEN_MAX_HOURS` (default 8).
+Every command, and the host hook at the end of a turn or session, stops this
+user's plugin commands that outlived their limit, also those started by older
+plugin versions, after checking the process is still an agentic-sdlc command.
+The Change Observatory is never stopped. `agentic-sdlc runs list` and
+`agentic-sdlc runs stop [--older-than <minutes>] [--pid <pid>]` do the same by
+hand.
+
 ## 8. Active-Release Migration
 
 Migration updates the control plane without rewriting approved history.

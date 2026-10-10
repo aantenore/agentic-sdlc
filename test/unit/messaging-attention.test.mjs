@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { attentionContext, reminderFor, selectAttention } from "../../lib/messaging/attention.mjs";
+import { failureReminder } from "../../lib/messaging/auto.mjs";
 
 const NOW = Date.parse("2026-10-10T12:00:00Z");
 const at = (minutesAgo) => new Date(NOW - minutesAgo * 60_000).toISOString();
@@ -77,4 +78,12 @@ test("the context says it is information and asks for a reply first", () => {
   assert.match(text, /message send --kind answer --reply-to <id>/u);
   assert.match(text, /#q1 pc-b <question>/u);
   assert.match(text, /Other new messages:\n  #i1 pc-b: text i1/u);
+});
+
+test("a failed command is reminded once, only when no automatic alert covered it", () => {
+  const failure = { action: "gate.check", error: "contract missing", alerted: false, reminded: false };
+  assert.match(failureReminder(failure), /gate check\) failed: contract missing.*message send --kind question/u);
+  assert.equal(failureReminder({ ...failure, alerted: true }), null);
+  assert.equal(failureReminder({ ...failure, reminded: true }), null);
+  assert.equal(failureReminder(null), null);
 });
